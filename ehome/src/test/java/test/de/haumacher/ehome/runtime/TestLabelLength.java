@@ -31,6 +31,15 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
+import de.haumacher.ehome.model.runtime.Refusal;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleChoice;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.LabelLimit;
@@ -62,11 +71,11 @@ public class TestLabelLength extends BasicTestCase {
 
 	private static final String TAIL = " ist zu lang: 64 Bytes, höchstens 63 (Umlaute zählen doppelt).";
 
-	private TLObject _project;
+	private Project _project;
 
-	private TLObject _rule;
+	private Rule _rule;
 
-	private TLObject _parameter;
+	private RuleParameter _parameter;
 
 	@Override
 	protected void setUp() throws Exception {
@@ -77,13 +86,13 @@ public class TestLabelLength extends BasicTestCase {
 		assertEquals(63, LabelLimit.bytes(LIMIT));
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Label length");
-			_rule = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_rule.tUpdateByName("identifier", "hoflicht");
-			_rule.tUpdateByName("name", i18n("Yard light", "Hoflicht"));
-			_parameter = RuleFunctions.create(_rule, "parameters", runtime("RuleParameter"));
-			_parameter.tUpdateByName("identifier", "maxHelligkeit");
-			_parameter.tUpdateByName("title", i18n("Max. brightness", "Max. Helligkeit"));
+			_project.setName("Label length");
+			_rule = add(_project, "rules", runtime("Rule"));
+			_rule.setIdentifier("hoflicht");
+			_rule.setNameKey(i18n("Yard light", "Hoflicht"));
+			_parameter = add(_rule, "parameters", runtime("RuleParameter"));
+			_parameter.setIdentifier("maxHelligkeit");
+			_parameter.setTitle(i18n("Max. brightness", "Max. Helligkeit"));
 			tx.commit();
 		}
 	}
@@ -139,11 +148,11 @@ public class TestLabelLength extends BasicTestCase {
 	}
 
 	public void testChoice() {
-		TLObject choice;
+		RuleChoice choice;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			choice = RuleFunctions.create(_parameter, "choices", runtime("RuleChoice"));
-			choice.tUpdateByName("value", "1");
-			choice.tUpdateByName("title", i18n("Dim", "Gedimmt"));
+			choice = add(_parameter, "choices", runtime("RuleChoice"));
+			choice.setValue("1");
+			choice.setTitle(i18n("Dim", "Gedimmt"));
 			tx.commit();
 		}
 		RuleForm form = new RuleForm(choice);
@@ -171,10 +180,10 @@ public class TestLabelLength extends BasicTestCase {
 	}
 
 	public void testApplicationDatapoint() {
-		TLObject datapoint;
+		ApplicationDatapoint datapoint;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			datapoint = RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			datapoint.tUpdateByName("identifier", "hof.max");
+			datapoint = add(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			datapoint.setIdentifier("hof.max");
 			tx.commit();
 		}
 		RuleForm form = new RuleForm(datapoint);
@@ -189,11 +198,11 @@ public class TestLabelLength extends BasicTestCase {
 	}
 
 	public void testScheduleEntry() {
-		TLObject entry;
+		WeeklySchedule entry;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			entry = RuleFunctions.create(_project, "schedules", runtime("WeeklySchedule"));
-			entry.tUpdateByName("identifier", "morgens");
-			entry.tUpdateByName("label", i18n("Morning", "Morgens"));
+			entry = add(_project, "schedules", runtime("WeeklySchedule"));
+			entry.setIdentifier("morgens");
+			entry.setLabel(i18n("Morning", "Morgens"));
 			tx.commit();
 		}
 		RuleForm form = new RuleForm(entry);
@@ -216,14 +225,14 @@ public class TestLabelLength extends BasicTestCase {
 	public void testStoredTitle() {
 		// Refused as input, also by the commit.
 		try {
-			update(_parameter, "title", i18n("Max. brightness", LONG));
+			update(() -> _parameter.setTitle(i18n("Max. brightness", LONG)));
 			fail("A title of 64 bytes is not stored.");
 		} catch (TopLogicException ex) {
 			// Expected.
 		}
 
 		for (String title : List.of(LONG, UMLAUTS)) {
-			storedBefore(_parameter, "title", i18n("Max. brightness", title));
+			storedBefore(() -> _parameter.setTitle(i18n("Max. brightness", title)));
 			String expected = "Die deutsche Bezeichnung des Parameters „" + title + "“ der Regel „Hoflicht“" + TAIL;
 
 			// The image's finding.
@@ -249,30 +258,30 @@ public class TestLabelLength extends BasicTestCase {
 			// The deployment.
 			List<TLObject> controllers = new ArrayList<>();
 			try {
-				TLObject controller;
+				Controller controller;
 				try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 					controller = create("ehome.runtime:Controller");
-					controller.tUpdateByName("name", "Label length");
-					controller.tUpdateByName("host", "127.0.0.1");
-					controller.tUpdateByName("port", Integer.valueOf(1));
-					controller.tUpdateByName("token", "hct_00000000000000000000000000000000");
+					controller.setName("Label length");
+					controller.setHost("127.0.0.1");
+					controller.setPort(1);
+					controller.setToken("hct_00000000000000000000000000000000");
 					tx.commit();
 				}
 				controllers.add(controller);
 				ControllerFixture.deployTo(_project, controller);
-				TLObject deployment = de(() -> Deployer.deploy(_project, NOW));
-				assertEquals(Deployer.CODE_INVALID, deployment.tValueByName("code"));
-				List<?> findings = (List<?>) deployment.tValueByName("refusals");
+				Deployment deployment = (Deployment) de(() -> Deployer.deploy(_project, NOW));
+				assertEquals(Deployer.CODE_INVALID, deployment.getCode());
+				List<? extends Refusal> findings = deployment.getRefusals();
 				assertEquals(1, findings.size());
-				TLObject finding = (TLObject) findings.get(0);
-				assertSame(_parameter, finding.tValueByName("element"));
-				ResKey message = (ResKey) finding.tValueByName("message");
+				Refusal finding = findings.get(0);
+				assertSame(_parameter, finding.getElement());
+				ResKey message = finding.getMessage();
 				assertEquals(expected, Resources.getInstance(Locale.GERMAN).getString(message));
 				assertEquals("The German label of the parameter \"" + title
 					+ "\" of the rule \"Hoflicht\" is too long: 64 bytes, at most 63 (umlauts count twice).",
 					Resources.getInstance(Locale.ENGLISH).getString(message));
 			} finally {
-				update(_project, "controller", null);
+				update(() -> _project.setController(null));
 				SharedData.deleteProjects(controllers);
 			}
 		}
@@ -284,8 +293,8 @@ public class TestLabelLength extends BasicTestCase {
 	 */
 	public void testOtherRefusal() {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_parameter.tUpdateByName("default", "200");
-			_parameter.tUpdateByName("max", "100");
+			_parameter.setDefault("200");
+			_parameter.setMax("100");
 			tx.commit();
 		}
 		String error = de(() -> {
@@ -307,19 +316,19 @@ public class TestLabelLength extends BasicTestCase {
 	 * Stores a value as it was stored before the check of the input: the commit check of the model's
 	 * constraints refuses it now.
 	 */
-	private static void storedBefore(TLObject obj, String attribute, Object value) {
+	private static void storedBefore(Runnable change) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		kb.removeCommitChecker(ModelService.getInstance());
 		try {
-			update(obj, attribute, value);
+			update(change);
 		} finally {
 			kb.addCommitChecker(ModelService.getInstance());
 		}
 	}
 
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
@@ -355,8 +364,15 @@ public class TestLabelLength extends BasicTestCase {
 		}
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	/** A new part at the end of the reference of the owner ({@link RuleFunctions#create}), as its type. */
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T add(TLObject owner, String reference, TLClass type) {
+		return (T) RuleFunctions.create(owner, reference, type);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {

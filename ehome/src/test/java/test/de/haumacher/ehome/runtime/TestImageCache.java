@@ -19,13 +19,18 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.AstroSchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.ImageCache;
+
 import de.haumacher.ehome.runtime.RuleFunctions;
 
 /**
@@ -44,16 +49,17 @@ public class TestImageCache extends BasicTestCase {
 	public void testSchedule() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject entry;
-			TLObject light;
+			AstroSchedule entry;
+			ApplicationDatapoint light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				// An output that is no truth value: refused.
-				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				light.tUpdateByName("identifier", "light");
-				light.tUpdateByName("type", valueType("unsigned"));
-				entry = RuleFunctions.create(project, "schedules", runtime("AstroSchedule"));
-				entry.tUpdateByName("identifier", "dusk");
-				entry.tUpdateByName("output", light);
+				light = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+					runtime("ApplicationDatapoint"));
+				light.setIdentifier("light");
+				light.setType(valueType("unsigned"));
+				entry = (AstroSchedule) RuleFunctions.create(project, "schedules", runtime("AstroSchedule"));
+				entry.setIdentifier("dusk");
+				entry.setOutput(light);
 				tx.commit();
 			}
 
@@ -70,7 +76,7 @@ public class TestImageCache extends BasicTestCase {
 
 			// A truth value makes the output accepted.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				light.tUpdateByName("type", valueType("boolean"));
+				light.setType(valueType("boolean"));
 				tx.commit();
 			}
 			before = ImageCache.builds();
@@ -88,20 +94,21 @@ public class TestImageCache extends BasicTestCase {
 	public void testRule() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject write;
-			TLObject light;
+			WriteAction write;
+			ApplicationDatapoint light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				// A datapoint of another type: refused (that it is not writable does not matter: rules write
 				// every application datapoint, haumacher/ehome #138).
-				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				light.tUpdateByName("identifier", "light");
-				light.tUpdateByName("type", valueType("unsigned"));
+				light = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+					runtime("ApplicationDatapoint"));
+				light.setIdentifier("light");
+				light.setType(valueType("unsigned"));
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
-				write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-				write.tUpdateByName("datapoint", light);
-				write.tUpdateByName("value", "true");
+				write = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+				write.setDatapoint(light);
+				write.setValue("true");
 				tx.commit();
 			}
 
@@ -114,7 +121,7 @@ public class TestImageCache extends BasicTestCase {
 			assertEquals(1, ImageCache.builds() - before);
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				light.tUpdateByName("type", valueType("boolean"));
+				light.setType(valueType("boolean"));
 				tx.commit();
 			}
 			form = new RuleForm(write);
@@ -140,8 +147,8 @@ public class TestImageCache extends BasicTestCase {
 			assertSame(root, TestEtsImport.asRoot(() -> ImageCache.get(project)));
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"))
-					.tUpdateByName("identifier", "pending");
+				((ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+					runtime("ApplicationDatapoint"))).setIdentifier("pending");
 				ImageCache.Entry uncommitted = ImageCache.get(project);
 				assertNotSame(system, uncommitted);
 				assertNotNull(uncommitted.directory().type("pending"));
@@ -153,8 +160,8 @@ public class TestImageCache extends BasicTestCase {
 			// valid for that view only: a reader of the newer state gets the datapoint committed since.
 			OlderView.run(() -> {
 				try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-					RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"))
-						.tUpdateByName("identifier", "committed");
+					((ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+						runtime("ApplicationDatapoint"))).setIdentifier("committed");
 					tx.commit();
 				}
 			}, view -> assertNull(ImageCache.get(project).directory().type("committed")));
@@ -178,7 +185,7 @@ public class TestImageCache extends BasicTestCase {
 		assertTrue(attribute + ": " + warnings, warnings.get(0).contains(part));
 	}
 
-	private static Object valueType(String name) {
+	private static TLClassifier valueType(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(name);
 	}
 

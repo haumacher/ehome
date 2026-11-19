@@ -14,6 +14,18 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ChartElement;
+import de.haumacher.ehome.model.runtime.ChartReference;
+import de.haumacher.ehome.model.runtime.ChartSeries;
+import de.haumacher.ehome.model.runtime.DatapointElement;
+import de.haumacher.ehome.model.runtime.FunctionElement;
+import de.haumacher.ehome.model.runtime.Page;
+import de.haumacher.ehome.model.runtime.PageElement;
+import de.haumacher.ehome.model.runtime.PageSection;
+import de.haumacher.ehome.model.runtime.RoomElement;
+import de.haumacher.ehome.model.runtime.RuleEnabledElement;
+
 /**
  * The member <code>ui.pages</code> of the runtime image (haumacher/ehome #72, homecontrol #54, schema
  * 1.1): the control pages of a project, written by {@link RuntimeImage}.
@@ -86,30 +98,30 @@ final class PageExport {
 	 * The pages of the project, <code>null</code> for a project without pages.
 	 */
 	List<Object> pages(TLObject project) {
-		List<TLObject> pages = RuleExport.objects(project.tValueByName("pages"));
+		List<TLObject> pages = RuleExport.objects(((Project) project).getPages());
 		if (pages.isEmpty()) {
 			return null;
 		}
 		Set<String> ids = new HashSet<>();
 		for (TLObject page : pages) {
-			String identifier = Pages.text(page.tValueByName("identifier"));
+			String identifier = Pages.text(((Page) page).getIdentifier());
 			if (identifier != null) {
 				ids.add(identifier);
 			}
 		}
 		List<Object> result = new ArrayList<>();
 		for (int p = 0; p < pages.size(); p++) {
-			TLObject page = pages.get(p);
+			Page page = (Page) pages.get(p);
 			String path = "ui.pages[" + p + "]";
 			_sources.put(path, page);
 			Map<String, Object> json = new LinkedHashMap<>();
-			String identifier = Pages.text(page.tValueByName("identifier"));
-			String name = Pages.text(page.tValueByName("name"));
+			String identifier = Pages.text(page.getIdentifier());
+			String name = Pages.text(page.getNameKey());
 			json.put("id", identifier != null ? identifier
 				: FunctionProposal.uniqueIdentifier(name == null ? "page" : name, ids));
-			Object label = RuntimeImage.labels(page.tValueByName("name"));
+			Object label = RuntimeImage.labels(page.getNameKey());
 			json.put("label", label != null ? label : json.get("id"));
-			String icon = Pages.text(page.tValueByName("icon"));
+			String icon = Pages.text(page.getIcon());
 			if (icon != null) {
 				json.put("icon", icon);
 			}
@@ -118,7 +130,7 @@ final class PageExport {
 				json.put(Pages.MINIMUM_ROLE, Pages.ANONYMOUS);
 			}
 			List<Object> sections = new ArrayList<>();
-			List<TLObject> parts = RuleExport.objects(page.tValueByName("sections"));
+			List<TLObject> parts = RuleExport.objects(page.getSections());
 			for (int s = 0; s < parts.size(); s++) {
 				sections.add(section(parts.get(s), path + ".sections[" + s + "]", page, s));
 			}
@@ -131,12 +143,12 @@ final class PageExport {
 	private Map<String, Object> section(TLObject section, String path, TLObject page, int s) {
 		_sources.put(path, section);
 		Map<String, Object> json = new LinkedHashMap<>();
-		Object label = RuntimeImage.labels(section.tValueByName("title"));
+		Object label = RuntimeImage.labels(((PageSection) section).getTitle());
 		if (label != null) {
 			json.put("label", label);
 		}
 		List<Object> elements = new ArrayList<>();
-		List<TLObject> parts = RuleExport.objects(section.tValueByName("elements"));
+		List<TLObject> parts = RuleExport.objects(((PageSection) section).getElements());
 		for (int e = 0; e < parts.size(); e++) {
 			element(parts.get(e), path + ".elements[", elements, new Place(page, s, e));
 		}
@@ -148,7 +160,7 @@ final class PageExport {
 	private record Place(TLObject source, int s, int e) {
 
 		String page() {
-			String name = Pages.text(source.tValueByName("name"));
+			String name = Pages.text(((Page) source).getNameKey());
 			return name == null ? "?" : name;
 		}
 
@@ -163,7 +175,7 @@ final class PageExport {
 
 	private void element(TLObject element, String prefix, List<Object> result, Place place) {
 		if (Pages.is(element, "RoomElement")) {
-			TLObject room = (TLObject) element.tValueByName("room");
+			TLObject room = ((RoomElement) element).getRoom();
 			List<TLObject> functions = room == null ? List.of() : Pages.roomFunctions(room);
 			int added = 0;
 			for (TLObject function : functions) {
@@ -195,15 +207,15 @@ final class PageExport {
 			TLObject target;
 			if (Pages.is(element, "FunctionElement")) {
 				member = "function";
-				target = (TLObject) element.tValueByName("function");
+				target = ((FunctionElement) element).getFunction();
 				id = target == null ? null : _targets.functionId(target);
 			} else if (Pages.is(element, "RuleEnabledElement")) {
 				member = "datapoint";
-				target = (TLObject) element.tValueByName("rule");
+				target = ((RuleEnabledElement) element).getRule();
 				id = target == null ? null : _targets.enabledId(target);
 			} else {
 				member = "datapoint";
-				target = (TLObject) element.tValueByName("datapoint");
+				target = ((DatapointElement) element).getDatapoint();
 				id = target == null ? null : _targets.datapointId(target);
 			}
 			if (id == null) {
@@ -212,11 +224,12 @@ final class PageExport {
 				return;
 			}
 			json.put(member, id);
-			Object label = RuntimeImage.labels(element.tValueByName("label"));
+			Object label = RuntimeImage.labels(((PageElement) element).getLabel());
 			if (label != null) {
 				json.put("label", label);
 			}
-			if (Boolean.TRUE.equals(element.tValueByName("readOnly"))) {
+			if (element instanceof DatapointElement datapoint ? datapoint.getReadOnly()
+				: element instanceof RuleEnabledElement enabled && enabled.getReadOnly()) {
 				json.put("readOnly", Boolean.TRUE);
 			}
 		}
@@ -226,13 +239,14 @@ final class PageExport {
 
 	private Map<String, Object> chart(TLObject chart, String path, Place place) {
 		Map<String, Object> json = new LinkedHashMap<>();
-		Object label = RuntimeImage.labels(chart.tValueByName("label"));
+		ChartElement element = (ChartElement) chart;
+		Object label = RuntimeImage.labels(element.getLabel());
 		if (label != null) {
 			json.put("label", label);
 		}
 		json.put("width", Pages.width(chart));
 		json.put("height", Pages.height(chart));
-		String range = Pages.rangeName(Pages.name(chart.tValueByName("range")));
+		String range = Pages.rangeName(Pages.name(element.getRange()));
 		if (range != null) {
 			json.put("range", range);
 		}
@@ -246,19 +260,15 @@ final class PageExport {
 			json.put("presets", names);
 		}
 		Map<String, Object> axes = new LinkedHashMap<>();
-		for (String axis : List.of("left", "right")) {
-			Map<String, Object> bounds = new LinkedHashMap<>();
-			bounds.put("min", number(chart.tValueByName(axis + "Min")));
-			bounds.put("max", number(chart.tValueByName(axis + "Max")));
-			axes.put(axis, bounds);
-		}
+		axes.put("left", bounds(element.getLeftMin(), element.getLeftMax()));
+		axes.put("right", bounds(element.getRightMin(), element.getRightMax()));
 		json.put("axes", axes);
 
 		List<Object> series = new ArrayList<>();
-		List<TLObject> parts = RuleExport.objects(chart.tValueByName("series"));
+		List<TLObject> parts = RuleExport.objects(element.getSeries());
 		for (int n = 0; n < parts.size(); n++) {
-			TLObject part = parts.get(n);
-			TLObject datapoint = (TLObject) part.tValueByName("datapoint");
+			ChartSeries part = (ChartSeries) parts.get(n);
+			TLObject datapoint = part.getDatapoint();
 			// An output of a virtual device keeps no history: the series draws the datapoint it is bound to.
 			String id = datapoint == null ? null : _targets.datapointId(BlockInstances.historyTarget(datapoint));
 			if (id == null) {
@@ -268,15 +278,15 @@ final class PageExport {
 			}
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("datapoint", id);
-			Object seriesLabel = RuntimeImage.labels(part.tValueByName("label"));
+			Object seriesLabel = RuntimeImage.labels(part.getLabel());
 			if (seriesLabel != null) {
 				entry.put("label", seriesLabel);
 			}
-			String axis = Pages.name(part.tValueByName("axis"));
+			String axis = Pages.name(part.getAxis());
 			if (axis != null) {
 				entry.put("axis", axis);
 			}
-			String consolidation = Pages.name(part.tValueByName("consolidation"));
+			String consolidation = Pages.name(part.getConsolidation());
 			if (consolidation != null) {
 				entry.put("consolidation", consolidation);
 			}
@@ -291,14 +301,14 @@ final class PageExport {
 		json.put("series", series);
 
 		List<Object> references = new ArrayList<>();
-		List<TLObject> lines = RuleExport.objects(chart.tValueByName("references"));
+		List<TLObject> lines = RuleExport.objects(element.getReferences());
 		for (int n = 0; n < lines.size(); n++) {
-			TLObject line = lines.get(n);
+			ChartReference line = (ChartReference) lines.get(n);
 			Map<String, Object> entry = new LinkedHashMap<>();
-			if (line.tValueByName("value") instanceof Number value) {
+			if (line.getValue() instanceof Number value) {
 				entry.put("value", Double.valueOf(value.doubleValue()));
 			}
-			if (line.tValueByName("datapoint") instanceof TLObject datapoint) {
+			if (line.getDatapoint() instanceof TLObject datapoint) {
 				String id = _targets.datapointId(datapoint);
 				if (id == null) {
 					note(I18NConstants.NOTE_PAGE_REFERENCE_LEFT_OUT__PAGE_SECTION_ELEMENT_REFERENCE_TARGET.fill(
@@ -308,11 +318,12 @@ final class PageExport {
 				}
 				entry.put("datapoint", id);
 			}
-			String axis = Pages.name(line.tValueByName("axis"));
+			String axis = Pages.name(line.getAxis());
 			if (axis != null) {
 				entry.put("axis", axis);
 			}
-			Object lineLabel = RuntimeImage.labels(line.tValueByName("label"));
+			Object lineLabel = RuntimeImage.labels(line.getLabel());
+
 			if (lineLabel != null) {
 				entry.put("label", lineLabel);
 			}
@@ -324,6 +335,14 @@ final class PageExport {
 		}
 		_sources.put(path, chart);
 		return json;
+	}
+
+	/** The fixed range of an axis: its lowest and highest value, each <code>null</code> for none. */
+	private static Map<String, Object> bounds(Double min, Double max) {
+		Map<String, Object> bounds = new LinkedHashMap<>();
+		bounds.put("min", number(min));
+		bounds.put("max", number(max));
+		return bounds;
 	}
 
 	private static Double number(Object value) {

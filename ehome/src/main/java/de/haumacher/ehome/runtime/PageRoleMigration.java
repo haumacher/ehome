@@ -7,8 +7,11 @@ import com.top_logic.basic.Logger;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.migration.StartupAction;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+
+import de.haumacher.ehome.model.runtime.Page;
 
 /**
  * The migration <code>Issue_184_Page_minimum_role</code> (haumacher/ehome #184): every control page
@@ -28,8 +31,9 @@ public class PageRoleMigration implements StartupAction {
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.runtime:Page");
 		TLObject operator = RuleImport.classifier("PageRole", Pages.OPERATOR);
 		for (TLObject page : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			if (page.tValueByName(Pages.MINIMUM_ROLE) == null) {
-				page.tUpdateByName(Pages.MINIMUM_ROLE, operator);
+			if (((Page) page).getMinimumRole() == null) {
+				((Page) page).setMinimumRole((TLClassifier) operator);
+
 				count++;
 			}
 		}

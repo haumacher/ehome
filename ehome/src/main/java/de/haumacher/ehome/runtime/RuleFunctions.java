@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -35,6 +37,35 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.AstroSchedule;
+import de.haumacher.ehome.model.runtime.CancelTimerAction;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.DatesSchedule;
+import de.haumacher.ehome.model.runtime.IntervalSchedule;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.MatchTrigger;
+import de.haumacher.ehome.model.runtime.OnceSchedule;
+import de.haumacher.ehome.model.runtime.ParameterTrigger;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.ReadAction;
+import de.haumacher.ehome.model.runtime.RestartTimerAction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
+import de.haumacher.ehome.model.runtime.ScheduleTrigger;
+import de.haumacher.ehome.model.runtime.SetParameterAction;
+import de.haumacher.ehome.model.runtime.SilenceTrigger;
+import de.haumacher.ehome.model.runtime.StartTimerAction;
+import de.haumacher.ehome.model.runtime.StartTrigger;
+import de.haumacher.ehome.model.runtime.TimelinePoint;
+import de.haumacher.ehome.model.runtime.TimerTrigger;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
+import de.haumacher.ehome.model.runtime.YearlySchedule;
 import de.haumacher.ehome.rules.Node.Fn;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
@@ -270,53 +301,52 @@ public class RuleFunctions extends GenericMethod {
 	}
 
 	private static String summary(TLObject obj, DatapointNames names, TLObject rule) {
-		String type = obj.tType().getName();
-		if (type.equals("TimelinePoint")) {
+		if (obj instanceof TimelinePoint point) {
 			// The outline of homecontrol spec/rules.md 11.5: 06:00 comfort, sunset+2h<=22:00 night.
 			StringBuilder out = new StringBuilder();
-			if (obj.tValueByName("sun") instanceof TLClassifier sun) {
+			if (point.getSun() instanceof TLClassifier sun) {
 				out.append(sun.getName());
-				String offset = text(obj, "offset");
+				String offset = text(point.getOffset());
 				if (offset != null) {
 					out.append(offset.startsWith("-") ? "" : "+").append(offset.trim());
 				}
-				String notBefore = text(obj, "notBefore");
+				String notBefore = text(point.getNotBefore());
 				if (notBefore != null) {
 					out.append(">=").append(notBefore.trim());
 				}
-				String notAfter = text(obj, "notAfter");
+				String notAfter = text(point.getNotAfter());
 				if (notAfter != null) {
 					out.append("<=").append(notAfter.trim());
 				}
 			} else {
-				String time = text(obj, "time");
+				String time = text(point.getTime());
 				out.append(time == null ? "-" : time.trim());
 			}
-			if (obj.tValueByName("state") instanceof TLObject state && state.tValid()) {
-				out.append(' ').append(state.tValueByName("identifier"));
+			if (point.getState() instanceof RuleState state && state.tValid()) {
+				out.append(' ').append(state.getIdentifier());
 			}
 			return out.toString();
 		}
-		if (type.equals("Reaction")) {
+		if (obj instanceof Reaction reaction) {
 			StringBuilder out = new StringBuilder("when ");
 			List<String> triggers = new ArrayList<>();
-			for (TLObject trigger : RuleExport.objects(obj.tValueByName("triggers"))) {
+			for (TLObject trigger : RuleExport.objects(reaction.getTriggers())) {
 				triggers.add(summary(trigger, names, rule));
 			}
 			out.append(triggers.isEmpty() ? "-" : String.join(" | ", triggers));
-			String condition = names.expression(rule, text(obj, "condition"));
+			String condition = names.expression(rule, text(reaction.getCondition()));
 			if (condition != null) {
 				out.append(" if ").append(condition);
 			}
 			List<String> from = new ArrayList<>();
-			for (TLObject state : RuleExport.objects(obj.tValueByName("from"))) {
-				from.add(String.valueOf(state.tValueByName("identifier")));
+			for (TLObject state : RuleExport.objects(reaction.getFrom())) {
+				from.add(String.valueOf(((RuleState) state).getIdentifier()));
 			}
 			if (!from.isEmpty()) {
 				out.append(" from ").append(String.join(", ", from));
 			}
-			if (obj.tValueByName("to") instanceof TLObject to) {
-				out.append(" to ").append(to.tValueByName("identifier"));
+			if (reaction.getTo() instanceof RuleState to) {
+				out.append(" to ").append(to.getIdentifier());
 			}
 			return out.toString();
 		}
@@ -324,12 +354,13 @@ public class RuleFunctions extends GenericMethod {
 		StringBuilder out = new StringBuilder(kind);
 		switch (kind) {
 			case "datapoint": {
-				append(out, " ", reference(names, obj, "datapoint"));
+				DatapointTrigger trigger = (DatapointTrigger) obj;
+				append(out, " ", reference(names, trigger.getDatapoint(), "datapoint"));
 				List<String> flags = new ArrayList<>();
-				if (obj.tValueByName("on") instanceof TLClassifier on && !on.getName().equals("change")) {
+				if (trigger.getOn() instanceof TLClassifier on && !on.getName().equals("change")) {
 					flags.add(on.getName());
 				}
-				if (obj.tValueByName("origin") instanceof TLClassifier origin && !origin.getName().equals("any")) {
+				if (trigger.getOrigin() instanceof TLClassifier origin && !origin.getName().equals("any")) {
 					flags.add(origin.getName());
 				}
 				if (!flags.isEmpty()) {
@@ -338,96 +369,132 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			}
 			case "match":
-				append(out, " ", names.expression(rule, text(obj, "condition")));
+				append(out, " ", names.expression(rule, text(((MatchTrigger) obj).getCondition())));
 				break;
-			case "silence":
-				append(out, " ", reference(names, obj, "datapoint"));
-				append(out, " after ", names.expression(rule, text(obj, "after")));
+			case "silence": {
+				SilenceTrigger trigger = (SilenceTrigger) obj;
+				append(out, " ", reference(names, trigger.getDatapoint(), "datapoint"));
+				append(out, " after ", names.expression(rule, text(trigger.getAfter())));
 				break;
+			}
 			case "read":
-				append(out, " ", reference(names, obj, "datapoint"));
+				append(out, " ", reference(names, ((ReadAction) obj).getDatapoint(), "datapoint"));
 				break;
 			case "schedule":
+				append(out, " ", reference(names, ((ScheduleTrigger) obj).getSchedule(), kind));
+				break;
 			case "parameter":
+				append(out, " ", reference(names, ((ParameterTrigger) obj).getParameter(), kind));
+				break;
 			case "timer":
+				append(out, " ", reference(names, ((TimerTrigger) obj).getTimer(), kind));
+				break;
 			case "cancelTimer":
-				append(out, " ", reference(names, obj, kind.equals("cancelTimer") ? "timer" : kind));
+				append(out, " ", reference(names, ((CancelTimerAction) obj).getTimer(), "timer"));
 				break;
 			case "start": {
+				StartTrigger trigger = (StartTrigger) obj;
 				List<String> reasons = new ArrayList<>();
-				for (String[] flag : new String[][] { { "onBoot", "boot" }, { "onImage", "image" }, { "onEnable", "enable" } }) {
-					if (!Boolean.FALSE.equals(obj.tValueByName(flag[0]))) {
-						reasons.add(flag[1]);
-					}
+				if (trigger.getOnBoot()) {
+					reasons.add("boot");
+				}
+				if (trigger.getOnImage()) {
+					reasons.add("image");
+				}
+				if (trigger.getOnEnable()) {
+					reasons.add("enable");
 				}
 				if (reasons.size() < 3) {
 					out.append(" (").append(String.join(", ", reasons)).append(')');
 				}
 				break;
 			}
-			case "write":
-				append(out, " ", reference(names, obj, "datapoint"));
-				append(out, " := ", names.expression(rule, text(obj, "value")));
-				if (Boolean.TRUE.equals(obj.tValueByName("onlyOnChange"))) {
+			case "write": {
+				WriteAction action = (WriteAction) obj;
+				append(out, " ", reference(names, action.getDatapoint(), "datapoint"));
+				append(out, " := ", names.expression(rule, text(action.getValue())));
+				if (action.getOnlyOnChange()) {
 					out.append(" (onlyOnChange)");
 				}
 				break;
-			case "startTimer":
-			case "restartTimer":
-				append(out, " ", reference(names, obj, "timer"));
-				append(out, " ", names.expression(rule, text(obj, "duration")));
+			}
+			case "startTimer": {
+				StartTimerAction action = (StartTimerAction) obj;
+				append(out, " ", reference(names, action.getTimer(), "timer"));
+				append(out, " ", names.expression(rule, text(action.getDuration())));
 				break;
-			case "setParameter":
-				append(out, " ", reference(names, obj, "parameter"));
-				append(out, " := ", names.expression(rule, text(obj, "value")));
+			}
+			case "restartTimer": {
+				RestartTimerAction action = (RestartTimerAction) obj;
+				append(out, " ", reference(names, action.getTimer(), "timer"));
+				append(out, " ", names.expression(rule, text(action.getDuration())));
 				break;
-			case "log":
-				if (obj.tValueByName("level") instanceof TLClassifier level) {
+			}
+			case "setParameter": {
+				SetParameterAction action = (SetParameterAction) obj;
+				append(out, " ", reference(names, action.getParameter(), "parameter"));
+				append(out, " := ", names.expression(rule, text(action.getValue())));
+				break;
+			}
+			case "log": {
+				LogAction action = (LogAction) obj;
+				if (action.getLevel() instanceof TLClassifier level) {
 					out.append(' ').append(level.getName());
 				}
-				append(out, ": ", names.message(rule, text(obj, "message")));
+				append(out, ": ", names.message(rule, text(action.getMessage())));
 				break;
-			case "weekly":
-				append(out, " ", days(obj));
-				append(out, " ", text(obj, "time"));
+			}
+			case "weekly": {
+				WeeklySchedule entry = (WeeklySchedule) obj;
+				append(out, " ", days(entry.getDays()));
+				append(out, " ", text(entry.getTime()));
 				break;
-			case "yearly":
-				out.append(' ').append(obj.tValueByName("month")).append('-').append(obj.tValueByName("day"));
-				append(out, " ", text(obj, "time"));
+			}
+			case "yearly": {
+				YearlySchedule entry = (YearlySchedule) obj;
+				out.append(' ').append(entry.getMonth()).append('-').append(entry.getDay());
+				append(out, " ", text(entry.getTime()));
 				break;
-			case "dates":
-				append(out, " ", text(obj, "dates"));
-				append(out, " ", text(obj, "time"));
+			}
+			case "dates": {
+				DatesSchedule entry = (DatesSchedule) obj;
+				append(out, " ", text(entry.getDates()));
+				append(out, " ", text(entry.getTime()));
 				break;
-			case "astro":
-				if (obj.tValueByName("sun") instanceof TLClassifier sun) {
+			}
+			case "astro": {
+				AstroSchedule entry = (AstroSchedule) obj;
+				if (entry.getSun() instanceof TLClassifier sun) {
 					out.append(' ').append(sun.getName());
 				}
-				append(out, " ", text(obj, "offset"));
-				append(out, " ", days(obj));
+				append(out, " ", text(entry.getOffset()));
+				append(out, " ", days(entry.getDays()));
 				break;
-			case "interval":
-				append(out, " every ", text(obj, "every"));
-				append(out, " ", text(obj, "from"));
-				append(out, "..", text(obj, "until"));
-				append(out, " ", days(obj));
+			}
+			case "interval": {
+				IntervalSchedule entry = (IntervalSchedule) obj;
+				append(out, " every ", text(entry.getEvery()));
+				append(out, " ", text(entry.getFrom()));
+				append(out, "..", text(entry.getUntil()));
+				append(out, " ", days(entry.getDays()));
 				break;
+			}
 			case "once":
-				append(out, " ", text(obj, "at"));
+				append(out, " ", text(((OnceSchedule) obj).getAt()));
 				break;
 			default:
 				break;
 		}
-		if (obj.tType().getPart("output") != null) {
+		if (obj instanceof ScheduleEntry entry) {
 			// The output of a schedule entry: true from a firing until midnight.
-			append(out, " output ", reference(names, obj, "output"));
+			append(out, " output ", reference(names, entry.getOutput(), "output"));
 		}
 		return out.toString();
 	}
 
-	private static String days(TLObject entry) {
+	private static String days(Collection<?> values) {
 		List<String> days = new ArrayList<>();
-		for (Object day : RuleExport.objects(entry.tValueByName("days"))) {
+		for (Object day : RuleExport.objects(values)) {
 			if (day instanceof TLClassifier classifier) {
 				days.add(classifier.getName().substring(0, 2));
 			}
@@ -445,14 +512,14 @@ public class RuleFunctions extends GenericMethod {
 	 * The target of a reference of a rule or schedule entry (haumacher/ehome #90) by its label and id
 	 * (haumacher/ehome #113).
 	 */
-	private static String reference(DatapointNames names, TLObject obj, String attribute) {
-		return names.reference(obj.tValueByName(attribute), attribute);
+	private static String reference(DatapointNames names, TLObject target, String attribute) {
+		return names.reference(target, attribute);
 	}
 
-	private static String text(TLObject obj, String attribute) {
-		Object value = obj.tValueByName(attribute);
+	private static String text(Object value) {
 		return value == null || value.toString().isBlank() ? null : value.toString();
 	}
+
 
 	/**
 	 * The parts in the given reference of the owner.
@@ -640,7 +707,7 @@ public class RuleFunctions extends GenericMethod {
 	private static String unique(String prefix, List<TLObject> parts, String separator) {
 		Set<Object> used = new HashSet<>();
 		for (TLObject part : parts) {
-			used.add(part.tValueByName("identifier"));
+			used.add(Identifiers.of(part));
 		}
 		for (int n = 1;; n++) {
 			String id = prefix + separator + n;
@@ -795,9 +862,11 @@ public class RuleFunctions extends GenericMethod {
 	 */
 	private static void timerSuggestions(Suggestions result, TLObject rule, Matcher timer) {
 		String typed = timer.group(2);
-		for (TLObject candidate : RuleExport.objects(rule.tValueByName("timers"))) {
-			if (candidate.tValueByName("identifier") instanceof String id && matches(typed, id, null)) {
-				Object duration = candidate.tValueByName("duration");
+		// The rule may be a form's overlay of it: its timers are read by name, the timers themselves are stored.
+		for (TLObject object : RuleExport.objects(rule.tValueByName("timers"))) {
+			RuleTimer candidate = (RuleTimer) object;
+			if (candidate.getIdentifier() instanceof String id && matches(typed, id, null)) {
+				Object duration = candidate.getDuration();
 				result.add(id + ")", id + (duration == null ? "" : " " + duration), timer.start(2));
 			}
 		}
@@ -813,10 +882,11 @@ public class RuleFunctions extends GenericMethod {
 		}
 		Resources resources = Resources.getInstance();
 		String typed = ruleState.group(1);
-		for (TLObject candidate : RuleExport.objects(project.tValueByName("rules"))) {
-			if (candidate.tValueByName("identifier") instanceof String id
-				&& !RuleExport.objects(candidate.tValueByName("states")).isEmpty()) {
-				String name = text(candidate.tValueByName("name"), resources);
+		for (TLObject object : RuleExport.objects(((Project) project).getRules())) {
+			Rule candidate = (Rule) object;
+			if (candidate.getIdentifier() instanceof String id
+				&& !RuleExport.objects(candidate.getStates()).isEmpty()) {
+				String name = text(candidate.getNameKey(), resources);
 				if (matches(typed, id, name)) {
 					result.add("\"" + id + "\")", name, ruleState.start(1) - 1);
 				}
@@ -835,8 +905,8 @@ public class RuleFunctions extends GenericMethod {
 		if (named != null) {
 			owner = null;
 			if (project != null) {
-				for (TLObject candidate : RuleExport.objects(project.tValueByName("rules"))) {
-					if (named.equals(candidate.tValueByName("identifier"))) {
+				for (TLObject candidate : RuleExport.objects(((Project) project).getRules())) {
+					if (named.equals(((Rule) candidate).getIdentifier())) {
 						owner = candidate;
 						break;
 					}
@@ -848,7 +918,7 @@ public class RuleFunctions extends GenericMethod {
 		}
 		String typed = state.group(2);
 		for (TLObject candidate : RuleExport.objects(owner.tValueByName("states"))) {
-			if (candidate.tValueByName("identifier") instanceof String id && matches(typed, id, null)) {
+			if (((RuleState) candidate).getIdentifier() instanceof String id && matches(typed, id, null)) {
 				result.add("\"" + id + "\"", null, state.start(2) - 1);
 			}
 		}
@@ -862,7 +932,7 @@ public class RuleFunctions extends GenericMethod {
 		Resources resources = Resources.getInstance();
 		String typed = parameter.group(1) != null ? parameter.group(1) : parameter.group(2);
 		for (TLObject candidate : RuleExport.objects(rule.tValueByName("parameters"))) {
-			if (candidate.tValueByName("identifier") instanceof String id) {
+			if (((RuleParameter) candidate).getIdentifier() instanceof String id) {
 				String label = parameterLabel(rule, id, resources);
 				if (matches(typed, id, label)) {
 					result.add(RuleText.parameterReference(id), label, parameter.start());
@@ -1170,7 +1240,8 @@ public class RuleFunctions extends GenericMethod {
 			Map<String, Object> datapoint = new LinkedHashMap<>();
 			((Map<?, ?>) list.get(n)).forEach((key, value) -> datapoint.put(String.valueOf(key), value));
 			TLObject source = image.getDatapointSources().get(n);
-			if (ApplicationDatapoints.isApplicationDatapoint(source) && source.tValueByName("label") instanceof ResKey label) {
+			if (ApplicationDatapoints.isApplicationDatapoint(source)
+				&& ((ApplicationDatapoint) source).getLabel() instanceof ResKey label) {
 				datapoint.put("label", resources.getString(label, null));
 			}
 			datapoint.put("binding", resources.getString(datapoint.containsKey("knx") ? I18NConstants.BINDING_KNX
@@ -1181,8 +1252,8 @@ public class RuleFunctions extends GenericMethod {
 		// rules: another rule may read, trigger on and write them.
 		List<Object> rules = cached.rules();
 		Map<String, TLObject> byId = new LinkedHashMap<>();
-		for (TLObject rule : RuleExport.objects(project.tValueByName("rules"))) {
-			if (rule.tValueByName("identifier") instanceof String id) {
+		for (TLObject rule : RuleExport.objects(((Project) project).getRules())) {
+			if (((Rule) rule).getIdentifier() instanceof String id) {
 				byId.putIfAbsent(id, rule);
 			}
 		}
@@ -1204,9 +1275,9 @@ public class RuleFunctions extends GenericMethod {
 		for (String id : Schedule.timeDatapointIds(schedules)) {
 			Map<String, Object> datapoint = new LinkedHashMap<>();
 			datapoint.put("id", Schedule.timeDatapointName(id));
-			for (TLObject entry : RuleExport.objects(project.tValueByName("schedules"))) {
-				if (id.equals(entry.tValueByName("identifier"))) {
-					datapoint.put("label", text(entry.tValueByName("label"), resources));
+			for (TLObject entry : RuleExport.objects(((Project) project).getSchedules())) {
+				if (id.equals(((ScheduleEntry) entry).getIdentifier())) {
+					datapoint.put("label", text(((ScheduleEntry) entry).getLabel(), resources));
 					break;
 				}
 			}
@@ -1239,10 +1310,12 @@ public class RuleFunctions extends GenericMethod {
 			String name = text(rule.tValueByName("name"), resources);
 			return name == null ? null : resources.getString(I18NConstants.STATE_DATAPOINT_LABEL__RULE.fill(name));
 		}
-		for (TLObject candidate : RuleExport.objects(rule.tValueByName("parameters"))) {
-			if (parameter.equals(candidate.tValueByName("identifier"))) {
-				String title = text(candidate.tValueByName("title"), resources);
-				return title != null ? title : text(candidate.tValueByName("label"), resources);
+		for (TLObject object : RuleExport.objects(rule.tValueByName("parameters"))) {
+			RuleParameter candidate = (RuleParameter) object;
+			if (parameter.equals(candidate.getIdentifier())) {
+				String title = text(candidate.getTitle(), resources);
+				return title != null ? title : text(candidate.getLabel(), resources);
+
 			}
 		}
 		return null;

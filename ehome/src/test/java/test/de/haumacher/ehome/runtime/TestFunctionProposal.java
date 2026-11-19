@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +37,12 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -139,15 +146,15 @@ public class TestFunctionProposal extends BasicTestCase {
 			List<TLObject> scenes = added.stream().filter(f -> "scene".equals(FunctionProposal.kind(f))).toList();
 			assertEquals(2, scenes.size());
 			for (int n = 1; n <= 2; n++) {
-				TLObject scene = scenes.get(n - 1);
-				assertEquals(Integer.valueOf(n), scene.tValueByName("scene"));
-				assertEquals("0/0/36", text((TLObject) scene.tValueByName("command")));
-				assertSame(device(project, "1.3.5"), scene.tValueByName("device"));
-				assertTrue(String.valueOf(scene.tValueByName("channel")).endsWith(" scene " + n));
-				ResKey sceneName = (ResKey) scene.tValueByName("name");
+				Function scene = (Function) scenes.get(n - 1);
+				assertEquals(Integer.valueOf(n), scene.getScene());
+				assertEquals("0/0/36", text(scene.getCommand()));
+				assertSame(device(project, "1.3.5"), scene.getDevice());
+				assertTrue(String.valueOf(scene.getChannel()).endsWith(" scene " + n));
+				ResKey sceneName = scene.getNameKey();
 				assertEquals("Channel A: scene " + n, Resources.getInstance(java.util.Locale.ENGLISH).getString(sceneName));
 				assertEquals("Kanal A: Szene " + n, Resources.getInstance(java.util.Locale.GERMAN).getString(sceneName));
-				assertEquals(FunctionProposal.slug(name(scene)), scene.tValueByName("identifier"));
+				assertEquals(FunctionProposal.slug(name(scene)), scene.getIdentifier());
 			}
 			List<TLObject> templateFunctions = new ArrayList<>(added);
 			templateFunctions.removeAll(scenes);
@@ -162,24 +169,24 @@ public class TestFunctionProposal extends BasicTestCase {
 				String main = FunctionKinds.mainRole(kind);
 				byMainRole.put(kind + " " + text((TLObject) function.tValueByName(main)), function);
 				assertEquals(FunctionProposal.slug(name(function)),
-					function.tValueByName("identifier"));
+					((Function) function).getIdentifier());
 			}
-			Map<String, TLObject> byIdentifier = new HashMap<>();
+			Map<String, Function> byIdentifier = new HashMap<>();
 			Map<String, String> identifiers = new HashMap<>();
 			for (Object entry : (List<?>) template.get("functions")) {
 				Map<?, ?> expected = (Map<?, ?>) entry;
 				String id = (String) expected.get("id");
 				String kind = (String) expected.get("kind");
 				String main = (String) ((Map<?, ?>) expected.get("datapoints")).get(FunctionKinds.mainRole(kind));
-				TLObject function = byMainRole.get(kind + " " + TestRuntimeImage.TEMPLATE_ADDRESSES.get(main));
+				Function function = (Function) byMainRole.get(kind + " " + TestRuntimeImage.TEMPLATE_ADDRESSES.get(main));
 				assertNotNull(id, function);
 				byIdentifier.put(id, function);
-				identifiers.put(id, (String) function.tValueByName("identifier"));
+				identifiers.put(id, function.getIdentifier());
 				assertEquals(id, expected.get("kind"), FunctionProposal.kind(function));
 				Map<String, String> roles = new LinkedHashMap<>();
 				for (String role : FunctionKinds.roles(FunctionProposal.kind(function))) {
 					if (function.tValueByName(role) instanceof TLObject address) {
-						roles.put(role, RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
+						roles.put(role, RuntimeImage.threeLevel(((GroupAddress) address).getAddress().getValue()));
 					}
 				}
 				Map<String, String> expectedRoles = new LinkedHashMap<>();
@@ -192,83 +199,85 @@ public class TestFunctionProposal extends BasicTestCase {
 				assertEquals(id, expectedRoles, roles);
 				String room = id.equals("room-temperature") ? "Push-button sensor"
 					: templateRooms.get(expected.get("room"));
-				assertEquals(id, room, ((TLObject) function.tValueByName("room")).tValueByName("name"));
-				assertSame(id, function.tValueByName("room") == lab ? device(project, "1.3.5")
-					: device(project, "1.3.50"), function.tValueByName("device"));
+				assertEquals(id, room, function.getRoom().getName());
+				assertSame(id, function.getRoom() == lab ? device(project, "1.3.5")
+					: device(project, "1.3.50"), function.getDevice());
 			}
-			assertNull(byIdentifier.get("channel-d").tValueByName("state"));
+			assertNull(byIdentifier.get("channel-d").getState());
 
 			// Idempotent: a second run adds nothing, and the user's edits survive it.
-			TLObject channelA = byIdentifier.get("channel-a");
-			TLObject channelC = byIdentifier.get("channel-c");
-			Object channelAName = channelA.tValueByName("name");
+			Function channelA = byIdentifier.get("channel-a");
+			Function channelC = byIdentifier.get("channel-c");
+			ResKey channelAName = channelA.getNameKey();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				channelA.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Deckenlicht")));
-				channelA.tUpdateByName("kind", FunctionProposal.classifier("switch"));
-				channelC.tUpdateByName("state", null);
-				channelC.tUpdateByName("room", null);
+				channelA.setNameKey(FunctionProposal.text(Map.of("de", "Deckenlicht")));
+				channelA.setKind(FunctionProposal.classifier("switch"));
+				channelC.setState(null);
+				channelC.setRoom(null);
 				tx.commit();
 			}
 			assertEquals(List.of(), apply(project));
 			assertEquals(13, FunctionProposal.functions(project).size());
 			assertEquals("Deckenlicht", name(channelA));
 			assertEquals("switch", FunctionProposal.kind(channelA));
-			assertNull(channelC.tValueByName("state"));
-			assertNull(channelC.tValueByName("room"));
+			assertNull(channelC.getState());
+			assertNull(channelC.getRoom());
 
 			// A function the user made for a key keeps the proposal from adding a second one for it,
 			// once the proposed one is gone.
-			TLObject key1 = byIdentifier.get("key-1");
-			String key1Identifier = (String) key1.tValueByName("identifier");
-			TLObject own;
+			Function key1 = byIdentifier.get("key-1");
+			String key1Identifier = key1.getIdentifier();
+			Function own;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				own = create("ehome.runtime:Function");
-				own.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Klingel")));
-				own.tUpdateByName("kind", FunctionProposal.classifier("button"));
-				own.tUpdateByName("press", key1.tValueByName("press"));
-				List<TLObject> functions = FunctionProposal.functions(project);
+				own = (Function) create("ehome.runtime:Function");
+				own.setNameKey(FunctionProposal.text(Map.of("de", "Klingel")));
+				own.setKind(FunctionProposal.classifier("button"));
+				own.setPress(key1.getPress());
+				List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 				functions.remove(key1);
 				functions.add(own);
-				project.tUpdateByName("functions", functions);
+				((Project) project).setFunctions(functions);
 				key1.tDelete();
 				tx.commit();
 			}
 			assertEquals(List.of(), apply(project));
 			assertEquals(13, FunctionProposal.functions(project).size());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("functions", added.stream().filter(TLObject::tValid).toList());
+				((Project) project).setFunctions(
+					added.stream().filter(TLObject::tValid).map(Function.class::cast).toList());
 				own.tDelete();
 				tx.commit();
 			}
 			// The deleted proposal comes back with its identifier.
 			List<TLObject> again = apply(project);
 			assertEquals(1, again.size());
-			assertEquals(key1Identifier, again.get(0).tValueByName("identifier"));
+			assertEquals(key1Identifier, ((Function) again.get(0)).getIdentifier());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				channelA.tUpdateByName("name", channelAName);
-				channelA.tUpdateByName("kind", FunctionProposal.classifier("light"));
-				channelC.tUpdateByName("state", address(project, "0/0/47"));
-				channelC.tUpdateByName("room", lab);
+				channelA.setNameKey(channelAName);
+				channelA.setKind(FunctionProposal.classifier("light"));
+				channelC.setState((GroupAddress) address(project, "0/0/47"));
+				channelC.setRoom((BuildingDefinition) lab);
 				tx.commit();
 			}
 
 			// The template's settings.
-			TLObject time = createAddress(project, TIME_ADDRESS, "Uhrzeit", "DPST-10-1");
-			TLObject temperature = address(project, "0/0/28");
+			GroupAddress time = (GroupAddress) createAddress(project, TIME_ADDRESS, "Uhrzeit", "DPST-10-1");
+			GroupAddress temperature = (GroupAddress) address(project, "0/0/28");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("timeMasterTime", time);
-				project.tUpdateByName("timeMasterInterval", Integer.valueOf(600));
-				project.tUpdateByName("timeMasterAtMidnight", Boolean.TRUE);
-				project.tUpdateByName("historyBudget", Integer.valueOf(16384));
-				temperature.tUpdateByName("runtimePersist", Boolean.TRUE);
+				Project settings = (Project) project;
+				settings.setTimeMasterTime(time);
+				settings.setTimeMasterInterval(Integer.valueOf(600));
+				settings.setTimeMasterAtMidnight(Boolean.TRUE);
+				settings.setHistoryBudget(Integer.valueOf(16384));
+				temperature.setRuntimePersist(true);
 				// A history set by hand (haumacher/ehome #73).
-				temperature.tUpdateByName("historyManual", Boolean.TRUE);
-				temperature.tUpdateByName("historyRetention", Integer.valueOf(86400));
-				temperature.tUpdateByName("historySpacing", Integer.valueOf(60));
+				temperature.setHistoryManual(true);
+				temperature.setHistoryRetention(Integer.valueOf(86400));
+				temperature.setHistorySpacing(Integer.valueOf(60));
 				tx.commit();
 			}
 			assertEquals(List.of(time), List.of(RuntimeFunctions.groupAddresses(project).stream()
-				.filter(a -> ((GA) a.tValueByName("address")).getValue() == 60).findFirst().orElseThrow()));
+				.filter(a -> ((GroupAddress) a).getAddress().getValue() == 60).findFirst().orElseThrow()));
 
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			Files.createDirectories(new File("target/runtime").toPath());
@@ -342,9 +351,9 @@ public class TestFunctionProposal extends BasicTestCase {
 			List<?> functions = (List<?>) json.get("functions");
 			assertEquals(13, functions.size());
 			for (TLObject scene : scenes) {
-				Map<?, ?> entry = function(functions, (String) scene.tValueByName("identifier"));
+				Map<?, ?> entry = function(functions, ((Function) scene).getIdentifier());
 				assertEquals("scene", entry.get("kind"));
-				assertEquals(((Integer) scene.tValueByName("scene")).longValue(), ((Number) entry.get("scene")).longValue());
+				assertEquals(((Function) scene).getScene().longValue(), ((Number) entry.get("scene")).longValue());
 				assertEquals(Map.of("command", "0/0/36"), entry.get("datapoints"));
 			}
 			Map<String, String> addressOf = new HashMap<>(TestRuntimeImage.TEMPLATE_ADDRESSES);
@@ -395,11 +404,11 @@ public class TestFunctionProposal extends BasicTestCase {
 	 * The name of the function in the user's language.
 	 */
 	static String name(TLObject function) {
-		return Resources.getInstance().getString((ResKey) function.tValueByName("name"));
+		return Resources.getInstance().getString(((Function) function).getNameKey());
 	}
 
 	static String text(TLObject address) {
-		return RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue());
+		return RuntimeImage.threeLevel(((GroupAddress) address).getAddress().getValue());
 	}
 
 	static List<TLObject> apply(TLObject project) {
@@ -429,7 +438,8 @@ public class TestFunctionProposal extends BasicTestCase {
 	 */
 	static TLObject address(TLObject project, String threeLevel) {
 		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
-			if (address.tValueByName("address") instanceof GA ga && RuntimeImage.threeLevel(ga.getValue()).equals(threeLevel)) {
+			if (((GroupAddress) address).getAddress() instanceof GA ga
+				&& RuntimeImage.threeLevel(ga.getValue()).equals(threeLevel)) {
 				return address;
 			}
 		}
@@ -449,7 +459,10 @@ public class TestFunctionProposal extends BasicTestCase {
 	}
 
 	static void setDatapointType(TLObject address, String typeId) {
-		update(address, "datapointTypes", List.of(datapointType(typeId)));
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			((GroupAddress) address).setDatapointTypes(List.of(datapointType(typeId)));
+			tx.commit();
+		}
 	}
 
 	private static TLObject datapointType(String typeId) {
@@ -469,13 +482,17 @@ public class TestFunctionProposal extends BasicTestCase {
 	 */
 	static TLObject createLocation(TLObject project, TLObject parent, String type, String name) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject part = create(type);
-			part.tUpdateByName("name", name);
-			TLObject container = parent == null ? project : parent;
-			String reference = parent == null ? "buildings" : "parts";
-			List<Object> parts = new ArrayList<>((java.util.Collection<?>) container.tValueByName(reference));
-			parts.add(part);
-			container.tUpdateByName(reference, parts);
+			BuildingDefinition part = (BuildingDefinition) create(type);
+			part.setName(name);
+			if (parent == null) {
+				List<BuildingDefinition> parts = new ArrayList<>(((Project) project).getBuildings());
+				parts.add(part);
+				((Project) project).setBuildings(parts);
+			} else {
+				List<BuildingDefinition> parts = new ArrayList<>(((BuildingDefinition) parent).getParts());
+				parts.add(part);
+				((BuildingDefinition) parent).setParts(parts);
+			}
 			tx.commit();
 			return part;
 		}
@@ -487,13 +504,13 @@ public class TestFunctionProposal extends BasicTestCase {
 	static TLObject createAddress(TLObject project, String threeLevel, String name, String typeId) {
 		TLObject range = address(project, "0/0/1").tContainer();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject address = create("ehome.logical:GroupAddress");
-			address.tUpdateByName("name", name);
-			address.tUpdateByName("address", GA.parse(threeLevel, GroupAddressStyle.ThreeLevel));
-			address.tUpdateByName("datapointTypes", List.of(datapointType(typeId)));
-			List<Object> parts = new ArrayList<>((java.util.Collection<?>) range.tValueByName("parts"));
+			GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
+			address.setName(name);
+			address.setAddress(GA.parse(threeLevel, GroupAddressStyle.ThreeLevel));
+			address.setDatapointTypes(List.of(datapointType(typeId)));
+			Set<GroupAddressDefinition> parts = new LinkedHashSet<>(((GroupRange) range).getParts());
 			parts.add(address);
-			range.tUpdateByName("parts", parts);
+			((GroupRange) range).setParts(parts);
 			tx.commit();
 			return address;
 		}

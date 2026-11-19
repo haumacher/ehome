@@ -21,6 +21,23 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ChartElement;
+import de.haumacher.ehome.model.runtime.ChartReference;
+import de.haumacher.ehome.model.runtime.ChartSeries;
+import de.haumacher.ehome.model.runtime.DatapointElement;
+import de.haumacher.ehome.model.runtime.DatesSchedule;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Page;
+import de.haumacher.ehome.model.runtime.PageElement;
+import de.haumacher.ehome.model.runtime.PageSection;
+import de.haumacher.ehome.model.runtime.RoomElement;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.YearlySchedule;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -136,7 +153,7 @@ public final class Pages {
 	 * datapoint), <code>null</code> otherwise.
 	 */
 	public static TLObject stateDatapoint(TLObject rule) {
-		return list(rule, "states").isEmpty() ? null : StateDatapoints.of(rule);
+		return RuleExport.objects(((Rule) rule).getStates()).isEmpty() ? null : StateDatapoints.of(rule);
 	}
 
 	/**
@@ -159,7 +176,7 @@ public final class Pages {
 	 * {@value #ANONYMOUS}, haumacher/ehome #184); a page without a role is one of {@value #OPERATOR}.
 	 */
 	public static boolean isAnonymous(TLObject page) {
-		return page.tValueByName(MINIMUM_ROLE) instanceof TLClassifier role && ANONYMOUS.equals(role.getName());
+		return ((Page) page).getMinimumRole() instanceof TLClassifier role && ANONYMOUS.equals(role.getName());
 	}
 
 	private static TLObject create(String type) {
@@ -193,7 +210,7 @@ public final class Pages {
 			case FUNCTION:
 				return FunctionProposal.functions(project);
 			case RULE:
-				return list(project, "rules");
+				return RuleExport.objects(((Project) project).getRules());
 			case ROOM:
 				return RuntimeFunctions.buildingParts(project);
 			case DATAPOINT:
@@ -212,20 +229,31 @@ public final class Pages {
 	 */
 	public static List<TLObject> datapoints(TLObject project) {
 		List<TLObject> result = RuntimeFunctions.datapoints(project);
-		for (TLObject rule : list(project, "rules")) {
-			result.addAll(list(rule, "parameters"));
+		for (TLObject rule : RuleExport.objects(((Project) project).getRules())) {
+			result.addAll(RuleExport.objects(((Rule) rule).getParameters()));
 			TLObject state = stateDatapoint(rule);
 			if (state != null) {
 				result.add(state);
 			}
 		}
-		for (TLObject entry : list(project, "schedules")) {
-			if (isTimeSchedule(entry) && Boolean.TRUE.equals(entry.tValueByName("timeAdjustable"))) {
+		for (TLObject entry : RuleExport.objects(((Project) project).getSchedules())) {
+			if (isTimeSchedule(entry) && timeAdjustable(entry)) {
 				result.add(entry);
 			}
 		}
 		result.addAll(BlockInstances.datapoints(project));
 		return result;
+	}
+
+	/** Whether the time of the weekly, yearly or dates entry is adjustable. */
+	private static boolean timeAdjustable(TLObject entry) {
+		if (entry instanceof WeeklySchedule weekly) {
+			return weekly.getTimeAdjustable();
+		}
+		if (entry instanceof YearlySchedule yearly) {
+			return yearly.getTimeAdjustable();
+		}
+		return ((DatesSchedule) entry).getTimeAdjustable();
 	}
 
 	/**
@@ -245,7 +273,7 @@ public final class Pages {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject part : parts) {
 			for (TLObject function : functions) {
-				if (function.tValueByName("room") == part) {
+				if (((Function) function).getRoom() == part) {
 					result.add(function);
 				}
 			}
@@ -254,7 +282,7 @@ public final class Pages {
 	}
 
 	private static void collectParts(TLObject part, List<TLObject> result) {
-		for (TLObject child : list(part, "parts")) {
+		for (TLObject child : RuleExport.objects(((BuildingDefinition) part).getParts())) {
 			result.add(child);
 			collectParts(child, result);
 		}
@@ -282,24 +310,24 @@ public final class Pages {
 			return ApplicationDatapoints.id(target);
 		}
 		if (isRuleParameter(target)) {
-			String rule = text(target.tContainer().tValueByName("identifier"));
-			String parameter = text(target.tValueByName("identifier"));
+			String rule = text(((Rule) target.tContainer()).getIdentifier());
+			String parameter = text(((RuleParameter) target).getIdentifier());
 			return rule == null || parameter == null ? null : RuleLoader.parameterDatapointName(rule, parameter);
 		}
 		if (is(target, "Rule")) {
-			String rule = text(target.tValueByName("identifier"));
+			String rule = text(((Rule) target).getIdentifier());
 			return rule == null ? null : RuleLoader.parameterDatapointName(rule, "enabled");
 		}
 		if (isRuleState(target)) {
-			String rule = target.tContainer() == null ? null : text(target.tContainer().tValueByName("identifier"));
+			String rule = target.tContainer() == null ? null : text(((Rule) target.tContainer()).getIdentifier());
 			return rule == null ? null : RuleLoader.stateDatapointName(rule);
 		}
 		if (isTimeSchedule(target)) {
-			String entry = text(target.tValueByName("identifier"));
+			String entry = text(((ScheduleEntry) target).getIdentifier());
 			return entry == null ? null : Schedule.timeDatapointName(entry);
 		}
 		if (is(target, "Function")) {
-			return text(target.tValueByName("identifier"));
+			return text(((Function) target).getIdentifier());
 		}
 		return null;
 	}
@@ -316,8 +344,11 @@ public final class Pages {
 			|| isRuleState(target) || isTimeSchedule(target) || BlockInstances.isBlockDatapoint(target)) {
 			return String.valueOf(DatapointNames.name(target));
 		}
-		if (is(target, "Function") || is(target, "Rule")) {
-			return String.valueOf(text(target.tValueByName("name")));
+		if (is(target, "Function")) {
+			return String.valueOf(text(((Function) target).getNameKey()));
+		}
+		if (is(target, "Rule")) {
+			return String.valueOf(text(((Rule) target).getNameKey()));
 		}
 		if (ExtIds.isA(target, "ehome.building:BuildingDefinition")) {
 			return BuildingDevices.path(target);
@@ -340,7 +371,7 @@ public final class Pages {
 			return BlockInstances.valueType(datapoint);
 		}
 		if (isRuleParameter(datapoint)) {
-			String type = name(datapoint.tValueByName("type"));
+			String type = name(((RuleParameter) datapoint).getType());
 			if (type == null) {
 				return null;
 			}
@@ -402,9 +433,9 @@ public final class Pages {
 	 */
 	public static Map<TLObject, List<ChartUse>> chartUses(TLObject project) {
 		Map<TLObject, List<ChartUse>> result = new LinkedHashMap<>();
-		for (TLObject page : list(project, "pages")) {
-			for (TLObject section : list(page, "sections")) {
-				for (TLObject element : list(section, "elements")) {
+		for (TLObject page : RuleExport.objects(((Project) project).getPages())) {
+			for (TLObject section : RuleExport.objects(((Page) page).getSections())) {
+				for (TLObject element : RuleExport.objects(((PageSection) section).getElements())) {
 					if (!is(element, "ChartElement")) {
 						continue;
 					}
@@ -413,8 +444,8 @@ public final class Pages {
 						ranges.add(RANGE_SECONDS.get(range));
 					}
 					Object width = width(element);
-					for (TLObject series : list(element, "series")) {
-						if (series.tValueByName("datapoint") instanceof TLObject drawn) {
+					for (TLObject series : RuleExport.objects(((ChartElement) element).getSeries())) {
+						if (((ChartSeries) series).getDatapoint() instanceof TLObject drawn) {
 							// An output of a virtual device: the datapoint it is bound to keeps the history.
 							TLObject datapoint = BlockInstances.historyTarget(drawn);
 							result.computeIfAbsent(datapoint, x -> new ArrayList<>())
@@ -434,7 +465,7 @@ public final class Pages {
 	 */
 	static List<String> offeredRanges(TLObject chart) {
 		Set<String> used = new HashSet<>(presets(chart));
-		String range = name(chart.tValueByName("range"));
+		String range = name(((ChartElement) chart).getRange());
 		used.add(range != null ? range : DEFAULT_RANGE);
 		List<String> result = new ArrayList<>();
 		for (String name : RANGE_ORDER) {
@@ -450,7 +481,7 @@ public final class Pages {
 	 */
 	static List<String> presets(TLObject chart) {
 		Set<String> set = new HashSet<>();
-		if (chart.tValueByName("presets") instanceof Collection<?> presets) {
+		if (((ChartElement) chart).getPresets() instanceof Collection<?> presets) {
 			for (Object preset : presets) {
 				String name = name(preset);
 				if (name != null) {
@@ -478,7 +509,7 @@ public final class Pages {
 	 * The width of a chart in the image: a number of columns or <code>full</code>.
 	 */
 	static Object width(TLObject chart) {
-		String width = name(chart.tValueByName("width"));
+		String width = name(((ChartElement) chart).getWidth());
 		if (width == null) {
 			width = "two";
 		}
@@ -500,7 +531,7 @@ public final class Pages {
 	 * The height of a chart in the image: 2 or 4 tile rows.
 	 */
 	static Long height(TLObject chart) {
-		return Long.valueOf("four".equals(name(chart.tValueByName("height"))) ? 4 : 2);
+		return Long.valueOf("four".equals(name(((ChartElement) chart).getHeight())) ? 4 : 2);
 	}
 
 	// ---- checks at the fields ----------------------------------------------------------------
@@ -522,8 +553,8 @@ public final class Pages {
 		if (project == null) {
 			return null;
 		}
-		for (TLObject other : list(project, "pages")) {
-			if (other != edited((TLObject) page) && text.equals(text(other.tValueByName("identifier")))) {
+		for (TLObject other : RuleExport.objects(((Project) project).getPages())) {
+			if (other != edited((TLObject) page) && text.equals(text(((Page) other).getIdentifier()))) {
 				return I18NConstants.PAGE_IDENTIFIER_DUPLICATE__ID.fill(text);
 			}
 		}
@@ -605,26 +636,26 @@ public final class Pages {
 	 */
 	public static ResKey problem(Object node) {
 		if (is(node, "ChartSeries")) {
-			TLObject series = (TLObject) node;
-			ResKey problem = seriesProblem(series.tValueByName("datapoint"));
-			return problem != null ? problem : consolidationProblem(series.tValueByName("consolidation"), series);
+			ChartSeries series = (ChartSeries) node;
+			ResKey problem = seriesProblem(series.getDatapoint());
+			return problem != null ? problem : consolidationProblem(series.getConsolidation(), series);
 		}
 		if (is(node, "ChartReference")) {
 			return referenceProblem(node);
 		}
 		if (is(node, "ChartElement")) {
 			TLObject chart = (TLObject) node;
-			if (list(chart, "series").isEmpty()) {
+			if (RuleExport.objects(((ChartElement) chart).getSeries()).isEmpty()) {
 				return I18NConstants.CHART_WITHOUT_SERIES;
 			}
 			ResKey problem = axisProblem(chart, "left");
 			return problem != null ? problem : axisProblem(chart, "right");
 		}
-		if (is(node, "RoomElement") && ((TLObject) node).tValueByName("room") instanceof TLObject room
+		if (is(node, "RoomElement") && ((RoomElement) node).getRoom() instanceof TLObject room
 			&& roomFunctions(room).isEmpty()) {
 			return I18NConstants.ROOM_WITHOUT_FUNCTIONS;
 		}
-		if (is(node, "DatapointElement") && ((TLObject) node).tValueByName("datapoint") instanceof TLObject datapoint
+		if (is(node, "DatapointElement") && ((DatapointElement) node).getDatapoint() instanceof TLObject datapoint
 			&& isGroupAddress(datapoint) && valueType(datapoint) == null) {
 			return I18NConstants.ADDRESS_WITHOUT_TYPE;
 		}
@@ -640,30 +671,47 @@ public final class Pages {
 	public static String label(Object node) {
 		Resources resources = Resources.getInstance();
 		if (is(node, "Page")) {
-			return String.valueOf(text(((TLObject) node).tValueByName("name")));
+			return String.valueOf(text(((Page) node).getNameKey()));
 		}
 		if (is(node, "PageSection")) {
-			TLObject section = (TLObject) node;
-			String title = text(section.tValueByName("title"));
+			PageSection section = (PageSection) node;
+			String title = text(section.getTitle());
 			return title != null ? title
 				: resources.getString(I18NConstants.SECTION_NUMBER__N.fill(
-					Integer.valueOf(list(section.tContainer(), "sections").indexOf(section) + 1)));
+					Integer.valueOf(RuleExport.objects(((Page) section.tContainer()).getSections()).indexOf(section) + 1)));
 		}
 		if (!(node instanceof TLObject obj) || !obj.tValid()) {
 			return "";
 		}
-		String label = text(obj.tValueByName("label"));
+		String label = text(label(obj));
 		if (label != null) {
 			return label;
 		}
 		if (is(obj, "ChartElement")) {
 			return resources.getString(I18NConstants.CHART_LABEL);
 		}
-		if (is(obj, "ChartReference") && obj.tValueByName("value") instanceof Number value) {
+		if (is(obj, "ChartReference") && ((ChartReference) obj).getValue() instanceof Number value) {
 			return resources.getString(I18NConstants.REFERENCE_AT__VALUE.fill(value));
 		}
 		TLObject target = target(obj);
 		return target == null ? "" : targetLabel(target);
+	}
+
+	/**
+	 * The label of an element, series or reference line (<code>label</code>, which each declares on
+	 * its own); <code>null</code> for another object.
+	 */
+	private static ResKey label(TLObject obj) {
+		if (obj instanceof PageElement element) {
+			return element.getLabel();
+		}
+		if (obj instanceof ChartSeries series) {
+			return series.getLabel();
+		}
+		if (obj instanceof ChartReference reference) {
+			return reference.getLabel();
+		}
+		return null;
 	}
 
 	/**
@@ -687,17 +735,17 @@ public final class Pages {
 			return List.of();
 		}
 		if (ExtIds.isA(obj, "ehome.project:Project")) {
-			return list(obj, "pages");
+			return RuleExport.objects(((Project) obj).getPages());
 		}
 		if (is(obj, "Page")) {
-			return list(obj, "sections");
+			return RuleExport.objects(((Page) obj).getSections());
 		}
 		if (is(obj, "PageSection")) {
-			return list(obj, "elements");
+			return RuleExport.objects(((PageSection) obj).getElements());
 		}
 		if (is(obj, "ChartElement")) {
-			List<TLObject> result = list(obj, "series");
-			result.addAll(list(obj, "references"));
+			List<TLObject> result = RuleExport.objects(((ChartElement) obj).getSeries());
+			result.addAll(RuleExport.objects(((ChartElement) obj).getReferences()));
 			return result;
 		}
 		return List.of();
@@ -808,9 +856,9 @@ public final class Pages {
 		List<TLObject> created = new ArrayList<>();
 		switch (kind) {
 			case PAGE: {
-				TLObject page = create("Page");
-				page.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_PAGE_NAME));
-				page.tUpdateByName(MINIMUM_ROLE, RuleImport.classifier("PageRole", OPERATOR));
+				Page page = (Page) create("Page");
+				page.setNameKey(FunctionProposal.text(I18NConstants.NEW_PAGE_NAME));
+				page.setMinimumRole(RuleImport.classifier("PageRole", OPERATOR));
 				created.add(page);
 				break;
 			}
@@ -818,16 +866,17 @@ public final class Pages {
 				created.add(create("PageSection"));
 				break;
 			case CHART: {
-				TLObject chart = create("ChartElement");
-				chart.tUpdateByName("width", RuleImport.classifier("ChartWidth", "two"));
-				chart.tUpdateByName("height", RuleImport.classifier("ChartHeight", "two"));
-				chart.tUpdateByName("range", RuleImport.classifier("ChartRange", "day"));
+				ChartElement chart = (ChartElement) create("ChartElement");
+				chart.setWidth(RuleImport.classifier("ChartWidth", "two"));
+				chart.setHeight(RuleImport.classifier("ChartHeight", "two"));
+				chart.setRange(RuleImport.classifier("ChartRange", "day"));
 				created.add(chart);
 				break;
 			}
 			case REFERENCE: {
-				TLObject reference = create("ChartReference");
-				reference.tUpdateByName("value", Double.valueOf(0));
+				ChartReference reference = (ChartReference) create("ChartReference");
+				reference.setValue(Double.valueOf(0));
+
 				created.add(reference);
 				break;
 			}

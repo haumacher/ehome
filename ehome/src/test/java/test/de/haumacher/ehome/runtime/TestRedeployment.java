@@ -10,11 +10,12 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import junit.framework.Test;
@@ -40,6 +41,7 @@ import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.SearchBuilder;
@@ -55,6 +57,13 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Page;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.project.ProjectMembers;
@@ -64,7 +73,6 @@ import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.Json;
-import de.haumacher.ehome.runtime.LastValidImages;
 import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.runtime.binary.ImageDecoder;
@@ -125,7 +133,7 @@ public class TestRedeployment extends BasicTestCase {
 		importSample("samples/KNX-Testsystem.knxproj");
 		List<TLObject> projects = SharedData.newProjects(before);
 		assertEquals(1, projects.size());
-		TLObject project = projects.get(0);
+		Project project = (Project) projects.get(0);
 		List<TLObject> controllers = new ArrayList<>();
 		try {
 			// State A: the test home with its functions and a page without sign-in (format 1.1).
@@ -135,12 +143,12 @@ public class TestRedeployment extends BasicTestCase {
 			TLObject lab = TestFunctionProposal.createLocation(project, null, "ehome.building:Room", "Test system");
 			TestFunctionProposal.update(TestFunctionProposal.device(project, "1.3.5"), "location", lab);
 			List<TLObject> functions = TestFunctionProposal.apply(project);
-			TLObject temperature = address(project, "Raumtemperatur");
-			TLObject page;
+			GroupAddress temperature = (GroupAddress) address(project, "Raumtemperatur");
+			Page page;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				page = Pages.insert(project, null, Pages.PAGE, null);
-				page.tUpdateByName("identifier", "home");
-				page.tUpdateByName(Pages.MINIMUM_ROLE, classifier("PageRole", Pages.ANONYMOUS));
+				page = (Page) Pages.insert(project, null, Pages.PAGE, null);
+				page.setIdentifier("home");
+				page.setMinimumRole(classifier("PageRole", Pages.ANONYMOUS));
 				TLObject section = Pages.insert(project, page, Pages.SECTION, null);
 				Pages.insert(project, section, Pages.ROOM, List.of(lab));
 				Pages.insert(project, section, Pages.FUNCTION, List.of(functions.get(0)));
@@ -149,48 +157,48 @@ public class TestRedeployment extends BasicTestCase {
 				Pages.insert(project, chart, Pages.SERIES, List.of(temperature));
 				tx.commit();
 			}
-			TLObject controller = controller(NAME, _fake.getPort());
+			Controller controller = (Controller) controller(NAME, _fake.getPort());
 			controllers.add(controller);
 			ControllerFixture.deployTo(project, controller);
 			Keys key = InstallationKeys.create(project);
 			_fake.setKey(key.publicKey());
 			_fake.setFormat("1.1");
 
-			TLObject a = Deployer.deploy(project, T_A);
+			Deployment a = (Deployment) Deployer.deploy(project, T_A);
 			assertAccepted(a, 1);
 			byte[] imageA = _fake.getStored();
 			Deployer.State stateA = Deployer.state(a);
 			assertEquals(T_A, stateA.generatedAt());
 			// The commit the image was compiled from, before the record (the controller was asked in between).
-			assertEquals(Long.valueOf(stateA.commit()), a.tValueByName(Deployer.SOURCE_REVISION));
+			assertEquals(Long.valueOf(stateA.commit()), a.getSourceRevision());
 			assertTrue(stateA.commit() < a.tHandle().getCreateCommitNumber());
 			// The image compiled again from the state of the deployment is the one the controller received,
 			// byte for byte, the signature included.
 			TLObject sourceA = Deployer.source(project, stateA);
 			assertFalse(WrapperHistoryUtils.isCurrent(sourceA));
 			assertTrue(Arrays.equals(imageA, RuntimeImage.build(sourceA, 1, T_A).compile(key.seed())));
-			assertTrue(Arrays.equals(imageA, bytes(a.tValueByName(LastValidImages.IMAGE))));
+			assertTrue(Arrays.equals(imageA, bytes(a.getImage())));
 			String textA = RuntimeImage.build(project, 1, T_A).getText();
 
 			// State B: an address added, an address renamed, a rule deleted, a function and the page changed,
 			// the connections of an address deleted, the NTP server set.
-			TLObject added;
+			GroupAddress added;
 			List<TLObject> connections;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				added = ModelService.getInstance().getFactory()
+				added = (GroupAddress) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
-				added.tUpdateByName("name", "Added after A");
-				added.tUpdateByName("address", new GA(61, null));
-				added.tUpdateByName("datapointTypes", List.of(GroupAddressTypes.declaredType(temperature)));
-				List<Object> addresses = new ArrayList<>((Collection<?>) project.tValueByName("groupAddresses"));
+				added.setName("Added after A");
+				added.setAddress(new GA(61, null));
+				added.setDatapointTypes(List.of(GroupAddressTypes.declaredType(temperature)));
+				Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(project.getGroupAddresses());
 				addresses.add(added);
-				project.tUpdateByName("groupAddresses", addresses);
-				temperature.tUpdateByName("name", "Renamed after A");
-				((TLObject) ((List<?>) project.tValueByName("rules")).get(0)).tDelete();
-				functions.get(1).tUpdateByName("identifier", "changed-after-a");
-				page.tUpdateByName("identifier", "changed");
-				page.tUpdateByName(Pages.MINIMUM_ROLE, classifier("PageRole", Pages.OPERATOR));
-				project.tUpdateByName("ntpServer", "ntp.example.org");
+				project.setGroupAddresses(addresses);
+				temperature.setName("Renamed after A");
+				project.getRules().get(0).tDelete();
+				((Function) functions.get(1)).setIdentifier("changed-after-a");
+				page.setIdentifier("changed");
+				page.setMinimumRole(classifier("PageRole", Pages.OPERATOR));
+				project.setNtpServer("ntp.example.org");
 				// The connections of the room temperature (its type is its own): what its objects derive is gone.
 				connections = GroupAddressConnections.connections(temperature);
 				for (TLObject connection : connections) {
@@ -203,10 +211,10 @@ public class TestRedeployment extends BasicTestCase {
 			assertFalse(textA.equals(imageB.getText()));
 			assertFalse(connections.isEmpty());
 			assertEquals(List.of(), GroupAddressConnections.connections(temperature));
-			TLObject b = Deployer.deploy(project, T_B);
+			Deployment b = (Deployment) Deployer.deploy(project, T_B);
 			assertAccepted(b, 2);
 			// Only the newest accepted deployment keeps its image (haumacher/ehome #176).
-			assertNull(a.tValueByName(LastValidImages.IMAGE));
+			assertNull(a.getImage());
 
 			// The image of A compiled again: the project as of A, nothing of B.
 			RuntimeImage again = RuntimeImage.build(Deployer.source(project, stateA), 1, T_A);
@@ -234,7 +242,7 @@ public class TestRedeployment extends BasicTestCase {
 
 			// Deploy again: the question names the deployment it goes back to and what differs from B.
 			assertNull(Deployer.redeployVeto(project, a));
-			String time = Deployer.time(a.tValueByName("time"));
+			String time = Deployer.time(a.getTime());
 			String confirmation = ImageComparison.redeployConfirmation(project, a);
 			assertTrue(confirmation, confirmation.startsWith(text(I18NConstants.CONFIRM_REDEPLOY__REVISION_TIME_NEXT_CONTROLLER
 				.fill(Long.valueOf(1), time, Long.valueOf(3), NAME))));
@@ -246,29 +254,29 @@ public class TestRedeployment extends BasicTestCase {
 			// anything is sent, the record names the deployment it goes back to.
 			_fake.setFormat("1.0");
 			int puts = _fake.getPuts();
-			TLObject old = Deployer.redeploy(project, a, T_C);
-			assertEquals(Boolean.FALSE, old.tValueByName("accepted"));
-			assertEquals(Deployer.CODE_FORMAT, old.tValueByName("code"));
+			Deployment old = (Deployment) Deployer.redeploy(project, a, T_C);
+			assertEquals(Boolean.FALSE, Boolean.valueOf(old.getAccepted()));
+			assertEquals(Deployer.CODE_FORMAT, old.getCode());
 			assertEquals(puts, _fake.getPuts());
 			assertEquals(from + " " + text(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill(NAME, "1.0", "1.1")),
-				old.tValueByName("message"));
+				old.getMessage());
 			assertEquals(stateA, Deployer.state(old));
 			_fake.setFormat("1.1");
 
 			// Accepted: A's image with the next revision, signed with the key the controller holds.
-			TLObject c = Deployer.redeploy(project, a, T_C);
+			Deployment c = (Deployment) Deployer.redeploy(project, a, T_C);
 			assertAccepted(c, 3);
-			assertTrue(String.valueOf(c.tValueByName("message")), String.valueOf(c.tValueByName("message")).startsWith(from));
+			assertTrue(String.valueOf(c.getMessage()), String.valueOf(c.getMessage()).startsWith(from));
 			byte[] imageC = _fake.getStored();
 			assertTrue(Arrays.equals(RuntimeImage.build(Deployer.source(project, stateA), 3, T_A).compile(key.seed()), imageC));
 			assertEquals(Json.write(withRevision(ImageDecoder.decode(imageA), 3)), Json.write(ImageDecoder.decode(imageC)));
-			assertEquals(Long.valueOf(3), project.tValueByName("imageRevision"));
-			assertEquals(List.of(c, old, b, a), project.tValueByName("deployments"));
+			assertEquals(Long.valueOf(3), project.getImageRevision());
+			assertEquals(List.of(c, old, b, a), project.getDeployments());
 			assertEquals(stateA, Deployer.state(c));
 			// The record keeps the commit it compiled from and the deployment it went back to.
-			assertEquals(Long.valueOf(stateA.commit()), c.tValueByName(Deployer.SOURCE_REVISION));
-			assertEquals(a, c.tValueByName(Deployer.REDEPLOYED_FROM));
-			assertNull(a.tValueByName(Deployer.REDEPLOYED_FROM));
+			assertEquals(Long.valueOf(stateA.commit()), c.getSourceRevision());
+			assertEquals(a, c.getRedeployedFrom());
+			assertNull(a.getRedeployedFrom());
 			assertEquals(text(I18NConstants.DEPLOYMENT_LABEL__REVISION_TIME.fill(Long.valueOf(1), time)),
 				MetaLabelProvider.INSTANCE.getLabel(a));
 
@@ -278,7 +286,7 @@ public class TestRedeployment extends BasicTestCase {
 				confirmation.startsWith(text(I18NConstants.COMPARE_IDENTICAL_EARLIER__REVISION.fill(Long.valueOf(3)))));
 
 			// Deploying the deployment that went back to A again is A's image once more.
-			TLObject d = Deployer.redeploy(project, c, T_C);
+			Deployment d = (Deployment) Deployer.redeploy(project, c, T_C);
 			assertAccepted(d, 4);
 			assertEquals(Json.write(withRevision(ImageDecoder.decode(imageA), 4)),
 				Json.write(ImageDecoder.decode(_fake.getStored())));
@@ -286,20 +294,19 @@ public class TestRedeployment extends BasicTestCase {
 			// A refusal of the image of A names the objects of the project as they are now.
 			_fake.refuseNext(422, "image.invalid", "the image is invalid",
 				List.of(new Refusal("datapoints[0].knx.dpt", "refused for the test")));
-			TLObject refused = Deployer.redeploy(project, a, T_C);
-			assertEquals(Boolean.FALSE, refused.tValueByName("accepted"));
+			Deployment refused = (Deployment) Deployer.redeploy(project, a, T_C);
+			assertEquals(Boolean.FALSE, Boolean.valueOf(refused.getAccepted()));
 			// A deployment no controller accepted is no state to go back to.
-			assertEquals(I18NConstants.ERROR_REDEPLOY_NOT_ACCEPTED__REVISION.fill(refused.tValueByName("revision")),
+			assertEquals(I18NConstants.ERROR_REDEPLOY_NOT_ACCEPTED__REVISION.fill(refused.getRevision()),
 				Deployer.redeployVeto(project, refused));
-			TLObject element = (TLObject) ((TLObject) ((List<?>) refused.tValueByName("refusals")).get(0))
-				.tValueByName("element");
+			TLObject element = refused.getRefusals().get(0).getElement();
 			assertNotNull(element);
 			assertTrue(WrapperHistoryUtils.isCurrent(element));
 			assertEquals(WrapperHistoryUtils.getCurrent(again.getDatapointSources().get(0)), element);
 			// The last valid deployment went again, recorded as an entry of its own, which has no state.
-			TLObject resent = (TLObject) ((List<?>) project.tValueByName("deployments")).get(0);
-			assertEquals(Boolean.TRUE, resent.tValueByName("accepted"));
-			assertNull(resent.tValueByName(Deployer.SOURCE_REVISION));
+			Deployment resent = project.getDeployments().get(0);
+			assertEquals(Boolean.TRUE, Boolean.valueOf(resent.getAccepted()));
+			assertNull(resent.getSourceRevision());
 			assertNull(Deployer.state(resent));
 			assertEquals(I18NConstants.ERROR_REDEPLOY_RESENT__REVISION.fill(Long.valueOf(4)),
 				Deployer.redeployVeto(project, resent));
@@ -307,7 +314,7 @@ public class TestRedeployment extends BasicTestCase {
 			// A deployment recorded before haumacher/ehome #192 (without the commit it was compiled from): its
 			// state is the revision before its record.
 			String textNow = RuntimeImage.build(project, 9, T_B).getText();
-			TLObject legacy = legacy(project, controller, "loaded", I18NConstants.COMMIT_DEPLOYED__PROJECT_CONTROLLER_REVISION
+			Deployment legacy = (Deployment) legacy(project, controller, "loaded", I18NConstants.COMMIT_DEPLOYED__PROJECT_CONTROLLER_REVISION
 				.fill(MetaLabelProvider.INSTANCE.getLabel(project), NAME, Long.valueOf(9)));
 			Deployer.State legacyState = Deployer.state(legacy);
 			assertEquals(legacy.tHandle().getCreateCommitNumber() - 1, legacyState.commit());
@@ -315,17 +322,17 @@ public class TestRedeployment extends BasicTestCase {
 			TestFunctionProposal.update(project, "ntpServer", "ntp.changed.example.org");
 			assertFalse(textNow.equals(RuntimeImage.build(project, 9, T_B).getText()));
 			assertEquals(textNow, RuntimeImage.build(Deployer.source(project, legacyState), 9, T_B).getText());
-			TLObject fromLegacy = Deployer.redeploy(project, legacy, T_C);
+			Deployment fromLegacy = (Deployment) Deployer.redeploy(project, legacy, T_C);
 			assertAccepted(fromLegacy, 5);
 			assertTrue(Arrays.equals(RuntimeImage.build(Deployer.source(project, legacyState), 5, T_B).compile(key.seed()),
 				_fake.getStored()));
 			// One that sent an earlier image again (it read no status of the controller) has none.
-			TLObject legacyResend = legacy(project, controller, null, I18NConstants.COMMIT_DEPLOYED__PROJECT_CONTROLLER_REVISION
+			Deployment legacyResend = (Deployment) legacy(project, controller, null, I18NConstants.COMMIT_DEPLOYED__PROJECT_CONTROLLER_REVISION
 				.fill(MetaLabelProvider.INSTANCE.getLabel(project), NAME, Long.valueOf(9)));
 			assertNull(Deployer.state(legacyResend));
 
 			// An unload, nothing selected, an entry of another project.
-			TLObject unload = Deployer.unload(project, T_C);
+			Deployment unload = (Deployment) Deployer.unload(project, T_C);
 			assertEquals(I18NConstants.ERROR_REDEPLOY_UNLOAD, Deployer.redeployVeto(project, unload));
 			assertEquals(I18NConstants.ERROR_REDEPLOY_NO_DEPLOYMENT, Deployer.redeployVeto(project, null));
 			TLObject other = TestRuleAuthoring.createProject();
@@ -368,17 +375,17 @@ public class TestRedeployment extends BasicTestCase {
 	 */
 	private static TLObject legacy(TLObject project, TLObject controller, String before, ResKey message) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(message)) {
-			TLObject deployment = ModelService.getInstance().getFactory()
+			Deployment deployment = (Deployment) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Deployment"));
-			deployment.tUpdateByName("revision", Long.valueOf(9));
-			deployment.tUpdateByName("time", Date.from(T_B));
-			deployment.tUpdateByName("controller", controller);
-			deployment.tUpdateByName("accepted", Boolean.TRUE);
-			deployment.tUpdateByName("before", before);
-			List<Object> deployments = new ArrayList<>();
+			deployment.setRevision(Long.valueOf(9));
+			deployment.setTime(Date.from(T_B));
+			deployment.setController((Controller) controller);
+			deployment.setAccepted(Boolean.TRUE);
+			deployment.setBefore(before);
+			List<Deployment> deployments = new ArrayList<>();
 			deployments.add(deployment);
-			deployments.addAll((Collection<?>) project.tValueByName("deployments"));
-			project.tUpdateByName("deployments", deployments);
+			deployments.addAll(((Project) project).getDeployments());
+			((Project) project).setDeployments(deployments);
 			tx.commit();
 			return deployment;
 		}
@@ -406,35 +413,37 @@ public class TestRedeployment extends BasicTestCase {
 
 	private static TLObject address(TLObject project, String name) {
 		return SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
-			.filter(a -> name.equals(a.tValueByName("name"))).findFirst().orElseThrow();
+			.filter(a -> name.equals(((GroupAddress) a).getName())).findFirst().orElseThrow();
 	}
 
-	private static Object classifier(String enumeration, String name) {
+	private static TLClassifier classifier(String enumeration, String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:" + enumeration)).getClassifier(name);
 	}
 
 	private static TLObject controller(String name, int port) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject controller = ModelService.getInstance().getFactory()
+			Controller controller = (Controller) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", name);
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(port));
-			controller.tUpdateByName("token", TOKEN);
+			controller.setName(name);
+			controller.setHost("127.0.0.1");
+			controller.setPort(Integer.valueOf(port));
+			controller.setToken(TOKEN);
 			tx.commit();
 			return controller;
 		}
 	}
 
-	private static void assertAccepted(TLObject deployment, long revision) {
+	private static void assertAccepted(TLObject object, long revision) {
+		Deployment deployment = (Deployment) object;
 		List<String> refusals = new ArrayList<>();
-		for (Object refusal : (Collection<?>) deployment.tValueByName("refusals")) {
-			refusals.add(((TLObject) refusal).tValueByName("path") + ": " + ((TLObject) refusal).tValueByName("reason"));
+		for (de.haumacher.ehome.model.runtime.Refusal refusal : deployment.getRefusals()) {
+			refusals.add(refusal.getPath() + ": " + refusal.getReason());
 		}
-		assertEquals(deployment.tValueByName("message") + " " + refusals, Boolean.TRUE, deployment.tValueByName("accepted"));
-		assertEquals(Long.valueOf(revision), deployment.tValueByName("revision"));
-		assertEquals(List.of(), deployment.tValueByName("refusals"));
+		assertEquals(deployment.getMessage() + " " + refusals, Boolean.TRUE, Boolean.valueOf(deployment.getAccepted()));
+		assertEquals(Long.valueOf(revision), deployment.getRevision());
+		assertEquals(List.of(), deployment.getRefusals());
 	}
+
 
 	private static byte[] bytes(Object data) throws Exception {
 		try (InputStream in = ((BinaryData) data).getStream()) {

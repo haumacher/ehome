@@ -27,6 +27,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 
 /**
@@ -54,19 +56,19 @@ public class TestFunctionWiringProbe extends BasicTestCase {
 			assertEquals(FIXTURES.size(), projects.size());
 			for (TLObject project : projects) {
 				run(project);
-				String projectName = String.valueOf(project.tValueByName("name"));
+				String projectName = String.valueOf(((Project) project).getName());
 				Set<String> names = new HashSet<>();
 				Map<TLObject, String> devicePart = new HashMap<>();
-				for (TLObject function : FunctionProposal.functions(project)) {
+				for (Function function : ((Project) project).getFunctions()) {
 					String name = TestFunctionProposal.name(function);
 					assertTrue(projectName + ": duplicate name " + name, names.add(name));
-					Object room = function.tValueByName("room");
+					Object room = function.getRoom();
 					if (room instanceof TLObject location) {
 						assertFalse(projectName + ": " + name + " placed in a distribution board",
 							TLModelUtil.qualifiedName(location.tType()).equals("ehome.building:DistributionBoard"));
 					}
 					if (Boolean.TRUE.equals(function.tValueByName("unused"))
-						&& function.tValueByName("device") instanceof TLObject device) {
+						&& function.getDevice() instanceof TLObject device) {
 						int colon = name.lastIndexOf(": ");
 						assertTrue(name, colon > 0);
 						String part = name.substring(0, colon);
@@ -77,9 +79,12 @@ public class TestFunctionWiringProbe extends BasicTestCase {
 				}
 
 				// A name the user gave an unused function survives the next run.
-				for (TLObject function : FunctionProposal.functions(project)) {
+				for (Function function : ((Project) project).getFunctions()) {
 					if (Boolean.TRUE.equals(function.tValueByName("unused"))) {
-						TestFunctionProposal.update(function, "name", ResKey.text("Mein Name"));
+						try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+							function.setNameKey(ResKey.text("Mein Name"));
+							tx.commit();
+						}
 						run(project);
 						assertEquals("Mein Name", TestFunctionProposal.name(function));
 						break;

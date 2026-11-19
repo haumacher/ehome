@@ -14,10 +14,12 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.blocks.BlockType;
-import de.haumacher.ehome.blocks.Manifest;
 import de.haumacher.ehome.blocks.Manifest.Choice;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.blocks.Manifest;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.BlockInstance;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 
 /**
@@ -61,7 +63,7 @@ public final class BlockDiagnostics {
 		if (!loaded.loaded()) {
 			return text(I18NConstants.BLOCK_DIAG_NOT_DEPLOYED__STATUS.fill(loaded.text()));
 		}
-		String projectId = Objects.toString(project.tValueByName("extId"), "");
+		String projectId = Objects.toString(((Project) project).getExtId(), "");
 		if (!projectId.equals(loaded.project())) {
 			return text(I18NConstants.BLOCK_DIAG_OTHER_PROJECT__STATUS.fill(loaded.text()));
 		}
@@ -104,7 +106,8 @@ public final class BlockDiagnostics {
 	 */
 	public static String format(TLObject instance, Map<?, ?> block, long now, Long revision) {
 		BlockType type = BlockInstances.type(instance);
-		String typeId = String.valueOf(instance.tValueByName("blockType"));
+		String typeId = String.valueOf(((BlockInstance) instance).getBlockType());
+
 		Manifest m = type == null ? null : type.manifest();
 		List<String> lines = new ArrayList<>();
 		Object rev = revision == null ? "?" : revision;

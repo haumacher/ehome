@@ -26,6 +26,8 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuntimeImage;
@@ -184,7 +186,7 @@ public class TestRuntimeImage extends BasicTestCase {
 			int index = datapoints.indexOf(datapoint(datapoints, "0/0/34"));
 			TLObject address = image.elementAt("datapoints[" + index + "].knx.send");
 			assertNotNull(address);
-			assertEquals("KanalA", address.tValueByName("name"));
+			assertEquals("KanalA", ((GroupAddress) address).getName());
 			assertNull(image.elementAt("image.projectId"));
 		} finally {
 			SharedData.deleteProjects(projects);
@@ -237,7 +239,7 @@ public class TestRuntimeImage extends BasicTestCase {
 			for (int n = 0; n < locations.size(); n++) {
 				TLObject part = image.elementAt("locations[" + n + "].parent");
 				assertNotNull(part);
-				assertEquals(((Map<?, ?>) locations.get(n)).get("label"), part.tValueByName("name"));
+				assertEquals(((Map<?, ?>) locations.get(n)).get("label"), ((BuildingDefinition) part).getName());
 			}
 		} finally {
 			SharedData.deleteProjects(projects);
@@ -245,12 +247,12 @@ public class TestRuntimeImage extends BasicTestCase {
 	}
 
 	private static void setDatapointType(TLObject project, String addressName, String typeId) {
-		TLObject address = SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
-			.filter(a -> addressName.equals(a.tValueByName("name"))).findFirst().orElseThrow();
+		GroupAddress address = (GroupAddress) SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
+			.filter(a -> addressName.equals(((GroupAddress) a).getName())).findFirst().orElseThrow();
 		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
 			.filter(t -> typeId.equals(t.tValueByName("extId"))).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			address.tUpdateByName("datapointTypes", List.of(type));
+			address.setDatapointTypes(List.of(type));
 			tx.commit();
 		}
 	}

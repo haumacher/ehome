@@ -9,9 +9,11 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -31,6 +33,11 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
@@ -82,12 +89,12 @@ public class TestDeployment extends BasicTestCase {
 		List<TLObject> controllers = new ArrayList<>();
 		try {
 			assertEquals(1, projects.size());
-			TLObject project = projects.get(0);
+			Project project = (Project) projects.get(0);
 
 			// Without a controller and without a token, the deployment is refused before anything is sent.
 			assertEquals(I18NConstants.ERROR_NO_CONTROLLER, Deployer.veto(project));
 			assertEquals(text(I18NConstants.ERROR_NO_CONTROLLER), ControllerStatus.drift(project));
-			TLObject controller = controller("Fake", _fake.getPort(), null);
+			Controller controller = (Controller) controller("Fake", _fake.getPort(), null);
 			controllers.add(controller);
 			ControllerFixture.deployTo(project, controller);
 			assertNotNull(Deployer.veto(project));
@@ -97,29 +104,29 @@ public class TestDeployment extends BasicTestCase {
 			} catch (TopLogicException ex) {
 				assertEquals(I18NConstants.ERROR_NO_TOKEN__CONTROLLER.fill("Fake"), ex.getErrorKey());
 			}
-			update(controller, "token", TOKEN);
+			update(() -> controller.setToken(TOKEN));
 			assertNull(Deployer.veto(project));
 			assertEquals(text(I18NConstants.DRIFT_NEVER_DEPLOYED) + "\n" + text(I18NConstants.STATUS_NO_IMAGE),
 				ControllerStatus.drift(project));
 
 			// Accepted: the revision advances, the controller runs the image E-Home built.
-			TLObject first = Deployer.deploy(project, NOW);
+			Deployment first = (Deployment) Deployer.deploy(project, NOW);
 			assertAccepted(first, 1);
-			assertEquals(text(I18NConstants.STATUS_NO_IMAGE), first.tValueByName("before"));
+			assertEquals(text(I18NConstants.STATUS_NO_IMAGE), first.getBefore());
 			// The controller got the binary image compiled from the source (haumacher/ehome #176).
 			assertTrue(Arrays.equals(RuntimeImage.build(project, 1, NOW).compile(null), _fake.getStored()));
-			assertEquals(Integer.valueOf(_fake.getStored().length), first.tValueByName("bytes"));
-			assertEquals(Long.valueOf(1), project.tValueByName("imageRevision"));
+			assertEquals(Integer.valueOf(_fake.getStored().length), first.getBytes());
+			assertEquals(Long.valueOf(1), project.getImageRevision());
 			assertTrue(ControllerStatus.drift(project),
 				ControllerStatus.drift(project).startsWith(text(I18NConstants.DRIFT_IN_SYNC__REVISION.fill(1L))));
 			// The controller still stores the previous image (homecontrol #68): the image is sent again after a
 			// second and accepted.
 			int sent = _fake.getPuts();
 			_fake.refuseNext(503, Deployer.CODE_BUSY, "an image is being stored", List.of());
-			TLObject second = Deployer.deploy(project, NOW);
+			Deployment second = (Deployment) Deployer.deploy(project, NOW);
 			assertEquals(sent + 2, _fake.getPuts());
 			assertAccepted(second, 2);
-			assertEquals(List.of(second, first), project.tValueByName("deployments"));
+			assertEquals(List.of(second, first), project.getDeployments());
 			int datapoints = RuntimeImage.build(project, 2, NOW).getDatapointSources().size();
 			assertTrue(datapoints > 0);
 
@@ -129,25 +136,25 @@ public class TestDeployment extends BasicTestCase {
 			_fake.refuseNext(422, "image.invalid", "the image is invalid",
 				List.of(new Refusal("datapoints[0].knx.dpt", "DPT 9.001 carries real values, the datapoint is boolean"),
 					new Refusal("", "something about the whole image")));
-			TLObject refused = Deployer.deploy(project, NOW);
+			Deployment refused = (Deployment) Deployer.deploy(project, NOW);
 			assertRefused(refused, 3, 422, "image.invalid");
-			List<?> refusals = (List<?>) refused.tValueByName("refusals");
+			List<?> refusals = (List<?>) refused.getRefusals();
 			assertEquals(2, refusals.size());
-			assertEquals(Integer.valueOf(2), refused.tValueByName("total"));
-			TLObject refusal = (TLObject) refusals.get(0);
-			assertEquals("datapoints[0].knx.dpt", refusal.tValueByName("path"));
-			assertEquals("DPT 9.001 carries real values, the datapoint is boolean", refusal.tValueByName("reason"));
-			assertEquals(RuntimeImage.build(project, 3, NOW).getDatapointSources().get(0), refusal.tValueByName("element"));
-			assertNull(((TLObject) refusals.get(1)).tValueByName("element"));
+			assertEquals(Integer.valueOf(2), refused.getTotal());
+			de.haumacher.ehome.model.runtime.Refusal refusal = (de.haumacher.ehome.model.runtime.Refusal) refusals.get(0);
+			assertEquals("datapoints[0].knx.dpt", refusal.getPath());
+			assertEquals("DPT 9.001 carries real values, the datapoint is boolean", refusal.getReason());
+			assertEquals(RuntimeImage.build(project, 3, NOW).getDatapointSources().get(0), refusal.getElement());
+			assertNull(((de.haumacher.ehome.model.runtime.Refusal) refusals.get(1)).getElement());
 			// The controller's refusals are English only: no message.
-			assertNull(refusal.tValueByName("message"));
+			assertNull(refusal.getMessage());
 			assertEquals(text(I18NConstants.DEPLOY_REFUSED__STATUS_ERROR.fill(422, "the image is invalid")) + " "
-				+ text(I18NConstants.DEPLOY_RESENT__REVISION.fill(2L)), refused.tValueByName("message"));
-			List<?> deployments = (List<?>) project.tValueByName("deployments");
-			TLObject resent = (TLObject) deployments.get(0);
+				+ text(I18NConstants.DEPLOY_RESENT__REVISION.fill(2L)), refused.getMessage());
+			List<?> deployments = (List<?>) project.getDeployments();
+			Deployment resent = (Deployment) (TLObject) deployments.get(0);
 			assertEquals(refused, deployments.get(1));
 			assertAccepted(resent, 2);
-			assertEquals(text(I18NConstants.RESEND_ACCEPTED__REVISION.fill("2")), resent.tValueByName("message"));
+			assertEquals(text(I18NConstants.RESEND_ACCEPTED__REVISION.fill("2")), resent.getMessage());
 			assertTrue(Arrays.equals(RuntimeImage.build(project, 2, NOW).compile(null), _fake.getStored()));
 
 			// Every other refusal code of the protocol: from the header (the image runs on), or after the erase
@@ -159,69 +166,69 @@ public class TestDeployment extends BasicTestCase {
 				assertRefused(Deployer.deploy(project, NOW), 3, code.getValue(), code.getKey());
 				assertNotNull(code.getKey(), _fake.getLoaded());
 			}
-			assertEquals(Long.valueOf(2), project.tValueByName("imageRevision"));
+			assertEquals(Long.valueOf(2), project.getImageRevision());
 			// The controller still runs revision 2, the last one deployed.
 			assertTrue(ControllerStatus.drift(project).startsWith(text(I18NConstants.DRIFT_IN_SYNC__REVISION.fill(2L))));
 
 			// A wrong token: 401, and nothing is loaded.
 			int puts = _fake.getPuts();
-			update(controller, "token", "hct_ffffffffffffffffffffffffffffffff");
+			update(() -> controller.setToken("hct_ffffffffffffffffffffffffffffffff"));
 			assertRefused(Deployer.deploy(project, NOW), 3, 401, "auth.token_invalid");
 			assertEquals(puts, _fake.getPuts());
 			assertTrue(ControllerStatus.drift(project).contains("401"));
-			update(controller, "token", TOKEN);
+			update(() -> controller.setToken(TOKEN));
 
 			// An image larger than the controller's slot: refused before it is sent.
 			FakeController small = new FakeController(TOKEN, 100);
 			try {
-				update(controller, "port", small.getPort());
-				TLObject tooLarge = Deployer.deploy(project, NOW);
+				update(() -> controller.setPort(small.getPort()));
+				Deployment tooLarge = (Deployment) Deployer.deploy(project, NOW);
 				assertRefused(tooLarge, 3, null, Deployer.CODE_TOO_LARGE);
-				assertEquals(text(I18NConstants.DEPLOY_TOO_LARGE__BYTES_SLOT.fill(tooLarge.tValueByName("bytes"), 100L)),
-					tooLarge.tValueByName("message"));
+				assertEquals(text(I18NConstants.DEPLOY_TOO_LARGE__BYTES_SLOT.fill(tooLarge.getBytes(), 100L)),
+					tooLarge.getMessage());
 				assertEquals(0, small.getPuts());
 			} finally {
 				small.stop();
 			}
 			// Nobody listens any more.
-			TLObject unreachable = Deployer.deploy(project, NOW);
+			Deployment unreachable = (Deployment) Deployer.deploy(project, NOW);
 			assertRefused(unreachable, 3, null, Deployer.CODE_UNREACHABLE);
-			update(controller, "port", _fake.getPort());
+			update(() -> controller.setPort(_fake.getPort()));
 
 			// An image E-Home refuses itself is not sent: two group addresses with the same address.
-			TLObject original = RuntimeImage.build(project, 3, NOW).getDatapointSources().get(0);
-			TLObject copy;
+			GroupAddress original = (GroupAddress) RuntimeImage.build(project, 3, NOW).getDatapointSources().get(0);
+			GroupAddress copy;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				copy = ModelService.getInstance().getFactory()
+				copy = (GroupAddress) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
-				copy.tUpdateByName("name", "Copy");
-				copy.tUpdateByName("address", original.tValueByName("address"));
-				copy.tUpdateByName("datapointTypes", List.of(GroupAddressTypes.declaredType(original)));
-				List<Object> addresses = new ArrayList<>((java.util.Collection<?>) project.tValueByName("groupAddresses"));
+				copy.setName("Copy");
+				copy.setAddress(original.getAddress());
+				copy.setDatapointTypes(List.of(GroupAddressTypes.declaredType(original)));
+				Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(project.getGroupAddresses());
 				addresses.add(copy);
-				project.tUpdateByName("groupAddresses", addresses);
+				project.setGroupAddresses(addresses);
 				tx.commit();
 			}
 			puts = _fake.getPuts();
-			TLObject invalid = Deployer.deploy(project, NOW);
+			Deployment invalid = (Deployment) Deployer.deploy(project, NOW);
 			assertRefused(invalid, 3, null, Deployer.CODE_INVALID);
 			assertEquals(puts, _fake.getPuts());
-			List<?> local = (List<?>) invalid.tValueByName("refusals");
+			List<?> local = (List<?>) invalid.getRefusals();
 			assertFalse(local.isEmpty());
-			TLObject duplicate = (TLObject) local.get(0);
-			assertTrue(String.valueOf(duplicate.tValueByName("path")).endsWith(".id"));
-			assertTrue(String.valueOf(duplicate.tValueByName("reason")).startsWith("duplicate id"));
+			de.haumacher.ehome.model.runtime.Refusal duplicate = (de.haumacher.ehome.model.runtime.Refusal) local.get(0);
+			assertTrue(String.valueOf(duplicate.getPath()).endsWith(".id"));
+			assertTrue(String.valueOf(duplicate.getReason()).startsWith("duplicate id"));
 			// The finding for the user, stored in both languages (haumacher/ehome #95).
-			ResKey message = (ResKey) duplicate.tValueByName("message");
+			ResKey message = (ResKey) duplicate.getMessage();
 			assertNotNull(message);
 			assertTrue(Resources.getInstance(Locale.GERMAN).getString(message),
 				Resources.getInstance(Locale.GERMAN).getString(message).startsWith("Die ID „"));
 			assertTrue(Resources.getInstance(Locale.ENGLISH).getString(message),
 				Resources.getInstance(Locale.ENGLISH).getString(message).startsWith("The id \""));
-			assertTrue(duplicate.tValueByName("element") == copy || duplicate.tValueByName("element") == original);
+			assertTrue(duplicate.getElement() == copy || duplicate.getElement() == original);
 
 			// Drift: the project claims a revision the controller does not run.
-			update(project, "imageRevision", Long.valueOf(5));
+			update(() -> project.setImageRevision(Long.valueOf(5)));
 			assertTrue(ControllerStatus.drift(project)
 				.startsWith(text(I18NConstants.DRIFT_OTHER_REVISION__LOADED_DEPLOYED.fill(2L, 5L))));
 		} finally {
@@ -237,17 +244,17 @@ public class TestDeployment extends BasicTestCase {
 	 * gets the last valid deployment again; without one the refusal is recorded.
 	 */
 	public void testFormatAndResendAfterRefusal() throws Exception {
-		TLObject project = TestRuleAuthoring.createProject();
+		Project project = (Project) TestRuleAuthoring.createProject();
 		List<TLObject> controllers = new ArrayList<>();
 		try {
-			TLObject controller = controller("Fake format", _fake.getPort(), TOKEN);
+			Controller controller = (Controller) controller("Fake format", _fake.getPort(), TOKEN);
 			controllers.add(controller);
 			ControllerFixture.deployTo(project, controller);
 
 			_fake.setFormat(null);
-			TLObject old = Deployer.deploy(project, NOW);
+			Deployment old = (Deployment) Deployer.deploy(project, NOW);
 			assertRefused(old, 1, null, Deployer.CODE_FORMAT);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill("Fake format")), old.tValueByName("message"));
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill("Fake format")), old.getMessage());
 			assertEquals(0, _fake.getPuts());
 			String confirmation = ImageComparison.confirmation(project, NOW);
 			assertTrue(confirmation, confirmation.contains(text(I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill("Fake format"))));
@@ -265,33 +272,33 @@ public class TestDeployment extends BasicTestCase {
 
 			// No last valid image: the refusal the controller reported is recorded, nothing is sent.
 			_fake.failAtBoot("image.damaged", "header.crc: the CRC-32 is 59772c42, the bytes give 0d5e8a10");
-			TLObject none = Deployer.resendAfterRefusal(controller, "image.damaged", "header.crc: ...", NOW);
-			assertEquals(Boolean.FALSE, none.tValueByName("accepted"));
-			assertEquals("image.damaged", none.tValueByName("code"));
-			assertTrue(String.valueOf(none.tValueByName("message")).endsWith(text(I18NConstants.DEPLOY_NO_LAST_VALID)));
+			Deployment none = (Deployment) Deployer.resendAfterRefusal(controller, "image.damaged", "header.crc: ...", NOW);
+			assertEquals(Boolean.FALSE, Boolean.valueOf(none.getAccepted()));
+			assertEquals("image.damaged", none.getCode());
+			assertTrue(String.valueOf(none.getMessage()).endsWith(text(I18NConstants.DEPLOY_NO_LAST_VALID)));
 			assertEquals(0, _fake.getPuts());
 
 			// Deployed, then lost at a boot: E-Home sends the image again by itself, read from the stored
 			// deployment (it survives a restart of E-Home: nothing is held in memory).
-			TLObject deployed = Deployer.deploy(project, NOW);
+			Deployment deployed = (Deployment) Deployer.deploy(project, NOW);
 			assertAccepted(deployed, 1);
 			byte[] image = _fake.getStored();
-			assertTrue(Arrays.equals(image, bytes(deployed.tValueByName(LastValidImages.IMAGE))));
+			assertTrue(Arrays.equals(image, bytes(deployed.getImage())));
 			assertTrue(Arrays.equals(image, LastValidImages.get(controller).bytes()));
 			_fake.failAtBoot("image.damaged", "header.crc: the CRC-32 is 59772c42, the bytes give 0d5e8a10");
 			assertNull(_fake.getLoaded());
-			TLObject resent = Deployer.resendAfterRefusal(controller, "image.damaged", "header.crc: ...", NOW);
+			Deployment resent = (Deployment) Deployer.resendAfterRefusal(controller, "image.damaged", "header.crc: ...", NOW);
 			assertAccepted(resent, 1);
-			assertTrue(String.valueOf(resent.tValueByName("message")).contains(text(I18NConstants.RESEND_ACCEPTED__REVISION.fill("1"))));
+			assertTrue(String.valueOf(resent.getMessage()).contains(text(I18NConstants.RESEND_ACCEPTED__REVISION.fill("1"))));
 			assertTrue(Arrays.equals(image, _fake.getStored()));
-			assertEquals(List.of(resent, deployed, none), ((List<?>) project.tValueByName("deployments")).subList(0, 3));
+			assertEquals(List.of(resent, deployed, none), ((List<?>) project.getDeployments()).subList(0, 3));
 			// At most one image per controller: the newest accepted deployment keeps it.
-			assertNotNull(resent.tValueByName(LastValidImages.IMAGE));
-			assertNull(deployed.tValueByName(LastValidImages.IMAGE));
-			TLObject next = Deployer.deploy(project, NOW);
+			assertNotNull(resent.getImage());
+			assertNull(deployed.getImage());
+			Deployment next = (Deployment) Deployer.deploy(project, NOW);
 			assertAccepted(next, 2);
-			assertNull(resent.tValueByName(LastValidImages.IMAGE));
-			assertTrue(Arrays.equals(_fake.getStored(), bytes(next.tValueByName(LastValidImages.IMAGE))));
+			assertNull(resent.getImage());
+			assertTrue(Arrays.equals(_fake.getStored(), bytes(next.getImage())));
 			assertEquals(Long.valueOf(2), LastValidImages.get(controller).revision());
 		} finally {
 			_fake.setFormat("1.0");
@@ -300,30 +307,32 @@ public class TestDeployment extends BasicTestCase {
 		}
 	}
 
-	private static void assertAccepted(TLObject deployment, long revision) {
-		assertEquals(String.valueOf(deployment.tValueByName("message")), Boolean.TRUE, deployment.tValueByName("accepted"));
-		assertEquals(Long.valueOf(revision), deployment.tValueByName("revision"));
-		assertEquals(Integer.valueOf(200), deployment.tValueByName("status"));
-		assertNull(deployment.tValueByName("code"));
-		assertEquals(List.of(), deployment.tValueByName("refusals"));
+	private static void assertAccepted(TLObject object, long revision) {
+		Deployment deployment = (Deployment) object;
+		assertEquals(String.valueOf(deployment.getMessage()), Boolean.TRUE, Boolean.valueOf(deployment.getAccepted()));
+		assertEquals(Long.valueOf(revision), deployment.getRevision());
+		assertEquals(Integer.valueOf(200), deployment.getStatus());
+		assertNull(deployment.getCode());
+		assertEquals(List.of(), deployment.getRefusals());
 	}
 
-	private static void assertRefused(TLObject deployment, long revision, Integer status, String code) {
-		assertEquals(String.valueOf(deployment.tValueByName("message")), Boolean.FALSE, deployment.tValueByName("accepted"));
-		assertEquals(Long.valueOf(revision), deployment.tValueByName("revision"));
-		assertEquals(status, deployment.tValueByName("status"));
-		assertEquals(code, deployment.tValueByName("code"));
-		assertNotNull(deployment.tValueByName("message"));
+	private static void assertRefused(TLObject object, long revision, Integer status, String code) {
+		Deployment deployment = (Deployment) object;
+		assertEquals(String.valueOf(deployment.getMessage()), Boolean.FALSE, Boolean.valueOf(deployment.getAccepted()));
+		assertEquals(Long.valueOf(revision), deployment.getRevision());
+		assertEquals(status, deployment.getStatus());
+		assertEquals(code, deployment.getCode());
+		assertNotNull(deployment.getMessage());
 	}
 
 	private static TLObject controller(String name, int port, String token) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject controller = ModelService.getInstance().getFactory()
+			Controller controller = (Controller) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", name);
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(port));
-			controller.tUpdateByName("token", token);
+			controller.setName(name);
+			controller.setHost("127.0.0.1");
+			controller.setPort(Integer.valueOf(port));
+			controller.setToken(token);
 			tx.commit();
 			return controller;
 		}
@@ -335,12 +344,13 @@ public class TestDeployment extends BasicTestCase {
 		}
 	}
 
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
+
 
 	private static String text(ResKey key) {
 		return Resources.getInstance().getString(key);

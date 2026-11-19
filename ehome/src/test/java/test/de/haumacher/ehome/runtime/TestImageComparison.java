@@ -24,11 +24,15 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLNamed;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -86,8 +90,8 @@ public class TestImageComparison extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		List<TLObject> controllers = new ArrayList<>();
 		try {
-			TLObject project = projects.get(0);
-			TLObject controller = controller(_fake.getPort());
+			Project project = (Project) projects.get(0);
+			Controller controller = controller(_fake.getPort());
 			controllers.add(controller);
 			ControllerFixture.deployTo(project, controller);
 
@@ -108,9 +112,9 @@ public class TestImageComparison extends BasicTestCase {
 				ImageComparison.confirmation(project, LATER));
 
 			// A changed project: the revisions, the counts and the changed parts.
-			TLObject address = RuntimeImage.build(project, 1, NOW).getDatapointSources().get(0);
-			Object name = address.tValueByName("name");
-			update(address, "name", "Renamed");
+			TLNamed address = (TLNamed) RuntimeImage.build(project, 1, NOW).getDatapointSources().get(0);
+			String name = address.getName();
+			update(() -> address.setName("Renamed"));
 			Result changed = ImageComparison.compare(project, LATER);
 			assertEquals(State.DIFFERENT, changed.state());
 			List<String> lines = List.of(changed.text().split("\n"));
@@ -126,7 +130,7 @@ public class TestImageComparison extends BasicTestCase {
 			assertTrue(ImageComparison.confirmation(project, LATER)
 				.startsWith(text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(2L, "Fake")) + "\n\n"
 					+ lines.get(0)));
-			update(address, "name", name);
+			update(() -> address.setName(name));
 			assertEquals(State.IDENTICAL, ImageComparison.compare(project, LATER).state());
 
 			// The image of another project with rules and schedules the new image does not contain.
@@ -167,28 +171,28 @@ public class TestImageComparison extends BasicTestCase {
 			// An image E-Home cannot read, a wrong token, no answer.
 			_fake.store("[1, 2, 3]");
 			assertEquals(text(I18NConstants.COMPARE_UNREADABLE), ImageComparison.compare(project, LATER).text());
-			update(controller, "token", "hct_ffffffffffffffffffffffffffffffff");
+			update(() -> controller.setToken("hct_ffffffffffffffffffffffffffffffff"));
 			Result refused = ImageComparison.compare(project, LATER);
 			assertEquals(State.UNKNOWN, refused.state());
 			assertTrue(refused.text(), refused.text().contains("401"));
-			update(controller, "token", TOKEN);
+			update(() -> controller.setToken(TOKEN));
 
 			// Unload: recorded with the revision the controller ran, the project's revision stays.
-			TLObject second = Deployer.deploy(project, LATER);
-			assertEquals(Boolean.TRUE, second.tValueByName("accepted"));
-			assertEquals(Boolean.FALSE, second.tValueByName("unload"));
-			TLObject unload = Deployer.unload(project, LATER);
-			assertEquals(Boolean.TRUE, unload.tValueByName("unload"));
-			assertEquals(Boolean.TRUE, unload.tValueByName("accepted"));
-			assertEquals(Long.valueOf(2), unload.tValueByName("revision"));
-			assertEquals(Integer.valueOf(200), unload.tValueByName("status"));
-			assertNull(unload.tValueByName("bytes"));
-			assertEquals(text(I18NConstants.UNLOAD_DONE__CONTROLLER.fill("Fake")), unload.tValueByName("message"));
-			assertTrue(String.valueOf(unload.tValueByName("before")).contains("2"));
+			Deployment second = (Deployment) Deployer.deploy(project, LATER);
+			assertEquals(Boolean.TRUE, Boolean.valueOf(second.getAccepted()));
+			assertEquals(Boolean.FALSE, Boolean.valueOf(second.getUnload()));
+			Deployment unload = (Deployment) Deployer.unload(project, LATER);
+			assertEquals(Boolean.TRUE, Boolean.valueOf(unload.getUnload()));
+			assertEquals(Boolean.TRUE, Boolean.valueOf(unload.getAccepted()));
+			assertEquals(Long.valueOf(2), unload.getRevision());
+			assertEquals(Integer.valueOf(200), unload.getStatus());
+			assertNull(unload.getBytes());
+			assertEquals(text(I18NConstants.UNLOAD_DONE__CONTROLLER.fill("Fake")), unload.getMessage());
+			assertTrue(String.valueOf(unload.getBefore()).contains("2"));
 			assertNull(_fake.getStoredText());
 			assertEquals(1, _fake.getDeletes());
-			assertEquals(Long.valueOf(2), project.tValueByName("imageRevision"));
-			assertEquals(unload, ((List<?>) project.tValueByName("deployments")).get(0));
+			assertEquals(Long.valueOf(2), project.getImageRevision());
+			assertEquals(unload, project.getDeployments().get(0));
 			assertEquals(State.NONE, ImageComparison.compare(project, LATER).state());
 			assertTrue(ControllerStatus.drift(project)
 				.startsWith(text(I18NConstants.DRIFT_NO_IMAGE__DEPLOYED.fill(2L))));
@@ -196,25 +200,25 @@ public class TestImageComparison extends BasicTestCase {
 			// The stored copy could not be removed: unloaded anyway, recorded as not done.
 			Deployer.deploy(project, LATER);
 			_fake.storageErrorOnNextDelete();
-			TLObject storageError = Deployer.unload(project, LATER);
-			assertEquals(Boolean.FALSE, storageError.tValueByName("accepted"));
-			assertEquals(Integer.valueOf(500), storageError.tValueByName("status"));
-			assertEquals("image.storage_error", storageError.tValueByName("code"));
-			assertEquals(Long.valueOf(3), storageError.tValueByName("revision"));
+			Deployment storageError = (Deployment) Deployer.unload(project, LATER);
+			assertEquals(Boolean.FALSE, Boolean.valueOf(storageError.getAccepted()));
+			assertEquals(Integer.valueOf(500), storageError.getStatus());
+			assertEquals("image.storage_error", storageError.getCode());
+			assertEquals(Long.valueOf(3), storageError.getRevision());
 
 			// Refused (a wrong token): nothing is unloaded. Unanswered: recorded as unreachable.
 			Deployer.deploy(project, LATER);
-			update(controller, "token", "hct_ffffffffffffffffffffffffffffffff");
-			TLObject unauthorized = Deployer.unload(project, LATER);
-			assertEquals(Boolean.FALSE, unauthorized.tValueByName("accepted"));
-			assertEquals("auth.token_invalid", unauthorized.tValueByName("code"));
+			update(() -> controller.setToken("hct_ffffffffffffffffffffffffffffffff"));
+			Deployment unauthorized = (Deployment) Deployer.unload(project, LATER);
+			assertEquals(Boolean.FALSE, Boolean.valueOf(unauthorized.getAccepted()));
+			assertEquals("auth.token_invalid", unauthorized.getCode());
 			assertEquals(2, _fake.getDeletes());
 			assertNotNull(_fake.getStoredText());
-			update(controller, "token", TOKEN);
+			update(() -> controller.setToken(TOKEN));
 			_fake.stop();
-			TLObject unreachable = Deployer.unload(project, LATER);
-			assertEquals(Deployer.CODE_UNREACHABLE, unreachable.tValueByName("code"));
-			assertNull(unreachable.tValueByName("revision"));
+			Deployment unreachable = (Deployment) Deployer.unload(project, LATER);
+			assertEquals(Deployer.CODE_UNREACHABLE, unreachable.getCode());
+			assertNull(unreachable.getRevision());
 			assertEquals(State.UNKNOWN, ImageComparison.compare(project, LATER).state());
 		} finally {
 			SharedData.deleteProjects(projects);
@@ -260,22 +264,22 @@ public class TestImageComparison extends BasicTestCase {
 		}
 	}
 
-	static TLObject controller(int port) {
+	static Controller controller(int port) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject controller = ModelService.getInstance().getFactory()
+			Controller controller = (Controller) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", "Fake");
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(port));
-			controller.tUpdateByName("token", TOKEN);
+			controller.setName("Fake");
+			controller.setHost("127.0.0.1");
+			controller.setPort(port);
+			controller.setToken(TOKEN);
 			tx.commit();
 			return controller;
 		}
 	}
 
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}

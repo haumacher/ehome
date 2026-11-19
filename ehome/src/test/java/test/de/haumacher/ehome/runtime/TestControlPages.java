@@ -14,9 +14,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -40,6 +42,24 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.ChartElement;
+import de.haumacher.ehome.model.runtime.ChartReference;
+import de.haumacher.ehome.model.runtime.ChartSeries;
+import de.haumacher.ehome.model.runtime.DatapointElement;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.FunctionElement;
+import de.haumacher.ehome.model.runtime.Page;
+import de.haumacher.ehome.model.runtime.PageSection;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleEnabledElement;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
@@ -110,35 +130,35 @@ public class TestControlPages extends BasicTestCase {
 			   {"function": "kitchen-light"}]}]}]}
 		""".formatted(CHART);
 
-	private TLObject _project;
+	private Project _project;
 
 	private final List<TLObject> _types = new ArrayList<>();
 
-	private TLObject _temperature;
+	private GroupAddress _temperature;
 
-	private TLObject _humidity;
+	private GroupAddress _humidity;
 
-	private TLObject _heating;
+	private GroupAddress _heating;
 
-	private TLObject _light;
+	private GroupAddress _light;
 
-	private TLObject _untyped;
+	private GroupAddress _untyped;
 
-	private TLObject _livingRoom;
+	private BuildingDefinition _livingRoom;
 
-	private TLObject _kitchenLight;
+	private Function _kitchenLight;
 
-	private TLObject _holiday;
+	private ApplicationDatapoint _holiday;
 
-	private TLObject _rule;
+	private Rule _rule;
 
-	private TLObject _setpoint;
+	private RuleParameter _setpoint;
 
-	private TLObject _evening;
+	private Page _evening;
 
-	private TLObject _climate;
+	private Page _climate;
 
-	private TLObject _chart;
+	private ChartElement _chart;
 
 	private TLObject _roomElement;
 
@@ -148,48 +168,50 @@ public class TestControlPages extends BasicTestCase {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject real = mainType(9);
 			TLObject bool = mainType(1);
-			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Control pages");
-			_project.tUpdateByName("extId", "P-TEST-72");
+			_project = (Project) create("ehome.project:Project");
+			_project.setName("Control pages");
+			_project.setExtId("P-TEST-72");
 			_temperature = address("Temperatur Wohnzimmer", 1, 3, 1, real, true);
 			_humidity = address("Feuchte Wohnzimmer", 1, 3, 5, real, true);
 			_heating = address("Heizung", 1, 1, 7, bool, true);
-			_heating.tUpdateByName("runtimeWritable", Boolean.TRUE);
+			_heating.setRuntimeWritable(Boolean.TRUE);
 			_light = address("Licht Wohnzimmer", 1, 0, 1, bool, false);
-			_light.tUpdateByName("runtimeWritable", Boolean.TRUE);
+			_light.setRuntimeWritable(Boolean.TRUE);
 			_untyped = address("Ohne Typ", 1, 0, 9, null, false);
-			_project.tUpdateByName("groupAddresses", List.of(_temperature, _humidity, _heating, _light, _untyped));
+			_project.setGroupAddresses(Set.of(_temperature, _humidity, _heating, _light, _untyped));
 
-			TLObject building = part("ehome.building:Building", "Haus", "P-TEST-72-B");
+			BuildingDefinition building = part("ehome.building:Building", "Haus", "P-TEST-72-B");
 			_livingRoom = part("ehome.building:Room", "Wohnzimmer", "P-TEST-72-R1");
-			TLObject corner = part("ehome.building:BuildingPart", "Leseecke", "P-TEST-72-R1a");
-			TLObject kitchen = part("ehome.building:Room", "Küche", "P-TEST-72-R2");
-			_livingRoom.tUpdateByName("parts", List.of(corner));
-			building.tUpdateByName("parts", List.of(_livingRoom, kitchen));
-			_project.tUpdateByName("buildings", List.of(building));
+			BuildingDefinition corner = part("ehome.building:BuildingPart", "Leseecke", "P-TEST-72-R1a");
+			BuildingDefinition kitchen = part("ehome.building:Room", "Küche", "P-TEST-72-R2");
+			_livingRoom.setParts(List.of(corner));
+			building.setParts(List.of(_livingRoom, kitchen));
+			_project.setBuildings(List.of(building));
 
 			// The project's order: neither by name nor by room.
-			TLObject reading = function("Leselicht", "reading-light", corner);
+			Function reading = function("Leselicht", "reading-light", corner);
 			_kitchenLight = function("Küchenlicht", "kitchen-light", kitchen);
-			TLObject lamp = function("Stehlampe", "living-lamp", _livingRoom);
-			TLObject ceiling = function("Decke", "living-light", _livingRoom);
-			_project.tUpdateByName("functions", List.of(reading, _kitchenLight, lamp, ceiling));
+			Function lamp = function("Stehlampe", "living-lamp", _livingRoom);
+			Function ceiling = function("Decke", "living-light", _livingRoom);
+			_project.setFunctions(List.of(reading, _kitchenLight, lamp, ceiling));
 
-			_holiday = RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			_holiday.tUpdateByName("identifier", "holiday");
-			_holiday.tUpdateByName("writable", Boolean.TRUE);
+			_holiday = (ApplicationDatapoint) RuleFunctions.create(_project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			_holiday.setIdentifier("holiday");
+			_holiday.setWritable(true);
 
-			_rule = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_rule.tUpdateByName("identifier", "heat");
-			_setpoint = RuleFunctions.create(_rule, "parameters", runtime("RuleParameter"));
-			_setpoint.tUpdateByName("identifier", "setpoint");
-			_setpoint.tUpdateByName("default", "21.0");
-			TLObject reaction = RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", _temperature);
-			reaction.tUpdateByName("condition", "@\"1/3/1\" < $setpoint");
-			TLObject write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", _heating);
-			write.tUpdateByName("value", "true");
+			_rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_rule.setIdentifier("heat");
+			_setpoint = (RuleParameter) RuleFunctions.create(_rule, "parameters", runtime("RuleParameter"));
+			_setpoint.setIdentifier("setpoint");
+			_setpoint.setDefault("21.0");
+			Reaction reaction = (Reaction) RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
+			((DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")))
+				.setDatapoint(_temperature);
+			reaction.setCondition("@\"1/3/1\" < $setpoint");
+			WriteAction write = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+			write.setDatapoint(_heating);
+			write.setValue("true");
 			tx.commit();
 		}
 	}
@@ -212,49 +234,51 @@ public class TestControlPages extends BasicTestCase {
 	 */
 	private void buildPages() {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_evening = Pages.insert(_project, null, Pages.PAGE, null);
-			_evening.tUpdateByName("name", text("Abend", "Evening"));
-			_evening.tUpdateByName("identifier", "evening");
-			_evening.tUpdateByName("icon", "moon");
-			TLObject living = Pages.insert(_project, _evening, Pages.SECTION, null);
-			living.tUpdateByName("title", text("Wohnzimmer", "Living room"));
+			_evening = (Page) Pages.insert(_project, null, Pages.PAGE, null);
+			_evening.setNameKey(text("Abend", "Evening"));
+			_evening.setIdentifier("evening");
+			_evening.setIcon("moon");
+			PageSection living = (PageSection) Pages.insert(_project, _evening, Pages.SECTION, null);
+			living.setTitle(text("Wohnzimmer", "Living room"));
 			_roomElement = Pages.insert(_project, living, Pages.ROOM, List.of(_livingRoom));
-			Pages.insert(_project, _roomElement, Pages.FUNCTION, List.of(_kitchenLight))
-				.tUpdateByName("label", text("Küche", "Kitchen"));
+			((FunctionElement) Pages.insert(_project, _roomElement, Pages.FUNCTION, List.of(_kitchenLight)))
+				.setLabel(text("Küche", "Kitchen"));
 			TLObject values = Pages.insert(_project, living, Pages.SECTION, null);
 			// One element per target, in their order; the last one is the result.
-			TLObject setpoint = Pages.insert(_project, values, Pages.DATAPOINT, List.of(_light, _holiday, _setpoint));
-			setpoint.tUpdateByName("label", text("Solltemperatur", "Setpoint"));
-			Parts.get(values, "elements", 0).tUpdateByName("readOnly", Boolean.TRUE);
-			Pages.insert(_project, setpoint, Pages.RULE, List.of(_rule)).tUpdateByName("label", de("Heizregel"));
+			DatapointElement setpoint =
+				(DatapointElement) Pages.insert(_project, values, Pages.DATAPOINT, List.of(_light, _holiday, _setpoint));
+			setpoint.setLabel(text("Solltemperatur", "Setpoint"));
+			((DatapointElement) Parts.get(values, "elements", 0)).setReadOnly(true);
+			((RuleEnabledElement) Pages.insert(_project, setpoint, Pages.RULE, List.of(_rule))).setLabel(de("Heizregel"));
 
-			_climate = Pages.insert(_project, _evening, Pages.PAGE, null);
-			_climate.tUpdateByName("name", text("Klima", "Klima"));
-			TLObject temperatures = Pages.insert(_project, _climate, Pages.SECTION, null);
-			temperatures.tUpdateByName("title", de("Temperaturen"));
-			_chart = Pages.insert(_project, temperatures, Pages.CHART, null);
-			_chart.tUpdateByName("label", de("Temperaturen"));
-			_chart.tUpdateByName("width", classifier("ChartWidth", "full"));
-			_chart.tUpdateByName("height", classifier("ChartHeight", "four"));
-			_chart.tUpdateByName("presets", List.of(classifier("ChartRange", "year"), classifier("ChartRange", "day"),
-				classifier("ChartRange", "month"), classifier("ChartRange", "week")));
-			_chart.tUpdateByName("rightMin", Double.valueOf(0));
-			_chart.tUpdateByName("rightMax", Double.valueOf(100));
-			TLObject heatingSeries = Pages.insert(_project, _chart, Pages.SERIES, List.of(_temperature, _humidity, _heating));
-			heatingSeries.tUpdateByName("label", de("Heizung"));
-			TLObject living1 = Parts.get(_chart, "series", 0);
-			living1.tUpdateByName("label", de("Wohnzimmer"));
-			living1.tUpdateByName("axis", classifier("ChartAxis", "left"));
-			living1.tUpdateByName("consolidation", classifier("ChartConsolidation", "mean"));
-			TLObject humidity = Parts.get(_chart, "series", 1);
-			humidity.tUpdateByName("axis", classifier("ChartAxis", "right"));
-			humidity.tUpdateByName("consolidation", classifier("ChartConsolidation", "mean"));
-			TLObject soll = Pages.insert(_project, _chart, Pages.REFERENCE, null);
-			soll.tUpdateByName("value", Double.valueOf(21));
-			soll.tUpdateByName("axis", classifier("ChartAxis", "left"));
-			soll.tUpdateByName("label", de("Soll"));
-			Pages.insert(_project, soll, Pages.REFERENCE_DATAPOINT, List.of(_setpoint))
-				.tUpdateByName("axis", classifier("ChartAxis", "left"));
+			_climate = (Page) Pages.insert(_project, _evening, Pages.PAGE, null);
+			_climate.setNameKey(text("Klima", "Klima"));
+			PageSection temperatures = (PageSection) Pages.insert(_project, _climate, Pages.SECTION, null);
+			temperatures.setTitle(de("Temperaturen"));
+			_chart = (ChartElement) Pages.insert(_project, temperatures, Pages.CHART, null);
+			_chart.setLabel(de("Temperaturen"));
+			_chart.setWidth(classifier("ChartWidth", "full"));
+			_chart.setHeight(classifier("ChartHeight", "four"));
+			_chart.setPresets(new LinkedHashSet<>(List.of(classifier("ChartRange", "year"), classifier("ChartRange", "day"),
+				classifier("ChartRange", "month"), classifier("ChartRange", "week"))));
+			_chart.setRightMin(Double.valueOf(0));
+			_chart.setRightMax(Double.valueOf(100));
+			ChartSeries heatingSeries =
+				(ChartSeries) Pages.insert(_project, _chart, Pages.SERIES, List.of(_temperature, _humidity, _heating));
+			heatingSeries.setLabel(de("Heizung"));
+			ChartSeries living1 = (ChartSeries) Parts.get(_chart, "series", 0);
+			living1.setLabel(de("Wohnzimmer"));
+			living1.setAxis(classifier("ChartAxis", "left"));
+			living1.setConsolidation(classifier("ChartConsolidation", "mean"));
+			ChartSeries humidity = (ChartSeries) Parts.get(_chart, "series", 1);
+			humidity.setAxis(classifier("ChartAxis", "right"));
+			humidity.setConsolidation(classifier("ChartConsolidation", "mean"));
+			ChartReference soll = (ChartReference) Pages.insert(_project, _chart, Pages.REFERENCE, null);
+			soll.setValue(Double.valueOf(21));
+			soll.setAxis(classifier("ChartAxis", "left"));
+			soll.setLabel(de("Soll"));
+			((ChartReference) Pages.insert(_project, soll, Pages.REFERENCE_DATAPOINT, List.of(_setpoint)))
+				.setAxis(classifier("ChartAxis", "left"));
 			// The same function on the second page.
 			Pages.insert(_project, _chart, Pages.FUNCTION, List.of(_kitchenLight));
 			tx.commit();
@@ -308,7 +332,7 @@ public class TestControlPages extends BasicTestCase {
 	 */
 	public void testAnonymousPages() throws Exception {
 		buildPages();
-		assertEquals("operator", ((TLClassifier) _evening.tValueByName(Pages.MINIMUM_ROLE)).getName());
+		assertEquals("operator", _evening.getMinimumRole().getName());
 		assertFalse(Pages.isAnonymous(_climate));
 		RuntimeImage operators = RuntimeImage.build(_project, 1, NOW);
 		assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) operators.getJson().get("image")).get("schemaVersion"));
@@ -368,7 +392,7 @@ public class TestControlPages extends BasicTestCase {
 
 	private static void setRole(TLObject page, String role) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			page.tUpdateByName(Pages.MINIMUM_ROLE, classifier("PageRole", role));
+			((Page) page).setMinimumRole(classifier("PageRole", role));
 			tx.commit();
 		}
 	}
@@ -456,7 +480,7 @@ public class TestControlPages extends BasicTestCase {
 		TLObject parameterSeries;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			// A history set by hand without a raw ring: no history (a derived one would follow the chart, #73).
-			_light.tUpdateByName("historyManual", Boolean.TRUE);
+			_light.setHistoryManual(true);
 			series = Pages.insert(_project, _chart, Pages.SERIES, List.of(_light));
 			parameterSeries = Pages.insert(_project, series, Pages.SERIES, List.of(_setpoint));
 			tx.commit();
@@ -489,7 +513,7 @@ public class TestControlPages extends BasicTestCase {
 		buildPages();
 		TLObject reference;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_chart.tUpdateByName("range", classifier("ChartRange", "hour"));
+			_chart.setRange(classifier("ChartRange", "hour"));
 			reference = Pages.insert(_project, Parts.get(_chart, "references", 1), Pages.REFERENCE_DATAPOINT,
 				List.of(_heating));
 			tx.commit();
@@ -616,7 +640,7 @@ public class TestControlPages extends BasicTestCase {
 				TLObject page = Pages.insert(project, null, Pages.PAGE, null);
 				TLObject section = Pages.insert(project, page, Pages.SECTION, null);
 				element = Pages.insert(project, section, Pages.DATAPOINT, List.of(address));
-				element.tUpdateByName("label", de("Meine Adresse"));
+				((DatapointElement) element).setLabel(de("Meine Adresse"));
 				tx.commit();
 			}
 			List<TLObject> all = instances("ehome.project:Project");
@@ -625,9 +649,9 @@ public class TestControlPages extends BasicTestCase {
 			assertEquals(1, second.size());
 			// The pages of the first project are untouched, the new one has none.
 			assertTrue(element.tValid());
-			assertSame(address, element.tValueByName("datapoint"));
+			assertSame(address, ((DatapointElement) element).getDatapoint());
 			assertEquals("Meine Adresse",
-				Resources.getInstance(Locale.GERMAN).getString((ResKey) element.tValueByName("label")));
+				Resources.getInstance(Locale.GERMAN).getString(((DatapointElement) element).getLabel()));
 			assertEquals(1, Parts.list(project, "pages").size());
 			assertEquals(List.of(), Parts.list(second.get(0), "pages"));
 		} finally {
@@ -649,8 +673,8 @@ public class TestControlPages extends BasicTestCase {
 	public void testPageIds() throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			for (int n = 0; n < 2; n++) {
-				TLObject page = Pages.insert(_project, null, Pages.PAGE, null);
-				page.tUpdateByName("name", de("Küche"));
+				Page page = (Page) Pages.insert(_project, null, Pages.PAGE, null);
+				page.setNameKey(de("Küche"));
 				TLObject section = Pages.insert(_project, page, Pages.SECTION, null);
 				Pages.insert(_project, section, Pages.FUNCTION, List.of(_kitchenLight));
 			}
@@ -666,7 +690,7 @@ public class TestControlPages extends BasicTestCase {
 
 		// An explicit identifier equal to the other page's derived id: the derived one gives way.
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			Parts.get(_project, "pages", 1).tUpdateByName("identifier", String.valueOf(first));
+			((Page) Parts.get(_project, "pages", 1)).setIdentifier(String.valueOf(first));
 			tx.commit();
 		}
 		pages = (List<?>) ((Map<?, ?>) RuntimeImage.build(_project, 1, NOW).getJson().get("ui")).get("pages");
@@ -675,7 +699,7 @@ public class TestControlPages extends BasicTestCase {
 		// Two pages given the same identifier: the model refuses the commit.
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			for (TLObject page : Parts.list(_project, "pages")) {
-				page.tUpdateByName("identifier", "kitchen");
+				((Page) page).setIdentifier("kitchen");
 			}
 			tx.commit();
 			fail("Two pages with the identifier kitchen must be refused.");
@@ -813,36 +837,36 @@ public class TestControlPages extends BasicTestCase {
 		return type;
 	}
 
-	private static TLObject address(String name, int main, int middle, int sub, TLObject type, boolean history) {
-		TLObject address = create("ehome.logical:GroupAddress");
-		address.tUpdateByName("name", name);
-		address.tUpdateByName("address", new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
+	private static GroupAddress address(String name, int main, int middle, int sub, TLObject type, boolean history) {
+		GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
+		address.setName(name);
+		address.setAddress(new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
 		if (type != null) {
-			address.tUpdateByName("datapointTypes", List.of(type));
+			address.setDatapointTypes(List.of(type));
 		}
 		if (history) {
 			// A history set by hand (haumacher/ehome #73).
-			address.tUpdateByName("historyManual", Boolean.TRUE);
-			address.tUpdateByName("historyRetention", Integer.valueOf(86400));
-			address.tUpdateByName("historySpacing", Integer.valueOf(900));
+			address.setHistoryManual(true);
+			address.setHistoryRetention(Integer.valueOf(86400));
+			address.setHistorySpacing(Integer.valueOf(900));
 		}
 		return address;
 	}
 
-	private static TLObject part(String type, String name, String extId) {
-		TLObject part = create(type);
-		part.tUpdateByName("name", name);
-		part.tUpdateByName("extId", extId);
+	private static BuildingDefinition part(String type, String name, String extId) {
+		BuildingDefinition part = (BuildingDefinition) create(type);
+		part.setName(name);
+		part.setExtId(extId);
 		return part;
 	}
 
-	private TLObject function(String name, String identifier, TLObject room) {
-		TLObject function = create("ehome.runtime:Function");
-		function.tUpdateByName("name", de(name));
-		function.tUpdateByName("identifier", identifier);
-		function.tUpdateByName("kind", FunctionProposal.classifier("switch"));
-		function.tUpdateByName("room", room);
-		function.tUpdateByName("command", _light);
+	private Function function(String name, String identifier, BuildingDefinition room) {
+		Function function = (Function) create("ehome.runtime:Function");
+		function.setNameKey(de(name));
+		function.setIdentifier(identifier);
+		function.setKind(FunctionProposal.classifier("switch"));
+		function.setRoom(room);
+		function.setCommand(_light);
 		return function;
 	}
 
@@ -854,7 +878,7 @@ public class TestControlPages extends BasicTestCase {
 		return ResKey.builder().add(Locale.GERMAN, de).add(Locale.ENGLISH, en).build();
 	}
 
-	private static Object classifier(String enumeration, String name) {
+	private static TLClassifier classifier(String enumeration, String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:" + enumeration)).getClassifier(name);
 	}
 

@@ -12,6 +12,8 @@ import java.util.Set;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Rule;
 import de.haumacher.ehome.rules.Schedule;
 
 /**
@@ -97,7 +99,7 @@ public final class RuleReferences {
 	}
 
 	private static String identifier(TLObject obj) {
-		Object id = obj.tValueByName("identifier");
+		Object id = Identifiers.of(obj);
 		return id == null || id.toString().isBlank() ? null : id.toString().trim();
 	}
 
@@ -113,14 +115,14 @@ public final class RuleReferences {
 		candidates.addAll(ApplicationDatapoints.of(project));
 		for (TLObject rule : RuleExport.orderedRules(project)) {
 			candidates.add(rule);
-			candidates.addAll(RuleExport.objects(rule.tValueByName("parameters")));
+			candidates.addAll(RuleExport.objects(((Rule) rule).getParameters()));
 			TLObject state = Pages.stateDatapoint(rule);
 			if (state != null) {
 				// rule/<rule>/state (haumacher/ehome #140).
 				candidates.add(state);
 			}
 		}
-		for (TLObject entry : RuleExport.objects(project.tValueByName("schedules"))) {
+		for (TLObject entry : RuleExport.objects(((Project) project).getSchedules())) {
 			if (Pages.isTimeSchedule(entry)) {
 				candidates.add(entry);
 			}
@@ -160,11 +162,11 @@ public final class RuleReferences {
 		String key = id.trim();
 		switch (attribute) {
 			case "schedule":
-				return byIdentifier(RuleExport.objects(project.tValueByName("schedules")), key);
+				return byIdentifier(RuleExport.objects(((Project) project).getSchedules()), key);
 			case "timer":
-				return rule == null ? null : byIdentifier(RuleExport.objects(rule.tValueByName("timers")), key);
+				return rule == null ? null : byIdentifier(RuleExport.objects(((Rule) rule).getTimers()), key);
 			case "parameter":
-				return rule == null ? null : byIdentifier(RuleExport.objects(rule.tValueByName("parameters")), key);
+				return rule == null ? null : byIdentifier(RuleExport.objects(((Rule) rule).getParameters()), key);
 			case "output": {
 				TLObject datapoint = datapoints.get(key);
 				return datapoint != null && ApplicationDatapoints.isApplicationDatapoint(datapoint) ? datapoint : null;
@@ -239,11 +241,13 @@ public final class RuleReferences {
 				return result;
 			}
 			case SCHEDULE:
-				return RuleExport.objects(project.tValueByName("schedules"));
+				return RuleExport.objects(((Project) project).getSchedules());
 			case TIMER:
 			case PARAMETER: {
 				TLObject rule = rule(stored);
-				return rule == null ? List.of() : RuleExport.objects(rule.tValueByName(kind.equals(TIMER) ? "timers" : "parameters"));
+				return rule == null ? List.of()
+					: RuleExport.objects(kind.equals(TIMER) ? ((Rule) rule).getTimers() : ((Rule) rule).getParameters());
+
 			}
 			default:
 				return List.of();

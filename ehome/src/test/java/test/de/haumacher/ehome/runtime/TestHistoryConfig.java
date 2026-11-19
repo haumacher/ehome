@@ -11,6 +11,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,6 +29,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -36,6 +38,15 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.HistoryArchive;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.ChartElement;
+import de.haumacher.ehome.model.runtime.ChartSeries;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Page;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.HistoryConfig.Archive;
@@ -70,19 +81,19 @@ public class TestHistoryConfig extends BasicTestCase {
 		  {"resolution": 86400, "retention": 31536000}]}
 		""";
 
-	private TLObject _project;
+	private Project _project;
 
 	private final List<TLObject> _types = new ArrayList<>();
 
-	private TLObject _temperature;
+	private GroupAddress _temperature;
 
-	private TLObject _humidity;
+	private GroupAddress _humidity;
 
-	private TLObject _meter;
+	private GroupAddress _meter;
 
-	private TLObject _window;
+	private GroupAddress _window;
 
-	private TLObject _counter;
+	private ApplicationDatapoint _counter;
 
 	private TLObject _section;
 
@@ -95,19 +106,20 @@ public class TestHistoryConfig extends BasicTestCase {
 			TLObject real = mainType(9);
 			_real = real;
 			TLObject bool = mainType(1);
-			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "History");
-			_project.tUpdateByName("extId", "P-TEST-73");
+			_project = (Project) create("ehome.project:Project");
+			_project.setName("History");
+			_project.setExtId("P-TEST-73");
 			_temperature = address("Temperatur", 1, 3, 1, real);
 			_humidity = address("Feuchte", 1, 3, 2, real);
 			_meter = address("Zähler", 1, 3, 3, real);
 			_window = address("Fenster", 1, 3, 4, bool);
-			_project.tUpdateByName("groupAddresses", List.of(_temperature, _humidity, _meter, _window));
-			_counter = RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			_counter.tUpdateByName("identifier", "counter");
-			_counter.tUpdateByName("type", classifier("DatapointValueType", "unsigned"));
-			TLObject page = Pages.insert(_project, null, Pages.PAGE, null);
-			page.tUpdateByName("identifier", "climate");
+			_project.setGroupAddresses(Set.of(_temperature, _humidity, _meter, _window));
+			_counter = (ApplicationDatapoint) RuleFunctions.create(_project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			_counter.setIdentifier("counter");
+			_counter.setType(classifier("DatapointValueType", "unsigned"));
+			Page page = (Page) Pages.insert(_project, null, Pages.PAGE, null);
+			page.setIdentifier("climate");
 			_section = Pages.insert(_project, page, Pages.SECTION, null);
 			tx.commit();
 		}
@@ -196,12 +208,12 @@ public class TestHistoryConfig extends BasicTestCase {
 		chart("month", List.of(), null, _humidity);
 		assertEquals(new History(3600, 900, List.of(new Archive(3600, 30 * 86400))), HistoryConfig.derived(_humidity));
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject sensor = create("ehome.runtime:Function");
-			sensor.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Feuchte").build());
-			sensor.tUpdateByName("identifier", "humidity");
-			sensor.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-			sensor.tUpdateByName("value", _humidity);
-			_project.tUpdateByName("functions", List.of(sensor));
+			Function sensor = (Function) create("ehome.runtime:Function");
+			sensor.setNameKey(ResKey.builder().add(Locale.GERMAN, "Feuchte").build());
+			sensor.setIdentifier("humidity");
+			sensor.setKind(FunctionProposal.classifier("sensor"));
+			sensor.setValue(_humidity);
+			_project.setFunctions(List.of(sensor));
 			tx.commit();
 		}
 		assertEquals(new History(86400, 900, List.of(new Archive(3600, 30 * 86400))), HistoryConfig.derived(_humidity));
@@ -263,11 +275,11 @@ public class TestHistoryConfig extends BasicTestCase {
 		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
 			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_temperature.tUpdateByName("historyRetention", Integer.valueOf(172800));
-			_temperature.tUpdateByName("historySpacing", Integer.valueOf(300));
+			_temperature.setHistoryRetention(Integer.valueOf(172800));
+			_temperature.setHistorySpacing(Integer.valueOf(300));
 			List<TLObject> archives = HistoryConfig.manualArchives(_temperature);
 			archives.get(0).tDelete();
-			archives.get(1).tUpdateByName("retention", Integer.valueOf(2 * 365 * 86400));
+			((HistoryArchive) archives.get(1)).setRetention(2 * 365 * 86400);
 			tx.commit();
 		}
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
@@ -285,14 +297,14 @@ public class TestHistoryConfig extends BasicTestCase {
 			tx.commit();
 		}
 		assertFalse(HistoryConfig.isManual(_temperature));
-		assertNull(_temperature.tValueByName("historyRetention"));
+		assertNull(_temperature.getHistoryRetention());
 		assertEquals(List.of(), HistoryConfig.manualArchives(_temperature));
 		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
 			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));
 
 		// Set by hand without a raw ring: no history, and a chart of it is refused.
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_temperature.tUpdateByName("historyManual", Boolean.TRUE);
+			_temperature.setHistoryManual(true);
 			tx.commit();
 		}
 		assertNotNull(Pages.seriesProblem(_temperature));
@@ -308,12 +320,13 @@ public class TestHistoryConfig extends BasicTestCase {
 	public void testMigration() throws Exception {
 		chart("day", List.of("day", "year"), null, _temperature, _counter);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			for (TLObject datapoint : List.of(_temperature, _counter)) {
-				datapoint.tUpdateByName("historyRetention", Integer.valueOf(7 * 86400));
-				datapoint.tUpdateByName("historySpacing", Integer.valueOf(600));
-				// What Issue_73_History_set_by_hand writes for it.
-				datapoint.tUpdateByName("historyManual", Boolean.TRUE);
-			}
+			_temperature.setHistoryRetention(Integer.valueOf(7 * 86400));
+			_temperature.setHistorySpacing(Integer.valueOf(600));
+			// What Issue_73_History_set_by_hand writes for it.
+			_temperature.setHistoryManual(true);
+			_counter.setHistoryRetention(Integer.valueOf(7 * 86400));
+			_counter.setHistorySpacing(Integer.valueOf(600));
+			_counter.setHistoryManual(true);
 			tx.commit();
 		}
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
@@ -391,7 +404,7 @@ public class TestHistoryConfig extends BasicTestCase {
 		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
 		chart("hour", List.of(), null, _window);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_project.tUpdateByName("historyBudget", Integer.valueOf(2000));
+			_project.setHistoryBudget(Integer.valueOf(2000));
 			tx.commit();
 		}
 		assertEquals(new History(86400, 1800, List.of(new Archive(7200, 30 * 86400), new Archive(86400, 365 * 86400))),
@@ -423,7 +436,7 @@ public class TestHistoryConfig extends BasicTestCase {
 
 		// Within the budget and the caps: one datapoint with a year chart.
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_project.tUpdateByName("historyBudget", null);
+			_project.setHistoryBudget(null);
 			tx.commit();
 		}
 		chartless(_humidity);
@@ -481,13 +494,13 @@ public class TestHistoryConfig extends BasicTestCase {
 		// Five: 45 segments; four at s4, 1/3/6 at s3: 4 * 3 + 4 = 16.
 		List<TLObject> more = new ArrayList<>();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			List<Object> addresses = new ArrayList<>(RuleFunctions.objects(_project, "groupAddresses"));
+			Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(_project.getGroupAddresses());
 			for (int sub = 5; sub <= 7; sub++) {
-				TLObject address = address("Temperatur " + sub, 1, 3, sub, _real);
+				GroupAddress address = address("Temperatur " + sub, 1, 3, sub, _real);
 				more.add(address);
 				addresses.add(address);
 			}
-			_project.tUpdateByName("groupAddresses", addresses);
+			_project.setGroupAddresses(addresses);
 			tx.commit();
 		}
 		addSeries(chart, more.get(0), more.get(1));
@@ -547,7 +560,7 @@ public class TestHistoryConfig extends BasicTestCase {
 			assertNotNull(history);
 			for (Pages.ChartUse use : entry.getValue()) {
 				assertNotSame("Lines only.", classifier("ChartConsolidation", "consumption"),
-					use.series().tValueByName("consolidation"));
+					((ChartSeries) use.series()).getConsolidation());
 				for (Long range : use.ranges()) {
 					long bucket = range.longValue() / HistoryConfig.LINE_POINTS;
 					long[] ring = { history.spacing(), history.retention() };
@@ -595,18 +608,18 @@ public class TestHistoryConfig extends BasicTestCase {
 	public void testManualExceeds() throws Exception {
 		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_humidity.tUpdateByName("historyManual", Boolean.TRUE);
-			_humidity.tUpdateByName("historyRetention", Integer.valueOf(86400));
-			_humidity.tUpdateByName("historySpacing", Integer.valueOf(900));
+			_humidity.setHistoryManual(true);
+			_humidity.setHistoryRetention(Integer.valueOf(86400));
+			_humidity.setHistorySpacing(Integer.valueOf(900));
 			TLClass type = (TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive");
-			List<TLObject> archives = new ArrayList<>();
+			List<HistoryArchive> archives = new ArrayList<>();
 			for (int[] archive : new int[][] { { 1800, 40 * 86400 }, { 3600, 60 * 86400 } }) {
-				TLObject part = ModelService.getInstance().getFactory().createObject(type);
-				part.tUpdateByName("resolution", Integer.valueOf(archive[0]));
-				part.tUpdateByName("retention", Integer.valueOf(archive[1]));
+				HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory().createObject(type);
+				part.setResolution(archive[0]);
+				part.setRetention(archive[1]);
 				archives.add(part);
 			}
-			_humidity.tUpdateByName("historyArchives", archives);
+			_humidity.setHistoryArchives(archives);
 			tx.commit();
 		}
 		History manual = HistoryConfig.effective(_humidity);
@@ -638,14 +651,14 @@ public class TestHistoryConfig extends BasicTestCase {
 		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
 		chart("week", List.of(), "mean", _window);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_window.tUpdateByName("historyManual", Boolean.TRUE);
-			_window.tUpdateByName("historyRetention", Integer.valueOf(86400));
-			_window.tUpdateByName("historySpacing", Integer.valueOf(900));
+			_window.setHistoryManual(true);
+			_window.setHistoryRetention(Integer.valueOf(86400));
+			_window.setHistorySpacing(Integer.valueOf(900));
 			TLClass type = (TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive");
-			TLObject part = ModelService.getInstance().getFactory().createObject(type);
-			part.tUpdateByName("resolution", Integer.valueOf(3600));
-			part.tUpdateByName("retention", Integer.valueOf(31 * 86400));
-			_window.tUpdateByName("historyArchives", List.of(part));
+			HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory().createObject(type);
+			part.setResolution(3600);
+			part.setRetention(31 * 86400);
+			_window.setHistoryArchives(List.of(part));
 			tx.commit();
 		}
 		History manual = new History(86400, 900, List.of(new Archive(3600, 31 * 86400)));
@@ -670,7 +683,7 @@ public class TestHistoryConfig extends BasicTestCase {
 			}
 			History history = HistoryConfig.effective(entry.getKey());
 			for (Pages.ChartUse use : entry.getValue()) {
-				boolean bars = use.series().tValueByName("consolidation") == consumption;
+				boolean bars = ((ChartSeries) use.series()).getConsolidation() == consumption;
 				for (Long range : use.ranges()) {
 					long bucket = bars ? barWidth.get(range).longValue() : range.longValue() / 48;
 					// The device: of the stores fine enough, the finest reaching back, else the furthest; the raw
@@ -715,14 +728,14 @@ public class TestHistoryConfig extends BasicTestCase {
 		assertEquals(397, bars.archives().get(0).slots());
 		assertEquals(4 * 4096, bars.flashBytes());
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_window.tUpdateByName("historyManual", Boolean.TRUE);
-			_window.tUpdateByName("historyRetention", Integer.valueOf(86400));
-			_window.tUpdateByName("historySpacing", Integer.valueOf(900));
-			TLObject part = ModelService.getInstance().getFactory()
+			_window.setHistoryManual(true);
+			_window.setHistoryRetention(Integer.valueOf(86400));
+			_window.setHistorySpacing(Integer.valueOf(900));
+			HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive"));
-			part.tUpdateByName("resolution", Integer.valueOf(3600));
-			part.tUpdateByName("retention", Integer.valueOf(31 * 86400));
-			_window.tUpdateByName("historyArchives", List.of(part));
+			part.setResolution(3600);
+			part.setRetention(31 * 86400);
+			_window.setHistoryArchives(List.of(part));
 			tx.commit();
 		}
 		History split =
@@ -895,12 +908,12 @@ public class TestHistoryConfig extends BasicTestCase {
 	public void testProbeComposition() throws Exception {
 		chart("hour", List.of(), null, _window);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject contact = create("ehome.runtime:Function");
-			contact.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Fenster").build());
-			contact.tUpdateByName("identifier", "window");
-			contact.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-			contact.tUpdateByName("value", _window);
-			_project.tUpdateByName("functions", List.of(contact));
+			Function contact = (Function) create("ehome.runtime:Function");
+			contact.setNameKey(ResKey.builder().add(Locale.GERMAN, "Fenster").build());
+			contact.setIdentifier("window");
+			contact.setKind(FunctionProposal.classifier("sensor"));
+			contact.setValue(_window);
+			_project.setFunctions(List.of(contact));
 			tx.commit();
 		}
 		assertEquals(new History(86400, 60, List.of()), HistoryConfig.derived(_window));
@@ -923,7 +936,7 @@ public class TestHistoryConfig extends BasicTestCase {
 		List<TLObject> archives = HistoryConfig.manualArchives(_temperature);
 		assertFalse(archives.isEmpty());
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_humidity.tUpdateByName("historyManual", null);
+			_humidity.setHistoryManual(false);
 			_temperature.tDelete();
 			tx.commit();
 		}
@@ -979,7 +992,7 @@ public class TestHistoryConfig extends BasicTestCase {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			for (TLObject chart : HistoryConfig.charts(_project)) {
 				for (TLObject series : RuleFunctions.objects(chart, "series")) {
-					if (series.tValueByName("datapoint") == datapoint) {
+					if (((ChartSeries) series).getDatapoint() == datapoint) {
 						series.tDelete();
 					}
 				}
@@ -991,17 +1004,17 @@ public class TestHistoryConfig extends BasicTestCase {
 	/** A chart of the given range, presets and consolidation with a series per datapoint. */
 	private TLObject chart(String range, List<String> presets, String consolidation, TLObject... datapoints) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject chart = Pages.insert(_project, _section, Pages.CHART, null);
-			chart.tUpdateByName("range", classifier("ChartRange", range));
-			List<Object> list = new ArrayList<>();
+			ChartElement chart = (ChartElement) Pages.insert(_project, _section, Pages.CHART, null);
+			chart.setRange(classifier("ChartRange", range));
+			Set<TLClassifier> list = new LinkedHashSet<>();
 			for (String preset : presets) {
 				list.add(classifier("ChartRange", preset));
 			}
-			chart.tUpdateByName("presets", list);
+			chart.setPresets(list);
 			Pages.insert(_project, chart, Pages.SERIES, List.of(datapoints));
 			if (consolidation != null) {
 				for (TLObject series : RuleFunctions.objects(chart, "series")) {
-					series.tUpdateByName("consolidation", classifier("ChartConsolidation", consolidation));
+					((ChartSeries) series).setConsolidation(classifier("ChartConsolidation", consolidation));
 				}
 			}
 			tx.commit();
@@ -1026,15 +1039,15 @@ public class TestHistoryConfig extends BasicTestCase {
 		return type;
 	}
 
-	private static TLObject address(String name, int main, int middle, int sub, TLObject type) {
-		TLObject address = create("ehome.logical:GroupAddress");
-		address.tUpdateByName("name", name);
-		address.tUpdateByName("address", new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.tUpdateByName("datapointTypes", List.of(type));
+	private static GroupAddress address(String name, int main, int middle, int sub, TLObject type) {
+		GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
+		address.setName(name);
+		address.setAddress(new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
+		address.setDatapointTypes(List.of(type));
 		return address;
 	}
 
-	private static Object classifier(String enumeration, String name) {
+	private static TLClassifier classifier(String enumeration, String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:" + enumeration)).getClassifier(name);
 	}
 

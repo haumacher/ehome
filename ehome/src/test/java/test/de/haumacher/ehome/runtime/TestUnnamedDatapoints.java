@@ -6,9 +6,11 @@ package test.de.haumacher.ehome.runtime;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -29,6 +31,15 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
@@ -118,60 +129,62 @@ public class TestUnnamedDatapoints extends BasicTestCase {
 		TLObject project;
 		TLObject controller;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Unnamed datapoints");
-			project.tUpdateByName("extId", "P-TEST-114");
-			TLObject level = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			level.tUpdateByName("identifier", "level");
-			level.tUpdateByName("label", null);
-			level.tUpdateByName("type", valueType("unsigned"));
-			TLObject out = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			out.tUpdateByName("identifier", "out");
-			out.tUpdateByName("label", null);
-			out.tUpdateByName("type", valueType("boolean"));
-			out.tUpdateByName("writable", Boolean.TRUE);
+			Project created = create("ehome.project:Project");
+			project = created;
+			created.setName("Unnamed datapoints");
+			created.setExtId("P-TEST-114");
+			ApplicationDatapoint level = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			level.setIdentifier("level");
+			level.setLabel(null);
+			level.setType(valueType("unsigned"));
+			ApplicationDatapoint out = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			out.setIdentifier("out");
+			out.setLabel(null);
+			out.setType(valueType("boolean"));
+			out.setWritable(true);
 			// Named, written by the rule: no warning.
-			TLObject target = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			target.tUpdateByName("identifier", "target");
-			target.tUpdateByName("label", ResKey.text("Ziel"));
-			target.tUpdateByName("type", valueType("boolean"));
-			target.tUpdateByName("writable", Boolean.TRUE);
+			ApplicationDatapoint target = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			target.setIdentifier("target");
+			target.setLabel(ResKey.text("Ziel"));
+			target.setType(valueType("boolean"));
+			target.setWritable(true);
 
-			TLObject sensor = create("ehome.runtime:Function");
-			sensor.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Füllstand").build());
-			sensor.tUpdateByName("identifier", "fill");
-			sensor.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-			sensor.tUpdateByName("value", level);
-			project.tUpdateByName("functions", List.of(sensor));
+			Function sensor = create("ehome.runtime:Function");
+			sensor.setNameKey(ResKey.builder().add(Locale.GERMAN, "Füllstand").build());
+			sensor.setIdentifier("fill");
+			sensor.setKind(FunctionProposal.classifier("sensor"));
+			sensor.setValue(level);
+			created.setFunctions(List.of(sensor));
 
-			TLObject entry = RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
-			entry.tUpdateByName("identifier", "morning");
-			entry.tUpdateByName("label", ResKey.text("Morning"));
-			entry.tUpdateByName("time", "06:30");
+			WeeklySchedule entry = add(project, "schedules", runtime("WeeklySchedule"));
+			entry.setIdentifier("morning");
+			entry.setLabel(ResKey.text("Morning"));
+			entry.setTime("06:30");
 			TLEnumeration weekday = (TLEnumeration) TLModelUtil.findType("ehome.runtime:Weekday");
-			List<TLClassifier> days = new ArrayList<>();
+			Set<TLClassifier> days = new LinkedHashSet<>();
 			days.add(weekday.getClassifier("monday"));
-			entry.tUpdateByName("days", days);
-			entry.tUpdateByName("output", out);
+			entry.setDays(days);
+			entry.setOutput(out);
 
-			TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-			rule.tUpdateByName("identifier", "licht");
-			rule.tUpdateByName("name", ResKey.text("Licht"));
-			TLObject raw = RuleFunctions.create(rule, "parameters", runtime("RuleParameter"));
-			raw.tUpdateByName("identifier", "raw");
-			raw.tUpdateByName("title", null);
-			raw.tUpdateByName("default", "1");
-			TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
-			TLObject write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", target);
-			write.tUpdateByName("value", "true");
+			Rule rule = add(project, "rules", runtime("Rule"));
+			rule.setIdentifier("licht");
+			rule.setNameKey(ResKey.text("Licht"));
+			RuleParameter raw = add(rule, "parameters", runtime("RuleParameter"));
+			raw.setIdentifier("raw");
+			raw.setTitle(null);
+			raw.setDefault("1");
+			TLObject reaction = add(rule, "reactions", runtime("Reaction"));
+			add(reaction, "triggers", runtime("StartTrigger"));
+			WriteAction write = add(reaction, "actions", runtime("WriteAction"));
+			write.setDatapoint(target);
+			write.setValue("true");
 
-			controller = create("ehome.runtime:Controller");
-			controller.tUpdateByName("name", "Fake unnamed");
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(fake.getPort()));
-			controller.tUpdateByName("token", TOKEN);
+			Controller own = create("ehome.runtime:Controller");
+			controller = own;
+			own.setName("Fake unnamed");
+			own.setHost("127.0.0.1");
+			own.setPort(fake.getPort());
+			own.setToken(TOKEN);
 			ControllerFixture.own(project, controller);
 			tx.commit();
 		}
@@ -190,9 +203,9 @@ public class TestUnnamedDatapoints extends BasicTestCase {
 			String confirmation = ImageComparison.confirmation(project, NOW);
 			assertTrue(confirmation, confirmation.contains("\n\n" + String.join("\n", texts)));
 
-			TLObject deployment = Deployer.deploy(project, NOW);
-			String message = String.valueOf(deployment.tValueByName("message"));
-			assertEquals(message, Boolean.TRUE, deployment.tValueByName("accepted"));
+			Deployment deployment = (Deployment) Deployer.deploy(project, NOW);
+			String message = String.valueOf(deployment.getMessage());
+			assertEquals(message, Boolean.TRUE, Boolean.valueOf(deployment.getAccepted()));
 			assertTrue(message, message.contains(" " + String.join(" ", texts)));
 			assertTrue(message, message.contains(Resources.getInstance()
 				.getString(I18NConstants.DEPLOY_UNNAMED_DATAPOINT__ID.fill("rule/licht/raw"))));
@@ -239,15 +252,22 @@ public class TestUnnamedDatapoints extends BasicTestCase {
 		return Map.of("id", "p", "label", "Seite", "sections", List.of(Map.of("elements", List.of(elements))));
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	/** A new part at the end of the reference of the owner ({@link RuleFunctions#create}), as its type. */
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T add(TLObject owner, String reference, TLClass type) {
+		return (T) RuleFunctions.create(owner, reference, type);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {
 		return (TLClass) TLModelUtil.findType("ehome.runtime:" + name);
 	}
 
-	private static Object valueType(String name) {
+	private static TLClassifier valueType(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(name);
 	}
 

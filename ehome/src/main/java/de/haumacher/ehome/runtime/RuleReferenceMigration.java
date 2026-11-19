@@ -19,6 +19,8 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.project.Project;
+
 /**
  * The second step of the migration <code>Issue_90_Rule_references</code> (haumacher/ehome #90): the
  * id texts of the references of rules and schedule entries, which the migration's SQL moved to the
@@ -67,10 +69,10 @@ public class RuleReferenceMigration implements StartupAction {
 	 */
 	public static void migrate(TLObject project, List<String> unresolved) {
 		Map<String, TLObject> datapoints = RuleReferences.datapoints(project);
-		for (TLObject rule : RuleExport.objects(project.tValueByName("rules"))) {
+		for (TLObject rule : RuleExport.objects(((Project) project).getRules())) {
 			migrateTree(project, rule, rule, datapoints, unresolved);
 		}
-		for (TLObject entry : RuleExport.objects(project.tValueByName("schedules"))) {
+		for (TLObject entry : RuleExport.objects(((Project) project).getSchedules())) {
 			migrateTree(project, null, entry, datapoints, unresolved);
 		}
 	}
@@ -108,8 +110,9 @@ public class RuleReferenceMigration implements StartupAction {
 		if (target != null) {
 			obj.tUpdateByName(attribute, target);
 		} else if (!id.isBlank()) {
-			Object owner = rule != null ? rule.tValueByName("identifier") : obj.tValueByName("identifier");
-			unresolved.add("Project '" + project.tValueByName("name") + "', "
+			Object owner = rule != null ? Identifiers.of(rule) : Identifiers.of(obj);
+			unresolved.add("Project '" + ((Project) project).getName() + "', "
+
 				+ (rule != null ? "rule '" : "schedule entry '") + owner + "', " + obj.tType().getName() + "#"
 				+ attribute + ": '" + id + "' names nothing of the project, the reference stays empty (haumacher/ehome #90).");
 		}

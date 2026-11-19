@@ -28,7 +28,11 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.runtime.GroupAddressIdentifiers;
 import de.haumacher.ehome.runtime.GroupAddressIds;
@@ -61,64 +65,64 @@ public class TestGroupAddressIdentifiers extends BasicTestCase {
 			List<TLObject> addresses = RuntimeFunctions.groupAddresses(project);
 			assertTrue(addresses.size() > 50);
 			assertUnique(project);
-			TLObject taste1 = byName(project, "Taste1");
+			GroupAddress taste1 = byName(project, "Taste1");
 			assertEquals("taste1", GroupAddressIds.identifier(taste1));
 			assertNoAddressIds(project);
 
 			// A new address gets one: from its name, from the address without one.
 			TLObject range = taste1.tContainer();
-			TLObject flur;
-			TLObject nameless;
+			GroupAddress flur;
+			GroupAddress nameless;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				flur = GroupAddresses.create(range, GroupAddresses.nextFree(range), "Licht Flur", null);
+				flur = (GroupAddress) GroupAddresses.create(range, GroupAddresses.nextFree(range), "Licht Flur", null);
 				tx.commit();
 			}
 			assertEquals("licht_flur", GroupAddressIds.identifier(flur));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				nameless = GroupAddresses.create(range, GroupAddresses.nextFree(range), null, null);
+				nameless = (GroupAddress) GroupAddresses.create(range, GroupAddresses.nextFree(range), null, null);
 				tx.commit();
 			}
-			String notation = ((GA) nameless.tValueByName("address")).toString();
+			String notation = nameless.getAddress().toString();
 			assertEquals("ga_" + notation.replace('/', '_').replace('.', '_'), GroupAddressIds.identifier(nameless));
 			assertUnique(project);
 
 			// Renaming keeps it.
-			update(flur, "name", "Licht Diele");
+			update(() -> flur.setName("Licht Diele"));
 			assertEquals("licht_flur", GroupAddressIds.identifier(flur));
 
 			// A rule naming it, by its identifier and by its address.
-			TLObject reaction;
-			TLObject write;
+			Reaction reaction;
+			WriteAction write;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-				rule.tUpdateByName("identifier", "diele");
-				reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-				TLObject trigger = RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", taste1);
-				reaction.tUpdateByName("condition", "@taste1");
-				write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-				write.tUpdateByName("datapoint", flur);
-				write.tUpdateByName("value", "not @\"" + GroupAddressIds.address(flur) + "\"");
+				Rule rule = (Rule) RuleFunctions.create(project, "rules", runtime("Rule"));
+				rule.setIdentifier("diele");
+				reaction = (Reaction) RuleFunctions.create(rule, "reactions", runtime("Reaction"));
+				DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"));
+				trigger.setDatapoint(taste1);
+				reaction.setCondition("@taste1");
+				write = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+				write.setDatapoint(flur);
+				write.setValue("not @\"" + GroupAddressIds.address(flur) + "\"");
 				tx.commit();
 			}
 			// Entered with the address, written with the identifier.
-			assertEquals("not @licht_flur", write.tValueByName("value"));
+			assertEquals("not @licht_flur", write.getValue());
 
 			// Removed other than by the form: proposed again, the rules naming the old one follow.
-			update(nameless, "name", "Licht Bad");
-			update(nameless, "identifier", null);
+			update(() -> nameless.setName("Licht Bad"));
+			update(() -> nameless.setIdentifier(null));
 			assertEquals("licht_bad", GroupAddressIds.identifier(nameless));
-			update(flur, "identifier", null);
+			update(() -> flur.setIdentifier(null));
 			assertEquals("licht_diele", GroupAddressIds.identifier(flur));
-			assertEquals("not @licht_diele", write.tValueByName("value"));
-			update(flur, "identifier", "flur.licht");
-			assertEquals("not @flur.licht", write.tValueByName("value"));
+			assertEquals("not @licht_diele", write.getValue());
+			update(() -> flur.setIdentifier("flur.licht"));
+			assertEquals("not @flur.licht", write.getValue());
 			assertUnique(project);
 
 			// Overwrite: counted, listed "old → new", applied, the rules rewritten.
 			assertEquals(Map.of(), GroupAddressIds.propose(project));
 			assertTrue(ProposeIdentifiersAction.confirmation(project).contains("nothing to propose"));
-			update(taste1, "name", "Taste Küche oben");
+			update(() -> taste1.setName("Taste Küche oben"));
 			List<ProposeIdentifiersAction.Change> changes = ProposeIdentifiersAction.changes(project, true);
 			assertEquals(2, changes.size());
 			String confirmation = ProposeIdentifiersAction.confirmation(project, true);
@@ -129,8 +133,8 @@ public class TestGroupAddressIdentifiers extends BasicTestCase {
 			assertTrue(summary, summary.startsWith("2 group addresses got a new identifier."));
 			assertTrue(summary, summary.contains("taste1 → taste_kueche_oben"));
 			assertEquals("taste_kueche_oben", GroupAddressIds.identifier(taste1));
-			assertEquals("@taste_kueche_oben", reaction.tValueByName("condition"));
-			assertEquals("not @licht_diele", write.tValueByName("value"));
+			assertEquals("@taste_kueche_oben", reaction.getCondition());
+			assertEquals("not @licht_diele", write.getValue());
 			assertUnique(project);
 			assertEquals(List.of(), ProposeIdentifiersAction.changes(project, true));
 			assertTrue(ProposeIdentifiersAction.confirmation(project, true).contains("nothing changes"));
@@ -144,7 +148,7 @@ public class TestGroupAddressIdentifiers extends BasicTestCase {
 		Set<String> ids = new HashSet<>();
 		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
 			String identifier = GroupAddressIds.identifier(address);
-			assertNotNull(String.valueOf(address.tValueByName("address")), identifier);
+			assertNotNull(String.valueOf(((GroupAddress) address).getAddress()), identifier);
 			assertNull(identifier, GroupAddressIds.syntaxProblem(identifier));
 			assertNull(identifier, GroupAddressIds.problem(identifier, address));
 			assertTrue(identifier, ids.add(identifier));
@@ -162,21 +166,22 @@ public class TestGroupAddressIdentifiers extends BasicTestCase {
 		}
 	}
 
-	private static TLObject byName(TLObject project, String name) {
+	private static GroupAddress byName(TLObject project, String name) {
 		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
-			if (name.equals(address.tValueByName("name"))) {
-				return address;
+			if (name.equals(((GroupAddress) address).getName())) {
+				return (GroupAddress) address;
 			}
 		}
 		throw new AssertionError("No group address " + name);
 	}
 
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
+
 
 	private static TLClass runtime(String name) {
 		return (TLClass) TLModelUtil.findType("ehome.runtime:" + name);

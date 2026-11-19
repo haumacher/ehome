@@ -26,6 +26,8 @@ import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.runtime.Function;
+
 /**
  * {@link ViewAction} adding the functions {@link FunctionProposal} proposes for the input project
  * (<code>ehome.project:Project</code>) and the project lacks.
@@ -127,8 +129,9 @@ public class ProposeFunctionsAction extends ArgumentsViewAction {
 	}
 
 	private static String name(TLObject function, Resources resources) {
-		return function.tValueByName("name") instanceof ResKey key ? resources.getString(key)
-			: String.valueOf(function.tValueByName("identifier"));
+		return ((Function) function).getNameKey() instanceof ResKey key ? resources.getString(key)
+			: String.valueOf(((Function) function).getIdentifier());
+
 	}
 
 	/**

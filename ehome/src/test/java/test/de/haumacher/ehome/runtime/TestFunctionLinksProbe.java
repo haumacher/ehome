@@ -29,6 +29,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
 
@@ -65,26 +66,27 @@ public class TestFunctionLinksProbe extends BasicTestCase {
 			// No two functions for one channel and kind, nor for one main role and kind.
 			Set<String> channels = new HashSet<>();
 			Set<String> mains = new HashSet<>();
-			for (TLObject function : added) {
+			for (TLObject object : added) {
+				Function function = (Function) object;
 				String kind = FunctionProposal.kind(function);
-				assertTrue(table.toString(), channels.add(kind + " " + function.tValueByName("device") + " "
-					+ function.tValueByName("channel") + " " + function.tValueByName("scene")));
+				assertTrue(table.toString(), channels.add(kind + " " + function.getDevice() + " "
+					+ function.getChannel() + " " + function.getScene()));
 				if (!FunctionProposal.unused(function)) {
 					assertTrue(table.toString(), mains.add(kind + " "
 						+ function.tValueByName(FunctionKinds.mainRole(kind)) + " "
-						+ function.tValueByName("scene")));
+						+ function.getScene()));
 				}
 			}
 
 			// A second run adds and renames nothing.
 			Map<TLObject, Object> names = new HashMap<>();
 			for (TLObject function : added) {
-				names.put(function, function.tValueByName("name"));
+				names.put(function, ((Function) function).getNameKey());
 			}
 			assertEquals(new FunctionProposal.Run(List.of(), List.of()), run(project));
 			assertEquals(table, TestFunctionLinks.table(project));
 			for (TLObject function : added) {
-				assertEquals(names.get(function), function.tValueByName("name"));
+				assertEquals(names.get(function), ((Function) function).getNameKey());
 			}
 
 			// The user renames each function in German only; a third run keeps every name.
@@ -93,7 +95,7 @@ public class TestFunctionLinksProbe extends BasicTestCase {
 				for (TLObject function : added) {
 					String en = text(function, Locale.ENGLISH);
 					english.put(function, en);
-					function.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Umbenannt " + en)
+					((Function) function).setNameKey(ResKey.builder().add(Locale.GERMAN, "Umbenannt " + en)
 						.add(Locale.ENGLISH, en).build());
 				}
 				tx.commit();
@@ -117,7 +119,7 @@ public class TestFunctionLinksProbe extends BasicTestCase {
 	}
 
 	private static String text(TLObject function, Locale locale) {
-		return Resources.getInstance(locale).getString((ResKey) function.tValueByName("name"));
+		return Resources.getInstance(locale).getString(((Function) function).getNameKey());
 	}
 
 	public static Test suite() {

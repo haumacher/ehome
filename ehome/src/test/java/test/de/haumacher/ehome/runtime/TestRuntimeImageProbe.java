@@ -22,11 +22,13 @@ import test.de.haumacher.ehome.importer.SharedData;
 
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.model.TLNamed;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -89,7 +91,7 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 			int germanOnlyProgram = 0;
 			for (int n = 0; n < functions6.getFunctionSources().size(); n++) {
 				TLObject function = functions6.getFunctionSources().get(n);
-				Program program = DeviceConfiguration.program((TLObject) function.tValueByName("device"));
+				Program program = DeviceConfiguration.program(((Function) function).getDevice());
 				Set<String> languages = ProgramLanguages.languages(program);
 				Map<?, ?> label = (Map<?, ?>) ((Map<?, ?>) ((List<?>) functions6.getJson().get("functions")).get(n)).get("label");
 				Set<String> labelled = new TreeSet<>(label.keySet().stream().map(Object::toString).toList());
@@ -99,8 +101,8 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 					assertEquals(String.valueOf(label), Set.of("de", "en"), labelled);
 					assertEquals(String.valueOf(label), label.get("de"), label.get("en"));
 					assertEquals(String.valueOf(label),
-						((TLObject) function.tValueByName(FunctionKinds.mainRole(FunctionProposal.kind(function))))
-							.tValueByName("name"), label.get("de"));
+						name(function.tValueByName(FunctionKinds.mainRole(FunctionProposal.kind(function)))),
+						label.get("de"));
 					if (!languages.contains("en")) {
 						germanOnlyProgram++;
 					}
@@ -128,18 +130,23 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 		return result;
 	}
 
+	/** The name of the datapoint of a role, <code>null</code> for one without (an application datapoint). */
+	private static String name(Object datapoint) {
+		return datapoint instanceof TLNamed named ? named.getName() : null;
+	}
+
 	private static String key(TLObject function) {
 		String kind = FunctionProposal.kind(function);
 		StringBuilder text = new StringBuilder(kind);
 		for (String role : FunctionKinds.roles(kind)) {
 			Object address = function.tValueByName(role);
 			if (address != null) {
-				text.append(' ').append(role).append('=').append(((TLObject) address).tValueByName("name"));
+				text.append(' ').append(role).append('=').append(name(address));
 			}
 		}
-		if (function.tValueByName("scene") != null) {
+		if (((Function) function).getScene() != null) {
 			// The scenes of one scene input differ in their number only.
-			text.append(" scene=").append(function.tValueByName("scene"));
+			text.append(" scene=").append(((Function) function).getScene());
 		}
 		return text.toString();
 	}

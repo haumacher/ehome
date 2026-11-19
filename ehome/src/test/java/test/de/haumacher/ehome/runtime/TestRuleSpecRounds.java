@@ -22,6 +22,14 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.ReadAction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.SilenceTrigger;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
@@ -61,31 +69,31 @@ public class TestRuleSpecRounds extends BasicTestCase {
 			// The datapoint the rule names (haumacher/ehome #90).
 			TestRuleAuthoring.createDatapoints(project, List.of(Map.of("name", "1/0/1", "type", "boolean")));
 			RuleImport importer = new RuleImport();
-			TLObject rule;
+			Rule rule;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				rule = importer.importRules(project, (List<?>) Json.parse(RULES, 100)).get(0);
+				rule = (Rule) importer.importRules(project, (List<?>) Json.parse(RULES, 100)).get(0);
 				tx.commit();
 			}
-			assertEquals("Wache", text(rule.tValueByName("name"), Locale.GERMAN));
-			assertEquals("Watch", text(rule.tValueByName("name"), Locale.ENGLISH));
+			assertEquals("Wache", text(rule.getNameKey(), Locale.GERMAN));
+			assertEquals("Watch", text(rule.getNameKey(), Locale.ENGLISH));
 			assertEquals(List.of("rule watch: the label's texts in fr are not kept (the languages of E-Home: en, de)",
 				"choice of parameter mode: the label's texts in de-CH are not kept (the languages of E-Home: en, de)"),
 				importer.getNotes().stream().map(note -> note.replace("de, en", "en, de")).toList());
-			TLObject reaction = RuleFunctions.objects(rule, "reactions").get(0);
-			TLObject silence = RuleFunctions.objects(reaction, "triggers").get(0);
+			Reaction reaction = rule.getReactions().get(0);
+			TLObject silence = reaction.getTriggers().get(0);
 			assertEquals("SilenceTrigger", silence.tType().getName());
-			TLObject address = (TLObject) silence.tValueByName("datapoint");
-			assertEquals("1/0/1", address.tValueByName("name"));
-			assertEquals("$quiet", silence.tValueByName("after"));
-			TLObject read = RuleFunctions.objects(reaction, "actions").get(0);
+			TLObject address = ((SilenceTrigger) silence).getDatapoint();
+			assertEquals("1/0/1", ((GroupAddress) address).getName());
+			assertEquals("$quiet", ((SilenceTrigger) silence).getAfter());
+			TLObject read = reaction.getActions().get(0);
 			assertEquals("ReadAction", read.tType().getName());
-			assertSame(address, read.tValueByName("datapoint"));
+			assertSame(address, ((ReadAction) read).getDatapoint());
 			// The parameter by its title (haumacher/ehome #113).
 			assertEquals("silence 1/0/1 after Quiet period ($quiet)", RuleFunctions.summary(silence));
 			assertEquals("read 1/0/1", RuleFunctions.summary(read));
-			TLObject mode = RuleFunctions.objects(rule, "parameters").get(1);
+			RuleParameter mode = rule.getParameters().get(1);
 			// de-CH is not a language of E-Home: the German text is what a controller in German shows.
-			assertEquals("Auto", text(RuleFunctions.objects(mode, "choices").get(0).tValueByName("title"), Locale.GERMAN));
+			assertEquals("Auto", text(mode.getChoices().get(0).getTitle(), Locale.GERMAN));
 
 			List<Object> exported = new RuleExport().rules(project);
 			Object expected = Json.parse("""
@@ -114,16 +122,18 @@ public class TestRuleSpecRounds extends BasicTestCase {
 			TLObject read;
 			TLObject write;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject calc = RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"));
-				calc.tUpdateByName("identifier", "calc");
-				TLObject rule = RuleFunctions.create(project, "rules", type("Rule"));
+				ApplicationDatapoint calc =
+					(ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"));
+				calc.setIdentifier("calc");
+				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
 				RuleFunctions.create(reaction, "triggers", type("StartTrigger"));
 				read = RuleFunctions.create(reaction, "actions", type("ReadAction"));
-				read.tUpdateByName("datapoint", calc);
+				((ReadAction) read).setDatapoint(calc);
 				write = RuleFunctions.create(reaction, "actions", type("WriteAction"));
-				write.tUpdateByName("datapoint", rule);
-				write.tUpdateByName("value", "false");
+				((WriteAction) write).setDatapoint(rule);
+				((WriteAction) write).setValue("false");
+
 				tx.commit();
 			}
 			List<String> readWarnings = new RuleForm(read).warnings("datapoint");

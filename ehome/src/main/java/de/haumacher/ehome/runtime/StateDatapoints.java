@@ -28,6 +28,8 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleStateDatapoint;
 import de.haumacher.ehome.query.Queries;
 
 /**
@@ -155,7 +157,7 @@ public class StateDatapoints extends ConfiguredManagedClass<StateDatapoints.Conf
 	}
 
 	private static boolean lacks(TLObject rule) {
-		return rule.tValid() && !rule.tTransient() && !(rule.tValueByName("stateDatapoint") instanceof TLObject);
+		return rule.tValid() && !rule.tTransient() && !(((Rule) rule).getStateDatapoint() instanceof TLObject);
 	}
 
 	/**
@@ -164,11 +166,12 @@ public class StateDatapoints extends ConfiguredManagedClass<StateDatapoints.Conf
 	 * @return The rule's state datapoint.
 	 */
 	public static TLObject ensure(TLObject rule) {
-		if (rule.tValueByName("stateDatapoint") instanceof TLObject existing && existing.tValid()) {
+		if (((Rule) rule).getStateDatapoint() instanceof TLObject existing && existing.tValid()) {
 			return existing;
 		}
-		TLObject result = ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(TYPE));
-		rule.tUpdateByName("stateDatapoint", result);
+		RuleStateDatapoint result = (RuleStateDatapoint) ModelService.getInstance().getFactory()
+			.createObject((TLClass) TLModelUtil.findType(TYPE));
+		((Rule) rule).setStateDatapoint(result);
 		return result;
 	}
 
@@ -176,8 +179,9 @@ public class StateDatapoints extends ConfiguredManagedClass<StateDatapoints.Conf
 	 * The state datapoint of the rule, <code>null</code> if it has none (yet).
 	 */
 	public static TLObject of(TLObject rule) {
-		return rule != null && rule.tValid() && rule.tValueByName("stateDatapoint") instanceof TLObject datapoint
+		return rule instanceof Rule stored && stored.tValid() && stored.getStateDatapoint() instanceof TLObject datapoint
 			&& datapoint.tValid() ? datapoint : null;
+
 	}
 
 	/**

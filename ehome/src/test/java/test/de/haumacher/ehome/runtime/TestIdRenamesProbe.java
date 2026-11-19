@@ -20,6 +20,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.runtime.IdRenames;
 import de.haumacher.ehome.runtime.RuleFunctions;
 
@@ -66,26 +69,26 @@ public class TestIdRenamesProbe extends BasicTestCase {
 
 	public void testStaysInItsProject() {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_parameter.tUpdateByName("identifier", "max-a");
+			((RuleParameter) _parameter).setIdentifier("max-a");
 			tx.commit();
 		}
-		assertEquals("$\"max-a\" > 1", _firstReaction.tValueByName("condition"));
-		assertEquals("$a > 1", _secondReaction.tValueByName("condition"));
-		assertEquals("@\"rule/dimmer/a\" > 0", _secondOther.tValueByName("condition"));
+		assertEquals("$\"max-a\" > 1", ((Reaction) _firstReaction).getCondition());
+		assertEquals("$a > 1", ((Reaction) _secondReaction).getCondition());
+		assertEquals("@\"rule/dimmer/a\" > 0", ((Reaction) _secondOther).getCondition());
 	}
 
 	/** A rule with the parameter "a"; returns the parameter. */
 	private static TLObject rule(TLObject project, String id) {
-		TLObject rule = RuleFunctions.create(project, "rules", type("Rule"));
-		rule.tUpdateByName("identifier", id);
-		TLObject parameter = RuleFunctions.create(rule, "parameters", type("RuleParameter"));
-		parameter.tUpdateByName("identifier", "a");
+		Rule rule = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
+		rule.setIdentifier(id);
+		RuleParameter parameter = (RuleParameter) RuleFunctions.create(rule, "parameters", type("RuleParameter"));
+		parameter.setIdentifier("a");
 		return parameter;
 	}
 
 	private static TLObject reaction(TLObject rule, String condition) {
-		TLObject reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
-		reaction.tUpdateByName("condition", condition);
+		Reaction reaction = (Reaction) RuleFunctions.create(rule, "reactions", type("Reaction"));
+		reaction.setCondition(condition);
 		return reaction;
 	}
 

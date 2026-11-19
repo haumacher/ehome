@@ -13,6 +13,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
@@ -209,7 +210,7 @@ public final class ExpressionRenames {
 	 */
 	public int apply(TLObject project) {
 		int result = 0;
-		for (TLObject rule : RuleExport.objects(project.tValueByName("rules"))) {
+		for (TLObject rule : RuleExport.objects(((Project) project).getRules())) {
 			String ruleId = id(rule);
 			if (ruleId != null) {
 				result += applyTree(ruleId, rule);
@@ -404,8 +405,9 @@ public final class ExpressionRenames {
 	}
 
 	private static String id(TLObject obj) {
-		Object id = obj.tValueByName("identifier");
-		return id == null || id.toString().isBlank() ? null : id.toString().trim();
+		Object id = Identifiers.of(obj);
+		return id == null
+ || id.toString().isBlank() ? null : id.toString().trim();
 	}
 
 }

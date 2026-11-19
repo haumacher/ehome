@@ -4,6 +4,7 @@
 package test.de.haumacher.ehome.runtime;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,24 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Action;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.AstroSchedule;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.ReadAction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
+import de.haumacher.ehome.model.runtime.ScheduleTrigger;
+import de.haumacher.ehome.model.runtime.SetParameterAction;
+import de.haumacher.ehome.model.runtime.StartTimerAction;
+import de.haumacher.ehome.model.runtime.Trigger;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -59,31 +78,31 @@ public class TestRuleReferences extends BasicTestCase {
 
 	private TLObject _dpt;
 
-	private TLObject _project;
+	private Project _project;
 
-	private TLObject _light;
+	private GroupAddress _light;
 
-	private TLObject _sensor;
+	private GroupAddress _sensor;
 
-	private TLObject _untyped;
+	private GroupAddress _untyped;
 
-	private TLObject _flag;
+	private ApplicationDatapoint _flag;
 
-	private TLObject _level;
+	private ApplicationDatapoint _level;
 
-	private TLObject _switch;
+	private ApplicationDatapoint _switch;
 
-	private TLObject _rule;
+	private Rule _rule;
 
-	private TLObject _timer;
+	private RuleTimer _timer;
 
-	private TLObject _parameter;
+	private RuleParameter _parameter;
 
-	private TLObject _weekly;
+	private WeeklySchedule _weekly;
 
-	private TLObject _astro;
+	private AstroSchedule _astro;
 
-	private TLObject _reaction;
+	private Reaction _reaction;
 
 	@Override
 	protected void setUp() throws Exception {
@@ -93,27 +112,27 @@ public class TestRuleReferences extends BasicTestCase {
 			_dpt.tUpdateByName("number", Integer.valueOf(1));
 			_dpt.tUpdateByName("extId", "TEST-RULE-REFERENCES-1");
 			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Rule references");
+			_project.setName("Rule references");
 			_light = address("Licht", 0x0801, _dpt, true);
 			_sensor = address("Bewegung", 0x0802, _dpt, false);
 			_untyped = address("Ohne Typ", 0x0809, null, false);
-			_project.tUpdateByName("groupAddresses", List.of(_light, _sensor, _untyped));
+			_project.setGroupAddresses(new HashSet<>(List.of(_light, _sensor, _untyped)));
 
 			_flag = datapoint("flag", "boolean", false);
 			_level = datapoint("level", "unsigned", true);
 			_switch = datapoint("switch", "boolean", true);
 
-			_rule = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_rule.tUpdateByName("identifier", "r");
-			_timer = RuleFunctions.create(_rule, "timers", runtime("RuleTimer"));
-			_parameter = RuleFunctions.create(_rule, "parameters", runtime("RuleParameter"));
-			_reaction = RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
+			_rule = add(_project, "rules", runtime("Rule"));
+			_rule.setIdentifier("r");
+			_timer = add(_rule, "timers", runtime("RuleTimer"));
+			_parameter = add(_rule, "parameters", runtime("RuleParameter"));
+			_reaction = add(_rule, "reactions", runtime("Reaction"));
 
-			_weekly = RuleFunctions.create(_project, "schedules", runtime("WeeklySchedule"));
-			_weekly.tUpdateByName("identifier", "morning");
-			_weekly.tUpdateByName("timeAdjustable", Boolean.TRUE);
-			_astro = RuleFunctions.create(_project, "schedules", runtime("AstroSchedule"));
-			_astro.tUpdateByName("identifier", "dusk");
+			_weekly = add(_project, "schedules", runtime("WeeklySchedule"));
+			_weekly.setIdentifier("morning");
+			_weekly.setTimeAdjustable(true);
+			_astro = add(_project, "schedules", runtime("AstroSchedule"));
+			_astro.setIdentifier("dusk");
 			tx.commit();
 		}
 	}
@@ -129,12 +148,12 @@ public class TestRuleReferences extends BasicTestCase {
 	}
 
 	public void testOptions() {
-		TLObject trigger = part(_reaction, "triggers", "DatapointTrigger");
-		TLObject write = part(_reaction, "actions", "WriteAction");
-		TLObject read = part(_reaction, "actions", "ReadAction");
-		TLObject start = part(_reaction, "actions", "StartTimerAction");
-		TLObject set = part(_reaction, "actions", "SetParameterAction");
-		TLObject scheduled = part(_reaction, "triggers", "ScheduleTrigger");
+		DatapointTrigger trigger = part(_reaction, "triggers", "DatapointTrigger");
+		WriteAction write = part(_reaction, "actions", "WriteAction");
+		ReadAction read = part(_reaction, "actions", "ReadAction");
+		StartTimerAction start = part(_reaction, "actions", "StartTimerAction");
+		SetParameterAction set = part(_reaction, "actions", "SetParameterAction");
+		ScheduleTrigger scheduled = part(_reaction, "triggers", "ScheduleTrigger");
 
 		List<TLObject> triggers = RuleReferences.options(trigger, RuleReferences.TRIGGER);
 		assertTrue(triggers.toString(), triggers.containsAll(List.of(_light, _sensor, _flag, _level, _switch, _rule,
@@ -170,26 +189,26 @@ public class TestRuleReferences extends BasicTestCase {
 	}
 
 	public void testExportFollowsIds() {
-		TLObject write;
-		TLObject start;
+		WriteAction write;
+		StartTimerAction start;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			RuleFunctions.create(_reaction, "triggers", runtime("ScheduleTrigger")).tUpdateByName("schedule", _astro);
-			write = RuleFunctions.create(_reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", _level);
-			write.tUpdateByName("value", "1");
-			start = RuleFunctions.create(_reaction, "actions", runtime("StartTimerAction"));
-			start.tUpdateByName("timer", _timer);
-			_astro.tUpdateByName("output", _flag);
+			TestRuleReferences.<ScheduleTrigger> add(_reaction, "triggers", runtime("ScheduleTrigger")).setSchedule(_astro);
+			write = add(_reaction, "actions", runtime("WriteAction"));
+			write.setDatapoint(_level);
+			write.setValue("1");
+			start = add(_reaction, "actions", runtime("StartTimerAction"));
+			start.setTimer(_timer);
+			_astro.setOutput(_flag);
 			tx.commit();
 		}
 		assertEquals(List.of("dusk", "level", "t1"), ids());
 		assertEquals("flag", schedule(1).get("output"));
 
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_level.tUpdateByName("identifier", "level2");
-			_timer.tUpdateByName("identifier", "off");
-			_astro.tUpdateByName("identifier", "evening");
-			_flag.tUpdateByName("identifier", "flag2");
+			_level.setIdentifier("level2");
+			_timer.setIdentifier("off");
+			_astro.setIdentifier("evening");
+			_flag.setIdentifier("flag2");
 			tx.commit();
 		}
 		assertEquals(List.of("evening", "level2", "off"), ids());
@@ -211,20 +230,20 @@ public class TestRuleReferences extends BasicTestCase {
 	}
 
 	public void testDeleteClears() {
-		TLObject trigger;
-		TLObject start;
-		TLObject set;
-		TLObject scheduled;
+		DatapointTrigger trigger;
+		StartTimerAction start;
+		SetParameterAction set;
+		ScheduleTrigger scheduled;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			trigger = RuleFunctions.create(_reaction, "triggers", runtime("DatapointTrigger"));
-			trigger.tUpdateByName("datapoint", _light);
-			scheduled = RuleFunctions.create(_reaction, "triggers", runtime("ScheduleTrigger"));
-			scheduled.tUpdateByName("schedule", _astro);
-			start = RuleFunctions.create(_reaction, "actions", runtime("StartTimerAction"));
-			start.tUpdateByName("timer", _timer);
-			set = RuleFunctions.create(_reaction, "actions", runtime("SetParameterAction"));
-			set.tUpdateByName("parameter", _parameter);
-			set.tUpdateByName("value", "0");
+			trigger = add(_reaction, "triggers", runtime("DatapointTrigger"));
+			trigger.setDatapoint(_light);
+			scheduled = add(_reaction, "triggers", runtime("ScheduleTrigger"));
+			scheduled.setSchedule(_astro);
+			start = add(_reaction, "actions", runtime("StartTimerAction"));
+			start.setTimer(_timer);
+			set = add(_reaction, "actions", runtime("SetParameterAction"));
+			set.setParameter(_parameter);
+			set.setValue("0");
 			tx.commit();
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -237,10 +256,10 @@ public class TestRuleReferences extends BasicTestCase {
 		for (TLObject part : List.of(trigger, scheduled, start, set)) {
 			assertTrue("The part stays.", part.tValid());
 		}
-		assertNull(trigger.tValueByName("datapoint"));
-		assertNull(scheduled.tValueByName("schedule"));
-		assertNull(start.tValueByName("timer"));
-		assertNull(set.tValueByName("parameter"));
+		assertNull(trigger.getDatapoint());
+		assertNull(scheduled.getSchedule());
+		assertNull(start.getTimer());
+		assertNull(set.getParameter());
 		List<String> warnings = new RuleForm(trigger).warnings("datapoint");
 		assertEquals(warnings.toString(), 1, warnings.size());
 		assertTrue(warnings.get(0), warnings.get(0).contains("\"datapoint\""));
@@ -277,29 +296,30 @@ public class TestRuleReferences extends BasicTestCase {
 			imported = new RuleImport().importImage(_project, matching);
 			tx.commit();
 		}
-		TLObject reaction = RuleFunctions.objects(imported.rules().get(0), "reactions").get(0);
-		List<TLObject> triggers = RuleFunctions.objects(reaction, "triggers");
-		assertSame(_sensor, triggers.get(0).tValueByName("datapoint"));
-		assertSame(_weekly, triggers.get(1).tValueByName("schedule"));
-		assertSame(_rule, triggers.get(2).tValueByName("datapoint"));
-		List<TLObject> actions = RuleFunctions.objects(reaction, "actions");
-		assertSame(_switch, actions.get(0).tValueByName("datapoint"));
-		assertSame(RuleFunctions.objects(imported.rules().get(0), "timers").get(0), actions.get(1).tValueByName("timer"));
-		assertSame(_flag, imported.schedules().get(0).tValueByName("output"));
+		Rule rule = (Rule) imported.rules().get(0);
+		Reaction reaction = rule.getReactions().get(0);
+		List<? extends Trigger> triggers = reaction.getTriggers();
+		assertSame(_sensor, ((DatapointTrigger) triggers.get(0)).getDatapoint());
+		assertSame(_weekly, ((ScheduleTrigger) triggers.get(1)).getSchedule());
+		assertSame(_rule, ((DatapointTrigger) triggers.get(2)).getDatapoint());
+		List<? extends Action> actions = reaction.getActions();
+		assertSame(_switch, ((WriteAction) actions.get(0)).getDatapoint());
+		assertSame(rule.getTimers().get(0), ((StartTimerAction) actions.get(1)).getTimer());
+		assertSame(_flag, ((ScheduleEntry) imported.schedules().get(0)).getOutput());
 		String exported = Json.write(new RuleExport().rules(_project));
 		assertTrue(exported, exported.contains("\"rule/r/enabled\""));
 	}
 
 	public void testMigration() {
-		TLObject trigger;
-		TLObject write;
-		TLObject start;
+		DatapointTrigger trigger;
+		WriteAction write;
+		StartTimerAction start;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			trigger = RuleFunctions.create(_reaction, "triggers", runtime("DatapointTrigger"));
+			trigger = add(_reaction, "triggers", runtime("DatapointTrigger"));
 			legacy(trigger, "datapoint", "1/0/1");
-			write = RuleFunctions.create(_reaction, "actions", runtime("WriteAction"));
+			write = add(_reaction, "actions", runtime("WriteAction"));
 			legacy(write, "datapoint", "gone");
-			start = RuleFunctions.create(_reaction, "actions", runtime("StartTimerAction"));
+			start = add(_reaction, "actions", runtime("StartTimerAction"));
 			legacy(start, "timer", "t1");
 			legacy(_astro, "output", "flag");
 			tx.commit();
@@ -309,10 +329,10 @@ public class TestRuleReferences extends BasicTestCase {
 			RuleReferenceMigration.migrate(_project, unresolved);
 			tx.commit();
 		}
-		assertSame(_light, trigger.tValueByName("datapoint"));
-		assertNull(write.tValueByName("datapoint"));
-		assertSame(_timer, start.tValueByName("timer"));
-		assertSame(_flag, _astro.tValueByName("output"));
+		assertSame(_light, trigger.getDatapoint());
+		assertNull(write.getDatapoint());
+		assertSame(_timer, start.getTimer());
+		assertSame(_flag, _astro.getOutput());
 		assertEquals(unresolved.toString(), 1, unresolved.size());
 		assertTrue(unresolved.get(0), unresolved.get(0).contains("'gone'") && unresolved.get(0).contains("rule 'r'"));
 		for (TLObject obj : List.of(trigger, write, start, _astro)) {
@@ -327,36 +347,43 @@ public class TestRuleReferences extends BasicTestCase {
 		((KnowledgeItem) obj.tHandle()).setAttributeValue(RuleReferenceMigration.PREFIX + attribute, id);
 	}
 
-	private static TLObject part(TLObject owner, String reference, String type) {
+	private static <T extends TLObject> T part(TLObject owner, String reference, String type) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject result = RuleFunctions.create(owner, reference, runtime(type));
+			T result = add(owner, reference, runtime(type));
 			tx.commit();
 			return result;
 		}
 	}
 
-	private TLObject address(String name, int value, TLObject type, boolean writable) {
-		TLObject result = create("ehome.logical:GroupAddress");
-		result.tUpdateByName("name", name);
-		result.tUpdateByName("address", new GA(value, GroupAddressStyle.ThreeLevel));
+	private GroupAddress address(String name, int value, TLObject type, boolean writable) {
+		GroupAddress result = create("ehome.logical:GroupAddress");
+		result.setName(name);
+		result.setAddress(new GA(value, GroupAddressStyle.ThreeLevel));
 		if (type != null) {
-			result.tUpdateByName("datapointTypes", List.of(type));
+			result.setDatapointTypes(List.of(type));
 		}
-		result.tUpdateByName("runtimeWritable", Boolean.valueOf(writable));
+		result.setRuntimeWritable(Boolean.valueOf(writable));
 		return result;
 	}
 
-	private TLObject datapoint(String id, String type, boolean writable) {
-		TLObject result = RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-		result.tUpdateByName("identifier", id);
-		result.tUpdateByName("type",
+	private ApplicationDatapoint datapoint(String id, String type, boolean writable) {
+		ApplicationDatapoint result = add(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+		result.setIdentifier(id);
+		result.setType(
 			((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(type));
-		result.tUpdateByName("writable", Boolean.valueOf(writable));
+		result.setWritable(writable);
 		return result;
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	/** A new part at the end of the reference of the owner ({@link RuleFunctions#create}), as its type. */
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T add(TLObject owner, String reference, TLClass type) {
+		return (T) RuleFunctions.create(owner, reference, type);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {

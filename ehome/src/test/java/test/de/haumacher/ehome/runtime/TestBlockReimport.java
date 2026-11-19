@@ -25,6 +25,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.RoomController;
+import de.haumacher.ehome.model.runtime.BlockInstance;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.DatapointSettings;
 import de.haumacher.ehome.runtime.ImageReport;
@@ -67,7 +68,7 @@ public class TestBlockReimport extends BasicTestCase {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				block = BlockInstances.create(project, BlockInstances.typeKey(RoomController.INSTANCE.manifest()), null,
 					ResKey.text("Heizung"));
-				block.tUpdateByName("identifier", "heating");
+				((BlockInstance) block).setIdentifier("heating");
 				BlockInstances.bind(BlockInstances.port(block, "temperature"), temperature);
 				BlockInstances.bind(BlockInstances.port(block, "switch"), sent);
 				tx.commit();

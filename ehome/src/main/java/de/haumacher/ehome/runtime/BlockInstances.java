@@ -29,6 +29,14 @@ import de.haumacher.ehome.blocks.Manifest.Aggregation;
 import de.haumacher.ehome.blocks.Manifest.Choice;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.ProjectDatapoint;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.BlockBinding;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.BlockParameter;
+import de.haumacher.ehome.model.runtime.BlockPort;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.rules.ValueType;
@@ -107,26 +115,26 @@ public final class BlockInstances {
 
 	/** The virtual devices of the project in block order. */
 	public static List<TLObject> of(TLObject project) {
-		return project == null ? List.of() : RuleExport.objects(project.tValueByName(REFERENCE));
+		return project == null ? List.of() : RuleExport.objects(((Project) project).getBlocks());
 	}
 
 	/** The type of the instance, <code>null</code> when E-Home has no such type. */
 	public static BlockType type(TLObject instance) {
-		Object type = instance.tValueByName("blockType");
-		Object version = instance.tValueByName("version");
+		Object type = ((BlockInstance) instance).getBlockType();
+		Object version = ((BlockInstance) instance).getVersion();
 		return type == null || version == null ? null : registry().resolve(type.toString(), version.toString());
 	}
 
 	/** The identifier of the instance, <code>null</code> for none. */
 	public static String identifier(TLObject instance) {
-		Object id = instance.tValueByName("identifier");
+		Object id = ((BlockInstance) instance).getIdentifier();
 		return id == null || id.toString().isBlank() ? null : id.toString().trim();
 	}
 
 	/** The port of the instance with the id, <code>null</code> if none. */
 	public static TLObject port(TLObject instance, String id) {
-		for (TLObject port : RuleExport.objects(instance.tValueByName("ports"))) {
-			if (id.equals(port.tValueByName("port"))) {
+		for (TLObject port : RuleExport.objects(((BlockInstance) instance).getPorts())) {
+			if (id.equals(((BlockPort) port).getPort())) {
 				return port;
 			}
 		}
@@ -135,8 +143,8 @@ public final class BlockInstances {
 
 	/** The parameter of the instance with the id, <code>null</code> if none. */
 	public static TLObject parameter(TLObject instance, String id) {
-		for (TLObject parameter : RuleExport.objects(instance.tValueByName("parameters"))) {
-			if (id.equals(parameter.tValueByName("parameter"))) {
+		for (TLObject parameter : RuleExport.objects(((BlockInstance) instance).getParameters())) {
+			if (id.equals(((BlockParameter) parameter).getParameter())) {
 				return parameter;
 			}
 		}
@@ -145,23 +153,26 @@ public final class BlockInstances {
 
 	/** The declaration of a port, <code>null</code> when its type does not declare it. */
 	public static Port portDecl(TLObject port) {
-		BlockType type = port.tContainer() == null ? null : type(port.tContainer());
-		int index = type == null ? -1 : type.manifest().port(String.valueOf(port.tValueByName("port")));
+		BlockType type = port.tContainer() instanceof BlockInstance instance ? type(instance) : null;
+		int index = type == null ? -1
+			: type.manifest().port(String.valueOf(port instanceof BlockPort p ? p.getPort() : null));
 		return index < 0 ? null : type.manifest().ports().get(index);
 	}
 
 	/** The declaration of a parameter, <code>null</code> when its type does not declare it. */
 	public static Param paramDecl(TLObject parameter) {
-		BlockType type = parameter.tContainer() == null ? null : type(parameter.tContainer());
-		int index = type == null ? -1 : type.manifest().param(String.valueOf(parameter.tValueByName("parameter")));
+		BlockType type = parameter.tContainer() instanceof BlockInstance instance ? type(instance) : null;
+
+		int index = type == null ? -1
+			: type.manifest().param(String.valueOf(parameter instanceof BlockParameter p ? p.getParameter() : null));
 		return index < 0 ? null : type.manifest().params().get(index);
 	}
 
 	/** The datapoints bound to the port, in binding order (deleted ones left out). */
 	public static List<TLObject> bound(TLObject port) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject binding : RuleExport.objects(port.tValueByName("bindings"))) {
-			if (binding.tValueByName("datapoint") instanceof TLObject datapoint && datapoint.tValid()) {
+		for (TLObject binding : RuleExport.objects(((BlockPort) port).getBindings())) {
+			if (((BlockBinding) binding).getDatapoint() instanceof TLObject datapoint && datapoint.tValid()) {
 				result.add(datapoint);
 			}
 		}
@@ -179,7 +190,7 @@ public final class BlockInstances {
 		}
 		if (isPort(target) || isParameter(target)) {
 			String id = target.tContainer() == null ? null : identifier(target.tContainer());
-			Object member = target.tValueByName(isPort(target) ? "port" : "parameter");
+			Object member = isPort(target) ? ((BlockPort) target).getPort() : ((BlockParameter) target).getParameter();
 			return id == null || member == null ? null : BlockSet.mirrorName(id, member.toString());
 		}
 		return null;
@@ -261,7 +272,7 @@ public final class BlockInstances {
 	/** Whether the datapoint the object stands for may be commanded (the enable switch, a parameter). */
 	public static boolean writable(TLObject target) {
 		if (isInstance(target)) {
-			return !Boolean.FALSE.equals(target.tValueByName("enabledAdjustable"));
+			return ((BlockInstance) target).getEnabledAdjustable();
 		}
 		return isParameter(target) && hasMirror(target);
 	}
@@ -330,10 +341,11 @@ public final class BlockInstances {
 		}
 		if (Pages.isRuleParameter(datapoint)) {
 			// A duration's datapoint carries ms; its unit is the one the controller edits it in.
-			if (datapoint.tValueByName("type") instanceof TLClassifier type && "duration".equals(type.getName())) {
+			RuleParameter parameter = (RuleParameter) datapoint;
+			if (parameter.getType() instanceof TLClassifier type && "duration".equals(type.getName())) {
 				return "ms";
 			}
-			Object unit = datapoint.tValueByName("unit");
+			Object unit = parameter.getUnit();
 			return unit == null || unit.toString().isBlank() ? null : unit.toString().trim();
 		}
 		return null;
@@ -376,7 +388,7 @@ public final class BlockInstances {
 
 	/** The type id of the instance holding the port or parameter. */
 	static String blockType(TLObject member) {
-		return member.tContainer() == null ? null : String.valueOf(member.tContainer().tValueByName("blockType"));
+		return member.tContainer() == null ? null : String.valueOf(((BlockInstance) member.tContainer()).getBlockType());
 	}
 
 	/**
@@ -441,7 +453,7 @@ public final class BlockInstances {
 		Param decl = paramDecl(parameter);
 		if (decl == null) {
 			return Resources.getInstance().getString(I18NConstants.BLOCK_PARAMETER_UNKNOWN__PARAMETER
-				.fill(String.valueOf(parameter.tValueByName("parameter"))));
+				.fill(String.valueOf(((BlockParameter) parameter).getParameter())));
 		}
 		Double value;
 		try {
@@ -452,8 +464,8 @@ public final class BlockInstances {
 		if (value != null && value.doubleValue() == decl.defaultValue()) {
 			value = null;
 		}
-		if (!Objects.equals(parameter.tValueByName("value"), value)) {
-			parameter.tUpdateByName("value", value);
+		if (!Objects.equals(((BlockParameter) parameter).getValue(), value)) {
+			((BlockParameter) parameter).setValue(value);
 		}
 		return null;
 	}
@@ -468,19 +480,19 @@ public final class BlockInstances {
 		Port decl = portDecl(port);
 		if (decl == null || !decl.isInput() || decl.multiple() < 2) {
 			return Resources.getInstance().getString(I18NConstants.BLOCK_AGGREGATION_NONE__PORT
-				.fill(String.valueOf(port.tValueByName("port"))));
+				.fill(String.valueOf(((BlockPort) port).getPort())));
 		}
 		String value = null;
 		if (label != null && !label.toString().isBlank()) {
 			Aggregation chosen = BlockValues.aggregationOfLabel(decl.aggregations(), label.toString());
 			if (chosen == null) {
 				return Resources.getInstance().getString(I18NConstants.BLOCK_AGGREGATION_INVALID__AGGREGATION_PORT
-					.fill(label, String.valueOf(port.tValueByName("port"))));
+					.fill(label, String.valueOf(((BlockPort) port).getPort())));
 			}
 			value = chosen == decl.defaultAggregation() ? null : chosen.externalName();
 		}
-		if (!Objects.equals(port.tValueByName("aggregation"), value)) {
-			port.tUpdateByName("aggregation", value);
+		if (!Objects.equals(((BlockPort) port).getAggregation(), value)) {
+			((BlockPort) port).setAggregation(value);
 		}
 		return null;
 	}
@@ -517,7 +529,7 @@ public final class BlockInstances {
 		}
 		Manifest m = type.manifest();
 		ResKey label = name != null ? name : FunctionProposal.text(typeLabel(m));
-		TLObject instance = createObject(INSTANCE);
+		BlockInstance instance = (BlockInstance) createObject(INSTANCE);
 		Set<String> ids = new HashSet<>();
 		for (TLObject other : of(project)) {
 			String id = identifier(other);
@@ -526,28 +538,28 @@ public final class BlockInstances {
 			}
 		}
 		String base = com.top_logic.util.Resources.getInstance().getString(label);
-		instance.tUpdateByName("identifier", FunctionProposal.uniqueIdentifier(base, ids));
-		instance.tUpdateByName("name", label);
-		instance.tUpdateByName("blockType", m.type());
-		instance.tUpdateByName("version", m.version());
-		instance.tUpdateByName("room", room);
-		List<TLObject> ports = new ArrayList<>();
+		instance.setIdentifier(FunctionProposal.uniqueIdentifier(base, ids));
+		instance.setNameKey(label);
+		instance.setBlockType(m.type());
+		instance.setVersion(m.version());
+		instance.setRoom((BuildingDefinition) room);
+		List<BlockPort> ports = new ArrayList<>();
 		for (Port decl : m.ports()) {
-			TLObject port = createObject(PORT);
-			port.tUpdateByName("port", decl.id());
+			BlockPort port = (BlockPort) createObject(PORT);
+			port.setPort(decl.id());
 			ports.add(port);
 		}
-		instance.tUpdateByName("ports", ports);
-		List<TLObject> params = new ArrayList<>();
+		instance.setPorts(ports);
+		List<BlockParameter> params = new ArrayList<>();
 		for (Param decl : m.params()) {
-			TLObject param = createObject(PARAMETER);
-			param.tUpdateByName("parameter", decl.id());
+			BlockParameter param = (BlockParameter) createObject(PARAMETER);
+			param.setParameter(decl.id());
 			params.add(param);
 		}
-		instance.tUpdateByName("parameters", params);
-		List<Object> all = new ArrayList<>(of(project));
+		instance.setParameters(params);
+		List<BlockInstance> all = RuleImport.typed(of(project));
 		all.add(instance);
-		project.tUpdateByName(REFERENCE, all);
+		((Project) project).setBlocks(all);
 		return instance;
 	}
 
@@ -556,12 +568,12 @@ public final class BlockInstances {
 	 * which keeps the datapoint's id in the image.
 	 */
 	public static TLObject bind(TLObject port, TLObject datapoint) {
-		TLObject binding = createObject(BINDING);
-		binding.tUpdateByName("datapoint", datapoint);
-		binding.tUpdateByName("boundId", datapointImageId(datapoint));
-		List<Object> bindings = new ArrayList<>(RuleExport.objects(port.tValueByName("bindings")));
+		BlockBinding binding = (BlockBinding) createObject(BINDING);
+		binding.setDatapoint((ProjectDatapoint) datapoint);
+		binding.setBoundId(datapointImageId(datapoint));
+		List<BlockBinding> bindings = RuleImport.typed(RuleExport.objects(((BlockPort) port).getBindings()));
 		bindings.add(binding);
-		port.tUpdateByName("bindings", bindings);
+		((BlockPort) port).setBindings(bindings);
 		return binding;
 	}
 
@@ -646,23 +658,24 @@ public final class BlockInstances {
 			return null;
 		}
 		List<Object> result = new ArrayList<>();
-		for (TLObject instance : instances) {
+		for (TLObject object : instances) {
+			BlockInstance instance = (BlockInstance) object;
 			String path = "blocks[" + result.size() + "]";
 			sources.put(path, instance);
 			Map<String, Object> block = new LinkedHashMap<>();
 			String id = identifier(instance);
 			block.put("id", id == null ? "" : id);
-			block.put("type", String.valueOf(instance.tValueByName("blockType")));
-			block.put("version", String.valueOf(instance.tValueByName("version")));
-			Object label = RuntimeImage.labels(instance.tValueByName("name"));
+			block.put("type", String.valueOf(instance.getBlockType()));
+			block.put("version", String.valueOf(instance.getVersion()));
+			Object label = RuntimeImage.labels(instance.getNameKey());
 			block.put("label", label != null ? label : block.get("id"));
-			if (Boolean.FALSE.equals(instance.tValueByName("enabled"))) {
+			if (!instance.getEnabled()) {
 				block.put("enabled", Boolean.FALSE);
 			}
-			if (Boolean.FALSE.equals(instance.tValueByName("enabledAdjustable"))) {
+			if (!instance.getEnabledAdjustable()) {
 				block.put("enabledAdjustable", Boolean.FALSE);
 			}
-			if (instance.tValueByName("description") instanceof String description && !description.isBlank()) {
+			if (instance.getDescription() instanceof String description && !description.isBlank()) {
 				block.put("description", description.trim());
 			}
 			result.add(block);
@@ -673,7 +686,7 @@ public final class BlockInstances {
 			}
 			Manifest m = type.manifest();
 			String name = String.valueOf(com.top_logic.util.Resources.getInstance().getString(
-				instance.tValueByName("name") instanceof ResKey key ? key : ResKey.text(String.valueOf(id))));
+				instance.getNameKey() instanceof ResKey key ? key : ResKey.text(String.valueOf(id))));
 			Map<String, Object> inputs = new LinkedHashMap<>();
 			Map<String, Object> aggregation = new LinkedHashMap<>();
 			Map<String, Object> outputs = new LinkedHashMap<>();
@@ -684,15 +697,15 @@ public final class BlockInstances {
 				}
 				String member = decl.isInput() ? "inputs" : "outputs";
 				List<String> names = new ArrayList<>();
-				List<TLObject> bindings = RuleExport.objects(port.tValueByName("bindings"));
+				List<TLObject> bindings = RuleExport.objects(((BlockPort) port).getBindings());
 				for (int k = 0; k < bindings.size(); k++) {
-					TLObject binding = bindings.get(k);
+					BlockBinding binding = (BlockBinding) bindings.get(k);
 					String at = path + "." + member + "." + decl.id() + (decl.isInput() && bindings.size() > 1 ? "[" + k + "]" : "");
 					sources.put(at, port);
-					Object datapoint = binding.tValueByName("datapoint");
+					Object datapoint = binding.getDatapoint();
 					String datapointId = datapoint instanceof TLObject dp && dp.tValid() ? ids.apply(dp) : null;
 					if (datapointId == null) {
-						Object was = binding.tValueByName("boundId");
+						Object was = binding.getBoundId();
 						problems.add(new Problem(at, I18NConstants.BLOCK_BINDING_DELETED__BLOCK_PORT_DATAPOINT
 							.fill(name + " (" + id + ")", decl.id(), was == null ? "?" : was)));
 						continue;
@@ -705,7 +718,7 @@ public final class BlockInstances {
 				sources.put(path + "." + member + "." + decl.id(), port);
 				if (decl.isInput()) {
 					inputs.put(decl.id(), names.size() == 1 && bindings.size() == 1 ? names.get(0) : names);
-					Object chosen = port.tValueByName("aggregation");
+					Object chosen = ((BlockPort) port).getAggregation();
 					if (names.size() > 1 && chosen instanceof String a && !a.isBlank()) {
 						aggregation.put(decl.id(), a.trim());
 						sources.put(path + ".aggregation." + decl.id(), port);
@@ -730,7 +743,8 @@ public final class BlockInstances {
 			Map<String, Object> parameters = new LinkedHashMap<>();
 			for (Param decl : m.params()) {
 				TLObject parameter = parameter(instance, decl.id());
-				if (parameter != null && parameter.tValueByName("value") instanceof Number value) {
+				if (parameter != null && ((BlockParameter) parameter).getValue() instanceof Number value) {
+
 					parameters.put(decl.id(), parameterJson(decl, value.doubleValue()));
 					sources.put(path + ".parameters." + decl.id(), parameter);
 				}

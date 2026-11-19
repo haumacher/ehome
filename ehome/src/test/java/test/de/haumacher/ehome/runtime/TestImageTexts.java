@@ -37,6 +37,9 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.ProgramLanguages;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.runtime.ExportRuntimeImageAction;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -68,14 +71,14 @@ public class TestImageTexts extends BasicTestCase {
 				TLObject function = image.getFunctionSources().get(n);
 				Object label = ((Map<?, ?>) functions.get(n)).get("label");
 				assertTrue(String.valueOf(label), label instanceof Map<?, ?>);
-				assertEquals(ProgramLanguages.languages(DeviceConfiguration.program((TLObject) function.tValueByName("device"))),
+				assertEquals(ProgramLanguages.languages(DeviceConfiguration.program(((Function) function).getDevice())),
 					new TreeSet<>(((Map<?, ?>) label).keySet()));
 			}
 
 			TLObject function = image.getFunctionSources().get(0);
 			String longText = "Küche ".repeat(20);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				function.tUpdateByName("name", FunctionProposal.text(Map.of("de", longText, "en", "Kitchen light")));
+				((Function) function).setNameKey(FunctionProposal.text(Map.of("de", longText, "en", "Kitchen light")));
 				tx.commit();
 			}
 			image = valid(project);
@@ -109,14 +112,15 @@ public class TestImageTexts extends BasicTestCase {
 				english(result.get("summary")));
 
 			apply(project);
-			TLObject time = createAddress(project, "0/0/60", "Uhrzeit", "DPST-10-1");
-			TLObject date = createAddress(project, "0/0/61", "Datum", "DPST-11-1");
+			GroupAddress time = (GroupAddress) createAddress(project, "0/0/60", "Uhrzeit", "DPST-10-1");
+			GroupAddress date = (GroupAddress) createAddress(project, "0/0/61", "Datum", "DPST-11-1");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("timeMasterTime", time);
-				project.tUpdateByName("timeMasterDate", date);
-				project.tUpdateByName("timeZone", "CET-1CEST,M3.5.0,M10.5.0/3");
-				project.tUpdateByName("ntpServer", "pool.ntp.org");
-				project.tUpdateByName("historyBudget", Integer.valueOf(16384));
+				Project settings = (Project) project;
+				settings.setTimeMasterTime(time);
+				settings.setTimeMasterDate(date);
+				settings.setTimeZone("CET-1CEST,M3.5.0,M10.5.0/3");
+				settings.setNtpServer("pool.ntp.org");
+				settings.setHistoryBudget(Integer.valueOf(16384));
 				tx.commit();
 			}
 			result = ExportRuntimeImageAction.export(project, NOW);
@@ -158,13 +162,13 @@ public class TestImageTexts extends BasicTestCase {
 			// Stored outside a form: the stored project is not refused, so other changes still store;
 			// the export names the type in its notes.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("timeMasterTime", socket);
+				((Project) project).setTimeMasterTime((GroupAddress) socket);
 				tx.commit();
 			}
 			assertNull(check(project, attribute));
 			assertNull(check(new TLObjectOverlay(project), attribute));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("ntpServer", "pool.ntp.org");
+				((Project) project).setNtpServer("pool.ntp.org");
 				tx.commit();
 			}
 			List<String> notes = RuntimeImage.build(project, 1, NOW).getNotes();

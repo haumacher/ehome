@@ -24,6 +24,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
@@ -42,16 +45,17 @@ public class TestLocalizedRefusalsProbe extends BasicTestCase {
 	private static final Instant NOW = Instant.parse("2026-11-07T12:00:00Z");
 
 	public void testSeveralFindings() throws Exception {
-		TLObject project;
+		Project project;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Localized refusals probe");
-			project.tUpdateByName("extId", "P-TEST-95-PROBE");
-			TLObject state = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			state.tUpdateByName("identifier", "probe.state");
-			TLObject first = function("Licht A", "probe-light", state);
-			TLObject second = function("Licht B", "probe-light", state);
-			project.tUpdateByName("functions", List.of(first, second));
+			project.setName("Localized refusals probe");
+			project.setExtId("P-TEST-95-PROBE");
+			ApplicationDatapoint state =
+				(ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			state.setIdentifier("probe.state");
+			Function first = function("Licht A", "probe-light", state);
+			Function second = function("Licht B", "probe-light", state);
+			project.setFunctions(List.of(first, second));
 			tx.commit();
 		}
 		try {
@@ -75,18 +79,20 @@ public class TestLocalizedRefusalsProbe extends BasicTestCase {
 		}
 	}
 
-	private static TLObject function(String name, String id, TLObject datapoint) {
-		TLObject function = create("ehome.runtime:Function");
-		function.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, name).build());
-		function.tUpdateByName("identifier", id);
-		function.tUpdateByName("kind", FunctionProposal.classifier("switch"));
-		function.tUpdateByName("command", datapoint);
-		function.tUpdateByName("state", datapoint);
+	private static Function function(String name, String id, ApplicationDatapoint datapoint) {
+		Function function = create("ehome.runtime:Function");
+		function.setNameKey(ResKey.builder().add(Locale.GERMAN, name).build());
+		function.setIdentifier(id);
+		function.setKind(FunctionProposal.classifier("switch"));
+		function.setCommand(datapoint);
+		function.setState(datapoint);
 		return function;
+
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {

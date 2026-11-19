@@ -23,6 +23,9 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleLoader.LoadException;
 import de.haumacher.ehome.rules.RuleText;
@@ -218,8 +221,8 @@ public final class RuleExport {
 	 * then by their position.
 	 */
 	public static List<TLObject> orderedRules(TLObject project) {
-		List<TLObject> rules = objects(project.tValueByName("rules"));
-		rules.sort(Comparator.comparingLong(r -> r.tValueByName("order") instanceof Number n ? n.longValue() : Long.MAX_VALUE));
+		List<TLObject> rules = objects(((Project) project).getRules());
+		rules.sort(Comparator.comparingLong(r -> ((Rule) r).getOrder() instanceof Number n ? n.longValue() : Long.MAX_VALUE));
 		return rules;
 	}
 
@@ -1247,8 +1250,8 @@ public final class RuleExport {
 		TLObject self = obj instanceof TLFormObjectBase form ? form.getEditedObject() : obj instanceof TLObject o ? o : null;
 		TLObject rule = self == null || !self.tValid() ? null : self.tContainer();
 		if (rule != null) {
-			for (TLObject other : objects(rule.tValueByName("parameters"))) {
-				if (other != self && id.equals(text(other.tValueByName("identifier")))) {
+			for (TLObject other : objects(((Rule) rule).getParameters())) {
+				if (other != self && id.equals(text(((RuleParameter) other).getIdentifier()))) {
 					return de.haumacher.ehome.rules.I18NConstants.RULE_PARAMETER_ID_TWICE__ID.fill(id);
 				}
 			}
@@ -1276,7 +1279,7 @@ public final class RuleExport {
 		List<Object> rules = new ArrayList<>();
 		String ruleId = text(rule, "identifier");
 		Set<String> ids = new HashSet<>();
-		for (TLObject other : objects(project.tValueByName("rules"))) {
+		for (TLObject other : objects(((Project) project).getRules())) {
 			String id = text(other, "identifier");
 			if (other != rule && id != null && RuleLoader.validRuleId(id) && ids.add(id)) {
 				rules.add(ruleStub(other, id));
@@ -1293,7 +1296,7 @@ public final class RuleExport {
 		}
 		ImageValidator.Directory directory = directory(project);
 		Set<String> schedules = new HashSet<>();
-		for (TLObject entry : objects(project.tValueByName("schedules"))) {
+		for (TLObject entry : objects(((Project) project).getSchedules())) {
 			String id = text(entry, "identifier");
 			if (id != null) {
 				schedules.add(id);
@@ -1638,7 +1641,8 @@ public final class RuleExport {
 		result.put("name", "x");
 		List<Object> states = new ArrayList<>();
 		Set<String> stateIds = new HashSet<>();
-		for (TLObject state : objects(rule.tValueByName("states"))) {
+		for (TLObject state : objects(((Rule) rule).getStates())) {
+
 			String stateId = text(state, "identifier");
 			if (stateId != null && RuleLoader.validIdentifier(stateId) && stateIds.add(stateId)) {
 				states.add(Map.of("id", stateId));

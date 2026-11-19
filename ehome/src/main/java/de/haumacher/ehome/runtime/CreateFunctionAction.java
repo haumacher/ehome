@@ -21,6 +21,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
+
 /**
  * {@link ViewAction} adding a new function (a light without datapoints) to the input project
  * (<code>ehome.project:Project</code>), for the user to edit; the result is the new function.
@@ -51,13 +54,14 @@ public class CreateFunctionAction implements ViewAction {
 		TLObject project = (TLObject) input;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_FUNCTION_CREATED__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)))) {
-			TLObject function = ModelService.getInstance().getFactory()
+			Function function = (Function) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
-			function.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_FUNCTION_NAME));
-			function.tUpdateByName("kind", FunctionProposal.classifier("light"));
-			List<TLObject> functions = FunctionProposal.functions(project);
+			function.setNameKey(FunctionProposal.text(I18NConstants.NEW_FUNCTION_NAME));
+			function.setKind(FunctionProposal.classifier("light"));
+			List<Function> functions = RuleImport.typed(FunctionProposal.functions(project));
 			functions.add(function);
-			project.tUpdateByName("functions", functions);
+			((Project) project).setFunctions(functions);
+
 			tx.commit();
 			return function;
 		}

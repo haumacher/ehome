@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.function.Supplier;
 
@@ -49,6 +50,16 @@ import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.blocks.SunShading;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.BlockParameter;
+import de.haumacher.ehome.model.runtime.BlockPort;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.runtime.BlockDiagnostics;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.BlockInstances.UnitFit;
@@ -77,27 +88,27 @@ public class TestBlockEditing extends BasicTestCase {
 
 	private final List<TLObject> _cleanup = new ArrayList<>();
 
-	private TLObject _project;
+	private Project _project;
 
-	private TLObject _room;
+	private BuildingDefinition _room;
 
-	private TLObject _temperature;
+	private GroupAddress _temperature;
 
-	private TLObject _lux;
+	private GroupAddress _lux;
 
-	private TLObject _scene;
+	private GroupAddress _scene;
 
-	private TLObject _percent;
+	private GroupAddress _percent;
 
-	private TLObject _slatAddress;
+	private GroupAddress _slatAddress;
 
-	private TLObject _upDown;
+	private GroupAddress _upDown;
 
-	private TLObject _untyped;
+	private GroupAddress _untyped;
 
-	private TLObject _free;
+	private ApplicationDatapoint _free;
 
-	private TLObject _block;
+	private BlockInstance _block;
 
 	private FakeController _fake;
 
@@ -116,8 +127,8 @@ public class TestBlockEditing extends BasicTestCase {
 			TLObject upDown = subtype(bool, 8);
 
 			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Blocks #78");
-			_project.tUpdateByName("extId", "P-TEST-78");
+			_project.setName("Blocks #78");
+			_project.setExtId("P-TEST-78");
 			_temperature = address("Temperatur", 1, 3, 0, celsius, false);
 			_lux = address("Helligkeit", 1, 3, 1, lux, false);
 			_scene = address("Szene", 1, 3, 2, scene, true);
@@ -125,22 +136,20 @@ public class TestBlockEditing extends BasicTestCase {
 			_slatAddress = address("Lamelle Position", 1, 3, 4, percent, true);
 			_upDown = address("Behang Auf/Ab", 1, 3, 5, upDown, true);
 			_untyped = address("Wert ohne Untertyp", 1, 3, 6, real, true);
-			_project.tUpdateByName("groupAddresses",
-				List.of(_temperature, _lux, _scene, _percent, _slatAddress, _upDown, _untyped));
-			TLObject building = part("ehome.building:Building", "Haus", "P-TEST-78-B");
+			_project.setGroupAddresses(Set.of(_temperature, _lux, _scene, _percent, _slatAddress, _upDown, _untyped));
+			BuildingDefinition building = part("ehome.building:Building", "Haus", "P-TEST-78-B");
 			_room = part("ehome.building:Room", "WZ", "P-TEST-78-WZ");
-			building.tUpdateByName("parts", List.of(_room));
-			_project.tUpdateByName("buildings", List.of(building));
+			building.setParts(List.of(_room));
+			_project.setBuildings(List.of(building));
 			_free = create("ehome.runtime:ApplicationDatapoint");
-			_free.tUpdateByName("identifier", "free.real");
-			_free.tUpdateByName("type",
-				((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier("real"));
-			_free.tUpdateByName("writable", Boolean.TRUE);
-			_project.tUpdateByName("applicationDatapoints", List.of(_free));
+			_free.setIdentifier("free.real");
+			_free.setType(((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier("real"));
+			_free.setWritable(Boolean.TRUE);
+			_project.setApplicationDatapoints(List.of(_free));
 
-			_block = BlockInstances.create(_project, BlockInstances.typeKey(RoomController.INSTANCE.manifest()), _room,
+			_block = (BlockInstance) BlockInstances.create(_project, BlockInstances.typeKey(RoomController.INSTANCE.manifest()), _room,
 				ResKey.text("Heizung"));
-			_block.tUpdateByName("identifier", "wz-heating");
+			_block.setIdentifier("wz-heating");
 			BlockInstances.bind(BlockInstances.port(_block, "temperature"), _temperature);
 			tx.commit();
 		}
@@ -256,18 +265,18 @@ public class TestBlockEditing extends BasicTestCase {
 	 * reason and changes nothing.
 	 */
 	public void testApplyValues() {
-		TLObject system = BlockInstances.parameter(_block, "system");
-		TLObject cycle = BlockInstances.parameter(_block, "cycle");
+		BlockParameter system = (BlockParameter) BlockInstances.parameter(_block, "system");
+		BlockParameter cycle = (BlockParameter) BlockInstances.parameter(_block, "cycle");
 		TimeZone utc = TimeZone.getTimeZone("UTC");
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			assertNull(inLocale(Locale.GERMAN, () -> BlockInstances.applyValue(system, "Fußbodenheizung", utc)));
-			assertEquals(Double.valueOf(1), system.tValueByName("value"));
+			assertEquals(Double.valueOf(1), system.getValue());
 			assertNull(BlockInstances.applyValue(cycle, Double.valueOf(45), utc));
-			assertEquals(Double.valueOf(2700000), cycle.tValueByName("value"));
+			assertEquals(Double.valueOf(2700000), cycle.getValue());
 			String refused = inLocale(Locale.GERMAN, () -> BlockInstances.applyValue(system, "underfloor", utc));
 			assertNotNull("The id is no label.", refused);
 			assertTrue(refused, refused.contains("Heizsystem"));
-			assertEquals(Double.valueOf(1), system.tValueByName("value"));
+			assertEquals(Double.valueOf(1), system.getValue());
 			tx.commit();
 		}
 		Map<?, ?> parameters = (Map<?, ?>) block(RuntimeImage.build(_project, 1, NOW)).get("parameters");
@@ -275,9 +284,9 @@ public class TestBlockEditing extends BasicTestCase {
 		assertEquals(Long.valueOf(2700000), parameters.get("cycle"));
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			assertNull(inLocale(Locale.ENGLISH, () -> BlockInstances.applyValue(system, "Radiator", utc)));
-			assertNull("The default removes the value.", system.tValueByName("value"));
+			assertNull("The default removes the value.", system.getValue());
 			assertNull(BlockInstances.applyValue(cycle, null, utc));
-			assertNull(cycle.tValueByName("value"));
+			assertNull(cycle.getValue());
 			tx.commit();
 		}
 		assertNull(block(RuntimeImage.build(_project, 1, NOW)).get("parameters"));
@@ -288,16 +297,16 @@ public class TestBlockEditing extends BasicTestCase {
 	 * default removes it; a single-datapoint input has none.
 	 */
 	public void testAggregation() {
-		TLObject temperature = BlockInstances.port(_block, "temperature");
+		BlockPort temperature = (BlockPort) BlockInstances.port(_block, "temperature");
 		TLObject setpoint = BlockInstances.port(_block, "setpoint");
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			assertNull(BlockInstances.applyAggregation(temperature, BlockValues.aggregationLabel(Aggregation.MIN)));
-			assertEquals("min", temperature.tValueByName("aggregation"));
+			assertEquals("min", temperature.getAggregation());
 			assertNull(BlockInstances.applyAggregation(temperature, BlockValues.aggregationLabel(Aggregation.MEAN)));
-			assertNull("The default removes the choice.", temperature.tValueByName("aggregation"));
+			assertNull("The default removes the choice.", temperature.getAggregation());
 			assertNotNull(BlockInstances.applyAggregation(temperature, BlockValues.aggregationLabel(Aggregation.ANY)));
 			assertNotNull(BlockInstances.applyAggregation(setpoint, BlockValues.aggregationLabel(Aggregation.MIN)));
-			assertNull(temperature.tValueByName("aggregation"));
+			assertNull(temperature.getAggregation());
 			tx.commit();
 		}
 		assertEquals("Mittelwert", inLocale(Locale.GERMAN, () -> BlockValues.aggregationLabel(Aggregation.MEAN)));
@@ -309,7 +318,7 @@ public class TestBlockEditing extends BasicTestCase {
 	 * measures, with a hint.
 	 */
 	public void testUnitFilter() {
-		TLObject temperature = BlockInstances.port(_block, "temperature");
+		BlockPort temperature = (BlockPort) BlockInstances.port(_block, "temperature");
 		List<TLObject> options = BlockInstances.bindingOptions(temperature);
 		assertFalse("Bound already.", options.contains(_temperature));
 		assertFalse(options.contains(_lux));
@@ -404,12 +413,12 @@ public class TestBlockEditing extends BasicTestCase {
 	 * output bound proposes nothing.
 	 */
 	public void testBlindProposal() {
-		TLObject shading;
-		TLObject function;
+		BlockInstance shading;
+		Function function;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			shading = BlockInstances.create(_project, BlockInstances.typeKey(SunShading.INSTANCE.manifest()), _room,
+			shading = (BlockInstance) BlockInstances.create(_project, BlockInstances.typeKey(SunShading.INSTANCE.manifest()), _room,
 				ResKey.text("Beschattung Süd"));
-			shading.tUpdateByName("identifier", "shade-south");
+			shading.setIdentifier("shade-south");
 			BlockInstances.create(_project, BlockInstances.typeKey(SunShading.INSTANCE.manifest()), _room,
 				ResKey.text("Beschattung Nord"));
 			BlockInstances.bind(BlockInstances.port(shading, "upDown"), _upDown);
@@ -421,23 +430,23 @@ public class TestBlockEditing extends BasicTestCase {
 				kinds.add(FunctionProposal.kind(f));
 			}
 			assertEquals("The room controller's climate, the bound shading's blind.", List.of("climate", "blind"), kinds);
-			function = added.get(1);
+			function = (Function) added.get(1);
 			tx.commit();
 		}
-		assertEquals(FunctionProposal.BLOCK_CHANNEL + "shade-south", function.tValueByName("channel"));
-		assertEquals(_room, function.tValueByName("room"));
-		assertEquals(_upDown, function.tValueByName("move"));
-		assertNull(function.tValueByName("stop"));
-		assertEquals(_percent, function.tValueByName("position"));
-		assertEquals(_percent, function.tValueByName("positionCommand"));
-		assertEquals(_slatAddress, function.tValueByName("slat"));
-		assertEquals(_slatAddress, function.tValueByName("slatCommand"));
+		assertEquals(FunctionProposal.BLOCK_CHANNEL + "shade-south", function.getChannel());
+		assertEquals(_room, function.getRoom());
+		assertEquals(_upDown, function.getMove());
+		assertNull(function.getStop());
+		assertEquals(_percent, function.getPosition());
+		assertEquals(_percent, function.getPositionCommand());
+		assertEquals(_slatAddress, function.getSlat());
+		assertEquals(_slatAddress, function.getSlatCommand());
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
 		assertTrue(image.validate().toString(), image.validate().isValid());
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			assertEquals(List.of(), FunctionProposal.apply(_project));
 			assertNotNull(FunctionProposal.dismiss(function));
-			shading.tUpdateByName("name", ResKey.text("Markise"));
+			shading.setNameKey(ResKey.text("Markise"));
 			assertEquals("Dismissed by block:shade-south.", List.of(), FunctionProposal.apply(_project));
 			tx.commit();
 		}
@@ -549,11 +558,11 @@ public class TestBlockEditing extends BasicTestCase {
 
 	private void connect(int port) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject controller = create("ehome.runtime:Controller");
-			controller.tUpdateByName("name", "Fake #78");
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(port));
-			controller.tUpdateByName("token", TOKEN);
+			Controller controller = create("ehome.runtime:Controller");
+			controller.setName("Fake #78");
+			controller.setHost("127.0.0.1");
+			controller.setPort(Integer.valueOf(port));
+			controller.setToken(TOKEN);
 			_cleanup.add(controller);
 			ControllerFixture.own(_project, controller);
 			tx.commit();
@@ -599,35 +608,37 @@ public class TestBlockEditing extends BasicTestCase {
 		return type;
 	}
 
-	private static TLObject address(String name, int main, int middle, int sub, TLObject type, boolean writable) {
-		TLObject address = create("ehome.logical:GroupAddress");
-		address.tUpdateByName("name", name);
-		address.tUpdateByName("address", new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.tUpdateByName("datapointTypes", List.of(type));
+	private static GroupAddress address(String name, int main, int middle, int sub, TLObject type, boolean writable) {
+		GroupAddress address = create("ehome.logical:GroupAddress");
+		address.setName(name);
+		address.setAddress(new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
+		address.setDatapointTypes(List.of(type));
 		if (writable) {
-			address.tUpdateByName("runtimeWritable", Boolean.TRUE);
+			address.setRuntimeWritable(Boolean.TRUE);
 		}
 		return address;
 	}
 
-	private static TLObject ruleParameter(TLEnumeration types, String type, String unit) {
-		TLObject parameter = create("ehome.runtime:RuleParameter");
-		parameter.tUpdateByName("identifier", "p");
-		parameter.tUpdateByName("type", types.getClassifier(type));
-		parameter.tUpdateByName("unit", unit);
+	private static RuleParameter ruleParameter(TLEnumeration types, String type, String unit) {
+		RuleParameter parameter = create("ehome.runtime:RuleParameter");
+		parameter.setIdentifier("p");
+		parameter.setType(types.getClassifier(type));
+		parameter.setUnit(unit);
 		return parameter;
 	}
 
-	private static TLObject part(String type, String name, String extId) {
-		TLObject part = create(type);
-		part.tUpdateByName("name", name);
-		part.tUpdateByName("extId", extId);
+	private static BuildingDefinition part(String type, String name, String extId) {
+		BuildingDefinition part = create(type);
+		part.setName(name);
+		part.setExtId(extId);
 		return part;
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
+
 
 	private static String text(ResKey key) {
 		return Resources.getInstance().getString(key);

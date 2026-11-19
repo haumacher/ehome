@@ -26,7 +26,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.RuntimeImage;
@@ -90,15 +92,15 @@ public class TestFunctionKeys extends BasicTestCase {
 			// A function made by hand commanding the address of "Taste 5": the existing button stays, with
 			// a warning naming the address, the role and the function; the proposal adds and removes
 			// nothing.
-			TLObject own;
+			Function own;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				own = TestFunctionProposal.create("ehome.runtime:Function");
-				own.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Melderlicht", "en", "Detector light")));
-				own.tUpdateByName("kind", FunctionProposal.classifier("light"));
-				own.tUpdateByName("command", address(project, "1/1/7"));
-				List<TLObject> functions = FunctionProposal.functions(project);
+				own = (Function) TestFunctionProposal.create("ehome.runtime:Function");
+				own.setNameKey(FunctionProposal.text(Map.of("de", "Melderlicht", "en", "Detector light")));
+				own.setKind(FunctionProposal.classifier("light"));
+				own.setCommand((GroupAddress) address(project, "1/1/7"));
+				List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 				functions.add(own);
-				project.tUpdateByName("functions", functions);
+				((Project) project).setFunctions(functions);
 				tx.commit();
 			}
 			String warning = FunctionProposal.redundancy(key5);
@@ -112,9 +114,9 @@ public class TestFunctionKeys extends BasicTestCase {
 
 			// The button gone (not dismissed): the existing light keeps the proposal from adding it again.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				List<TLObject> functions = FunctionProposal.functions(project);
+				List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 				functions.remove(key5);
-				project.tUpdateByName("functions", functions);
+				((Project) project).setFunctions(functions);
 				key5.tDelete();
 				tx.commit();
 			}
@@ -122,9 +124,9 @@ public class TestFunctionKeys extends BasicTestCase {
 
 			// Without the light, the key is a button again.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				List<TLObject> functions = FunctionProposal.functions(project);
+				List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 				functions.remove(own);
-				project.tUpdateByName("functions", functions);
+				((Project) project).setFunctions(functions);
 				own.tDelete();
 				tx.commit();
 			}
@@ -157,7 +159,7 @@ public class TestFunctionKeys extends BasicTestCase {
 			List<String> roles = new ArrayList<>();
 			for (String role : FunctionKinds.roles(FunctionProposal.kind(function))) {
 				if (function.tValueByName(role) instanceof TLObject address) {
-					roles.add(role + "=" + RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
+					roles.add(role + "=" + RuntimeImage.threeLevel(((GroupAddress) address).getAddress().getValue()));
 				}
 			}
 			result.add(FunctionProposal.kind(function) + " "

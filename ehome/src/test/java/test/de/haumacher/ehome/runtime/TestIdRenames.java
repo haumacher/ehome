@@ -6,8 +6,8 @@ package test.de.haumacher.ehome.runtime;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -32,6 +32,16 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.ExpressionRenames;
@@ -53,81 +63,81 @@ import de.haumacher.ehome.zigbee.ZigbeeImport;
 @SuppressWarnings("javadoc")
 public class TestIdRenames extends BasicTestCase {
 
-	private TLObject _project;
+	private Project _project;
 
-	private TLObject _dimmer;
+	private Rule _dimmer;
 
-	private TLObject _other;
+	private Rule _other;
 
-	private TLObject _a;
+	private RuleParameter _a;
 
-	private TLObject _ab;
+	private RuleParameter _ab;
 
-	private TLObject _otherA;
+	private RuleParameter _otherA;
 
-	private TLObject _timer;
+	private RuleTimer _timer;
 
-	private TLObject _state;
+	private RuleState _state;
 
-	private TLObject _otherState;
+	private RuleState _otherState;
 
-	private TLObject _address;
+	private GroupAddress _address;
 
-	private TLObject _lamp;
+	private ApplicationDatapoint _lamp;
 
-	private TLObject _condition;
+	private Reaction _condition;
 
-	private TLObject _duration;
+	private RuleTimer _duration;
 
-	private TLObject _log;
+	private LogAction _log;
 
-	private TLObject _otherCondition;
+	private Reaction _otherCondition;
 
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
-		_project = TestRuleAuthoring.createProject();
+		_project = (Project) TestRuleAuthoring.createProject();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			ZigbeeImport.importExport(_project, ZigbeeExport.parse("""
 				{"format": "homecontrol-zigbee-export", "version": 1, "devices": [
 					{"ieee": "00000000000000b1", "label": "Stehlampe", "interviewed": true, "functions": [
 						{"function": "on_off", "endpoint": 11, "cluster": 6, "attribute": 0, "type": "boolean", "writable": true}]}]}"""));
-			TLObject device = ZigbeeImport.devices(_project).get(0);
-			_lamp = ZigbeeBindings.createDatapoint((TLObject) ((Collection<?>) device.tValueByName("functions")).iterator().next());
-			_lamp.tUpdateByName("identifier", "lamp");
+			ZigbeeDevice device = (ZigbeeDevice) ZigbeeImport.devices(_project).get(0);
+			_lamp = (ApplicationDatapoint) ZigbeeBindings.createDatapoint(device.getFunctions().iterator().next());
+			_lamp.setIdentifier("lamp");
 
-			_address = ModelService.getInstance().getFactory()
+			_address = (GroupAddress) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
-			_address.tUpdateByName("name", "Licht");
-			_address.tUpdateByName("address", GA.parse("1/2/3", GroupAddressStyle.ThreeLevel));
-			_project.tUpdateByName("groupAddresses", List.of(_address));
+			_address.setName("Licht");
+			_address.setAddress(GA.parse("1/2/3", GroupAddressStyle.ThreeLevel));
+			_project.setGroupAddresses(Set.of(_address));
 
-			_dimmer = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_dimmer.tUpdateByName("identifier", "dimmer");
+			_dimmer = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_dimmer.setIdentifier("dimmer");
 			_a = parameter(_dimmer, "a");
 			_ab = parameter(_dimmer, "ab");
-			_timer = RuleFunctions.create(_dimmer, "timers", runtime("RuleTimer"));
-			_timer.tUpdateByName("identifier", "t");
+			_timer = (RuleTimer) RuleFunctions.create(_dimmer, "timers", runtime("RuleTimer"));
+			_timer.setIdentifier("t");
 			_duration = _timer;
-			_state = RuleFunctions.create(_dimmer, "states", runtime("RuleState"));
-			_state.tUpdateByName("identifier", "s1");
-			TLObject reaction = RuleFunctions.create(_dimmer, "reactions", runtime("Reaction"));
+			_state = (RuleState) RuleFunctions.create(_dimmer, "states", runtime("RuleState"));
+			_state.setIdentifier("s1");
+			Reaction reaction = (Reaction) RuleFunctions.create(_dimmer, "reactions", runtime("Reaction"));
 			_condition = reaction;
-			_log = RuleFunctions.create(reaction, "actions", runtime("LogAction"));
+			_log = (LogAction) RuleFunctions.create(reaction, "actions", runtime("LogAction"));
 
-			_other = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_other.tUpdateByName("identifier", "other");
+			_other = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_other.setIdentifier("other");
 			_otherA = parameter(_other, "a");
-			RuleFunctions.create(_other, "timers", runtime("RuleTimer")).tUpdateByName("identifier", "t");
-			_otherState = RuleFunctions.create(_other, "states", runtime("RuleState"));
-			_otherState.tUpdateByName("identifier", "s1");
-			_otherCondition = RuleFunctions.create(_other, "reactions", runtime("Reaction"));
+			((RuleTimer) RuleFunctions.create(_other, "timers", runtime("RuleTimer"))).setIdentifier("t");
+			_otherState = (RuleState) RuleFunctions.create(_other, "states", runtime("RuleState"));
+			_otherState.setIdentifier("s1");
+			_otherCondition = (Reaction) RuleFunctions.create(_other, "reactions", runtime("Reaction"));
 
-			_condition.tUpdateByName("condition", canonical("$a > 1 and $ab > 2 and contains(\"$a s1 t\", \"lamp\")"
+			_condition.setCondition(canonical("$a > 1 and $ab > 2 and contains(\"$a s1 t\", \"lamp\")"
 				+ " and running(t) and state() == \"s1\" and @lamp and @\"1/2/3\" and @\"rule/other/a\" > 0"));
-			_duration.tUpdateByName("duration", canonical("$a * 1s + remaining(t)"));
-			_log.tUpdateByName("message", "Level {$a} of {@\"rule/dimmer/a\"}, {{$a}} in {state()}");
-			_otherCondition.tUpdateByName("condition", canonical("$a > 0 and @\"rule/dimmer/a\" > 0"
+			_duration.setDuration(canonical("$a * 1s + remaining(t)"));
+			_log.setMessage("Level {$a} of {@\"rule/dimmer/a\"}, {{$a}} in {state()}");
+			_otherCondition.setCondition(canonical("$a > 0 and @\"rule/dimmer/a\" > 0"
 				+ " and state(\"dimmer\") != \"s1\" and \"s1\" == state() and running(t)"));
 			tx.commit();
 		}
@@ -145,38 +155,38 @@ public class TestIdRenames extends BasicTestCase {
 	 * <code>$a</code> of the other rule) and its datapoint in every rule.
 	 */
 	public void testParameter() {
-		rename(_a, "identifier", "level");
+		rename(() -> _a.setIdentifier("level"));
 		assertEquals(canonical("$level > 1 and $ab > 2 and contains(\"$a s1 t\", \"lamp\")"
 			+ " and running(t) and state() == \"s1\" and @lamp and @\"1/2/3\" and @\"rule/other/a\" > 0"),
-			_condition.tValueByName("condition"));
-		assertEquals("$level * 1s + remaining(t)", _duration.tValueByName("duration"));
-		assertEquals("Level {$level} of {@\"rule/dimmer/level\"}, {{$a}} in {state()}", _log.tValueByName("message"));
+			_condition.getCondition());
+		assertEquals("$level * 1s + remaining(t)", _duration.getDuration());
+		assertEquals("Level {$level} of {@\"rule/dimmer/level\"}, {{$a}} in {state()}", _log.getMessage());
 		assertEquals(canonical("$a > 0 and @\"rule/dimmer/level\" > 0"
 			+ " and state(\"dimmer\") != \"s1\" and \"s1\" == state() and running(t)"),
-			_otherCondition.tValueByName("condition"));
+			_otherCondition.getCondition());
 		assertEquals(List.of(
 			"4 expressions adjusted to the new id.",
 			"The parameter a of the rule dimmer is now called level: a value set on the controller is lost, the next image resets it to the default."),
 			messages());
 
 		// An id that is no identifier is quoted.
-		rename(_a, "identifier", "max-helligkeit");
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).startsWith("$\"max-helligkeit\" > 1 and $ab > 2"));
+		rename(() -> _a.setIdentifier("max-helligkeit"));
+		assertTrue(String.valueOf(_condition.getCondition()).startsWith("$\"max-helligkeit\" > 1 and $ab > 2"));
 		assertEquals("Level {$\"max-helligkeit\"} of {@\"rule/dimmer/max-helligkeit\"}, {{$a}} in {state()}",
-			_log.tValueByName("message"));
+			_log.getMessage());
 	}
 
 	/**
 	 * The other rule's parameter of the same id: only its own references follow.
 	 */
 	public void testParameterOfOtherRule() {
-		rename(_otherA, "identifier", "b");
+		rename(() -> _otherA.setIdentifier("b"));
 		assertEquals(canonical("$b > 0 and @\"rule/dimmer/a\" > 0"
 			+ " and state(\"dimmer\") != \"s1\" and \"s1\" == state() and running(t)"),
-			_otherCondition.tValueByName("condition"));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).endsWith("@\"rule/other/b\" > 0"));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).startsWith("$a > 1"));
-		assertEquals("$a * 1s + remaining(t)", _duration.tValueByName("duration"));
+			_otherCondition.getCondition());
+		assertTrue(String.valueOf(_condition.getCondition()).endsWith("@\"rule/other/b\" > 0"));
+		assertTrue(String.valueOf(_condition.getCondition()).startsWith("$a > 1"));
+		assertEquals("$a * 1s + remaining(t)", _duration.getDuration());
 		assertEquals("2 expressions adjusted to the new id.", messages().get(0));
 	}
 
@@ -185,35 +195,35 @@ public class TestIdRenames extends BasicTestCase {
 	 */
 	public void testExchange() {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_a.tUpdateByName("identifier", "x");
-			_ab.tUpdateByName("identifier", "a");
+			_a.setIdentifier("x");
+			_ab.setIdentifier("a");
 			tx.commit();
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_a.tUpdateByName("identifier", "ab");
-			_ab.tUpdateByName("identifier", "a");
+			_a.setIdentifier("ab");
+			_ab.setIdentifier("a");
 			tx.commit();
 		}
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).startsWith("$ab > 1 and $a > 2 and"));
+		assertTrue(String.valueOf(_condition.getCondition()).startsWith("$ab > 1 and $a > 2 and"));
 	}
 
 	/**
 	 * An id the model refuses (haumacher/ehome #110) is not stored and rewrites nothing.
 	 */
 	public void testInvalidParameterId() {
-		Object condition = _condition.tValueByName("condition");
-		Object otherCondition = _otherCondition.tValueByName("condition");
+		Object condition = _condition.getCondition();
+		Object otherCondition = _otherCondition.getCondition();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_a.tUpdateByName("identifier", "max helligkeit");
+			_a.setIdentifier("max helligkeit");
 			tx.commit();
 			fail("The commit must be refused.");
 		} catch (RuntimeException ex) {
 			// Refused by the constraint of the parameter id.
 		}
-		assertEquals("a", _a.tValueByName("identifier"));
-		assertEquals(condition, _condition.tValueByName("condition"));
-		assertEquals(otherCondition, _otherCondition.tValueByName("condition"));
-		assertEquals("$a * 1s + remaining(t)", _duration.tValueByName("duration"));
+		assertEquals("a", _a.getIdentifier());
+		assertEquals(condition, _condition.getCondition());
+		assertEquals(otherCondition, _otherCondition.getCondition());
+		assertEquals("$a * 1s + remaining(t)", _duration.getDuration());
 		assertEquals(List.of(), messages());
 	}
 
@@ -221,11 +231,11 @@ public class TestIdRenames extends BasicTestCase {
 	 * A timer: <code>running(t)</code> and <code>remaining(t)</code> of its rule only.
 	 */
 	public void testTimer() {
-		rename(_timer, "identifier", "nachlauf");
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("running(nachlauf)"));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("\"$a s1 t\""));
-		assertEquals("$a * 1s + remaining(nachlauf)", _duration.tValueByName("duration"));
-		assertTrue(String.valueOf(_otherCondition.tValueByName("condition")).endsWith("running(t)"));
+		rename(() -> _timer.setIdentifier("nachlauf"));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("running(nachlauf)"));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("\"$a s1 t\""));
+		assertEquals("$a * 1s + remaining(nachlauf)", _duration.getDuration());
+		assertTrue(String.valueOf(_otherCondition.getCondition()).endsWith("running(t)"));
 		assertEquals(List.of("2 expressions adjusted to the new id."), messages());
 	}
 
@@ -234,17 +244,17 @@ public class TestIdRenames extends BasicTestCase {
 	 * everywhere; not the state of the same id of the other rule.
 	 */
 	public void testState() {
-		rename(_state, "identifier", "on");
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("state() == \"on\""));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("\"$a s1 t\""));
+		rename(() -> _state.setIdentifier("on"));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("state() == \"on\""));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("\"$a s1 t\""));
 		assertEquals(canonical("$a > 0 and @\"rule/dimmer/a\" > 0"
 			+ " and state(\"dimmer\") != \"on\" and \"s1\" == state() and running(t)"),
-			_otherCondition.tValueByName("condition"));
+			_otherCondition.getCondition());
 		assertEquals(List.of("2 expressions adjusted to the new id."), messages());
 
-		rename(_otherState, "identifier", "off");
-		assertTrue(String.valueOf(_otherCondition.tValueByName("condition")).contains("\"off\" == state()"));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("state() == \"on\""));
+		rename(() -> _otherState.setIdentifier("off"));
+		assertTrue(String.valueOf(_otherCondition.getCondition()).contains("\"off\" == state()"));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("state() == \"on\""));
 		assertEquals(List.of("1 expression adjusted to the new id."), messages());
 	}
 
@@ -253,9 +263,9 @@ public class TestIdRenames extends BasicTestCase {
 	 */
 	public void testApplicationDatapoint() {
 		assertNotNull(ZigbeeBindings.function(_lamp));
-		rename(_lamp, "identifier", "stehlampe.ein");
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("@stehlampe.ein and @\"1/2/3\""));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("\"lamp\""));
+		rename(() -> _lamp.setIdentifier("stehlampe.ein"));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("@stehlampe.ein and @\"1/2/3\""));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("\"lamp\""));
 		assertEquals(List.of("1 expression adjusted to the new id."), messages());
 		assertEquals("stehlampe.ein", ApplicationDatapoints.id(_lamp));
 	}
@@ -264,12 +274,12 @@ public class TestIdRenames extends BasicTestCase {
 	 * A group address: its address, not its name.
 	 */
 	public void testGroupAddress() {
-		rename(_address, "name", "Licht Flur");
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("@\"1/2/3\""));
+		rename(() -> _address.setName("Licht Flur"));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("@\"1/2/3\""));
 		assertEquals(List.of(), messages());
 
-		rename(_address, "address", GA.parse("1/2/4", GroupAddressStyle.ThreeLevel));
-		assertTrue(String.valueOf(_condition.tValueByName("condition")).contains("@lamp and @\"1/2/4\" and"));
+		rename(() -> _address.setAddress(GA.parse("1/2/4", GroupAddressStyle.ThreeLevel)));
+		assertTrue(String.valueOf(_condition.getCondition()).contains("@lamp and @\"1/2/4\" and"));
 		assertEquals(List.of("1 expression adjusted to the new id."), messages());
 	}
 
@@ -296,16 +306,17 @@ public class TestIdRenames extends BasicTestCase {
 			new IdRenames.Report(3, List.of()).adjusted());
 	}
 
-	private static void rename(TLObject obj, String attribute, Object value) {
+	private static void rename(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
 
-	private static TLObject parameter(TLObject rule, String id) {
-		TLObject result = RuleFunctions.create(rule, "parameters", runtime("RuleParameter"));
-		result.tUpdateByName("identifier", id);
+
+	private static RuleParameter parameter(TLObject rule, String id) {
+		RuleParameter result = (RuleParameter) RuleFunctions.create(rule, "parameters", runtime("RuleParameter"));
+		result.setIdentifier(id);
 		return result;
 	}
 
