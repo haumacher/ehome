@@ -16,6 +16,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.project.Project;
 
 /**
  * The migration <code>Issue_183_Device_stubs</code> (haumacher/ehome #183): the records of devices a
@@ -60,7 +61,7 @@ public class DeviceStubMigration implements StartupAction {
 			if (InstallationBuilder.device(project, full) == null) {
 				List<TLObject> unassigned = ExtIds.list(project, "unassignedDevices");
 				unassigned.remove(stub);
-				project.tUpdateByName("unassignedDevices", unassigned);
+				((Project) project).setUnassignedDevices(unassigned);
 				stub.tUpdateByName("address", Integer.valueOf(number));
 				TLObject line = InstallationBuilder.line(project, full >>> 12 & 0x0F, full >>> 8 & 0x0F);
 				InstallationBuilder.add(line, "devices", stub);

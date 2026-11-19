@@ -14,8 +14,9 @@ import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
 
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
+
+import de.haumacher.ehome.model.operational.LoadStep;
 
 /**
  * Writes the steps of a load procedure (<code>ehome.operational:LoadStep</code>) of a mask version or
@@ -45,7 +46,7 @@ final class LoadSteps {
 	 */
 	static void write(XmlOut out, TLObject procedure) throws XMLStreamException {
 		for (TLObject step : list(procedure, "steps")) {
-			String kind = ((TLClassifier) step.tValueByName("kind")).getName();
+			String kind = ((LoadStep) step).getKind().getName();
 			if (SCHEMA_23_ONLY.contains(kind)) {
 				// No such step in schema 11 (doc/knx/export.md).
 				continue;

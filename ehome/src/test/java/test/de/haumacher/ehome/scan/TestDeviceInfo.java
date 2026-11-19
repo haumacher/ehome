@@ -40,6 +40,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
@@ -111,7 +112,7 @@ public class TestDeviceInfo extends BasicTestCase {
 			// No path: refused with the reason of the path.
 			assertEquals(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH,
 				DeviceInfo.veto(device));
-			inTransaction(() -> project.tUpdateByName("gateway", "192.0.2.1"));
+			inTransaction(() -> ((Project) project).setGateway("192.0.2.1"));
 			// Nothing is written: the write switch (off in the tests) does not apply.
 			assertFalse(CalimeroWriter.writeEnabled());
 			assertNull(DeviceInfo.veto(device));

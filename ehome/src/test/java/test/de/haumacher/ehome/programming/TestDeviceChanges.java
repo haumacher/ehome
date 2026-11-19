@@ -40,13 +40,14 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceChanges.Entry;
 import de.haumacher.ehome.programming.DeviceChanges.Reference;
@@ -81,8 +82,8 @@ public class TestDeviceChanges extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>(instances("ehome.project:Project"));
 		projects.removeAll(before);
 		assertEquals(2, projects.size());
-		TLObject project = projects.stream().filter(p -> "KNX-Testsystem".equals(p.tValueByName("name"))).findFirst()
-			.orElseGet(() -> projects.stream().filter(p -> !"Test".equals(p.tValueByName("name"))).findFirst().get());
+		TLObject project = projects.stream().filter(p -> "KNX-Testsystem".equals(((Project) p).getName())).findFirst()
+			.orElseGet(() -> projects.stream().filter(p -> !"Test".equals(((Project) p).getName())).findFirst().get());
 		TLObject other = projects.get(projects.get(0) == project ? 1 : 0);
 		try {
 			check(project, other);
@@ -166,7 +167,7 @@ public class TestDeviceChanges extends BasicTestCase {
 		assertNotNull(valueHint);
 		assertFalse(valueHint.isEmpty());
 		String newHint = DeviceChanges.connectionsText(wiring.currentConnections());
-		assertTrue(newHint, newHint.contains(address.tValueByName("address").toString()));
+		assertTrue(newHint, newHint.contains(((GroupAddress) address).getAddress().toString()));
 
 		// The marks: the entry, its page and the pages above it, the device.
 		assertTrue(changes.isChanged(view));
@@ -396,8 +397,8 @@ public class TestDeviceChanges extends BasicTestCase {
 	}
 
 	private static String connectionKey(TLObject connection) {
-		TLObject target = (TLObject) connection.tValueByName("target");
-		return ((GA) target.tValueByName("address")).toString() + " "
+		GroupAddress target = (GroupAddress) connection.tValueByName("target");
+		return target.getAddress().toString() + " "
 			+ ((TLClassifier) connection.tValueByName("kind")).getName();
 	}
 

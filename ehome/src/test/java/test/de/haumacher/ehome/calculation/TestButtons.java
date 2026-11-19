@@ -37,6 +37,7 @@ import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
@@ -100,7 +101,7 @@ public class TestButtons extends BasicTestCase {
 				for (Button button : DeviceButtons.all(program)) {
 					button.tDelete();
 				}
-				program.tUpdateByName("buttonsRead", null);
+				program.tUpdate(EhomeOperationalFactory.getButtonsReadProgramAttr(), null);
 				tx.commit();
 			}
 			assertEquals(0, buttons().size());
@@ -109,7 +110,7 @@ public class TestButtons extends BasicTestCase {
 			assertTrue(completing.getMessages().stream().anyMatch(
 				m -> m.getLevel() == Level.INFO && String.valueOf(m.getMessage()).equals(completed)));
 			assertTrue(completing.getCreated("ehome.operational:Program").isEmpty());
-			assertEquals(Boolean.TRUE, program.tValueByName("buttonsRead"));
+			assertTrue(program.getButtonsRead());
 			checkImport(completing);
 			checkProgram();
 			TLObject completedDevice = device(before);
@@ -310,12 +311,12 @@ public class TestButtons extends BasicTestCase {
 
 	private static List<TLObject> buttons() {
 		return instances("ehome.operational:Button").stream()
-			.filter(b -> String.valueOf(b.tValueByName("extId")).startsWith(P)).toList();
+			.filter(b -> String.valueOf(((Button) b).getExtId()).startsWith(P)).toList();
 	}
 
 	private static Program program() {
 		return (Program) instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(p -> PROGRAM.equals(((Program) p).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static TLObject device(List<TLObject> before) {

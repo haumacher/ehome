@@ -29,6 +29,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.DeviceSettings;
 
@@ -53,9 +55,9 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 			List<TLObject> devices = devices(project);
 			TLObject placed = devices.stream().filter(d -> d.tValueByName("location") != null).findFirst().orElseThrow();
 			TLObject unplaced = devices.stream().filter(d -> d.tValueByName("location") == null).findFirst().orElseThrow();
-			TLObject room = (TLObject) placed.tValueByName("location");
+			BuildingDefinition room = (BuildingDefinition) placed.tValueByName("location");
 			String path = BuildingDevices.path(room);
-			assertTrue(path, path.startsWith(room.tValueByName("name") + ", "));
+			assertTrue(path, path.startsWith(room.getName() + ", "));
 			TLObject floor = room.tContainer();
 			TLObject house = floor.tContainer();
 
@@ -126,10 +128,10 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 	/** The devices of a project: on its lines, and the ones not placed in a line yet. */
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object device : (Collection<?>) project.tValueByName("unassignedDevices")) {
+		for (Object device : ((Project) project).getUnassignedDevices()) {
 			result.add((TLObject) device);
 		}
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.add((TLObject) device);

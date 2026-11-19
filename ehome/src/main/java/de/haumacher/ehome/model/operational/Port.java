@@ -12,4 +12,9 @@ public interface Port extends de.haumacher.ehome.model.operational.internal.Port
 
 	// Wrapper functionality.
 
+	/** The value of {@link #INDEX_ATTR}, <code>null</code> when unset. */
+	default Integer getIndexOrNull() {
+		return (Integer) tValueByName(INDEX_ATTR);
+	}
+
 }

@@ -35,8 +35,8 @@ public class TestBuildingOrderProbe extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		try {
 			TLObject project = projects.get(0);
-			TLObject floor = TestBuildingOrder.list(TestBuildingOrder.list(project, "buildings").get(0), "parts").get(0);
-			List<TLObject> parts = TestBuildingOrder.list(floor, "parts");
+			TLObject floor = TestBuildingOrder.parts(TestBuildingOrder.buildings(project).get(0)).get(0);
+			List<TLObject> parts = TestBuildingOrder.parts(floor);
 			TLObject living = parts.get(0);
 			TLObject kitchen = parts.get(1);
 			TLObject board = parts.get(2);
@@ -49,21 +49,21 @@ public class TestBuildingOrderProbe extends BasicTestCase {
 			if (self == null) {
 				TestBuildingOrder.drop(move, List.of(kitchen), floor, kitchen);
 			}
-			assertEquals(List.of(living, kitchen, board), TestBuildingOrder.list(floor, "parts"));
+			assertEquals(List.of(living, kitchen, board), TestBuildingOrder.parts(floor));
 
 			// A selection in reverse order, before the first part: the parts keep the tree's order.
 			TestBuildingOrder.drop(move, List.of(board, kitchen), floor, living);
-			assertEquals(List.of(kitchen, board, living), TestBuildingOrder.list(floor, "parts"));
+			assertEquals(List.of(kitchen, board, living), TestBuildingOrder.parts(floor));
 
 			// A selection that holds the part it is dropped before.
 			Object reason = asRoot(() -> veto.execute(List.of(living, kitchen), floor, kitchen));
 			if (reason == null) {
 				TestBuildingOrder.drop(move, List.of(living, kitchen), floor, kitchen);
 			}
-			List<TLObject> after = TestBuildingOrder.list(floor, "parts");
+			List<TLObject> after = TestBuildingOrder.parts(floor);
 			assertEquals(3, after.size());
 			assertTrue(after.containsAll(List.of(living, kitchen, board)));
-			assertEquals(after.stream().map(p -> (String) p.tValueByName("name")).toList().subList(1, 3),
+			assertEquals(TestBuildingOrder.names(after).subList(1, 3),
 				TestBuildingOrder.locations(project).subList(3, 5));
 		} finally {
 			SharedData.deleteProjects(projects);

@@ -10,7 +10,6 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,6 +34,9 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.catalog.ArchiveEntry;
+import de.haumacher.ehome.model.catalog.Baggage;
+import de.haumacher.ehome.model.operational.HelpFile;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.modules.ModuleParts;
 
@@ -75,16 +77,6 @@ public class ProgramResources extends GenericMethod {
 
 	/** The attribute of an element naming its help topic. */
 	public static final String HELP_TOPIC = "helpTopic";
-
-	private static final String ICON_FILE = "iconFile";
-
-	private static final String HELP_FILES = "helpFiles";
-
-	private static final String ENTRIES = "entries";
-
-	private static final String NAME = "name";
-
-	private static final String CONTENT = "content";
 
 	private static final Parser MARKDOWN = Parser.builder().build();
 
@@ -163,7 +155,7 @@ public class ProgramResources extends GenericMethod {
 		if (name == null || program == null) {
 			return null;
 		}
-		return entry((TLObject) program.tValueByName(ICON_FILE), name);
+		return entry(((Program) program).getIconFile(), name);
 	}
 
 	/**
@@ -171,14 +163,14 @@ public class ProgramResources extends GenericMethod {
 	 * element names no icon, the archive does not hold it, or it is no picture a browser shows.
 	 */
 	public static BinaryData icon(Object element) {
-		TLObject entry = iconEntry(element);
+		ArchiveEntry entry = (ArchiveEntry) iconEntry(element);
 		if (entry == null) {
 			return null;
 		}
-		BinaryData content = (BinaryData) entry.tValueByName(CONTENT);
+		BinaryData content = (BinaryData) entry.getContent();
 		String contentType = content == null ? null : content.getContentType();
 		if (contentType == null || !contentType.startsWith("image/")
-			|| !ParameterPictures.SHOWN.contains(extension((String) entry.tValueByName(NAME)))) {
+			|| !ParameterPictures.SHOWN.contains(extension(entry.getName()))) {
 			return null;
 		}
 		return content;
@@ -202,18 +194,18 @@ public class ProgramResources extends GenericMethod {
 	 * program's default language; <code>null</code> if there is none.
 	 */
 	public static String helpText(TLObject program, String topic, Locale locale) {
-		List<TLObject> files = list(program, HELP_FILES);
+		List<? extends HelpFile> files = ((Program) program).getHelpFiles();
 		String language = locale == null ? null : locale.getLanguage();
-		for (TLObject file : files) {
-			if (language != null && language.equals(file.tValueByName("language"))) {
+		for (HelpFile file : files) {
+			if (language != null && language.equals(file.getLanguage())) {
 				String text = topicText(file, topic);
 				if (text != null) {
 					return text;
 				}
 			}
 		}
-		for (TLObject file : files) {
-			if (Boolean.TRUE.equals(file.tValueByName("fallback"))) {
+		for (HelpFile file : files) {
+			if (Boolean.TRUE.equals(file.getFallbackOrNull())) {
 				return topicText(file, topic);
 			}
 		}
@@ -258,11 +250,11 @@ public class ProgramResources extends GenericMethod {
 	 * its archive holds none (or only white space).
 	 */
 	public static String topicText(TLObject helpFile, String topic) {
-		TLObject entry = entry((TLObject) helpFile.tValueByName("file"), topic);
+		ArchiveEntry entry = (ArchiveEntry) entry(((HelpFile) helpFile).getFile(), topic);
 		if (entry == null) {
 			return null;
 		}
-		BinaryData content = (BinaryData) entry.tValueByName(CONTENT);
+		BinaryData content = (BinaryData) entry.getContent();
 		if (content == null) {
 			return null;
 		}
@@ -284,14 +276,14 @@ public class ProgramResources extends GenericMethod {
 		if (archive == null || name == null) {
 			return null;
 		}
-		List<TLObject> entries = list(archive, ENTRIES);
-		for (TLObject entry : entries) {
-			if (name.equals(baseName((String) entry.tValueByName(NAME)))) {
+		List<? extends ArchiveEntry> entries = ((Baggage) archive).getEntries();
+		for (ArchiveEntry entry : entries) {
+			if (name.equals(baseName(entry.getName()))) {
 				return entry;
 			}
 		}
-		for (TLObject entry : entries) {
-			if (name.equalsIgnoreCase(baseName((String) entry.tValueByName(NAME)))) {
+		for (ArchiveEntry entry : entries) {
+			if (name.equalsIgnoreCase(baseName(entry.getName()))) {
 				return entry;
 			}
 		}
@@ -344,12 +336,6 @@ public class ProgramResources extends GenericMethod {
 		}
 		Object value = obj.tValueByName(attribute);
 		return value == null || value.toString().isBlank() ? null : value.toString().trim();
-	}
-
-	@SuppressWarnings("unchecked")
-	private static List<TLObject> list(TLObject obj, String reference) {
-		Object value = obj.tValueByName(reference);
-		return value == null ? List.of() : List.copyOf((Collection<TLObject>) value);
 	}
 
 	@Override

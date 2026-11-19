@@ -7,6 +7,8 @@ import java.net.InetSocketAddress;
 
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.project.Project;
+
 /**
  * The KNXnet/IP gateway a device is reached through: the gateway of its project
  * (<code>ehome.project:Project#gateway</code>), an address with an optional port.
@@ -24,7 +26,7 @@ public class Gateways {
 		while (root.tContainer() != null) {
 			root = root.tContainer();
 		}
-		Object gateway = root.tValueByName("gateway");
+		Object gateway = ((Project) root).getGateway();
 		if (gateway instanceof String text && !text.isBlank()) {
 			return text.trim();
 		}

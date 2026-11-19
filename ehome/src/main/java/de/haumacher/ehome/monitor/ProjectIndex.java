@@ -12,6 +12,8 @@ import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -89,18 +91,19 @@ public class ProjectIndex {
 	 * Reads the group addresses and devices of the given project.
 	 */
 	public static ProjectIndex of(TLObject project) {
-		GroupAddressStyle style = GroupAddressStyle.fromModel(project.tValueByName("groupAddressStyle"));
+		GroupAddressStyle style = GroupAddressStyle.fromModel(((Project) project).getGroupAddressStyle());
 		if (style == null) {
 			style = GroupAddressStyle.DEFAULT;
 		}
 		Map<Integer, AddressInfo> addresses = new TreeMap<>();
-		for (TLObject groupAddress : DeviceSettings.groupAddresses(project)) {
-			if (!(groupAddress.tValueByName("address") instanceof GA ga)) {
+		for (TLObject groupAddressObject : DeviceSettings.groupAddresses(project)) {
+			GroupAddress groupAddress = (GroupAddress) groupAddressObject;
+			if (!(groupAddress.getAddress() instanceof GA ga)) {
 				continue;
 			}
 			Dpt dpt = GroupAddressTypes.effective(groupAddress);
 			String label = GroupAddressTypes.label(groupAddress);
-			Object name = groupAddress.tValueByName("name");
+			Object name = groupAddress.getName();
 			addresses.put(ga.getValue(), new AddressInfo(ga.getValue(), style.format(ga.getValue()),
 				name == null ? "" : name.toString(), groupAddress, dpt, label));
 		}

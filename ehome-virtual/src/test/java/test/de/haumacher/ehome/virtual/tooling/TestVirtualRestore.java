@@ -11,6 +11,7 @@ import static test.de.haumacher.ehome.virtual.tooling.VirtualTesting.writing;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -27,6 +28,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
@@ -80,7 +82,7 @@ public class TestVirtualRestore extends BasicTestCase {
 			TLObject device = TestVirtualDownload.device(project, SENSOR);
 			SimulatedDevice simulated = ProjectDevices.create(device, MappedLoadStateRule.ECHO);
 			Endpoint endpoint = loopback();
-			set(project, "gateway", Gateways.format(gateway(endpoint)));
+			update(project, p -> p.setGateway(Gateways.format(gateway(endpoint))));
 
 			// The project's configuration in the device, read out: snapshot A.
 			download(device, simulated, manager, endpoint, "first");
@@ -175,7 +177,7 @@ public class TestVirtualRestore extends BasicTestCase {
 			assertEquals(DownloadPlanner.plan(actuator, DownloadPlan.Kind.FULL).dump(),
 				DownloadPlanner.restore(actuator, actuatorSnapshot, false).dump());
 		} finally {
-			set(project, "gateway", null);
+			update(project, p -> p.setGateway(null));
 			TestVirtualDownload.delete(project);
 		}
 	}
@@ -345,9 +347,9 @@ public class TestVirtualRestore extends BasicTestCase {
 			.count();
 	}
 
-	private static void set(TLObject project, String attribute, Object value) {
+	private static void update(TLObject project, Consumer<Project> change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project.tUpdateByName(attribute, value);
+			change.accept((Project) project);
 			tx.commit();
 		}
 	}

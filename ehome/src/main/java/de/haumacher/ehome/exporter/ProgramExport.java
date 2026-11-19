@@ -31,7 +31,10 @@ import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.operational.DateType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.IPAddressType;
+import de.haumacher.ehome.model.operational.Location;
 
 /**
  * Writes the file of an application program (<code>M-xxxx/M-xxxx_A-….xml</code>): the static part
@@ -192,10 +195,10 @@ final class ProgramExport {
 					.close();
 				case "ehome.operational:DateType" -> out.open("TypeDate")
 					// Without the attribute, ETS shows the year (the import's default).
-					.attr("DisplayTheYear", Boolean.FALSE.equals(type.tValueByName("showsYear")) ? "false" : null)
+					.attr("DisplayTheYear", Boolean.FALSE.equals(((DateType) type).getShowsYearOrNull()) ? "false" : null)
 					.close();
 				case "ehome.operational:IPAddressType" -> {
-					TLClassifier version = (TLClassifier) type.tValueByName("version");
+					TLClassifier version = ((IPAddressType) type).getVersion();
 					out.open("TypeIPAddress")
 						.attr("AddressType", classifier(type, "addressKind"))
 						// Without a version, ETS means IPv4 (the import's default).
@@ -222,7 +225,7 @@ final class ProgramExport {
 		List<Object> items = new ArrayList<>();
 		for (TLObject parameter : parameters) {
 			TLObject location = ref(parameter, "address");
-			if (location != null && location.tValueByName("bits") != null) {
+			if (location != null && ((Location) location).getBits() != null) {
 				List<TLObject> members = unions.get(location);
 				if (members == null) {
 					members = new ArrayList<>();

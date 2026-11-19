@@ -33,6 +33,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.DateType;
@@ -1144,13 +1145,19 @@ public class ReadBack {
 			return port == null ? null : configuration().getActiveInterfaces().get(port);
 		}
 
-		private static boolean enabled(String flag, Interface placed, Port port) {
-			return "Enabled".equals(classifier(flag, placed, port));
+		/**
+		 * Whether a flag is enabled: as the placement sets it, else as the communication object does.
+		 */
+		private static boolean enabled(TLClassifier placed, TLClassifier port) {
+			return "Enabled".equals(classifier(placed, port));
 		}
 
-		private static String classifier(String attribute, Interface placed, Port port) {
-			for (TLObject holder : List.of(placed, port)) {
-				if (holder.tValueByName(attribute) instanceof TLClassifier value) {
+		/**
+		 * The name of a flag as the placement sets it, else as the communication object does.
+		 */
+		private static String classifier(TLClassifier placed, TLClassifier port) {
+			for (TLClassifier value : Arrays.asList(placed, port)) {
+				if (value != null) {
 					return value.getName();
 				}
 			}
@@ -1219,10 +1226,10 @@ public class ReadBack {
 			if (actual == null) {
 				return true;
 			}
-			int config = GroupTables.objectConfig(actual.intValue(), enabled("update", placed, port),
-				enabled("transmission", placed, port), enabled("canWrite", placed, port),
-				enabled("canRead", placed, port), false, GroupTables.priorityCode(classifier("priority", placed, port)),
-				false);
+			int config = GroupTables.objectConfig(actual.intValue(), enabled(placed.getUpdate(), port.getUpdate()),
+				enabled(placed.getTransmission(), port.getTransmission()),
+				enabled(placed.getCanWrite(), port.getCanWrite()), enabled(placed.getCanRead(), port.getCanRead()),
+				false, GroupTables.priorityCode(classifier(placed.getPriority(), port.getPriority())), false);
 			return ((config ^ actual.intValue()) & ~GroupTables.COMMUNICATION & 0xFF) == 0;
 		}
 
@@ -1712,7 +1719,7 @@ public class ReadBack {
 		TLObject project = project(device);
 		Map<Integer, TLObject> groupAddresses = new HashMap<>();
 		for (TLObject address : DeviceSettings.groupAddresses(device)) {
-			if (address.tValueByName("address") instanceof GA ga) {
+			if (((GroupAddress) address).getAddress() instanceof GA ga) {
 				groupAddresses.putIfAbsent(Integer.valueOf(ga.getValue()), address);
 			}
 		}
@@ -1732,8 +1739,8 @@ public class ReadBack {
 			for (Object element : new ArrayList<>((Collection<?>) connector.tValueByName("connections"))) {
 				TLObject connection = (TLObject) element;
 				String key = (port == null ? "?" : port.getIndex()) + "/"
-					+ (connection.tValueByName("target") instanceof TLObject target
-						&& target.tValueByName("address") instanceof GA ga ? ga.getValue() : -1)
+					+ (connection.tValueByName("target") instanceof GroupAddress target
+						&& target.getAddress() instanceof GA ga ? ga.getValue() : -1)
 					+ "/" + InstallationBuilder.name(connection.tValueByName("kind"));
 				if (wanted.contains(key) && existing.add(key)) {
 					continue;
@@ -1759,7 +1766,7 @@ public class ReadBack {
 				if (groupAddress == null) {
 					groupAddress = InstallationBuilder.groupAddress(project, addresses.get(k));
 					groupAddresses.put(addresses.get(k), groupAddress);
-					created.add(String.valueOf(groupAddress.tValueByName("address")));
+					created.add(String.valueOf(((GroupAddress) groupAddress).getAddress()));
 				}
 				try {
 					DeviceSettings.connect(configuration, placed, groupAddress, k == 0 ? send : receive);

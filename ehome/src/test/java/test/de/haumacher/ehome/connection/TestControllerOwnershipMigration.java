@@ -4,7 +4,6 @@
 package test.de.haumacher.ehome.connection;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import junit.framework.Test;
@@ -24,6 +23,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.connection.ControllerOwnershipMigration;
 import de.haumacher.ehome.connection.ProjectControllers;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.runtime.Deployer;
 
 /**
@@ -54,15 +56,15 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		TLObject orphan = null;
 		try {
-			TLObject single;
-			TLObject shared;
-			TLObject enrolled;
-			TLObject first;
-			TLObject second;
-			TLObject alone;
-			TLObject foreign;
-			TLObject holder;
-			TLObject deployment;
+			Controller single;
+			Controller shared;
+			Controller enrolled;
+			Project first;
+			Project second;
+			Project alone;
+			Project foreign;
+			Project holder;
+			Deployment deployment;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				alone = project("Migration 151 alone");
 				first = project("Migration 151 first");
@@ -72,27 +74,27 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 				projects.addAll(List.of(alone, first, second, holder, foreign));
 
 				single = controller("Migration single", "192.0.2.11");
-				alone.tUpdateByName("controller", single);
+				alone.setController(single);
 
 				shared = controller("Migration shared", "192.0.2.12");
-				shared.tUpdateByName("token", TOKEN);
-				shared.tUpdateByName("firmwareVersion", "1.2.3");
+				shared.setToken(TOKEN);
+				shared.setFirmwareVersion("1.2.3");
 				// Created in the order second, first: the first by name gets the original.
-				second.tUpdateByName("controller", shared);
-				first.tUpdateByName("controller", shared);
-				deployment = ModelService.getInstance().getFactory()
+				second.setController(shared);
+				first.setController(shared);
+				deployment = (Deployment) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Deployment"));
-				deployment.tUpdateByName("controller", shared);
-				deployment.tUpdateByName("target", "Migration shared (192.0.2.12:80)");
-				second.tUpdateByName("deployments", List.of(deployment));
+				deployment.setController(shared);
+				deployment.setTarget("Migration shared (192.0.2.12:80)");
+				second.setDeployments(List.of(deployment));
 
 				orphan = controller("Migration orphan", "192.0.2.13");
 
 				enrolled = controller("Migration enrolled", null);
-				enrolled.tUpdateByName("controllerId", "0123456789abcdef0123456789abcdef");
-				holder.tUpdateByName("controllers", List.of(enrolled));
-				holder.tUpdateByName("controller", enrolled);
-				foreign.tUpdateByName("controller", enrolled);
+				enrolled.setControllerId("0123456789abcdef0123456789abcdef");
+				holder.setControllers(List.of(enrolled));
+				holder.setController(enrolled);
+				foreign.setController(enrolled);
 				tx.commit();
 			}
 
@@ -105,25 +107,25 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 			// One project deploys to it: moved.
 			assertSame(alone, single.tContainer());
 			assertEquals(List.of(single), ProjectControllers.controllers(alone));
-			assertSame(single, alone.tValueByName("controller"));
+			assertSame(single, alone.getController());
 			assertSame(single, Deployer.controller(alone));
 			assertTrue(report.toString(), report.contains(
 				"Controller 'Migration single' moved into project 'Migration 151 alone' (haumacher/ehome #151)."));
 
 			// Two projects deploy to it: moved into the first, copied into the second.
 			assertSame(first, shared.tContainer());
-			assertSame(shared, first.tValueByName("controller"));
-			TLObject copy = (TLObject) second.tValueByName("controller");
+			assertSame(shared, first.getController());
+			Controller copy = second.getController();
 			assertNotSame(shared, copy);
 			assertSame(second, copy.tContainer());
 			assertEquals(List.of(copy), ProjectControllers.controllers(second));
-			assertEquals("Migration shared", copy.tValueByName("name"));
-			assertEquals("192.0.2.12", copy.tValueByName("host"));
-			assertEquals(Integer.valueOf(80), copy.tValueByName("port"));
-			assertEquals("The copy keeps the token.", TOKEN, copy.tValueByName("token"));
-			assertEquals("1.2.3", copy.tValueByName("firmwareVersion"));
+			assertEquals("Migration shared", copy.getName());
+			assertEquals("192.0.2.12", copy.getHost());
+			assertEquals(Integer.valueOf(80), copy.getPortOrNull());
+			assertEquals("The copy keeps the token.", TOKEN, copy.getToken());
+			assertEquals("1.2.3", copy.getFirmwareVersion());
 			assertSame("The deployment of the second project names its copy.", copy,
-				deployment.tValueByName("controller"));
+				deployment.getController());
 			assertTrue(report.toString(), report.contains(
 				"Controller 'Migration shared' copied into project 'Migration 151 second' (haumacher/ehome #151)."));
 
@@ -135,8 +137,8 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 
 			// An enrolled controller of another project: the foreign target is removed.
 			assertSame(holder, enrolled.tContainer());
-			assertSame(enrolled, holder.tValueByName("controller"));
-			assertNull(foreign.tValueByName("controller"));
+			assertSame(enrolled, holder.getController());
+			assertNull(foreign.getController());
 			assertTrue(ProjectControllers.controllers(foreign).isEmpty());
 
 			// Running it again changes nothing.
@@ -145,7 +147,7 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 				tx.commit();
 				assertFalse(again.toString(), again.stream().anyMatch(line -> line.contains("Migration 151")));
 			}
-			assertSame(copy, second.tValueByName("controller"));
+			assertSame(copy, second.getController());
 			assertEquals(List.of(copy), ProjectControllers.controllers(second));
 		} finally {
 			SharedData.deleteProjects(projects);
@@ -162,19 +164,19 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 	public void testForeignTargetRefused() {
 		List<TLObject> projects = new ArrayList<>();
 		try {
-			TLObject owner;
-			TLObject other;
-			TLObject controller;
+			Project owner;
+			Project other;
+			Controller controller;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				owner = project("Foreign 151 owner");
 				other = project("Foreign 151 other");
 				projects.addAll(List.of(owner, other));
-				controller = ProjectControllers.create(owner, "Foreign 151", "192.0.2.21", null, TOKEN);
+				controller = (Controller) ProjectControllers.create(owner, "Foreign 151", "192.0.2.21", null, TOKEN);
 				// Written past the options, as an old database or a script could.
-				other.tUpdateByName("controller", controller);
+				other.setController(controller);
 				tx.commit();
 			}
-			assertSame(controller, owner.tValueByName("controller"));
+			assertSame(controller, owner.getController());
 			assertSame(owner, controller.tContainer());
 			assertNull(Deployer.controller(other));
 			assertEquals(de.haumacher.ehome.connection.I18NConstants.ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT
@@ -193,17 +195,17 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject one = project("Create 151 one");
-				TLObject two = project("Create 151 two");
+				Project one = project("Create 151 one");
+				Project two = project("Create 151 two");
 				projects.addAll(List.of(one, two));
-				TLObject created = ProjectControllers.create(one, " ", " 192.0.2.31 ", "8080", " " + TOKEN + " ");
-				assertEquals("192.0.2.31", created.tValueByName("name"));
-				assertEquals("192.0.2.31", created.tValueByName("host"));
-				assertEquals(Integer.valueOf(8080), created.tValueByName("port"));
-				assertEquals(TOKEN, created.tValueByName("token"));
+				Controller created = (Controller) ProjectControllers.create(one, " ", " 192.0.2.31 ", "8080", " " + TOKEN + " ");
+				assertEquals("192.0.2.31", created.getName());
+				assertEquals("192.0.2.31", created.getHost());
+				assertEquals(Integer.valueOf(8080), created.getPortOrNull());
+				assertEquals(TOKEN, created.getToken());
 				assertSame(one, created.tContainer());
-				assertSame("The first controller becomes the target.", created, one.tValueByName("controller"));
-				assertFalse(((Collection<?>) two.tValueByName("controllers")).contains(created));
+				assertSame("The first controller becomes the target.", created, one.getController());
+				assertFalse(two.getControllers().contains(created));
 
 				assertRefused(de.haumacher.ehome.connection.I18NConstants.ERROR_CONTROLLER_ADDRESS_KNOWN__CONTROLLER
 					.fill("192.0.2.31"), () -> ProjectControllers.create(one, "Again", "192.0.2.31", 8080, null));
@@ -212,10 +214,10 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 				assertRefused(de.haumacher.ehome.connection.I18NConstants.ERROR_CONTROLLER_PORT_INVALID__PORT.fill("x"),
 					() -> ProjectControllers.create(one, "Bad port", "192.0.2.32", "x", null));
 
-				TLObject second = ProjectControllers.create(one, "Second", "192.0.2.33", null, null);
+				Controller second = (Controller) ProjectControllers.create(one, "Second", "192.0.2.33", null, null);
 				assertSame("A further controller does not take over the target.", created,
-					one.tValueByName("controller"));
-				assertEquals(Integer.valueOf(80), second.tValueByName("port"));
+					one.getController());
+				assertEquals(Integer.valueOf(80), second.getPortOrNull());
 
 				TLObject other = ProjectControllers.create(two, "Same address", "192.0.2.31", 8080, null);
 				assertSame(two, other.tContainer());
@@ -238,18 +240,18 @@ public class TestControllerOwnershipMigration extends BasicTestCase {
 		}
 	}
 
-	private static TLObject project(String name) {
-		TLObject project = ModelService.getInstance().getFactory()
+	private static Project project(String name) {
+		Project project = (Project) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-		project.tUpdateByName("name", name);
+		project.setName(name);
 		return project;
 	}
 
-	private static TLObject controller(String name, String host) {
-		TLObject controller = ModelService.getInstance().getFactory()
+	private static Controller controller(String name, String host) {
+		Controller controller = (Controller) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-		controller.tUpdateByName("name", name);
-		controller.tUpdateByName("host", host);
+		controller.setName(name);
+		controller.setHost(host);
 		return controller;
 	}
 

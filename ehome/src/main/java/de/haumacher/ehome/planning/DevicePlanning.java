@@ -16,6 +16,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
+import com.top_logic.model.TLNamed;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
@@ -25,6 +26,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
@@ -117,11 +120,11 @@ public final class DevicePlanning {
 		StringBuilder result = new StringBuilder();
 		TLObject product = product(variant);
 		TLObject manufacturer = product == null ? null : product.tContainer();
-		if (manufacturer != null && manufacturer.tValueByName("name") instanceof String name && !name.isBlank()) {
+		if (manufacturer != null && ((TLNamed) manufacturer).getName() instanceof String name && !name.isBlank()) {
 			result.append(name).append(" · ");
 		}
 		result.append(MetaLabelProvider.INSTANCE.getLabel(variant));
-		if (variant.tValueByName("orderNumber") instanceof String orderNumber && !orderNumber.isBlank()) {
+		if (((Variant) variant).getOrderNumber() instanceof String orderNumber && !orderNumber.isBlank()) {
 			result.append(" · ").append(orderNumber);
 		}
 		return result.toString();
@@ -136,7 +139,7 @@ public final class DevicePlanning {
 			: variantOrProduct;
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject assignment : ExtIds.list(product, "programs")) {
-			if (assignment.tValueByName("program") instanceof Program) {
+			if (((ProgramAssignment) assignment).getProgram() instanceof Program) {
 				result.add(assignment);
 			}
 		}
@@ -167,9 +170,9 @@ public final class DevicePlanning {
 		if (label.isEmpty() || assignment.tContainer() == null) {
 			return label;
 		}
-		Program program = (Program) assignment.tValueByName("program");
+		Program program = program(assignment);
 		for (TLObject other : programs(assignment.tContainer())) {
-			if (other.tValueByName("program") != program && label.equals(baseProgramLabel(other))) {
+			if (program(other) != program && label.equals(baseProgramLabel(other))) {
 				return label + " (" + program.getExtId() + ")";
 			}
 		}
@@ -177,7 +180,7 @@ public final class DevicePlanning {
 	}
 
 	private static String baseProgramLabel(TLObject assignment) {
-		if (assignment == null || !(assignment.tValueByName("program") instanceof Program program)) {
+		if (assignment == null || !(program(assignment) instanceof Program program)) {
 			return "";
 		}
 		String name = MetaLabelProvider.INSTANCE.getLabel(program);
@@ -474,12 +477,12 @@ public final class DevicePlanning {
 	}
 
 	private static TLObject product(TLObject variant) {
-		Object product = variant.tValueByName("product");
+		Object product = ((Variant) variant).getProduct();
 		return product instanceof TLObject result ? result : variant.tContainer();
 	}
 
 	private static Program program(TLObject assignment) {
-		return (Program) assignment.tValueByName("program");
+		return ((ProgramAssignment) assignment).getProgram();
 	}
 
 	private static int version(Integer value) {

@@ -9,7 +9,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +33,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.LoadProcedure;
@@ -41,6 +42,7 @@ import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.model.operational.MaskVersions;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
@@ -157,7 +159,7 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		// is shared, so the file imported first (the tests share one database) defines it; the
 		// common part is checked.
 		MaskConfiguration legacy = coupler.getConfigurations().get(1);
-		assertEquals(Boolean.TRUE, legacy.tValueByName(MaskConfiguration.LEGACY_ATTR));
+		assertTrue(legacy.getLegacy());
 		List<LoadProcedure> legacyProcedures = new ArrayList<>(legacy.getProcedures());
 		assertTrue(legacyProcedures.size() == 4 || legacyProcedures.size() == 5);
 		List<String> scopes = legacyProcedures.stream().map(p -> p.getScope().getName()).toList();
@@ -212,7 +214,7 @@ public class TestDownloadDataProbe extends BasicTestCase {
 	private void ownership(MaskVersion mask) throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		EhomeOperationalFactory factory = EhomeOperationalFactory.getInstance();
-		TLObject manufacturer;
+		Manufacturer manufacturer;
 		Program program;
 		CodeSegment segment;
 		Pointer pointer;
@@ -224,14 +226,14 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		int stepsBefore = instances("ehome.operational:LoadStep").size();
 		try (Transaction tx = kb.beginTransaction()) {
 			TLObject root = TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
-			manufacturer = create("ehome.catalog:Manufacturer");
-			manufacturer.tUpdateByName("name", "Probe");
-			add(root, "manufacturers", manufacturer);
+			manufacturer = (Manufacturer) create("ehome.catalog:Manufacturer");
+			manufacturer.setName("Probe");
+			((ManufacturerRoot) root).addManufacturer(manufacturer);
 			program = factory.createProgram();
 			program.tUpdateByName("name", ResKey.builder().add(Locale.ENGLISH, "Probe program").add(Locale.GERMAN, "Probeprogramm").build());
 			program.setMask(mask);
 			program.setLoadProcedureStyle(classifier("ehome.operational:LoadProcedureStyle", "ProductProcedure"));
-			add(manufacturer, "programs", program);
+			manufacturer.addProgram(program);
 
 			segment = factory.createCodeSegment();
 			segment.setAddress(0x4000);
@@ -304,7 +306,7 @@ public class TestDownloadDataProbe extends BasicTestCase {
 
 	private static Program program(String extId) {
 		List<TLObject> result = instances("ehome.operational:Program").stream()
-			.filter(p -> extId.equals(p.tValueByName("extId")))
+			.filter(p -> extId.equals(((Program) p).getExtId()))
 			.toList();
 		assertEquals(extId, 1, result.size());
 		return (Program) result.get(0);
@@ -327,11 +329,11 @@ public class TestDownloadDataProbe extends BasicTestCase {
 	private static List<?> masks() {
 		TLObject root = TLModelUtil.findType("ehome.operational:MaskVersions").getModule()
 			.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
-		return (List<?>) root.tValueByName("masks");
+		return ((MaskVersions) root).getMasks();
 	}
 
 	private static List<?> masks(String extId) {
-		return masks().stream().filter(m -> extId.equals(((TLObject) m).tValueByName("extId"))).toList();
+		return masks().stream().filter(m -> extId.equals(((MaskVersion) m).getExtId())).toList();
 	}
 
 	private static MaskResource resource(MaskVersion mask, String name) {
@@ -349,11 +351,6 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 	}
 
-	private static void add(TLObject container, String reference, TLObject element) {
-		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
-		elements.add(element);
-		container.tUpdateByName(reference, elements);
-	}
 
 	private static String hex(BinaryDataSource data) throws IOException {
 		return HexFormat.of().formatHex(bytes(data));

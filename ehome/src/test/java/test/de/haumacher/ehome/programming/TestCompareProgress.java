@@ -31,6 +31,7 @@ import com.top_logic.layout.view.job.JobStatus;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CompareJob;
@@ -193,7 +194,7 @@ public class TestCompareProgress extends BasicTestCase {
 					List<TLObject> projects = SharedData.newProjects(_before);
 					assertEquals(1, projects.size());
 					try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-						projects.get(0).tUpdateByName("gateway", "localhost");
+						((Project) projects.get(0)).setGateway("localhost");
 						tx.commit();
 					}
 					_device = SharedData.within("ehome.physical:Device", projects).get(0);

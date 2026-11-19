@@ -4,7 +4,6 @@
 package de.haumacher.ehome.programming;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +19,9 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.GroupRange;
 
 /**
  * Creating a group address in a group range of a project, as the connect dialog of a device does
@@ -38,13 +40,7 @@ public final class GroupAddresses {
 
 	private static final String GROUP_ADDRESS = "ehome.logical:GroupAddress";
 
-	private static final String RANGE_START = "rangeStart";
-
-	private static final String RANGE_END = "rangeEnd";
-
 	private static final String PARTS = "parts";
-
-	private static final String ADDRESS = "address";
 
 	/** The lowest group address; 0 is the broadcast address. */
 	private static final int MIN_ADDRESS = 1;
@@ -70,8 +66,8 @@ public final class GroupAddresses {
 				}
 			}
 		}
-		result.sort(Comparator.comparingInt((TLObject r) -> bound(r, RANGE_START, Integer.MAX_VALUE))
-			.thenComparingInt(r -> bound(r, RANGE_END, Integer.MAX_VALUE)));
+		result.sort(Comparator.comparingInt((TLObject r) -> bound(start(r), Integer.MAX_VALUE))
+			.thenComparingInt(r -> bound(end(r), Integer.MAX_VALUE)));
 		return result;
 	}
 
@@ -85,13 +81,13 @@ public final class GroupAddresses {
 			: ExtIds.list(node, "groupAddresses");
 		result.sort(Comparator.comparingInt(GroupAddresses::position)
 			.thenComparingInt(part -> ExtIds.isA(part, GROUP_RANGE) ? 0 : 1)
-			.thenComparing(part -> String.valueOf(part.tValueByName("name"))));
+			.thenComparing(part -> String.valueOf(((GroupAddressDefinition) part).getName())));
 		return result;
 	}
 
 	private static int position(TLObject part) {
-		return ExtIds.isA(part, GROUP_RANGE) ? bound(part, RANGE_START, Integer.MAX_VALUE)
-			: bound(part, ADDRESS, Integer.MAX_VALUE);
+		return ExtIds.isA(part, GROUP_RANGE) ? bound(start(part), Integer.MAX_VALUE)
+			: bound(((GroupAddress) part).getAddress(), Integer.MAX_VALUE);
 	}
 
 	/**
@@ -127,8 +123,8 @@ public final class GroupAddresses {
 		if (range == null || !range.tValid() || !ExtIds.isA(range, GROUP_RANGE)) {
 			return null;
 		}
-		int start = Math.max(MIN_ADDRESS, bound(range, RANGE_START, -1));
-		int end = Math.min(MAX_ADDRESS, bound(range, RANGE_END, -1));
+		int start = Math.max(MIN_ADDRESS, bound(start(range), -1));
+		int end = Math.min(MAX_ADDRESS, bound(end(range), -1));
 		if (end < start) {
 			return null;
 		}
@@ -170,19 +166,19 @@ public final class GroupAddresses {
 			return I18NConstants.ERROR_NO_ADDRESS_NUMBER;
 		}
 		GA ga = ga(range, number.intValue());
-		int start = bound(range, RANGE_START, MIN_ADDRESS);
-		int end = bound(range, RANGE_END, MAX_ADDRESS);
+		int start = bound(start(range), MIN_ADDRESS);
+		int end = bound(end(range), MAX_ADDRESS);
 		if (number < Math.max(MIN_ADDRESS, start) || number > Math.min(MAX_ADDRESS, end)) {
 			return I18NConstants.ERROR_OUTSIDE_RANGE__ADDRESS_RANGE_START_END.fill(ga, label(range),
 				ga(range, start), ga(range, end));
 		}
 		for (TLObject sub : subRanges(range)) {
-			if (bound(sub, RANGE_START, MAX_ADDRESS + 1) <= number && number <= bound(sub, RANGE_END, -1)) {
+			if (bound(start(sub), MAX_ADDRESS + 1) <= number && number <= bound(end(sub), -1)) {
 				return I18NConstants.ERROR_IN_SUB_RANGE__ADDRESS_RANGE.fill(ga, label(sub));
 			}
 		}
 		for (TLObject other : DeviceSettings.groupAddresses(range)) {
-			if (other.tValueByName(ADDRESS) instanceof GA existing && existing.getValue() == number.intValue()) {
+			if (((GroupAddress) other).getAddress() instanceof GA existing && existing.getValue() == number.intValue()) {
 				return I18NConstants.ERROR_ADDRESS_TAKEN__ADDRESS_EXISTING.fill(ga, label(other));
 			}
 		}
@@ -215,18 +211,16 @@ public final class GroupAddresses {
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		TLObject result = ModelService.getInstance().getFactory()
+		GroupAddress result = (GroupAddress) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType(GROUP_ADDRESS));
-		result.tUpdateByName(ADDRESS, ga(range, number(address).intValue()));
+		result.setAddress(ga(range, number(address).intValue()));
 		if (name != null && !name.isBlank()) {
-			result.tUpdateByName("name", name.trim());
+			result.setName(name.trim());
 		}
 		if (datapointType != null) {
-			result.tUpdateByName("datapointTypes", List.of(datapointType));
+			result.setDatapointTypes(List.of(datapointType));
 		}
-		List<Object> parts = new ArrayList<>((Collection<?>) range.tValueByName(PARTS));
-		parts.add(result);
-		range.tUpdateByName(PARTS, parts);
+		((GroupRange) range).addPart(result);
 		ExtIds.assign(result);
 		return result;
 	}
@@ -244,7 +238,7 @@ public final class GroupAddresses {
 	private static Set<Integer> taken(TLObject range) {
 		Set<Integer> result = new HashSet<>();
 		for (TLObject address : DeviceSettings.groupAddresses(range)) {
-			if (address.tValueByName(ADDRESS) instanceof GA ga) {
+			if (((GroupAddress) address).getAddress() instanceof GA ga) {
 				result.add(ga.getValue());
 			}
 		}
@@ -256,19 +250,28 @@ public final class GroupAddresses {
 			return false;
 		}
 		for (TLObject sub : subRanges(range)) {
-			if (bound(sub, RANGE_START, MAX_ADDRESS + 1) <= number && number <= bound(sub, RANGE_END, -1)) {
+			if (bound(start(sub), MAX_ADDRESS + 1) <= number && number <= bound(end(sub), -1)) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	private static int bound(TLObject range, String attribute, int fallback) {
-		return range.tValueByName(attribute) instanceof GA ga ? ga.getValue() : fallback;
+	private static int bound(GA ga, int fallback) {
+		return ga != null ? ga.getValue() : fallback;
+	}
+
+	private static GA start(TLObject range) {
+		return ((GroupRange) range).getRangeStart();
+	}
+
+	private static GA end(TLObject range) {
+		return ((GroupRange) range).getRangeEnd();
 	}
 
 	private static GA ga(TLObject range, int number) {
-		GroupAddressStyle style = range.tValueByName(RANGE_START) instanceof GA start ? start.getStyle() : null;
+		GA start = start(range);
+		GroupAddressStyle style = start != null ? start.getStyle() : null;
 		return new GA(number, style);
 	}
 
@@ -288,13 +291,15 @@ public final class GroupAddresses {
 	 * rights of the reading user).
 	 */
 	private static String label(TLObject obj) {
-		Object name = obj.tValueByName("name");
+		Object name = ((GroupAddressDefinition) obj).getName();
 		String prefix;
 		if (ExtIds.isA(obj, GROUP_RANGE)) {
-			prefix = obj.tValueByName(RANGE_START) instanceof GA start && obj.tValueByName(RANGE_END) instanceof GA end
-				? start.rangePrefix(end) : null;
+			GA start = start(obj);
+			GA end = end(obj);
+			prefix = start != null && end != null ? start.rangePrefix(end) : null;
 		} else {
-			prefix = obj.tValueByName(ADDRESS) instanceof GA ga ? ga.toString() : null;
+			GA ga = ((GroupAddress) obj).getAddress();
+			prefix = ga != null ? ga.toString() : null;
 		}
 		if (prefix == null) {
 			return String.valueOf(name);

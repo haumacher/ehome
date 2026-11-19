@@ -12,6 +12,11 @@ public interface EnumerationValue extends de.haumacher.ehome.model.operational.i
 
 	// Wrapper functionality.
 
+	/** The value of {@link #VALUE_ATTR}, <code>null</code> when unset. */
+	default Integer getValueOrNull() {
+		return (Integer) tValueByName(VALUE_ATTR);
+	}
+
 	/**
 	 * The value as ETS writes it: an unsigned 32-bit number (<code>xs:unsignedInt</code>).
 	 *

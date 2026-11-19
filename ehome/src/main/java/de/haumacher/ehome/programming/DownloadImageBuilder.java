@@ -22,6 +22,7 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.LoadProcedure;
@@ -293,8 +294,9 @@ class DownloadImageBuilder {
 			}
 			for (Object connection : (Collection<?>) connector.tValueByName("connections")) {
 				TLObject link = (TLObject) connection;
-				TLObject target = (TLObject) link.tValueByName("target");
-				if (target == null || !(target.tValueByName("address") instanceof GA address)) {
+				GroupAddress target = (GroupAddress) link.tValueByName("target");
+				GA address = target == null ? null : target.getAddress();
+				if (address == null) {
 					continue;
 				}
 				TLObject kind = (TLObject) link.tValueByName("kind");

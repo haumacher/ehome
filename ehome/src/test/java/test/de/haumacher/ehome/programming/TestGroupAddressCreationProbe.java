@@ -33,7 +33,9 @@ import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -129,9 +131,9 @@ public class TestGroupAddressCreationProbe extends BasicTestCase {
 			reimported = newProject(beforeReimport);
 			TLObject again = devicesByAddress(reimported).get(5);
 			TLObject aAgain = DeviceSettings.groupAddresses(again).stream()
-				.filter(g -> ((GA) g.tValueByName("address")).getValue() == first)
+				.filter(g -> ((GroupAddress) g).getAddress().getValue() == first)
 				.findFirst().orElseThrow();
-			assertEquals("Probe A", aAgain.tValueByName("name"));
+			assertEquals("Probe A", ((GroupAddress) aAgain).getName());
 			assertEquals(extIdA, ExtIds.extId(aAgain));
 			assertEquals(1, GroupAddressConnections.connections(aAgain).size());
 			assertEquals(first + 2, GroupAddresses.nextFree(GroupAddresses.ranges(again).get(0)).getValue());
@@ -155,7 +157,7 @@ public class TestGroupAddressCreationProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

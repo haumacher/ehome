@@ -21,6 +21,10 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 
 /**
  * The devices placed in the parts of a building (<code>ehome.physical:BusDevice#location</code>, seen
@@ -36,14 +40,6 @@ import de.haumacher.ehome.knx.GA;
 public class BuildingDevices {
 
 	private static final String LOCATION = "location";
-
-	private static final String DEVICES = "devices";
-
-	private static final String PARTS = "parts";
-
-	private static final String ZIGBEE_DEVICES = "zigbeeDevices";
-
-	private static final String BUILDINGS = "buildings";
 
 	private static final String PATH_SEPARATOR = ", ";
 
@@ -61,7 +57,7 @@ public class BuildingDevices {
 	 */
 	public static List<TLObject> devices(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object device : (Collection<?>) part.tValueByName(DEVICES)) {
+		for (Object device : ((BuildingDefinition) part).getDevices()) {
 			result.add((TLObject) device);
 		}
 		result.sort(BY_ADDRESS);
@@ -94,7 +90,7 @@ public class BuildingDevices {
 
 	private static void collectDevices(TLObject part, Set<TLObject> result) {
 		result.addAll(devices(part));
-		for (Object child : (Collection<?>) part.tValueByName(PARTS)) {
+		for (Object child : ((BuildingDefinition) part).getParts()) {
 			collectDevices((TLObject) child, result);
 		}
 	}
@@ -116,11 +112,11 @@ public class BuildingDevices {
 	public static List<TLObject> zigbeeDevicesWithin(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject current : partsWithin(part)) {
-			for (Object device : (Collection<?>) current.tValueByName(ZIGBEE_DEVICES)) {
+			for (Object device : ((BuildingDefinition) current).getZigbeeDevices()) {
 				result.add((TLObject) device);
 			}
 		}
-		result.sort(Comparator.comparing((TLObject d) -> (String) d.tValueByName("name"),
+		result.sort(Comparator.comparing((TLObject d) -> ((ZigbeeDevice) d).getName(),
 			Comparator.nullsLast(Comparator.naturalOrder())));
 		return result;
 	}
@@ -131,7 +127,7 @@ public class BuildingDevices {
 	public static List<TLObject> partsWithin(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
 		result.add(part);
-		addTreeOrder(list(part, PARTS), result);
+		addTreeOrder(partsOf(part), result);
 		return result;
 	}
 
@@ -159,7 +155,7 @@ public class BuildingDevices {
 			}
 		}
 		result.sort(Comparator
-			.comparingInt((TLObject c) -> addressValue((TLObject) c.tValueByName("target")))
+			.comparingInt((TLObject c) -> addressValue((GroupAddress) c.tValueByName("target")))
 			.thenComparing(c -> isSend(c) ? 0 : 1)
 			.thenComparing(c -> GroupAddressConnections.device(c), BY_ADDRESS)
 			.thenComparingInt(c -> GroupAddressConnections.object(c).getPort().getIndex()));
@@ -202,7 +198,7 @@ public class BuildingDevices {
 			names.add(MetaLabelProvider.INSTANCE.getLabel(current));
 		}
 		if (names.size() > 1 && current != null && isA(current, "ehome.project:Project")
-			&& ((Collection<?>) current.tValueByName(BUILDINGS)).size() == 1) {
+			&& ((Project) current).getBuildings().size() == 1) {
 			names.remove(names.size() - 1);
 		}
 		return String.join(PATH_SEPARATOR, names);
@@ -350,14 +346,13 @@ public class BuildingDevices {
 			throw new TopLogicException(veto);
 		}
 		Set<Object> selected = new HashSet<>(parts);
-		List<TLObject> moved = new ArrayList<>();
-		for (TLObject part : treeOrder(project(container))) {
+		List<BuildingDefinition> moved = new ArrayList<>();
+		for (BuildingDefinition part : treeOrder(project(container))) {
 			if (selected.contains(part)) {
 				moved.add(part);
 			}
 		}
-		String reference = partsReference(container);
-		List<TLObject> elements = list(container, reference);
+		List<BuildingDefinition> elements = partsOf(container);
 		int index = before == null ? -1 : elements.indexOf(before);
 		if (index < 0) {
 			index = elements.size();
@@ -370,50 +365,54 @@ public class BuildingDevices {
 			}
 		}
 		// Out of the old containers first: a part has one container at a time.
-		for (TLObject part : moved) {
+		for (BuildingDefinition part : moved) {
 			TLObject oldContainer = part.tContainer();
 			if (oldContainer != container) {
-				String oldReference = partsReference(oldContainer);
-				List<TLObject> siblings = list(oldContainer, oldReference);
+				List<BuildingDefinition> siblings = partsOf(oldContainer);
 				siblings.remove(part);
-				oldContainer.tUpdateByName(oldReference, siblings);
+				setPartsOf(oldContainer, siblings);
 			}
 		}
 		elements.removeAll(moved);
 		elements.addAll(target, moved);
-		container.tUpdateByName(reference, elements);
+		setPartsOf(container, elements);
 	}
 
 	/**
 	 * The building parts of the given project, depth-first in their order: a building, then each of
 	 * its parts followed by their parts.
 	 */
-	private static List<TLObject> treeOrder(TLObject project) {
-		List<TLObject> result = new ArrayList<>();
-		addTreeOrder(list(project, BUILDINGS), result);
+	private static List<BuildingDefinition> treeOrder(TLObject project) {
+		List<BuildingDefinition> result = new ArrayList<>();
+		addTreeOrder(partsOf(project), result);
 		return result;
 	}
 
-	private static void addTreeOrder(List<TLObject> parts, List<TLObject> result) {
-		for (TLObject part : parts) {
+	private static void addTreeOrder(List<BuildingDefinition> parts, List<? super BuildingDefinition> result) {
+		for (BuildingDefinition part : parts) {
 			result.add(part);
-			addTreeOrder(list(part, PARTS), result);
+			addTreeOrder(partsOf(part), result);
 		}
 	}
 
 	/**
-	 * The ordered reference of the given container holding its building parts.
+	 * The building parts the given container (the project or a building part) holds, in their
+	 * order: a modifiable copy.
 	 */
-	private static String partsReference(TLObject container) {
-		return isA(container, "ehome.project:Project") ? BUILDINGS : PARTS;
+	private static List<BuildingDefinition> partsOf(TLObject container) {
+		return new ArrayList<>(isA(container, "ehome.project:Project") ? ((Project) container).getBuildings()
+			: ((BuildingDefinition) container).getParts());
 	}
 
-	private static List<TLObject> list(TLObject obj, String reference) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object element : (Collection<?>) obj.tValueByName(reference)) {
-			result.add((TLObject) element);
+	/**
+	 * Sets the building parts the given container (the project or a building part) holds.
+	 */
+	private static void setPartsOf(TLObject container, List<BuildingDefinition> parts) {
+		if (isA(container, "ehome.project:Project")) {
+			((Project) container).setBuildings(parts);
+		} else {
+			((BuildingDefinition) container).setParts(parts);
 		}
-		return result;
 	}
 
 	/**
@@ -430,8 +429,9 @@ public class BuildingDevices {
 		device.tUpdateByName(LOCATION, part);
 	}
 
-	private static int addressValue(TLObject groupAddress) {
-		return groupAddress.tValueByName("address") instanceof GA address ? address.getValue() : Integer.MAX_VALUE;
+	private static int addressValue(GroupAddress groupAddress) {
+		GA address = groupAddress.getAddress();
+		return address != null ? address.getValue() : Integer.MAX_VALUE;
 	}
 
 	private static boolean isSend(TLObject connection) {

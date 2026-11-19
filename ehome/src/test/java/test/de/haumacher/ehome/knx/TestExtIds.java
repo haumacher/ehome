@@ -29,12 +29,18 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ExtIds.Kind;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 
 /**
  * Test of the external IDs the app gives the objects it creates ({@link ExtIds}): the ETS shape,
@@ -112,11 +118,11 @@ public class TestExtIds extends BasicTestCase {
 			channel.addContent(block);
 
 			area = create("ehome.physical:Area");
-			add(project, "areas", area);
+			((Project) project).addArea(area);
 			line = create("ehome.physical:Line");
 			add(ExtIds.members(project, Kind.AREA).iterator().next(), "lines", line);
 			address = create("ehome.logical:GroupAddress");
-			add(ExtIds.members(project, Kind.GROUP_RANGE).iterator().next(), "parts", address);
+			((GroupRange) ExtIds.members(project, Kind.GROUP_RANGE).iterator().next()).addPart((GroupAddress) address);
 
 			// The IDs are given when the transaction commits.
 			assertNull(parameter.getExtId());
@@ -176,11 +182,11 @@ public class TestExtIds extends BasicTestCase {
 		try (Transaction tx = kb.beginTransaction()) {
 			TLObject range = ExtIds.members(project, Kind.GROUP_RANGE).iterator().next();
 			imported = create("ehome.logical:GroupAddress");
-			imported.tUpdateByName("extId", "P-01A0-0_GA-" + (ExtIds.APP_ID_BASE + 5));
-			add(range, "parts", imported);
+			((GroupAddress) imported).setExtId("P-01A0-0_GA-" + (ExtIds.APP_ID_BASE + 5));
+			((GroupRange) range).addPart((GroupAddress) imported);
 			ExtIds.raiseImported(List.of(imported));
 			further = create("ehome.logical:GroupAddress");
-			add(range, "parts", further);
+			((GroupRange) range).addPart((GroupAddress) further);
 			tx.commit();
 		}
 		assertEquals("P-01A0-0_GA-" + (ExtIds.APP_ID_BASE + 6), ExtIds.extId(further));
@@ -192,19 +198,19 @@ public class TestExtIds extends BasicTestCase {
 			TLObject root = TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule()
 				.getSingleton("ROOT");
 			custom = create("ehome.catalog:Manufacturer");
-			custom.tUpdateByName("name", "Custom");
-			add(root, "manufacturers", custom);
+			((Manufacturer) custom).setName("Custom");
+			((ManufacturerRoot) root).addManufacturer((Manufacturer) custom);
 			known = create("ehome.catalog:Manufacturer");
-			known.tUpdateByName("name", "Known");
-			known.tUpdateByName("id", 0x7FF2);
-			add(root, "manufacturers", known);
+			((Manufacturer) known).setName("Known");
+			((Manufacturer) known).setId(0x7FF2);
+			((ManufacturerRoot) root).addManufacturer((Manufacturer) known);
 			tx.commit();
 		}
 		assertTrue(ExtIds.extId(custom), ExtIds.extId(custom).matches("M-FF[0-9A-F]{2}"));
 		assertTrue(Kind.MANUFACTURER.number(ExtIds.extId(custom)) >= 1);
 		assertEquals("M-7FF2", ExtIds.extId(known));
 		// The imported manufacturers carry their KNX ID.
-		assertEquals(8, byExtId("ehome.catalog:Manufacturer", "M-0008").tValueByName("id"));
+		assertEquals(Integer.valueOf(8), ((Manufacturer) byExtId("ehome.catalog:Manufacturer", "M-0008")).getId());
 
 		// The tests of the application share one database: remove what this test created.
 		try (Transaction tx = kb.beginTransaction()) {
@@ -249,14 +255,14 @@ public class TestExtIds extends BasicTestCase {
 
 	private static TLObject byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);
 	}
 
 	private static List<TLObject> withExtId(String extId) {
-		Predicate<TLObject> matches = obj -> extId.equals(obj.tValueByName("extId"));
+		Predicate<TLObject> matches = obj -> extId.equals(((Parameter) obj).getExtId());
 		return instances("ehome.operational:Parameter").stream().filter(matches).toList();
 	}
 

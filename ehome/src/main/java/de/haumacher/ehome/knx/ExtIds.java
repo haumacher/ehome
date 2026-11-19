@@ -28,6 +28,14 @@ import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.ParameterType;
+import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.query.Queries;
 
 /**
@@ -344,7 +352,7 @@ public final class ExtIds {
 	private static String createId(TLObject obj, Kind kind) {
 		switch (kind) {
 			case MANUFACTURER: {
-				Object knxId = obj.tValueByName("id");
+				Object knxId = ((Manufacturer) obj).getId();
 				if (knxId instanceof Number number) {
 					return "M-" + hex4(number.longValue());
 				}
@@ -369,7 +377,7 @@ public final class ExtIds {
 				if (prefix == null) {
 					return null;
 				}
-				String orderNumber = (String) obj.tValueByName("orderNumber");
+				String orderNumber = ((Variant) obj).getOrderNumber();
 				return named(product, kind, prefix + "_P-", orderNumber == null ? null : escape(orderNumber));
 			}
 			case ASSIGNMENT: {
@@ -378,7 +386,7 @@ public final class ExtIds {
 				if (prefix == null) {
 					return null;
 				}
-				TLObject program = (TLObject) obj.tValueByName("program");
+				TLObject program = ((ProgramAssignment) obj).getProgram();
 				String programId = program == null ? null : assign(program);
 				int application = programId == null ? -1 : programId.indexOf("_A-");
 				return named(product, kind, prefix + "_HP-",
@@ -394,7 +402,7 @@ public final class ExtIds {
 				if (prefix == null) {
 					return null;
 				}
-				String name = (String) obj.tValueByName("name");
+				String name = ((ParameterType) obj).getName();
 				return named(program, kind, prefix + "_PT-", name == null || name.isBlank() ? null : escape(name));
 			}
 			case ENUMERATION_VALUE: {
@@ -403,13 +411,13 @@ public final class ExtIds {
 				if (prefix == null) {
 					return null;
 				}
-				Object value = obj.tValueByName("value");
+				Object value = ((EnumerationValue) obj).getValueOrNull();
 				return named(type, kind, prefix + "_EN-", value == null ? null : value.toString());
 			}
 			case PARAMETER:
 				return numbered(obj.tContainer(), obj.tContainer(), kind, "_P-");
 			case PARAMETER_REF:
-				return numbered(programOf(obj), (TLObject) obj.tValueByName("parameter"), kind, "_R-");
+				return numbered(programOf(obj), ((ParameterView) obj).getParameter(), kind, "_R-");
 			case PORT: {
 				// ETS numbers a communication object by its object number, if that is free.
 				TLObject program = obj.tContainer();
@@ -417,7 +425,7 @@ public final class ExtIds {
 				if (prefix == null) {
 					return null;
 				}
-				Object index = obj.tValueByName("index");
+				Object index = ((Port) obj).getIndexOrNull();
 				String candidate = prefix + "_O-" + index;
 				if (index != null && !ids(members(program, kind)).contains(candidate)) {
 					return candidate;
@@ -425,7 +433,7 @@ public final class ExtIds {
 				return numbered(program, program, kind, "_O-");
 			}
 			case PORT_REF:
-				return numbered(programOf(obj), (TLObject) obj.tValueByName("port"), kind, "_R-");
+				return numbered(programOf(obj), ((Interface) obj).getPort(), kind, "_R-");
 			case BLOCK:
 				return numbered(programOf(obj), programOf(obj), kind, "_PB-");
 			case CHANNEL:

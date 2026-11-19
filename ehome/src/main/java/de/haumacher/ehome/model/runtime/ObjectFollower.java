@@ -12,4 +12,9 @@ public interface ObjectFollower extends de.haumacher.ehome.model.runtime.interna
 
 	// Wrapper functionality.
 
+	/** The value of {@link #INVERTED_ATTR}, <code>null</code> when unset. */
+	default Boolean getInvertedOrNull() {
+		return (Boolean) tValueByName(INVERTED_ATTR);
+	}
+
 }

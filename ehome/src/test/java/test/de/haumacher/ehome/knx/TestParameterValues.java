@@ -43,6 +43,7 @@ import com.top_logic.model.annotate.util.ConstraintCheck.ConstraintType;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.DateType;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
@@ -184,7 +185,7 @@ public class TestParameterValues extends BasicTestCase {
 		assertSame(own, derived(own, "defaultSource"));
 		assertEquals("1", derived(own, "encodedValue"));
 		assertEquals("0", derived(((ParameterView) own).getParameter(), "encodedValue"));
-		EnumerationValue choice = (EnumerationValue) own.tValueByName("choice");
+		EnumerationValue choice = ((ParameterView) own).getChoice();
 		assertTrue(((EnumerationType) ((ParameterView) own).getParameter().getType()).getValues().contains(choice));
 		assertEquals(derived(own, "displayValue"), derived(own, "displayDefault"));
 		assertNotNull(derived(own, "displayDefault"));
@@ -302,11 +303,11 @@ public class TestParameterValues extends BasicTestCase {
 			assertNotNull("Decimal above the maximum accepted.", problem(decimal, "decimal"));
 
 			// A value that does not fit its type is kept as text, not lost, and reported.
-			TLObject numberParameter = ((ParameterView) number.tValueByName("parameter")).getParameter();
-			numberParameter.tUpdateByName("number", null);
+			Parameter numberParameter = ((ParameterView) number.tValueByName("parameter")).getParameter();
+			numberParameter.setNumber(null);
 			assertNotNull(ParameterValues.decode(numberParameter, "300"));
-			assertNull(numberParameter.tValueByName("number"));
-			assertEquals("300", numberParameter.tValueByName("text"));
+			assertNull(numberParameter.getNumber());
+			assertEquals("300", numberParameter.getText());
 			assertEquals("300", ParameterValues.encode(numberParameter));
 			assertNotNull(ParameterValues.decode(numberParameter, "zwölf"));
 			assertEquals("zwölf", ParameterValues.encode(numberParameter));
@@ -392,7 +393,7 @@ public class TestParameterValues extends BasicTestCase {
 
 	private static TLObject byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);

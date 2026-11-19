@@ -45,6 +45,7 @@ import com.top_logic.layout.view.command.OpenDialogAction;
 import com.top_logic.layout.view.job.JobState;
 import com.top_logic.layout.view.job.JobStatus;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.ExprFormat;
 import com.top_logic.model.search.expr.query.QueryExecutor;
@@ -53,6 +54,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
@@ -521,11 +523,11 @@ public class TestScanTakeOver extends BasicTestCase {
 
 	static TLObject emptyProject(String name) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("groupAddressStyle", TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
-			project.tUpdateByName("gateway", "localhost");
+			project.setName(name);
+			project.setGroupAddressStyle((TLClassifier) TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
+			project.setGateway("localhost");
 			ExtIds.assign(project);
 			tx.commit();
 			return project;
@@ -554,7 +556,7 @@ public class TestScanTakeOver extends BasicTestCase {
 					assertEquals(1, projects.size());
 					_original = projects.get(0);
 					try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-						_original.tUpdateByName("gateway", "localhost");
+						((Project) _original).setGateway("localhost");
 						tx.commit();
 					}
 					_scanned = emptyProject("Scan");

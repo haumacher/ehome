@@ -18,6 +18,8 @@ import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.project.Project;
+
 /**
  * {@link ViewAction} exporting the input project (<code>ehome.project:Project</code>) as an ETS
  * project archive with {@link KnxprojExporter}.
@@ -78,7 +80,7 @@ public class ExportKnxprojAction implements ViewAction {
 	 * extension, without characters a file system may refuse.
 	 */
 	public static String fileName(TLObject project, String extension) {
-		Object name = project.tValueByName("name");
+		Object name = ((Project) project).getName();
 		String base = name == null || name.toString().isBlank() ? Values.extId(project) : name.toString();
 		if (base == null || base.isBlank()) {
 			base = "project";

@@ -35,6 +35,7 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 
@@ -162,13 +163,13 @@ public class TestParameterOrder extends BasicTestCase {
 	}
 
 	private static String text(ParameterView view) {
-		Object text = view.tValueByName("description");
+		ResKey text = view.getDescription();
 		if (text == null) {
-			text = view.getParameter().tValueByName("description");
+			text = view.getParameter().getDescription();
 		}
 		// The texts of the ticket, in German whatever the locale of the suite; ETS breaks and indents
 		// texts with white space.
-		return Resources.getInstance(Locale.GERMAN).getString((ResKey) text).trim().replaceAll("\\s+", " ");
+		return Resources.getInstance(Locale.GERMAN).getString(text).trim().replaceAll("\\s+", " ");
 	}
 
 	private static void set(TLObject device, String name, int value) {
@@ -194,7 +195,7 @@ public class TestParameterOrder extends BasicTestCase {
 	}
 
 	private static TLObject device(TLObject project) {
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					Program program = DeviceConfiguration.program((TLObject) device);

@@ -32,6 +32,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.MonitorRow;
 import de.haumacher.ehome.monitor.ProjectIndex;
@@ -62,10 +65,10 @@ public class TestGroupMonitorProbe extends BasicTestCase {
 		try {
 			TLObject sensor = devicesByAddress(project).get(50);
 			TLObject key1 = DeviceSettings.groupAddresses(sensor).stream()
-				.filter(a -> ((GA) a.tValueByName("address")).getValue() == 1)
+				.filter(a -> ((GroupAddress) a).getAddress().getValue() == 1)
 				.findFirst().orElseThrow();
 			TLObject channelA = DeviceSettings.groupAddresses(sensor).stream()
-				.filter(a -> ((GA) a.tValueByName("address")).getValue() == 34)
+				.filter(a -> ((GroupAddress) a).getAddress().getValue() == 34)
 				.findFirst().orElseThrow();
 			TLObject senderOfChannelA = GroupAddressConnections.device(GroupAddressConnections.connections(channelA).get(0));
 
@@ -110,8 +113,8 @@ public class TestGroupMonitorProbe extends BasicTestCase {
 			// The recording belongs to the project and holds the telegrams after the flush.
 			monitor.flushRecording();
 			monitor.stopRecording();
-			assertTrue(((Collection<?>) project.tValueByName("recordings")).contains(recording));
-			assertEquals(4, ((Collection<?>) recording.tValueByName("telegrams")).size());
+			assertTrue(((Project) project).getRecordings().contains(recording));
+			assertEquals(4, ((Recording) recording).getTelegrams().size());
 			monitor.disconnect();
 			assertFalse(monitor.isConnected());
 
@@ -155,7 +158,7 @@ public class TestGroupMonitorProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new java.util.HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

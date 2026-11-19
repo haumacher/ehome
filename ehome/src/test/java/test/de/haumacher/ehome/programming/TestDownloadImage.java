@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -40,6 +41,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.EnumerationType;
@@ -136,7 +138,7 @@ public class TestDownloadImage extends BasicTestCase {
 			signed.setBits(8);
 			signed.setMin(-128);
 			signed.setKind(classifier("ehome.operational:NumberKind#signedInt"));
-			assertEquals("fb", encode(signed, "number", Long.valueOf(-5), program));
+			assertEquals("fb", encode(signed, p -> p.setNumber(Long.valueOf(-5)), program));
 
 			EnumerationType enumeration = factory.createEnumerationType();
 			enumeration.setBits(3);
@@ -145,7 +147,7 @@ public class TestDownloadImage extends BasicTestCase {
 				entry.setValue(value);
 				enumeration.addValue(entry);
 			}
-			assertEquals("05", encode(enumeration, "choice", enumeration.getValues().get(2), program));
+			assertEquals("05", encode(enumeration, p -> p.setChoice(enumeration.getValues().get(2)), program));
 
 			EnumerationType binary = factory.createEnumerationType();
 			binary.setBits(16);
@@ -154,35 +156,35 @@ public class TestDownloadImage extends BasicTestCase {
 			word.setValue(1);
 			word.setBinary(BinaryDataFactory.createBinaryData(new byte[] { (byte) 0xBE, (byte) 0xEF }));
 			binary.addValue(word);
-			assertEquals("beef", encode(binary, "choice", word, program));
+			assertEquals("beef", encode(binary, p -> p.setChoice(word), program));
 
 			FloatingPointType dpt9 = factory.createFloatingPointType();
-			assertEquals("0c40", encode(dpt9, "decimal", Double.valueOf(21.76), program));
+			assertEquals("0c40", encode(dpt9, p -> p.setDecimal(Double.valueOf(21.76)), program));
 			FloatingPointType single = factory.createFloatingPointType();
 			single.setEncoding(classifier("ehome.operational:FloatEncoding#IEEE754Single"));
 			single.setMin(-1000);
-			assertEquals("3fc00000", encode(single, "decimal", Double.valueOf(1.5), program));
+			assertEquals("3fc00000", encode(single, p -> p.setDecimal(Double.valueOf(1.5)), program));
 
 			TextType text = factory.createTextType();
 			text.setBits(32);
-			assertEquals("41420000", encode(text, "text", "AB", program));
+			assertEquals("41420000", encode(text, p -> p.setText("AB"), program));
 			program.setTextEncoding("windows-1252");
-			assertEquals("80000000", encode(text, "text", "€", program));
+			assertEquals("80000000", encode(text, p -> p.setText("€"), program));
 
 			TimeType milliseconds = factory.createTimeType();
 			milliseconds.setUnit(classifier("ehome.operational:TimeUnit#Milliseconds"));
-			assertEquals("0bb8", encode(milliseconds, "number", Long.valueOf(3000), program));
+			assertEquals("0bb8", encode(milliseconds, p -> p.setNumber(Long.valueOf(3000)), program));
 			TimeType packed = factory.createTimeType();
 			packed.setUnit(classifier("ehome.operational:TimeUnit#PackedSecondsAndMilliseconds"));
 			try {
-				encode(packed, "number", Long.valueOf(3000), program);
+				encode(packed, p -> p.setNumber(Long.valueOf(3000)), program);
 				fail("A packed time is not supported.");
 			} catch (IllegalArgumentException ex) {
 				// Expected: named in the problems of an image instead of guessed.
 			}
 
-			assertEquals("060712", encode(factory.createDateType(), "text", "2018-07-06", program));
-			assertEquals("c0a8b251", encode(factory.createIPAddressType(), "text", "192.168.178.81", program));
+			assertEquals("060712", encode(factory.createDateType(), p -> p.setText("2018-07-06"), program));
+			assertEquals("c0a8b251", encode(factory.createIPAddressType(), p -> p.setText("192.168.178.81"), program));
 
 			Parameter none = factory.createParameter();
 			none.setType(factory.createVoidType());
@@ -190,10 +192,10 @@ public class TestDownloadImage extends BasicTestCase {
 		}
 	}
 
-	private static String encode(ParameterType type, String attribute, Object value, Program program) {
+	private static String encode(ParameterType type, Consumer<Parameter> value, Program program) {
 		Parameter parameter = EhomeOperationalFactory.getInstance().createParameter();
 		parameter.setType(type);
-		parameter.tUpdateByName(attribute, value);
+		value.accept(parameter);
 		return HexFormat.of().formatHex(ParameterEncoding.encode(type, parameter, program).toBytes());
 	}
 
@@ -335,7 +337,7 @@ public class TestDownloadImage extends BasicTestCase {
 		int connections = 0;
 		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
 			for (Object connection : (Collection<?>) ((TLObject) connector).tValueByName("connections")) {
-				addresses.add(((GA) ((TLObject) ((TLObject) connection).tValueByName("target")).tValueByName("address")).getValue());
+				addresses.add(((GroupAddress) ((TLObject) connection).tValueByName("target")).getAddress().getValue());
 				connections++;
 			}
 		}
@@ -411,8 +413,8 @@ public class TestDownloadImage extends BasicTestCase {
 			TLObject connector = create("ehome.physical:Connector");
 			connector.tUpdateByName("port", port.getInterfaces().iterator().next());
 			connector.tUpdateByName("active", Boolean.TRUE);
-			TLObject target = create("ehome.logical:GroupAddress");
-			target.tUpdateByName("address", new GA(link[0], GroupAddressStyle.ThreeLevel));
+			GroupAddress target = (GroupAddress) create("ehome.logical:GroupAddress");
+			target.setAddress(new GA(link[0], GroupAddressStyle.ThreeLevel));
 			TLObject connection = create("ehome.physical:Connection");
 			connection.tUpdateByName("kind", TLModelUtil.findPart("ehome.physical:ConnectionType#send"));
 			connection.tUpdateByName("target", target);

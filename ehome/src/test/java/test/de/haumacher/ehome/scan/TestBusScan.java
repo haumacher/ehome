@@ -41,8 +41,11 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceComparison;
@@ -142,8 +145,8 @@ public class TestBusScan extends BasicTestCase {
 			try (Transaction tx = kb.beginTransaction()) {
 				scanned = ModelService.getInstance().getFactory()
 					.createObject((com.top_logic.model.TLClass) TLModelUtil.findType("ehome.project:Project"));
-				scanned.tUpdateByName("name", "Scan");
-				scanned.tUpdateByName("groupAddressStyle", TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
+				((Project) scanned).setName("Scan");
+				((Project) scanned).setGroupAddressStyle((TLClassifier) TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
 				ExtIds.assign(scanned);
 				tx.commit();
 			}
@@ -267,7 +270,7 @@ public class TestBusScan extends BasicTestCase {
 			Interface placed = (Interface) connector.tValueByName("port");
 			for (Object element : (Collection<?>) connector.tValueByName("connections")) {
 				TLObject connection = (TLObject) element;
-				GA ga = (GA) ((TLObject) connection.tValueByName("target")).tValueByName("address");
+				GA ga = ((GroupAddress) connection.tValueByName("target")).getAddress();
 				result.add(placed.getPort().getIndex() + " " + ga.getValue() + " "
 					+ ((TLClassifier) connection.tValueByName("kind")).getName());
 			}
@@ -290,7 +293,7 @@ public class TestBusScan extends BasicTestCase {
 		assertNotSame(match.reason(), CatalogMatch.Kind.UNIDENTIFIED, match.kind());
 		CatalogMatch.Candidate candidate = candidate(match, program);
 		if (orderNumber != null) {
-			assertEquals(orderNumber, candidate.variant().tValueByName("orderNumber"));
+			assertEquals(orderNumber, ((Variant) candidate.variant()).getOrderNumber());
 		}
 	}
 

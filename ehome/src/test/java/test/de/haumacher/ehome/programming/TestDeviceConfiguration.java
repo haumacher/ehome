@@ -32,7 +32,8 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
@@ -48,6 +49,7 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -429,7 +431,7 @@ public class TestDeviceConfiguration extends BasicTestCase {
 
 	private ParameterView view(String id) {
 		for (TLObject view : instances("ehome.operational:ParameterView")) {
-			if ((PREFIX + id).equals(view.tValueByName("extId"))) {
+			if ((PREFIX + id).equals(((ParameterView) view).getExtId())) {
 				return (ParameterView) view;
 			}
 		}
@@ -447,7 +449,7 @@ public class TestDeviceConfiguration extends BasicTestCase {
 
 	private static TLObject byExtId(Collection<? extends TLObject> objects, String extId) {
 		for (TLObject obj : objects) {
-			if (extId.equals(obj.tValueByName("extId"))) {
+			if (extId.equals(((Externalized) obj).getExtId())) {
 				return obj;
 			}
 		}
@@ -459,7 +461,7 @@ public class TestDeviceConfiguration extends BasicTestCase {
 	}
 
 	private static int address(TLObject groupAddress) {
-		return ((GA) groupAddress.tValueByName("address")).getValue();
+		return ((GroupAddress) groupAddress).getAddress().getValue();
 	}
 
 	private static List<Integer> addressTable(DownloadImage image) {
@@ -498,7 +500,7 @@ public class TestDeviceConfiguration extends BasicTestCase {
 
 	private static TLObject device(TLObject project) {
 		List<TLObject> devices = new ArrayList<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					devices.add((TLObject) device);

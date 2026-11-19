@@ -49,7 +49,7 @@ public class WithinGroupRange extends AbstractConfiguredInstance<WithinGroupRang
 
 	@Override
 	public ResKey check(TLObject object, TLStructuredTypePart attribute) {
-		Integer value = number(object.tValueByName(attribute.getName()));
+		Integer value = number(object.tValue(attribute));
 		if (value == null) {
 			return null;
 		}

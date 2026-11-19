@@ -10,7 +10,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +20,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.monitor.CalimeroBusLink;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.MonitorRow;
@@ -115,16 +116,11 @@ public final class ProjectSimulation implements AutoCloseable {
 	private static Map<String, TLObject> zigbeeFunctions(TLObject project) {
 		Map<String, TLObject> result = new LinkedHashMap<>();
 		for (TLObject device : ZigbeeImport.devices(project)) {
-			if (!(device.tValueByName("functions") instanceof Collection<?> functions)) {
-				continue;
-			}
-			for (Object function : functions) {
-				if (function instanceof TLObject f) {
-					for (TLObject datapoint : ZigbeeBindings.boundDatapoints(f)) {
-						String id = ApplicationDatapoints.id(datapoint);
-						if (id != null) {
-							result.put(id, f);
-						}
+			for (ZigbeeFunction f : ((ZigbeeDevice) device).getFunctions()) {
+				for (TLObject datapoint : ZigbeeBindings.boundDatapoints(f)) {
+					String id = ApplicationDatapoints.id(datapoint);
+					if (id != null) {
+						result.put(id, f);
 					}
 				}
 			}
@@ -703,7 +699,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			Datapoint dp = s.model().get(point.datapoint());
 			TLObject function = _zigbeeFunctions.get(point.datapoint());
 			boolean known = function != null && function.tValid();
-			Object name = known ? ZigbeeBindings.device(function).tValueByName("name") : null;
+			Object name = known ? ((ZigbeeDevice) ZigbeeBindings.device(function)).getName() : null;
 			Map<String, Object> row = new MonitorRow(point.datapoint());
 			row.put("id", point.datapoint());
 			row.put("name", s.names().datapoint(point.datapoint()));

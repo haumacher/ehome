@@ -43,7 +43,10 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ExtIds.Kind;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddresses;
@@ -88,8 +91,8 @@ public class TestGroupAddressCreation extends BasicTestCase {
 		TLObject ga1 = groupAddress(tastsensor, 1);
 		TLObject middle = ga1.tContainer();
 		TLObject main = middle.tContainer();
-		assertEquals("M0", middle.tValueByName("name"));
-		assertEquals("H0", main.tValueByName("name"));
+		assertEquals("M0", ((GroupRange) middle).getName());
+		assertEquals("H0", ((GroupRange) main).getName());
 
 		// Only the middle group takes addresses; it is proposed, also for the range of a chosen address.
 		assertEquals(List.of(middle), GroupAddresses.ranges(tastsensor));
@@ -142,10 +145,10 @@ public class TestGroupAddressCreation extends BasicTestCase {
 			tx.commit();
 		}
 		assertSame(middle, created.tContainer());
-		assertEquals(55, ((GA) created.tValueByName("address")).getValue());
-		assertEquals("Probe", created.tValueByName("name"));
+		assertEquals(55, ((GroupAddress) created).getAddress().getValue());
+		assertEquals("Probe", ((GroupAddress) created).getName());
 		assertEquals(datapointType == null ? List.of() : List.of(datapointType),
-			new ArrayList<>((Collection<?>) created.tValueByName("datapointTypes")));
+			new ArrayList<>(((GroupAddress) created).getDatapointTypes()));
 		String extId = ExtIds.extId(created);
 		assertTrue(extId, extId.matches("P-0563-0_GA-\\d+"));
 		assertTrue(extId, Kind.GROUP_ADDRESS.number(extId) > 54);
@@ -159,7 +162,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 		assertEquals(new HashSet<>(ExtIds.list(middle, "parts")), new HashSet<>(parts));
 		int last = -1;
 		for (TLObject part : parts) {
-			int value = ((GA) part.tValueByName("address")).getValue();
+			int value = ((GroupAddress) part).getAddress().getValue();
 			assertTrue(parts.toString(), value > last);
 			last = value;
 		}
@@ -167,7 +170,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 		assertTrue(GroupAddresses.parts(project).contains(main));
 		assertTrue(GroupAddresses.parts(main).contains(middle));
 		assertVeto(I18NConstants.ERROR_ADDRESS_TAKEN__ADDRESS_EXISTING.fill("", ""),
-			GroupAddresses.veto(middle, created.tValueByName("address")));
+			GroupAddresses.veto(middle, ((GroupAddress) created).getAddress()));
 
 		// Connected to the object with the script of the connect dialog.
 		TLClassifier kind = DeviceSettings.defaultKind(tastsensor, taste1);
@@ -202,7 +205,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 	}
 
 	private static TLObject device(TLObject project, int address) {
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					if (Integer.valueOf(address).equals(((TLObject) device).tValueByName("address"))) {
@@ -216,7 +219,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 
 	private static TLObject groupAddress(TLObject device, int number) {
 		return DeviceSettings.groupAddresses(device).stream()
-			.filter(a -> ((GA) a.tValueByName("address")).getValue() == number)
+			.filter(a -> ((GroupAddress) a).getAddress().getValue() == number)
 			.findFirst().orElseThrow(() -> new AssertionError("No group address " + number));
 	}
 

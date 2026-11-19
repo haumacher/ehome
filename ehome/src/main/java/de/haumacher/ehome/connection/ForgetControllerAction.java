@@ -14,6 +14,8 @@ import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.runtime.Controller;
+
 /**
  * {@link ViewAction} forgetting the input controller (<code>ehome.runtime:Controller</code>,
  * haumacher/ehome #54): deletes it ({@link Controllers#forget(TLObject)}) and closes its connection,
@@ -49,7 +51,7 @@ public class ForgetControllerAction implements ViewAction {
 		if (!(input instanceof TLObject controller) || !controller.tValid()) {
 			return null;
 		}
-		String name = String.valueOf(controller.tValueByName("name"));
+		String name = String.valueOf(((Controller) controller).getName());
 		Controllers.forget(controller);
 		return Resources.getInstance().getString(I18NConstants.FORGOTTEN__CONTROLLER.fill(name));
 	}

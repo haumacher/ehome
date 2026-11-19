@@ -27,6 +27,7 @@ import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Controllers;
 import de.haumacher.ehome.connection.Enrollment;
+import de.haumacher.ehome.model.project.Project;
 
 /**
  * Probe of the controller connection (haumacher/ehome #54) composed with the enrollment codes: a
@@ -62,12 +63,12 @@ public class TestControllerProbe extends BasicTestCase {
 	}
 
 	public void testNewCodeKillsTheOldAndASecondSocketReplacesTheFirst() throws Exception {
-		TLObject project = ControllerEndpoint.project("Probe");
+		Project project = ControllerEndpoint.project("Probe");
 		try {
 			String first = Enrollment.createCode(project, null, Instant.now());
 			String second = Enrollment.createCode(project, null, Instant.now());
 			assertFalse(first.equals(second));
-			assertEquals(second, project.tValueByName("enrollmentCode"));
+			assertEquals(second, project.getEnrollmentCode());
 
 			Map<String, Object> stale = new LinkedHashMap<>();
 			stale.put("code", first);
@@ -84,7 +85,7 @@ public class TestControllerProbe extends BasicTestCase {
 			String id = (String) enrolled.body().get("controller");
 			String secret = (String) enrolled.body().get("secret");
 			URI socket = URI.create((String) enrolled.body().get("socket"));
-			assertNull("The code is consumed.", project.tValueByName("enrollmentCode"));
+			assertNull("The code is consumed.", project.getEnrollmentCode());
 
 			// The same controller connects twice: the first socket is closed, the registry holds the second.
 			FakeControllerLink a = new FakeControllerLink(_fake, TOKEN, id, secret);
@@ -104,7 +105,7 @@ public class TestControllerProbe extends BasicTestCase {
 
 			// Forgetting closes the live socket; only then may the project go (the connection's writer
 			// thread updates the controller's last contact until the socket is closed).
-			Controllers.forget((TLObject) project.tValueByName("controller"));
+			Controllers.forget(project.getController());
 			assertEquals(1008, b.awaitClose());
 			assertNull(ControllerConnections.get(id));
 		} finally {
@@ -117,29 +118,29 @@ public class TestControllerProbe extends BasicTestCase {
 	 * enrolled again, then its old entry forgotten); among several, none is chosen.
 	 */
 	public void testForgottenTargetPassesToTheOnlyOtherController() throws Exception {
-		TLObject project = ControllerEndpoint.project("Probe target");
+		Project project = ControllerEndpoint.project("Probe target");
 		try {
 			TLObject first = enroll(project, "homecontrol-a");
-			assertSame("The first controller becomes the target.", first, project.tValueByName("controller"));
+			assertSame("The first controller becomes the target.", first, project.getController());
 			TLObject second = enroll(project, "homecontrol-a");
-			assertSame("A second enrollment leaves the target.", first, project.tValueByName("controller"));
+			assertSame("A second enrollment leaves the target.", first, project.getController());
 
 			Controllers.forget(first);
-			assertSame(second, project.tValueByName("controller"));
+			assertSame(second, project.getController());
 
 			TLObject third = enroll(project, "homecontrol-b");
 			enroll(project, "homecontrol-c");
-			assertSame(second, project.tValueByName("controller"));
+			assertSame(second, project.getController());
 			Controllers.forget(third);
-			assertSame("Forgetting another controller leaves the target.", second, project.tValueByName("controller"));
+			assertSame("Forgetting another controller leaves the target.", second, project.getController());
 			Controllers.forget(second);
 			assertSame("homecontrol-c is the only one left.", "homecontrol-c",
-				((TLObject) project.tValueByName("controller")).tValueByName("name"));
+				project.getController().getName());
 
 			TLObject d = enroll(project, "homecontrol-d");
 			enroll(project, "homecontrol-e");
-			Controllers.forget((TLObject) project.tValueByName("controller"));
-			assertNull("Among several, the installer chooses.", project.tValueByName("controller"));
+			Controllers.forget(project.getController());
+			assertNull("Among several, the installer chooses.", project.getController());
 			assertTrue(d.tValid());
 		} finally {
 			deleteProject(project);

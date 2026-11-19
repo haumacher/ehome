@@ -3,8 +3,9 @@
  */
 package de.haumacher.ehome.simulation;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -14,6 +15,9 @@ import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleText;
@@ -49,15 +53,6 @@ public final class Overrides {
 	/** The id of the enable switch among the parameters of a rule. */
 	public static final String ENABLED = "enabled";
 
-	/** The attribute of a rule holding the override of its enable switch. */
-	public static final String SIMULATION_ENABLED = "simulationEnabled";
-
-	/** The attribute of a parameter holding its override. */
-	public static final String SIMULATION_VALUE = "simulationValue";
-
-	/** The attribute of a rule holding its persisted state. */
-	public static final String SIMULATION_STATE = "simulationState";
-
 	private Overrides() {
 		// Functions only.
 	}
@@ -67,23 +62,23 @@ public final class Overrides {
 	 */
 	public static ParameterStore load(TLObject project) {
 		ParameterStore store = new ParameterStore();
-		for (TLObject rule : objects(project.tValueByName("rules"))) {
-			String ruleId = text(rule.tValueByName("identifier"));
+		for (Rule rule : ((Project) project).getRules()) {
+			String ruleId = text(rule.getIdentifier());
 			if (ruleId == null) {
 				continue;
 			}
-			String enabled = text(rule.tValueByName(SIMULATION_ENABLED));
+			String enabled = text(rule.getSimulationEnabled());
 			Val parsedEnabled = enabled == null ? null : parse(enabled, Type.BOOLEAN);
 			if (parsedEnabled != null) {
 				store.write(ruleId, ENABLED, parsedEnabled);
 			}
-			String state = text(rule.tValueByName(SIMULATION_STATE));
+			String state = text(rule.getSimulationState());
 			if (state != null) {
 				store.write(ruleId, RuleSet.STATE_KEY, Val.ofString(state));
 			}
-			for (TLObject parameter : objects(rule.tValueByName("parameters"))) {
-				String id = text(parameter.tValueByName("identifier"));
-				String value = text(parameter.tValueByName(SIMULATION_VALUE));
+			for (RuleParameter parameter : rule.getParameters()) {
+				String id = text(parameter.getIdentifier());
+				String value = text(parameter.getSimulationValue());
 				Type type = type(parameter);
 				if (id == null || value == null || type == null) {
 					continue;
@@ -104,34 +99,34 @@ public final class Overrides {
 	 * @return Whether something was written.
 	 */
 	public static boolean save(TLObject project, ParameterStore store) {
-		Map<TLObject, Map<String, Object>> changes = new LinkedHashMap<>();
+		List<Runnable> changes = new ArrayList<>();
 		Map<String, Val> overrides = store.overrides();
-		for (TLObject rule : objects(project.tValueByName("rules"))) {
-			String ruleId = text(rule.tValueByName("identifier"));
+		for (Rule rule : ((Project) project).getRules()) {
+			String ruleId = text(rule.getIdentifier());
 			if (ruleId == null) {
 				continue;
 			}
 			Val enabled = overrides.get(ParameterStore.key(ruleId, ENABLED));
 			String wanted = enabled == null || enabled.type() != Type.BOOLEAN ? null : text(enabled, Type.BOOLEAN);
-			if (!Objects.equals(wanted, text(rule.tValueByName(SIMULATION_ENABLED)))) {
-				changes.computeIfAbsent(rule, x -> new LinkedHashMap<>()).put(SIMULATION_ENABLED, wanted);
+			if (!Objects.equals(wanted, text(rule.getSimulationEnabled()))) {
+				changes.add(() -> rule.setSimulationEnabled(wanted));
 			}
 			Val state = overrides.get(ParameterStore.key(ruleId, RuleSet.STATE_KEY));
 			String wantedState = state == null || state.type() != Type.STRING ? null : state.text();
-			if (!Objects.equals(wantedState, text(rule.tValueByName(SIMULATION_STATE)))) {
-				changes.computeIfAbsent(rule, x -> new LinkedHashMap<>()).put(SIMULATION_STATE, wantedState);
+			if (!Objects.equals(wantedState, text(rule.getSimulationState()))) {
+				changes.add(() -> rule.setSimulationState(wantedState));
 			}
-			for (TLObject parameter : objects(rule.tValueByName("parameters"))) {
-				String id = text(parameter.tValueByName("identifier"));
+			for (RuleParameter parameter : rule.getParameters()) {
+				String id = text(parameter.getIdentifier());
 				Type type = type(parameter);
 				if (id == null || type == null) {
 					continue;
 				}
 				Val value = overrides.get(ParameterStore.key(ruleId, id));
 				String text = value == null ? null : text(value, type);
-				String stored = text(parameter.tValueByName(SIMULATION_VALUE));
+				String stored = text(parameter.getSimulationValue());
 				if (!Objects.equals(text, stored)) {
-					changes.computeIfAbsent(parameter, x -> new LinkedHashMap<>()).put(SIMULATION_VALUE, text);
+					changes.add(() -> parameter.setSimulationValue(text));
 				}
 			}
 		}
@@ -140,10 +135,8 @@ public final class Overrides {
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_SIMULATION_SAVED__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)))) {
-			for (Map.Entry<TLObject, Map<String, Object>> change : changes.entrySet()) {
-				for (Map.Entry<String, Object> attribute : change.getValue().entrySet()) {
-					change.getKey().tUpdateByName(attribute.getKey(), attribute.getValue());
-				}
+			for (Runnable change : changes) {
+				change.run();
 			}
 			tx.commit();
 		}
@@ -153,8 +146,8 @@ public final class Overrides {
 	/**
 	 * The type of a parameter of a rule, <code>null</code> if it has none.
 	 */
-	public static Type type(TLObject parameter) {
-		return parameter.tValueByName("type") instanceof TLClassifier classifier ? Type.fromName(classifier.getName())
+	public static Type type(RuleParameter parameter) {
+		return parameter.getType() instanceof TLClassifier classifier ? Type.fromName(classifier.getName())
 			: null;
 	}
 
@@ -225,11 +218,6 @@ public final class Overrides {
 		}
 		String result = value.toString().trim();
 		return result.isEmpty() ? null : result;
-	}
-
-	@SuppressWarnings("unchecked")
-	private static Collection<TLObject> objects(Object value) {
-		return value instanceof Collection<?> collection ? (Collection<TLObject>) collection : java.util.List.of();
 	}
 
 }

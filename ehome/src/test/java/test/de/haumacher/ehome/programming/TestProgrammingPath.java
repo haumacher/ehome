@@ -47,6 +47,9 @@ import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Controllers;
 import de.haumacher.ehome.connection.I18NConstants;
+import de.haumacher.ehome.model.project.EhomeProjectFactory;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -97,7 +100,7 @@ public class TestProgrammingPath extends BasicTestCase {
 
 			// The gateway.
 			use(use, project, "192.0.2.1", null);
-			assertEquals("192.0.2.1", project.tValueByName("gateway"));
+			assertEquals("192.0.2.1", ((Project) project).getGateway());
 			assertEquals("Gateway 192.0.2.1:3671", BusPath.describe(device));
 			assertNull(BusPath.veto(device));
 			assertTrue(BusPath.of(device) instanceof BusPath.Gateway);
@@ -110,11 +113,11 @@ public class TestProgrammingPath extends BasicTestCase {
 			assertNull(init("selectedController", project));
 			assertRefused(null, () -> use.execute(project, "192.0.2.9", null, controller));
 			assertEquals("A new gateway and a new controller together: nothing changes.", "192.0.2.1",
-				project.tValueByName("gateway"));
+				((Project) project).getGateway());
 			// The address still pre-filled with the current gateway, the controller selected.
 			use(use, project, "192.0.2.1", controller);
-			assertNull("Exclusive: the gateway is cleared.", project.tValueByName("gateway"));
-			assertEquals(controller, project.tValueByName(BusPath.PROGRAMMING_CONTROLLER));
+			assertNull("Exclusive: the gateway is cleared.", ((Project) project).getGateway());
+			assertEquals(controller, ((Project) project).getProgrammingController());
 			assertEquals("Controller " + CONTROLLER, BusPath.describe(device));
 			assertNull(BusPath.veto(device));
 			BusPath path = BusPath.of(device);
@@ -201,22 +204,22 @@ public class TestProgrammingPath extends BasicTestCase {
 
 			// The controller still selected, an address entered: the gateway; and back.
 			use(use, project, "192.0.2.5", controller);
-			assertEquals("192.0.2.5", project.tValueByName("gateway"));
-			assertNull(project.tValueByName(BusPath.PROGRAMMING_CONTROLLER));
+			assertEquals("192.0.2.5", ((Project) project).getGateway());
+			assertNull(((Project) project).getProgrammingController());
 			assertEquals("192.0.2.5", init("address", project));
 			use(use, project, "192.0.2.5", controller);
-			assertEquals(controller, project.tValueByName(BusPath.PROGRAMMING_CONTROLLER));
-			assertNull(project.tValueByName("gateway"));
+			assertEquals(controller, ((Project) project).getProgrammingController());
+			assertNull(((Project) project).getGateway());
 			// Unchanged: stays.
 			use(use, project, null, controller);
-			assertEquals(controller, project.tValueByName(BusPath.PROGRAMMING_CONTROLLER));
+			assertEquals(controller, ((Project) project).getProgrammingController());
 
 			// Another project's controller is never the path; a controller on the LAN only is no option.
 			foreign = FakeBusController.connect(other, "homecontrol-foreign", true);
 			assertFalse(options(project).contains(foreign.controller()));
 			set(project, foreign.controller());
 			assertEquals(de.haumacher.ehome.connection.I18NConstants.ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT
-				.fill("homecontrol-foreign", other.tValueByName("name")), BusPath.veto(device));
+				.fill("homecontrol-foreign", ((Project) other).getName()), BusPath.veto(device));
 			TLObject lan = lanController(project);
 			assertFalse(options(project).contains(lan));
 			set(project, lan);
@@ -227,12 +230,12 @@ public class TestProgrammingPath extends BasicTestCase {
 			fake.disconnect("network down");
 			ControllerConnections.awaitKnowledgeBase();
 			assertEquals(BusSessionLink.offline(controller), BusPath.veto(device));
-			assertNotNull(controller.tValueByName("lastContact"));
+			assertNotNull(((Controller) controller).getLastContact());
 
 			// Forgotten: nothing takes its place.
 			Controllers.forget(controller);
 			ControllerConnections.awaitKnowledgeBase();
-			assertNull(project.tValueByName(BusPath.PROGRAMMING_CONTROLLER));
+			assertNull(((Project) project).getProgrammingController());
 			assertEquals(none, BusPath.veto(device));
 		} finally {
 			if (fake != null) {
@@ -322,8 +325,7 @@ public class TestProgrammingPath extends BasicTestCase {
 	}
 
 	private static Collection<?> options(TLObject project) throws Exception {
-		TLStructuredTypePart part =
-			(TLStructuredTypePart) TLModelUtil.findPart("ehome.project:Project#" + BusPath.PROGRAMMING_CONTROLLER);
+		TLStructuredTypePart part = EhomeProjectFactory.getProgrammingControllerProjectAttr();
 		OptionsByExpression.Config<?> config =
 			(OptionsByExpression.Config<?>) part.getAnnotation(TLOptions.class).getGenerator();
 		return SearchExpression.asList(QueryExecutor.compile(config.getFunction()).execute(project));
@@ -331,20 +333,20 @@ public class TestProgrammingPath extends BasicTestCase {
 
 	private static void set(TLObject project, TLObject controller) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project.tUpdateByName(BusPath.PROGRAMMING_CONTROLLER, controller);
+			((Project) project).setProgrammingController((Controller) controller);
 			tx.commit();
 		}
 	}
 
 	private static TLObject lanController(TLObject project) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject controller = ModelService.getInstance().getFactory()
+			Controller controller = (Controller) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", "LAN");
-			controller.tUpdateByName("host", "192.0.2.2");
-			List<Object> controllers = new ArrayList<>((Collection<?>) project.tValueByName("controllers"));
+			controller.setName("LAN");
+			controller.setHost("192.0.2.2");
+			List<Controller> controllers = new ArrayList<>(((Project) project).getControllers());
 			controllers.add(controller);
-			project.tUpdateByName("controllers", controllers);
+			((Project) project).setControllers(controllers);
 			tx.commit();
 			return controller;
 		}

@@ -30,6 +30,8 @@ import de.haumacher.ehome.calculation.DeviceValidations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.FloatingPointType;
@@ -40,6 +42,7 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
 
@@ -544,7 +547,7 @@ public class DeviceSettings {
 		List<TLObject> result = new ArrayList<>();
 		TLObject project = project(device);
 		if (project != null) {
-			collectAddresses((Collection<?>) project.tValueByName("groupAddresses"), result);
+			collectAddresses(((Project) project).getGroupAddresses(), result);
 		}
 		result.sort(Comparator.comparingInt(DeviceSettings::addressValue));
 		return result;
@@ -556,13 +559,14 @@ public class DeviceSettings {
 			if (isA(value, "ehome.logical:GroupAddress")) {
 				result.add(value);
 			} else if (isA(value, "ehome.logical:GroupRange")) {
-				collectAddresses((Collection<?>) value.tValueByName("parts"), result);
+				collectAddresses(((GroupRange) value).getParts(), result);
 			}
 		}
 	}
 
 	private static int addressValue(TLObject groupAddress) {
-		return groupAddress.tValueByName("address") instanceof GA address ? address.getValue() : Integer.MAX_VALUE;
+		GA address = ((GroupAddress) groupAddress).getAddress();
+		return address != null ? address.getValue() : Integer.MAX_VALUE;
 	}
 
 	private static TLObject project(TLObject obj) {

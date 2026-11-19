@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 
 import com.top_logic.basic.thread.CancelScope;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.model.TLNamed;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
@@ -22,6 +23,7 @@ import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.ProjectControllers;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
@@ -89,7 +91,7 @@ public sealed interface BusPath permits BusPath.Gateway, BusPath.Controller {
 		TLObject project = project(object);
 		TLObject controller = controller(project);
 		if (controller != null) {
-			String name = String.valueOf(controller.tValueByName("name"));
+			String name = String.valueOf(((TLNamed) controller).getName());
 			return new Controller(name, ControllerConnections.get(controller));
 		}
 		return new Gateway(Gateways.parse(Gateways.of(project)));
@@ -144,7 +146,7 @@ public sealed interface BusPath permits BusPath.Gateway, BusPath.Controller {
 		TLObject project = project(object);
 		TLObject controller = controller(project);
 		if (controller != null) {
-			return Controller.text(String.valueOf(controller.tValueByName("name")));
+			return Controller.text(String.valueOf(((TLNamed) controller).getName()));
 		}
 		String gateway = Gateways.of(project);
 		if (gateway == null) {
@@ -158,8 +160,8 @@ public sealed interface BusPath permits BusPath.Gateway, BusPath.Controller {
 	 * The controller the project is programmed through, <code>null</code> for its gateway.
 	 */
 	static TLObject controller(TLObject project) {
-		return project.tValueByName(PROGRAMMING_CONTROLLER) instanceof TLObject controller && controller.tValid()
-			? controller : null;
+		TLObject controller = ((Project) project).getProgrammingController();
+		return controller != null && controller.tValid() ? controller : null;
 	}
 
 	/**

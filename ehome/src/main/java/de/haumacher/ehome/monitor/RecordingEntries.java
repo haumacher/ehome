@@ -17,6 +17,10 @@ import com.top_logic.model.TLType;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.monitor.Event;
+import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.monitor.Telegram;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 
 /**
@@ -32,8 +36,8 @@ public class RecordingEntries {
 	 */
 	public static List<TLObject> entries(TLObject recording) {
 		List<TLObject> result = new ArrayList<>();
-		add(result, recording.tValueByName("telegrams"));
-		add(result, recording.tValueByName("events"));
+		add(result, ((Recording) recording).getTelegrams());
+		add(result, ((Recording) recording).getEvents());
 		result.sort(Comparator.comparingInt(RecordingEntries::number));
 		return result;
 	}
@@ -50,7 +54,15 @@ public class RecordingEntries {
 	 * The number of an entry in its recording, 0 if it has none.
 	 */
 	public static int number(TLObject entry) {
-		return entry.tValueByName("number") instanceof Integer n ? n.intValue() : 0;
+		Integer number = entry instanceof Event event ? event.getNumber() : ((Telegram) entry).getNumber();
+		return number instanceof Integer n ? n.intValue() : 0;
+	}
+
+	/**
+	 * The time of an entry, <code>null</code> if it has none.
+	 */
+	static Date time(TLObject entry) {
+		return entry instanceof Event event ? event.getTime() : ((Telegram) entry).getTime();
 	}
 
 	/**
@@ -82,36 +94,38 @@ public class RecordingEntries {
 		for (TLObject entry : entries(recording)) {
 			MonitorRow row = new MonitorRow(entry);
 			row.put("number", Integer.valueOf(number(entry)));
-			Object time = entry.tValueByName("time");
+			Object time = time(entry);
 			row.put("time", time instanceof Date date ? format.format(date) : "");
 			if (isEvent(entry)) {
-				Object kind = entry.tValueByName("kind");
+				Event event = (Event) entry;
+				Object kind = event.getKind();
 				row.put("kind", kind == null ? "" : MetaLabelProvider.INSTANCE.getLabel(kind));
-				row.put("sender", text(entry.tValueByName("text")));
+				row.put("sender", text(event.getText()));
 				row.put("source", "");
 				row.put("address", "");
-				row.put("name", text(entry.tValueByName("name")));
-				row.put("value", text(entry.tValueByName("value")));
+				row.put("name", text(event.getName()));
+				row.put("value", text(event.getValue()));
 				row.put("data", "");
 				row.put("own", Boolean.FALSE);
 			} else {
-				TLObject sender = (TLObject) entry.tValueByName("sender");
-				TLObject groupAddress = (TLObject) entry.tValueByName("groupAddress");
-				String source = text(entry.tValueByName("source"));
+				Telegram telegram = (Telegram) entry;
+				TLObject sender = telegram.getSender();
+				GroupAddress groupAddress = telegram.getGroupAddress();
+				String source = text(telegram.getSource());
 				row.put("kind", knx);
 				row.put("sender",
 					sender != null && sender.tValid() ? GroupAddressConnections.deviceLabel(sender) : source);
 				row.put("source", source);
-				row.put("address", text(entry.tValueByName("address")));
+				row.put("address", text(telegram.getAddress()));
 				row.put("name",
-					groupAddress != null && groupAddress.tValid() ? text(groupAddress.tValueByName("name")) : "");
-				row.put("value", text(entry.tValueByName("value")));
-				row.put("service", entry.tValueByName("service"));
-				row.put("priority", entry.tValueByName("priority"));
-				row.put("repeated", entry.tValueByName("repeated"));
-				row.put("hops", entry.tValueByName("hopCount"));
-				row.put("data", text(entry.tValueByName("data")));
-				row.put("own", Boolean.valueOf(Boolean.TRUE.equals(entry.tValueByName("own"))));
+					groupAddress != null && groupAddress.tValid() ? text(groupAddress.getName()) : "");
+				row.put("value", text(telegram.getValue()));
+				row.put("service", telegram.getService());
+				row.put("priority", telegram.getPriority());
+				row.put("repeated", telegram.getRepeatedOrNull());
+				row.put("hops", telegram.getHopCount());
+				row.put("data", text(telegram.getData()));
+				row.put("own", Boolean.valueOf(Boolean.TRUE.equals(telegram.getOwnOrNull())));
 			}
 			result.add(row);
 		}

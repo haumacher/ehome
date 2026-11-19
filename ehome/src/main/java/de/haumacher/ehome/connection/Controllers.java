@@ -6,7 +6,6 @@ package de.haumacher.ehome.connection;
 import java.text.DateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -17,6 +16,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
+
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 
 /**
  * The controllers of the E-Home connection as the views show and change them (haumacher/ehome #54):
@@ -47,7 +50,7 @@ public final class Controllers {
 		if (connection != null) {
 			return text(I18NConstants.STATE_ONLINE__SINCE.fill(format(Date.from(connection.since()))));
 		}
-		Object contact = controller.tValueByName("lastContact");
+		Object contact = ((Controller) controller).getLastContact();
 		if (contact instanceof Date date) {
 			return text(I18NConstants.STATE_OFFLINE__LAST_CONTACT.fill(format(date)));
 		}
@@ -59,8 +62,8 @@ public final class Controllers {
 	 * the dialog creating it shows): open until when, or expired when; <code>null</code> for none.
 	 */
 	public static String codeState(TLObject project, Instant now) {
-		Object expires = project.tValueByName("enrollmentExpires");
-		if (!(expires instanceof Date date) || project.tValueByName("enrollmentCode") == null) {
+		Object expires = ((Project) project).getEnrollmentExpires();
+		if (!(expires instanceof Date date) || ((Project) project).getEnrollmentCode() == null) {
 			return null;
 		}
 		ResKey key = date.toInstant().isAfter(now) ? I18NConstants.CODE_OPEN__UNTIL.fill(format(date))
@@ -91,19 +94,19 @@ public final class Controllers {
 			return;
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
-			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_FORGOTTEN__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
+			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_FORGOTTEN__CONTROLLER.fill(String.valueOf(((Controller) controller).getName())))) {
 			// The objects naming the controller, read backwards from it (haumacher/ehome #172): no scan of
 			// the projects.
 			for (TLObject project : referers(controller, "ehome.project:Project#controller")) {
-				project.tUpdateByName("controller", soleOther(project, controller));
+				((Project) project).setController(soleOther((Project) project, controller));
 			}
 			// The path to the bus is the installer's explicit choice (haumacher/ehome #148): nothing
 			// takes the forgotten controller's place.
 			for (TLObject project : referers(controller, "ehome.project:Project#programmingController")) {
-				project.tUpdateByName("programmingController", null);
+				((Project) project).setProgrammingController(null);
 			}
 			for (TLObject deployment : referers(controller, "ehome.runtime:Deployment#controller")) {
-				deployment.tUpdateByName("controller", null);
+				((Deployment) deployment).setController(null);
 			}
 			controller.tDelete();
 			tx.commit();
@@ -128,16 +131,14 @@ public final class Controllers {
 	 * several: after the deployment target is forgotten, a single remaining controller (typically the
 	 * same device enrolled again) takes its place; among several, the choice stays the installer's.
 	 */
-	private static TLObject soleOther(TLObject project, TLObject controller) {
-		TLObject result = null;
-		if (project.tValueByName("controllers") instanceof Collection<?> controllers) {
-			for (Object entry : controllers) {
-				if (entry instanceof TLObject other && other != controller && other.tValid()) {
-					if (result != null) {
-						return null;
-					}
-					result = other;
+	private static Controller soleOther(Project project, TLObject controller) {
+		Controller result = null;
+		for (Controller other : project.getControllers()) {
+			if (other != null && other != controller && other.tValid()) {
+				if (result != null) {
+					return null;
 				}
+				result = other;
 			}
 		}
 		return result;

@@ -33,6 +33,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
@@ -250,7 +251,7 @@ public class TestVirtualBcu2 extends BasicTestCase {
 			Interface placed = (Interface) connector.tValueByName("port");
 			for (Object element : (Collection<?>) connector.tValueByName("connections")) {
 				TLObject connection = (TLObject) element;
-				GA ga = (GA) ((TLObject) connection.tValueByName("target")).tValueByName("address");
+				GA ga = ((GroupAddress) connection.tValueByName("target")).getAddress();
 				result.add(placed.getPort().getIndex() + " " + ga.getValue() + " "
 					+ ((TLClassifier) connection.tValueByName("kind")).getName());
 			}

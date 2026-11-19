@@ -20,6 +20,7 @@ import javax.xml.stream.XMLStreamException;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.operational.MaskVersion;
 
 /**
  * Writes <code>knx_master.xml</code>: the master data a project uses (datapoint types, mask
@@ -64,7 +65,7 @@ final class MasterDataExport {
 	private Integer version() {
 		Integer result = null;
 		for (TLObject mask : _usage._masks) {
-			Integer version = (Integer) mask.tValueByName("masterDataVersion");
+			Integer version = ((MaskVersion) mask).getMasterDataVersion();
 			if (version == null) {
 				return null;
 			}

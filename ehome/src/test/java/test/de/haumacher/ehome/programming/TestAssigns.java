@@ -183,7 +183,7 @@ public class TestAssigns extends BasicTestCase {
 				for (Assign assign : allAssigns(program())) {
 					assign.tDelete();
 				}
-				program().tUpdateByName("assignsRead", Boolean.FALSE);
+				program().setAssignsRead(false);
 				tx.commit();
 			}
 			assertEquals(0, assigns(program()).size());
@@ -191,7 +191,7 @@ public class TestAssigns extends BasicTestCase {
 			List<TLObject> completed =
 				SharedData.newProjects(before).stream().filter(p -> !projects.contains(p)).toList();
 			projects.addAll(completed);
-			assertEquals(Boolean.TRUE, program().tValueByName("assignsRead"));
+			assertTrue(program().getAssignsRead());
 			assertEquals(structure, structure(program()));
 			// The device of the file with the source "Zwei-Tasten".
 			TLObject imported = device(completed, 2);

@@ -16,8 +16,11 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ObjectFollower;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -72,7 +75,7 @@ public class ProjectGroupDevices {
 				result.put(device, groupDevice);
 			}
 		}
-		for (TLObject follower : objects(project.tValueByName("simulationFollowers"))) {
+		for (ObjectFollower follower : ((Project) project).getSimulationFollowers()) {
 			String problem = follow(follower, result);
 			if (problem != null) {
 				problems.add(problem);
@@ -87,10 +90,10 @@ public class ProjectGroupDevices {
 	 *
 	 * @return <code>null</code>, or why it is left out.
 	 */
-	private static String follow(TLObject follower, Map<TLObject, GroupDevice> devices) {
-		TLObject device = follower.tValueByName("device") instanceof TLObject d ? d : null;
-		TLObject source = follower.tValueByName("source") instanceof TLObject c ? c : null;
-		TLObject target = follower.tValueByName("follower") instanceof TLObject c ? c : null;
+	private static String follow(ObjectFollower follower, Map<TLObject, GroupDevice> devices) {
+		TLObject device = follower.getDevice();
+		TLObject source = follower.getSource();
+		TLObject target = follower.getFollower();
 		if (device == null || source == null || target == null) {
 			return "an object follower without a device, a switching object or a state object is left out";
 		}
@@ -105,7 +108,7 @@ public class ProjectGroupDevices {
 			return "the object follower of " + deviceLabel + " is left out: the device has no individual address,"
 				+ " or one of its objects is not connected to a group address";
 		}
-		boolean inverted = Boolean.TRUE.equals(follower.tValueByName("inverted"));
+		boolean inverted = Boolean.TRUE.equals(follower.getInvertedOrNull());
 		if (inverted && groupDevice.object(targetNumber.intValue()).bits() != 1) {
 			return "the object follower of " + deviceLabel + " is left out: only an object of one bit follows inverted";
 		}
@@ -159,8 +162,9 @@ public class ProjectGroupDevices {
 			List<Integer> addresses = new ArrayList<>();
 			int send = -1;
 			for (TLObject connection : objects(connector.tValueByName("connections"))) {
-				TLObject target = connection.tValueByName("target") instanceof TLObject t ? t : null;
-				if (target == null || !(target.tValueByName("address") instanceof GA ga)) {
+				GroupAddress target = (GroupAddress) connection.tValueByName("target");
+				GA ga = target == null ? null : target.getAddress();
+				if (ga == null) {
 					continue;
 				}
 				Integer value = Integer.valueOf(ga.getValue());

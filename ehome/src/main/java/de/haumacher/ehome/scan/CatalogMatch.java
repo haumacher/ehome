@@ -4,7 +4,6 @@
 package de.haumacher.ehome.scan;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -14,6 +13,11 @@ import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Program;
@@ -77,9 +81,9 @@ public class CatalogMatch {
 		 * The candidate for a person: product, order number and program ID.
 		 */
 		public String label() {
-			Object orderNumber = variant.tValueByName("orderNumber");
-			TLObject product = variant.tContainer();
-			Object productName = product == null ? null : product.tValueByName("name");
+			Object orderNumber = ((Variant) variant).getOrderNumber();
+			Product product = (Product) variant.tContainer();
+			Object productName = product == null ? null : product.getName();
 			return (productName == null ? "?" : productName) + (orderNumber == null ? "" : " (" + orderNumber + ")")
 				+ ", " + program.getExtId();
 		}
@@ -147,14 +151,14 @@ public class CatalogMatch {
 		if (manufacturerId == null) {
 			return byOrderInfo(device);
 		}
-		TLObject manufacturer = manufacturer(manufacturerId.intValue());
+		Manufacturer manufacturer = (Manufacturer) manufacturer(manufacturerId.intValue());
 		if (manufacturer == null) {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
 				I18NConstants.UNIDENTIFIED_MANUFACTURER__MANUFACTURER.fill(String.format("M-%04X", manufacturerId)));
 		}
 		List<Program> programs = new ArrayList<>();
 		List<ResKey> excluded = new ArrayList<>();
-		for (Object element : (Collection<?>) manufacturer.tValueByName("programs")) {
+		for (Object element : manufacturer.getPrograms()) {
 			if (!(element instanceof Program program)) {
 				continue;
 			}
@@ -187,16 +191,13 @@ public class CatalogMatch {
 		}
 
 		List<Candidate> candidates = new ArrayList<>();
-		for (Object product : (Collection<?>) manufacturer.tValueByName("products")) {
-			TLObject hardware = (TLObject) product;
-			for (Object assignment : (Collection<?>) hardware.tValueByName("programs")) {
-				TLObject programAssignment = (TLObject) assignment;
-				if (!programs.contains(programAssignment.tValueByName("program"))) {
+		for (Product hardware : manufacturer.getProducts()) {
+			for (ProgramAssignment programAssignment : hardware.getPrograms()) {
+				if (!programs.contains(programAssignment.getProgram())) {
 					continue;
 				}
-				for (Object variant : (Collection<?>) hardware.tValueByName("variants")) {
-					candidates.add(new Candidate((Program) programAssignment.tValueByName("program"), programAssignment,
-						(TLObject) variant));
+				for (Variant variant : hardware.getVariants()) {
+					candidates.add(new Candidate(programAssignment.getProgram(), programAssignment, variant));
 				}
 			}
 		}
@@ -227,30 +228,28 @@ public class CatalogMatch {
 		if (device.manufacturerId() == null || device.orderInfo() == null) {
 			return new Match(Kind.UNIDENTIFIED, List.of(), I18NConstants.UNIDENTIFIED_NO_IDENTITY);
 		}
-		TLObject manufacturer = manufacturer(device.manufacturerId().intValue());
+		Manufacturer manufacturer = (Manufacturer) manufacturer(device.manufacturerId().intValue());
 		if (manufacturer == null) {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
 				I18NConstants.UNIDENTIFIED_MANUFACTURER__MANUFACTURER.fill(String.format("M-%04X", device.manufacturerId())));
 		}
 		String order = device.orderNumber() == null ? null : normalize(device.orderNumber());
 		List<Candidate> candidates = new ArrayList<>();
-		for (Object product : (Collection<?>) manufacturer.tValueByName("products")) {
-			TLObject hardware = (TLObject) product;
-			for (Object variant : (Collection<?>) hardware.tValueByName("variants")) {
-				if (order == null || !ordered((TLObject) variant, order)) {
+		for (Product hardware : manufacturer.getProducts()) {
+			for (Variant variant : hardware.getVariants()) {
+				if (order == null || !ordered(variant, order)) {
 					continue;
 				}
-				for (Object assignment : (Collection<?>) hardware.tValueByName("programs")) {
-					TLObject programAssignment = (TLObject) assignment;
-					if (programAssignment.tValueByName("program") instanceof Program program) {
-						candidates.add(new Candidate(program, programAssignment, (TLObject) variant));
+				for (ProgramAssignment programAssignment : hardware.getPrograms()) {
+					if (programAssignment.getProgram() instanceof Program program) {
+						candidates.add(new Candidate(program, programAssignment, variant));
 					}
 				}
 			}
 		}
 		if (candidates.isEmpty()) {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
-				I18NConstants.UNIDENTIFIED_ORDER__MANUFACTURER_ORDER.fill(manufacturer.tValueByName("name"), device.orderInfo()));
+				I18NConstants.UNIDENTIFIED_ORDER__MANUFACTURER_ORDER.fill(manufacturer.getName(), device.orderInfo()));
 		}
 		candidates.sort((a, b) -> a.label().compareTo(b.label()));
 		return new Match(candidates.size() == 1 ? Kind.UNIQUE : Kind.CHOICE, candidates, null);
@@ -270,7 +269,7 @@ public class CatalogMatch {
 	 * <code>N000402</code>).
 	 */
 	private static boolean ordered(TLObject variant, String order) {
-		return variant.tValueByName("orderNumber") instanceof String number && !normalize(number).isEmpty()
+		return ((Variant) variant).getOrderNumber() instanceof String number && !normalize(number).isEmpty()
 			&& order.startsWith(normalize(number));
 	}
 
@@ -285,13 +284,12 @@ public class CatalogMatch {
 		}
 		String extId = String.format("M-%04X", id);
 		TLObject byExtId = null;
-		for (Object element : (Collection<?>) root.tValueByName("manufacturers")) {
-			TLObject manufacturer = (TLObject) element;
-			if (manufacturer.tValueByName("id") instanceof Integer knxId) {
+		for (Manufacturer manufacturer : ((ManufacturerRoot) root).getManufacturers()) {
+			if (manufacturer.getId() instanceof Integer knxId) {
 				if (knxId.intValue() == id) {
 					return manufacturer;
 				}
-			} else if (extId.equals(manufacturer.tValueByName("extId"))) {
+			} else if (extId.equals(manufacturer.getExtId())) {
 				byExtId = manufacturer;
 			}
 		}

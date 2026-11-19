@@ -36,6 +36,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.RoomController;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.runtime.BlockInstances;
 
@@ -70,9 +73,9 @@ public class TestBuildingContents extends BasicTestCase {
 	}
 
 	private void check(TLObject project) throws Exception {
-		TLObject house = list(project, "buildings").get(0);
-		TLObject floor = list(house, "parts").get(0);
-		TLObject kitchen = list(floor, "parts").stream().filter(p -> "Küche".equals(p.tValueByName("name")))
+		BuildingDefinition house = ((Project) project).getBuildings().get(0);
+		BuildingDefinition floor = house.getParts().get(0);
+		BuildingDefinition kitchen = floor.getParts().stream().filter(p -> "Küche".equals(p.getName()))
 			.findFirst().orElseThrow();
 		List<TLObject> devices = BuildingDevices.devices(kitchen);
 		assertEquals(1, devices.size());
@@ -94,7 +97,7 @@ public class TestBuildingContents extends BasicTestCase {
 		QueryExecutor blockRows = rows(2);
 		QueryExecutor connectionRows = rows(3);
 
-		for (TLObject part : List.of(kitchen, floor, house)) {
+		for (TLObject part : List.<TLObject> of(kitchen, floor, house)) {
 			assertEquals(part.toString(), devices, values(deviceRows, part));
 			assertEquals(part.toString(), List.of(block), values(blockRows, part));
 			assertEquals(part.toString(), BuildingDevices.connections(kitchen), values(connectionRows, part));
@@ -106,23 +109,23 @@ public class TestBuildingContents extends BasicTestCase {
 		// The parts within the house: itself first, depth-first in the order of the parts.
 		List<TLObject> within = BuildingDevices.partsWithin(house);
 		assertEquals(List.of(house, floor), within.subList(0, 2));
-		assertEquals(list(floor, "parts"), within.subList(2, within.size()));
+		assertEquals(new ArrayList<TLObject>(floor.getParts()), within.subList(2, within.size()));
 
 		// The direct functions stay: the floor holds no device itself.
 		assertTrue(BuildingDevices.devices(floor).isEmpty());
 		assertEquals(devices, BuildingDevices.devices(kitchen));
-		assertEquals(List.of(lamp), new ArrayList<>((Collection<?>) floor.tValueByName("zigbeeDevices")));
+		assertEquals(List.of(lamp), new ArrayList<>(floor.getZigbeeDevices()));
 	}
 
 	private static TLObject zigbee(TLObject project, String name, String ieee, TLObject part) {
-		TLObject device = ModelService.getInstance().getFactory()
+		ZigbeeDevice device = (ZigbeeDevice) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.zigbee:ZigbeeDevice"));
-		device.tUpdateByName("name", name);
-		device.tUpdateByName("ieee", ieee);
-		List<TLObject> all = list(project, "zigbeeDevices");
+		device.setName(name);
+		device.setIeee(ieee);
+		List<ZigbeeDevice> all = new ArrayList<>(((Project) project).getZigbeeDevices());
 		all.add(device);
-		project.tUpdateByName("zigbeeDevices", all);
-		device.tUpdateByName("location", part);
+		((Project) project).setZigbeeDevices(all);
+		device.setLocation((BuildingDefinition) part);
 		return device;
 	}
 
@@ -139,14 +142,6 @@ public class TestBuildingContents extends BasicTestCase {
 			.getElementsByTagName("rows");
 		String source = ((Element) elements.item(index)).getTextContent();
 		return ViewScripts.compile(ExprFormat.INSTANCE.getValue("script", source), List.of("part"));
-	}
-
-	private static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object value : (Collection<?>) obj.tValueByName(attribute)) {
-			result.add((TLObject) value);
-		}
-		return result;
 	}
 
 	private static KnowledgeBase kb() {

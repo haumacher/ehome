@@ -186,7 +186,7 @@ public final class DeviceCalculations {
 	 * The name of the given calculation as messages name it: its name and ID.
 	 */
 	public static String label(ParameterCalculation calculation) {
-		Object name = calculation.tValueByName("name");
+		Object name = calculation.getName();
 		String id = calculation.getExtId();
 		if (name == null || name.toString().isBlank()) {
 			return Objects.toString(id, "?");
@@ -204,7 +204,7 @@ public final class DeviceCalculations {
 			return alias.trim();
 		}
 		ParameterView view = parameter.getParameter();
-		Object name = view == null || view.getParameter() == null ? null : view.getParameter().tValueByName("name");
+		Object name = view == null || view.getParameter() == null ? null : view.getParameter().getName();
 		return name == null ? null : name.toString();
 	}
 

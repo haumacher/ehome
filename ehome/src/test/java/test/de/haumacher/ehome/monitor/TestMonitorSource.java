@@ -29,6 +29,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.MonitorSource;
 import de.haumacher.ehome.monitor.ProjectIndex;
@@ -48,11 +49,11 @@ public class TestMonitorSource extends BasicTestCase {
 	private static final int ADDRESS = 34;
 
 	public void testLifecycle() throws Exception {
-		TLObject project;
+		Project project;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project = ModelService.getInstance().getFactory()
+			project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", "Monitor source");
+			project.setName("Monitor source");
 			tx.commit();
 		}
 		try {

@@ -5,7 +5,6 @@ package de.haumacher.ehome.connection;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -19,6 +18,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.Signatures.Keys;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 
 /**
  * The installation key of a project (homecontrol issue #35, <code>spec/api.md</code>, "Signed runtime
@@ -81,14 +82,20 @@ public final class InstallationKeys {
 	 * The installation key of the project, <code>null</code> if it has none.
 	 */
 	public static Keys key(TLObject project) {
-		return keys(project, KEY, PUBLIC_KEY);
+		if (project == null || !project.tValid()) {
+			return null;
+		}
+		return keys(((Project) project).getInstallationKey(), ((Project) project).getInstallationPublicKey());
 	}
 
 	/**
 	 * The new key of a rotation of the project, <code>null</code> if none is under way.
 	 */
 	public static Keys newKey(TLObject project) {
-		return keys(project, NEW_KEY, NEW_PUBLIC_KEY);
+		if (project == null || !project.tValid()) {
+			return null;
+		}
+		return keys(((Project) project).getNewInstallationKey(), ((Project) project).getNewInstallationPublicKey());
 	}
 
 	/**
@@ -100,12 +107,7 @@ public final class InstallationKeys {
 		return newKey != null ? newKey : key(project);
 	}
 
-	private static Keys keys(TLObject project, String seed, String publicKey) {
-		if (project == null || !project.tValid()) {
-			return null;
-		}
-		Object seedValue = project.tValueByName(seed);
-		Object publicValue = project.tValueByName(publicKey);
+	private static Keys keys(Object seedValue, Object publicValue) {
 		if (seedValue == null || publicValue == null || !Signatures.isKey(seedValue.toString())
 			|| !Signatures.isKey(publicValue.toString())) {
 			return null;
@@ -124,7 +126,7 @@ public final class InstallationKeys {
 	public static Keys signer(TLObject project, TLObject controller) {
 		Keys newKey = newKey(project);
 		if (newKey != null && controller != null && controller.tValid()
-			&& newKey.fingerprint().equals(controller.tValueByName(DEVICE_KEY))) {
+			&& newKey.fingerprint().equals(((Controller) controller).getDeviceKey())) {
 			return newKey;
 		}
 		Keys key = key(project);
@@ -144,10 +146,10 @@ public final class InstallationKeys {
 		Keys target = target(project);
 		if (target == null && first) {
 			target = Signatures.generate();
-			project.tUpdateByName(KEY, target.seed());
-			project.tUpdateByName(PUBLIC_KEY, target.publicKey());
+			((Project) project).setInstallationKey(target.seed());
+			((Project) project).setInstallationPublicKey(target.publicKey());
 			Logger.info("Generated the installation key " + target.fingerprint() + " of project "
-				+ project.tValueByName("name") + ".", InstallationKeys.class);
+				+ ((Project) project).getName() + ".", InstallationKeys.class);
 		}
 		return target;
 	}
@@ -195,11 +197,11 @@ public final class InstallationKeys {
 		Keys keys = Signatures.generate();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_KEY_CREATED__PROJECT_FINGERPRINT.fill(MetaLabelProvider.INSTANCE.getLabel(project), keys.fingerprint()))) {
-			project.tUpdateByName(KEY, keys.seed());
-			project.tUpdateByName(PUBLIC_KEY, keys.publicKey());
+			((Project) project).setInstallationKey(keys.seed());
+			((Project) project).setInstallationPublicKey(keys.publicKey());
 			tx.commit();
 		}
-		Logger.info("Created the installation key " + keys.fingerprint() + " of project " + project.tValueByName("name")
+		Logger.info("Created the installation key " + keys.fingerprint() + " of project " + ((Project) project).getName()
 			+ ".", InstallationKeys.class);
 		offerAll(project);
 		return keys;
@@ -222,12 +224,12 @@ public final class InstallationKeys {
 		Keys keys = Signatures.generate();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_KEY_RENEWED__PROJECT_FINGERPRINT.fill(MetaLabelProvider.INSTANCE.getLabel(project), keys.fingerprint()))) {
-			project.tUpdateByName(NEW_KEY, keys.seed());
-			project.tUpdateByName(NEW_PUBLIC_KEY, keys.publicKey());
+			((Project) project).setNewInstallationKey(keys.seed());
+			((Project) project).setNewInstallationPublicKey(keys.publicKey());
 			tx.commit();
 		}
 		Logger.info("Offering the new installation key " + keys.fingerprint() + " of project "
-			+ project.tValueByName("name") + ".", InstallationKeys.class);
+			+ ((Project) project).getName() + ".", InstallationKeys.class);
 		offerAll(project);
 		return keys;
 	}
@@ -262,27 +264,27 @@ public final class InstallationKeys {
 	 * Runs on the thread of {@link ControllerConnections#execute(Runnable)}.
 	 */
 	static void deviceKey(String controllerId, String fingerprint) {
-		TLObject controller = ControllerConnections.find(controllerId);
+		Controller controller = (Controller) ControllerConnections.find(controllerId);
 		if (controller == null) {
 			return;
 		}
-		TLObject project = controller.tContainer();
+		Project project = (Project) controller.tContainer();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
-			.beginTransaction(I18NConstants.COMMIT_DEVICE_KEY__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
-			if (!Objects.equals(fingerprint, controller.tValueByName(DEVICE_KEY))) {
-				controller.tUpdateByName(DEVICE_KEY, fingerprint);
+			.beginTransaction(I18NConstants.COMMIT_DEVICE_KEY__CONTROLLER.fill(String.valueOf(controller.getName())))) {
+			if (!Objects.equals(fingerprint, controller.getDeviceKey())) {
+				controller.setDeviceKey(fingerprint);
 			}
 			Keys newKey = newKey(project);
 			Keys key = key(project);
 			if (newKey != null && newKey.fingerprint().equals(fingerprint)
 				&& (key == null || holders(project, key.fingerprint()).isEmpty())) {
-				project.tUpdateByName(KEY, newKey.seed());
-				project.tUpdateByName(PUBLIC_KEY, newKey.publicKey());
-				project.tUpdateByName(NEW_KEY, null);
-				project.tUpdateByName(NEW_PUBLIC_KEY, null);
+				project.setInstallationKey(newKey.seed());
+				project.setInstallationPublicKey(newKey.publicKey());
+				project.setNewInstallationKey(null);
+				project.setNewInstallationPublicKey(null);
 				tx.setCommitMessage(I18NConstants.COMMIT_KEY_ROTATED__PROJECT_FINGERPRINT.fill(MetaLabelProvider.INSTANCE.getLabel(project),
 					newKey.fingerprint()));
-				Logger.info("The controllers of project " + project.tValueByName("name")
+				Logger.info("The controllers of project " + project.getName()
 					+ " accepted the new installation key " + newKey.fingerprint() + "; the old key "
 					+ (key == null ? "-" : key.fingerprint()) + " is forgotten.", InstallationKeys.class);
 			}
@@ -296,19 +298,19 @@ public final class InstallationKeys {
 	 */
 	private static List<String> holders(TLObject project, String fingerprint) {
 		List<String> result = new ArrayList<>();
-		for (TLObject controller : enrolled(project)) {
-			if (fingerprint.equals(controller.tValueByName(DEVICE_KEY))) {
-				result.add(String.valueOf(controller.tValueByName("name")));
+		for (Controller controller : enrolled(project)) {
+			if (fingerprint.equals(controller.getDeviceKey())) {
+				result.add(String.valueOf(controller.getName()));
 			}
 		}
 		return result;
 	}
 
-	private static List<TLObject> enrolled(TLObject project) {
-		List<TLObject> result = new ArrayList<>();
-		if (project != null && project.tValid() && project.tValueByName("controllers") instanceof Collection<?> all) {
-			for (Object entry : all) {
-				if (entry instanceof TLObject controller && controller.tValid()) {
+	private static List<Controller> enrolled(TLObject project) {
+		List<Controller> result = new ArrayList<>();
+		if (project != null && project.tValid()) {
+			for (Controller controller : ((Project) project).getControllers()) {
+				if (controller != null && controller.tValid()) {
 					result.add(controller);
 				}
 			}
@@ -345,7 +347,7 @@ public final class InstallationKeys {
 		Keys key = key(project);
 		Keys newKey = newKey(project);
 		Keys target = target(project);
-		Object held = controller.tValueByName(DEVICE_KEY);
+		Object held = ((Controller) controller).getDeviceKey();
 		List<String> result = new ArrayList<>();
 		if (held == null) {
 			result.add(text(I18NConstants.DEVICE_KEY_NONE));

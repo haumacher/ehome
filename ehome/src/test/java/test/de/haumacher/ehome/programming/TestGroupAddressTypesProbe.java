@@ -23,6 +23,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
@@ -49,12 +50,12 @@ public class TestGroupAddressTypesProbe extends BasicTestCase {
 				Set<TLObject> untyped = new HashSet<>();
 				for (TLObject address : addresses) {
 					boolean typed = GroupAddressTypes.hasType(address);
-					assertEquals(sample + " " + address.tValueByName("name"), typed, exported.contains(address));
+					assertEquals(sample + " " + ((GroupAddress) address).getName(), typed, exported.contains(address));
 					if (!typed) {
 						untyped.add(address);
 					}
 					for (TLObject type : GroupAddressTypes.suggestions(address)) {
-						assertNull(sample + " " + address.tValueByName("name") + " " + type,
+						assertNull(sample + " " + ((GroupAddress) address).getName() + " " + type,
 							GroupAddressTypes.veto(address, type));
 					}
 				}

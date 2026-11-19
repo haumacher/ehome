@@ -13,6 +13,7 @@ import java.net.InetSocketAddress;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -31,8 +32,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.DeviceConfiguration;
-import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.Gateways;
@@ -80,7 +82,7 @@ public class TestVirtualDeviceInfo extends BasicTestCase {
 			InetSocketAddress gateway = gateway(endpoint);
 
 			// Over the gateway.
-			set(project, "gateway", Gateways.format(gateway));
+			update(project, p -> p.setGateway(Gateways.format(gateway)));
 			assertFalse("Reading needs no write switch.", CalimeroWriter.writeEnabled());
 			assertNull(DeviceInfo.veto(device));
 			VirtualInterface running = manager.start(simulated, endpoint, Map.of("info", "gateway"));
@@ -96,8 +98,9 @@ public class TestVirtualDeviceInfo extends BasicTestCase {
 
 			// Through the controller: the same.
 			controller = FakeBusController.connect(project, "homecontrol-virtual", true);
-			set(project, "gateway", null);
-			set(project, BusPath.PROGRAMMING_CONTROLLER, controller.controller());
+			update(project, p -> p.setGateway(null));
+			Controller programming = (Controller) controller.controller();
+			update(project, p -> p.setProgrammingController(programming));
 			assertNull(DeviceInfo.veto(device));
 			running = manager.start(simulated, endpoint, Map.of("info", "controller"));
 			DeviceInfo viaController;
@@ -196,9 +199,9 @@ public class TestVirtualDeviceInfo extends BasicTestCase {
 		return result;
 	}
 
-	private static void set(TLObject project, String attribute, Object value) {
+	private static void update(TLObject project, Consumer<Project> change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project.tUpdateByName(attribute, value);
+			change.accept((Project) project);
 			tx.commit();
 		}
 	}

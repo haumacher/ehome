@@ -43,6 +43,8 @@ import tuwien.auto.calimero.link.KNXNetworkLinkIP;
 import tuwien.auto.calimero.link.NetworkLinkListener;
 import tuwien.auto.calimero.link.medium.TPSettings;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -89,7 +91,7 @@ public class TestVirtualDownloadThroughController extends BasicTestCase {
 
 			controller = FakeBusController.connect(project, "homecontrol-virtual", true);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName(BusPath.PROGRAMMING_CONTROLLER, controller.controller());
+				((Project) project).setProgrammingController((Controller) controller.controller());
 				tx.commit();
 			}
 			assertEquals("Controller homecontrol-virtual", BusPath.describe(device));

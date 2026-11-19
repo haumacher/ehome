@@ -37,6 +37,7 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ParameterCalculation;
 import de.haumacher.ehome.model.operational.ParameterView;
@@ -300,7 +301,7 @@ public class TestParameterCalculations extends BasicTestCase {
 
 		// A program with a calculation E-Home cannot evaluate: a device of it is not planned.
 		TLObject lockedAssignment = instances("ehome.catalog:ProgramAssignment").stream()
-			.filter(a -> "M-0008_H-TEST.20RECHNUNG-1_HP-FFFB-01-0000".equals(a.tValueByName("extId"))).findFirst()
+			.filter(a -> "M-0008_H-TEST.20RECHNUNG-1_HP-FFFB-01-0000".equals(((ProgramAssignment) a).getExtId())).findFirst()
 			.orElseThrow();
 		try (Transaction tx = kb().beginTransaction()) {
 			DevicePlanning.create(imported.tContainer(), (TLObject) imported.tValueByName("type"), lockedAssignment,
@@ -417,7 +418,7 @@ public class TestParameterCalculations extends BasicTestCase {
 
 	private static Program program(String id) {
 		return (Program) instances("ehome.operational:Program").stream()
-			.filter(p -> id.equals(p.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(p -> id.equals(((Program) p).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static TLObject device(List<TLObject> before, int address) {

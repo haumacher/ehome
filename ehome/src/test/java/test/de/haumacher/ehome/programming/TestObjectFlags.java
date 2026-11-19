@@ -251,12 +251,12 @@ public class TestObjectFlags extends BasicTestCase {
 	private static Interface placement(TLObject device, String id) {
 		for (Object element : (java.util.Collection<?>) device.tValueByName("connectors")) {
 			Interface placed = ModuleParts.port((TLObject) element);
-			if (placed != null && id.equals(placed.tValueByName("extId"))) {
+			if (placed != null && id.equals(placed.getExtId())) {
 				return placed;
 			}
 		}
 		for (Interface placed : new DeviceConfiguration(device).getActiveInterfaces().values()) {
-			if (id.equals(placed.tValueByName("extId"))) {
+			if (id.equals(placed.getExtId())) {
 				return placed;
 			}
 		}

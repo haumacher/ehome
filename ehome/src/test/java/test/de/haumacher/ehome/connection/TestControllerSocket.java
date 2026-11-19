@@ -29,7 +29,6 @@ import test.de.haumacher.ehome.runtime.FakeControllerLink;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
@@ -39,6 +38,9 @@ import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Controllers;
 import de.haumacher.ehome.connection.Enrollment;
 import de.haumacher.ehome.connection.I18NConstants;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.monitor.BusLink;
 import de.haumacher.ehome.monitor.BusTelegram;
 import de.haumacher.ehome.monitor.LinkEvent;
@@ -98,19 +100,19 @@ public class TestControllerSocket extends BasicTestCase {
 	}
 
 	public void testSocket() throws Exception {
-		TLObject project = ControllerEndpoint.project("Socket test");
+		Project project = ControllerEndpoint.project("Socket test");
 		try {
 			Enrollment.createCode(project, null, Instant.now());
 			Map<String, Object> request = new LinkedHashMap<>();
-			request.put("code", project.tValueByName("enrollmentCode"));
+			request.put("code", project.getEnrollmentCode());
 			request.put("name", "homecontrol-fake");
 			Enrollment.Answer enrolled = Enrollment.enroll(request, _endpoint.base(), Instant.now());
 			assertEquals(200, enrolled.status());
 			String id = (String) enrolled.body().get("controller");
 			String secret = (String) enrolled.body().get("secret");
 			URI socket = URI.create((String) enrolled.body().get("socket"));
-			TLObject controller = (TLObject) project.tValueByName("controller");
-			assertEquals(id, controller.tValueByName("controllerId"));
+			Controller controller = project.getController();
+			assertEquals(id, controller.getControllerId());
 
 			// Never connected: every action refuses, naming that.
 			assertEquals(de.haumacher.ehome.runtime.I18NConstants.ERROR_NEVER_CONNECTED__CONTROLLER.fill("homecontrol-fake"),
@@ -138,9 +140,9 @@ public class TestControllerSocket extends BasicTestCase {
 			ControllerConnection connection = ControllerConnections.get(id);
 			assertNotNull(connection);
 			ControllerConnections.awaitKnowledgeBase();
-			assertEquals("0.1.0-fake", controller.tValueByName("firmwareVersion"));
-			assertEquals("fake123", controller.tValueByName("firmwareBuild"));
-			Date connected = (Date) controller.tValueByName("lastContact");
+			assertEquals("0.1.0-fake", controller.getFirmwareVersion());
+			assertEquals("fake123", controller.getFirmwareBuild());
+			Date connected = controller.getLastContact();
 			assertNotNull(connected);
 			assertTrue(Controllers.online(controller));
 			assertEquals(text(I18NConstants.STATE_ONLINE__SINCE.fill(format(Date.from(connection.since())))),
@@ -158,8 +160,8 @@ public class TestControllerSocket extends BasicTestCase {
 			link.send(status);
 			await(() -> connection.status().get("device") != null);
 			ControllerConnections.awaitKnowledgeBase();
-			assertEquals("0.1.1-fake", controller.tValueByName("firmwareVersion"));
-			assertEquals("fake124", controller.tValueByName("firmwareBuild"));
+			assertEquals("0.1.1-fake", controller.getFirmwareVersion());
+			assertEquals("fake124", controller.getFirmwareBuild());
 
 			// A replayed authentication: the HMAC of the nonce of the connection above.
 			FakeControllerLink replay = link(id, secret);
@@ -211,8 +213,8 @@ public class TestControllerSocket extends BasicTestCase {
 			link.setDelay(0);
 
 			// The deployment, the comparison and the Zigbee coordinator through the connection.
-			TLObject deployment = Deployer.deploy(project, NOW);
-			assertEquals(deployment.tValueByName("message").toString(), Boolean.TRUE, deployment.tValueByName("accepted"));
+			Deployment deployment = (Deployment) Deployer.deploy(project, NOW);
+			assertEquals(deployment.getMessage().toString(), Boolean.TRUE, Boolean.valueOf(deployment.getAccepted()));
 			// The binary image (signed with the project's key) reads back as the project's image.
 			assertEquals(Json.write(ImageDecoder.decode(RuntimeImage.build(project, 1, NOW).compile(null))),
 				_fake.getStoredText());
@@ -269,7 +271,7 @@ public class TestControllerSocket extends BasicTestCase {
 			link.close();
 			await(() -> ControllerConnections.get(id) == null);
 			ControllerConnections.awaitKnowledgeBase();
-			Date lastContact = (Date) controller.tValueByName("lastContact");
+			Date lastContact = controller.getLastContact();
 			assertFalse(lastContact.before(connected));
 			assertFalse(Controllers.online(controller));
 			assertEquals(text(I18NConstants.STATE_OFFLINE__LAST_CONTACT.fill(format(lastContact))),
@@ -296,8 +298,8 @@ public class TestControllerSocket extends BasicTestCase {
 			Controllers.forget(controller);
 			assertEquals(1008, back.awaitClose());
 			assertFalse(controller.tValid());
-			assertNull(project.tValueByName("controller"));
-			assertEquals("The deployment keeps its target text.", Boolean.TRUE, deployment.tValueByName("accepted"));
+			assertNull(project.getController());
+			assertEquals("The deployment keeps its target text.", Boolean.TRUE, Boolean.valueOf(deployment.getAccepted()));
 			assertRefusal(link(id, secret).connect(socket), ControllerConnection.REFUSED_UNKNOWN);
 		} finally {
 			ControllerConnections.awaitKnowledgeBase(); // the writer records the closes before the project goes
