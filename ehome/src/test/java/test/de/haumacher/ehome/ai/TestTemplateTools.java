@@ -12,7 +12,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,6 +65,10 @@ import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.template.ObjectOverlay;
+import de.haumacher.ehome.model.template.Preset;
+import de.haumacher.ehome.model.template.PresetObject;
+import de.haumacher.ehome.model.template.PresetValue;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -203,7 +206,7 @@ public class TestTemplateTools extends BasicTestCase {
 		Set<Interface> kindPlacements = new HashSet<>(ObjectKinds.placements(temperature));
 		for (Interface placed : DeviceTemplates.placements(program)) {
 			TLObject overlay = ObjectTypes.overlay(placed);
-			boolean typed = overlay != null && !((Collection<?>) overlay.tValueByName("datapointTypes")).isEmpty();
+			boolean typed = overlay != null && !((ObjectOverlay) overlay).getDatapointTypes().isEmpty();
 			assertEquals(placed.toString(), kindPlacements.contains(placed), typed);
 		}
 		assertEquals(celsius, ObjectTypes.effective(device, connected));
@@ -254,7 +257,7 @@ public class TestTemplateTools extends BasicTestCase {
 		ToolResult refused = as(_installer, () -> new TemplateTools().savePreset(AssistantFixture.toolContext(),
 			actuator, channel, "Schalten Werkzeug", "actuator", "light", null, null, roles));
 		assertTrue(refused.text(), refused.failed() && refused.text().contains("\"refused\""));
-		assertTrue(presetsOf(program).stream().noneMatch(p -> "Schalten Werkzeug".equals(p.tValueByName("name"))));
+		assertTrue(presetsOf(program).stream().noneMatch(p -> "Schalten Werkzeug".equals(((Preset) p).getName())));
 
 		// The page's preset and the tool's: equal but for the name.
 		TLObject[] page = { null };
@@ -266,7 +269,7 @@ public class TestTemplateTools extends BasicTestCase {
 			AssistantFixture.toolContext(), actuator, channel, "Schalten Werkzeug", "actuator", "light", null, null,
 			roles));
 		assertFalse(saved.text(), saved.failed());
-		TLObject tool = presetsOf(program).stream().filter(p -> "Schalten Werkzeug".equals(p.tValueByName("name")))
+		TLObject tool = presetsOf(program).stream().filter(p -> "Schalten Werkzeug".equals(((Preset) p).getName()))
 			.findFirst().orElseThrow();
 		assertEquals(describe(page[0]), describe(tool));
 
@@ -297,15 +300,16 @@ public class TestTemplateTools extends BasicTestCase {
 	 */
 	private static List<Object> describe(TLObject preset) {
 		List<Object> result = new ArrayList<>();
-		result.add(preset.tValueByName("channel"));
-		result.add(preset.tValueByName("purpose"));
-		result.add(preset.tValueByName("kind"));
-		result.add(new ArrayList<>((Collection<?>) preset.tValueByName("operations")));
+		Preset typed = (Preset) preset;
+		result.add(typed.getChannel());
+		result.add(typed.getPurpose());
+		result.add(typed.getKind());
+		result.add(new ArrayList<>(typed.getOperations()));
 		for (TLObject value : ExtIds.list(preset, "values")) {
-			result.add(List.of(value.tValueByName("parameter"), ParameterValues.encode(value)));
+			result.add(List.of(((PresetValue) value).getParameter(), ParameterValues.encode(value)));
 		}
 		for (TLObject object : ExtIds.list(preset, "objects")) {
-			result.add(List.of(object.tValueByName("placement"), object.tValueByName("role")));
+			result.add(List.of(((PresetObject) object).getPlacement(), ((PresetObject) object).getRole()));
 		}
 		return result;
 	}

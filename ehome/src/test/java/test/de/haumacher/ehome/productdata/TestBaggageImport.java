@@ -45,6 +45,13 @@ import de.haumacher.ehome.etsImport.I18NConstants;
 import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.etsImport.ImportProductDataJob;
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.catalog.Baggage;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.PictureType;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Test case for the files a manufacturer ships with its product data (ETS: baggage,
@@ -85,33 +92,33 @@ public class TestBaggageImport extends BasicTestCase {
 		assertTrue("Fixture already imported.", withExtId("ehome.operational:Program", PROGRAM).isEmpty());
 		Importer importer = importProduct(FIXTURES + "TestBaggage.knxprod", null);
 
-		TLObject manufacturer = byExtId("ehome.catalog:Manufacturer", "M-0008");
-		TLObject picture = byExtId(BAGGAGE, PICTURE);
-		TLObject help = byExtId(BAGGAGE, HELP);
-		TLObject missing = byExtId(BAGGAGE, MISSING);
+		Manufacturer manufacturer = byExtId("ehome.catalog:Manufacturer", "M-0008");
+		Baggage picture = byExtId(BAGGAGE, PICTURE);
+		Baggage help = byExtId(BAGGAGE, HELP);
+		Baggage missing = byExtId(BAGGAGE, MISSING);
 		assertEquals(Set.of(picture, help, missing), new HashSet<>(importer.getCreated(BAGGAGE)));
 		for (TLObject file : List.of(picture, help, missing)) {
 			assertSame(manufacturer, file.tContainer());
 		}
 
 		byte[] fixture = entry(FIXTURES + "TestBaggage.knxprod", "M-0008/Baggages/TEST_Bild.png");
-		assertEquals("TEST_Bild.png", picture.tValueByName("name"));
-		assertNull(picture.tValueByName("path"));
-		assertEquals(Date.from(Instant.parse("2026-11-01T10:00:00Z")), picture.tValueByName("time"));
+		assertEquals("TEST_Bild.png", picture.getName());
+		assertNull(picture.getPath());
+		assertEquals(Date.from(Instant.parse("2026-11-01T10:00:00Z")), picture.getTime());
 		assertContent(fixture, picture);
-		assertEquals("image/png", ((BinaryData) picture.tValueByName("content")).getContentType());
-		assertEquals("TEST_Bild.png", ((BinaryData) picture.tValueByName("content")).getName());
+		assertEquals("image/png", ((BinaryData) picture.getContent()).getContentType());
+		assertEquals("TEST_Bild.png", ((BinaryData) picture.getContent()).getName());
 
-		assertEquals("TEST_Hilfe.zip", help.tValueByName("name"));
-		assertEquals("hilfe", help.tValueByName("path"));
+		assertEquals("TEST_Hilfe.zip", help.getName());
+		assertEquals("hilfe", help.getPath());
 		// Seven decimal places in the file; the model keeps milliseconds.
-		assertEquals(Date.from(Instant.parse("2026-11-02T09:03:26.872Z")), help.tValueByName("time"));
+		assertEquals(Date.from(Instant.parse("2026-11-02T09:03:26.872Z")), help.getTime());
 		byte[] helpContent = entry(FIXTURES + "TestBaggage.knxprod", "M-0008/Baggages/hilfe/TEST_Hilfe.zip");
 		assertContent(helpContent, help);
 
 		// Listed but not in the file: kept without content, and reported.
-		assertNull(missing.tValueByName("content"));
-		assertNull(missing.tValueByName("size"));
+		assertNull(missing.getContent());
+		assertNull(missing.getSize());
 		assertEquals(List.of(
 			"The file \"M-0008/TEST_Fehlt.png\" of the manufacturer is listed in the product data, but the "
 				+ "imported file does not hold it: the catalog lists the file without its content.",
@@ -120,16 +127,16 @@ public class TestBaggageImport extends BasicTestCase {
 		texts(importer.getMessages()));
 
 		// The program names its files in the order of the file.
-		TLObject program = byExtId("ehome.operational:Program", PROGRAM);
-		assertEquals(List.of(picture, help, missing), list(program, "baggage"));
+		Program program = byExtId("ehome.operational:Program", PROGRAM);
+		assertEquals(List.of(picture, help, missing), list(program.getBaggage()));
 		assertEquals(1, importer.getProgramFiles());
 
 		// A picture of the parameter dialog: a type without value naming its file.
-		TLObject pictureType = byExtId("ehome.operational:PictureType", PROGRAM + "_PT-Bild");
+		PictureType pictureType = byExtId("ehome.operational:PictureType", PROGRAM + "_PT-Bild");
 		assertTrue(pictureType instanceof de.haumacher.ehome.model.operational.VoidType);
-		assertSame(picture, pictureType.tValueByName("picture"));
-		TLObject parameter = byExtId("ehome.operational:Parameter", PROGRAM + "_P-9");
-		assertSame(pictureType, parameter.tValueByName("type"));
+		assertSame(picture, pictureType.getPicture());
+		Parameter parameter = byExtId("ehome.operational:Parameter", PROGRAM + "_P-9");
+		assertSame(pictureType, parameter.getType());
 		assertSame(program, parameter.tContainer());
 
 		// Twice: nothing is added, nothing changes.
@@ -139,14 +146,14 @@ public class TestBaggageImport extends BasicTestCase {
 		assertEquals(List.of(), again.getCreated(BAGGAGE));
 		assertEquals(List.of(), again.getReplacedBaggage());
 		assertContent(fixture, picture);
-		assertEquals(List.of(picture, help, missing), list(program, "baggage"));
+		assertEquals(List.of(picture, help, missing), list(program.getBaggage()));
 		assertEquals(3,
-			list(manufacturer, "baggage").stream().filter(b -> List.of(picture, help, missing).contains(b)).count());
+			list(manufacturer.getBaggage()).stream().filter(b -> List.of(picture, help, missing).contains(b)).count());
 
 		// A program an earlier import left without its files gains them from the next import.
-		update(program, "baggage", List.of());
+		update(() -> program.setBaggage(List.of()));
 		Importer completing = importProduct(FIXTURES + "TestBaggage.knxprod", null);
-		assertEquals(List.of(picture, help, missing), list(program, "baggage"));
+		assertEquals(List.of(picture, help, missing), list(program.getBaggage()));
 		assertTrue(texts(completing.getMessages()).contains("The application program \"" + PROGRAM
 			+ "\", imported earlier without the files of its manufacturer it names, is completed: it names 3 files now."));
 
@@ -154,9 +161,9 @@ public class TestBaggageImport extends BasicTestCase {
 		Map<?, ?> report = importAction(FIXTURES + "TestBaggageNewer.knxprod");
 		assertEquals(count, instances(BAGGAGE).size());
 		assertContent(entry(FIXTURES + "TestBaggageNewer.knxprod", "M-0008/Baggages/TEST_Bild.png"), picture);
-		assertEquals(Date.from(Instant.parse("2026-11-05T08:00:00Z")), picture.tValueByName("time"));
+		assertEquals(Date.from(Instant.parse("2026-11-05T08:00:00Z")), picture.getTime());
 		assertContent(helpContent, help);
-		assertEquals(Date.from(Instant.parse("2026-11-02T09:03:26.872Z")), help.tValueByName("time"));
+		assertEquals(Date.from(Instant.parse("2026-11-02T09:03:26.872Z")), help.getTime());
 		List<String> messages = reportTexts(report);
 		assertTrue(messages.toString(), messages.contains("A newer version of the file \"M-0008/TEST_Bild.png\" of the "
 			+ "manufacturer, of 2026-11-05T08:00:00Z, replaces the content of the version of 2026-11-01T10:00:00Z."));
@@ -174,10 +181,10 @@ public class TestBaggageImport extends BasicTestCase {
 	public void testWithoutProgram() throws Exception {
 		assertTrue("Fixture already imported.", withExtId(BAGGAGE, DRIVER).isEmpty());
 		Importer limited = importProduct(FIXTURES + "TestBaggageDriver.knxprod", 1024L);
-		TLObject driver = byExtId(BAGGAGE, DRIVER);
-		assertEquals("TEST Treiber.msi", driver.tValueByName("name"));
-		assertEquals("inf", driver.tValueByName("path"));
-		assertNull(driver.tValueByName("content"));
+		Baggage driver = byExtId(BAGGAGE, DRIVER);
+		assertEquals("TEST Treiber.msi", driver.getName());
+		assertEquals("inf", driver.getPath());
+		assertNull(driver.getContent());
 		assertEquals(0, limited.getProgramFiles());
 		assertEquals(List.of(
 			"The file \"M-0008/inf/TEST Treiber.msi\" of the manufacturer is larger than 1024 bytes, the limit for "
@@ -186,14 +193,14 @@ public class TestBaggageImport extends BasicTestCase {
 				+ "are imported."),
 			texts(limited.getMessages()));
 		// The product names its driver.
-		TLObject variant = byExtId("ehome.catalog:Variant", "M-0008_H-TEST.20TREIBER-1_P-TEST.20Treiber");
-		assertEquals(List.of(driver), list(variant, "baggage"));
+		Variant variant = byExtId("ehome.catalog:Variant", "M-0008_H-TEST.20TREIBER-1_P-TEST.20Treiber");
+		assertEquals(List.of(driver), list(variant.getBaggage()));
 
 		// Without the limit: the content completes the known file.
 		Map<?, ?> report = importAction(FIXTURES + "TestBaggageDriver.knxprod");
 		assertContent(entry(FIXTURES + "TestBaggageDriver.knxprod", "M-0008/Baggages/inf/TEST Treiber.msi"), driver);
-		assertEquals(List.of(driver), list(variant, "baggage"));
-		assertEquals("application/octet-stream", ((BinaryData) driver.tValueByName("content")).getContentType());
+		assertEquals(List.of(driver), list(variant.getBaggage()));
+		assertEquals("application/octet-stream", ((BinaryData) driver.getContent()).getContentType());
 		assertTrue(reportTexts(report).contains(
 			"The file \"M-0008/inf/TEST Treiber.msi\" of the manufacturer, kept earlier without its content, gains it now."));
 		String summary = (String) report.get(ImportEtsProjectJob.SUMMARY);
@@ -210,13 +217,13 @@ public class TestBaggageImport extends BasicTestCase {
 			SharedData.deleteProjects(SharedData.newProjects(projects));
 		}
 		assertEquals(List.of(), texts(test.de.haumacher.ehome.importer.TestEtsImport.withoutMasterData(messages)));
-		TLObject picture = byExtId(BAGGAGE, "M-0008_BG--TEST.5FProjekt.2Epng");
-		assertEquals("TEST_Projekt.png", picture.tValueByName("name"));
-		assertEquals(Date.from(Instant.parse("2026-11-03T12:00:00Z")), picture.tValueByName("time"));
+		Baggage picture = byExtId(BAGGAGE, "M-0008_BG--TEST.5FProjekt.2Epng");
+		assertEquals("TEST_Projekt.png", picture.getName());
+		assertEquals(Date.from(Instant.parse("2026-11-03T12:00:00Z")), picture.getTime());
 		assertContent(entry(FIXTURES + "TestBaggage.knxproj", "M-0008/Baggages/TEST_Projekt.png"), picture);
 		assertSame(byExtId("ehome.catalog:Manufacturer", "M-0008"), picture.tContainer());
-		TLObject program = byExtId("ehome.operational:Program", "M-0008_A-FFB1-01-0000");
-		assertEquals(List.of(picture), list(program, "baggage"));
+		Program program = byExtId("ehome.operational:Program", "M-0008_A-FFB1-01-0000");
+		assertEquals(List.of(picture), list(program.getBaggage()));
 	}
 
 	/**
@@ -233,20 +240,20 @@ public class TestBaggageImport extends BasicTestCase {
 			SharedData.deleteProjects(SharedData.newProjects(projects));
 		}
 		TLObject manufacturer = byExtId("ehome.catalog:Manufacturer", "M-0008");
-		TLObject file = byExtId(BAGGAGE, "M-0008_BG--TEST.5FProjekt.2Epng");
+		Baggage file = byExtId(BAGGAGE, "M-0008_BG--TEST.5FProjekt.2Epng");
 		assertSame(manufacturer, file.tContainer());
-		assertNotNull(file.tValueByName("content"));
+		assertNotNull(file.getContent());
 		assertEquals(List.of(byExtId(BAGGAGE, "M-0008_BG--TEST.5FProjekt.2Epng")),
-			list(byExtId("ehome.operational:Program", "M-0008_A-FFB1-01-0000"), "baggage"));
+			list(((Program) byExtId("ehome.operational:Program", "M-0008_A-FFB1-01-0000")).getBaggage()));
 	}
 
-	private static void assertContent(byte[] expected, TLObject baggage) throws Exception {
-		BinaryData content = (BinaryData) baggage.tValueByName("content");
+	private static void assertContent(byte[] expected, Baggage baggage) throws Exception {
+		BinaryData content = (BinaryData) baggage.getContent();
 		assertNotNull(content);
 		try (InputStream in = content.getStream()) {
 			assertTrue(java.util.Arrays.equals(expected, in.readAllBytes()));
 		}
-		assertEquals(Long.valueOf(expected.length), baggage.tValueByName("size"));
+		assertEquals(Long.valueOf(expected.length), baggage.getSize());
 	}
 
 	private static byte[] entry(String file, String name) throws Exception {
@@ -277,16 +284,16 @@ public class TestBaggageImport extends BasicTestCase {
 		return result;
 	}
 
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		try (Transaction tx = kb.beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
 
-	private static List<Object> list(TLObject obj, String part) {
-		return new ArrayList<>((Collection<?>) obj.tValueByName(part));
+	private static List<Object> list(Collection<?> values) {
+		return new ArrayList<>(values);
 	}
 
 	/**
@@ -316,15 +323,16 @@ public class TestBaggageImport extends BasicTestCase {
 			List.of(BinaryDataFactory.createBinaryDataWithName(source, source.getName())));
 	}
 
-	private static TLObject byExtId(String typeName, String extId) {
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T byExtId(String typeName, String extId) {
 		List<TLObject> result = withExtId(typeName, extId);
 		assertEquals(typeName + " " + extId, 1, result.size());
-		return result.get(0);
+		return (T) result.get(0);
 	}
 
 	private static List<TLObject> withExtId(String typeName, String extId) {
 		return instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 	}
 

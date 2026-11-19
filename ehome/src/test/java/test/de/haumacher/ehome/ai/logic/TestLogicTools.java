@@ -18,7 +18,6 @@ import test.com.top_logic.knowledge.KBSetup;
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -41,6 +40,11 @@ import de.haumacher.ehome.ai.logic.DiagnosisTools;
 import de.haumacher.ehome.ai.logic.FunctionTools;
 import de.haumacher.ehome.ai.logic.RuleTools;
 import de.haumacher.ehome.ai.logic.SimulationTools;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -129,8 +133,8 @@ public class TestLogicTools extends BasicTestCase {
 		ToolResult replaced = turn(_fixture.installer(), c -> _rules.saveAutomation(c, project, definitions(changed), null));
 		assertFalse(replaced.text(), replaced.failed());
 		assertEquals(List.of(rule), RuleExport.orderedRules(project));
-		TLObject limit = (TLObject) ((java.util.Collection<?>) rule.tValueByName("parameters")).iterator().next();
-		assertEquals("5.0", limit.tValueByName("default"));
+		RuleParameter limit = ((Rule) rule).getParameters().iterator().next();
+		assertEquals("5.0", limit.getDefault());
 	}
 
 	/**
@@ -196,12 +200,12 @@ public class TestLogicTools extends BasicTestCase {
 			"{\"schedules\": [{\"id\": \"workdayMorning\", \"label\": \"Workday morning\", \"kind\": \"weekly\","
 				+ " \"days\": [1, 2, 3, 4, 5], \"time\": \"06:30\"}]}"), null));
 		assertFalse(schedule.text(), schedule.failed());
-		assertEquals(1, ((java.util.Collection<?>) project.tValueByName("schedules")).size());
+		assertEquals(1, ((Project) project).getSchedules().size());
 
 		ToolResult page = turn(_fixture.installer(), c -> new FunctionTools().createPage(c, project, "Erdgeschoss",
 			List.of(Map.of("title", "Küche", "rooms", List.of(_fixture.room().tId().asString()))), null));
 		assertFalse(page.text(), page.failed());
-		assertEquals(1, ((java.util.Collection<?>) project.tValueByName("pages")).size());
+		assertEquals(1, ((Project) project).getPages().size());
 	}
 
 	/**
@@ -220,7 +224,7 @@ public class TestLogicTools extends BasicTestCase {
 			.filter(f -> "climate".equals(FunctionProposal.kind(f))).findFirst().orElseThrow();
 		TLObject instance = BlockInstances.of(project).get(0);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			instance.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Raumregler Küche", "en", "Raumregler Küche")));
+			((BlockInstance) instance).setNameKey(FunctionProposal.text(Map.of("de", "Raumregler Küche", "en", "Raumregler Küche")));
 			tx.commit();
 		}
 
@@ -240,7 +244,7 @@ public class TestLogicTools extends BasicTestCase {
 		// The command overwrites what the tool named.
 		FunctionProposal.Run run = ProposeFunctionsAction.apply(project, true);
 		assertEquals(List.of(climate), run.overwritten());
-		assertEquals("Raumregler Küche", Resources.getInstance().getString((ResKey) climate.tValueByName("name")));
+		assertEquals("Raumregler Küche", Resources.getInstance().getString(((Function) climate).getNameKey()));
 
 		// The tool with the option afterwards: nothing left to overwrite.
 		ToolResult again = turn(_fixture.installer(),

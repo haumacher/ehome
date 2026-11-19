@@ -37,6 +37,9 @@ import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
 
@@ -228,8 +231,8 @@ public final class ProjectFileImport {
 				I18NConstants.WARN_SAME_PROJECT_ID__ID_PROJECTS.fill(contents.projectId(), String.join(", ", names)),
 				null);
 		}
-		boolean controllers = !ProjectFileExport.values(project.tValueByName("controllers")).isEmpty()
-			|| project.tValueByName("controller") != null;
+		boolean controllers = !ProjectFileExport.values(((Project) project).getControllers()).isEmpty()
+			|| ((Project) project).getController() != null;
 		_log.log(controllers ? Level.WARN : Level.INFO, I18NConstants.INFO_PAIR_CONTROLLERS_AGAIN, null);
 	}
 
@@ -247,7 +250,7 @@ public final class ProjectFileImport {
 			_byExtId.computeIfAbsent(key, x -> new ArrayList<>()).add(obj);
 		}
 		if (TLModelUtil.qualifiedName(obj.tType()).equals(ProjectFile.GROUP_ADDRESS_TYPE)
-			&& obj.tValueByName("address") instanceof GA address) {
+			&& ((GroupAddress) obj).getAddress() instanceof GA address) {
 			_byAddress.put(Integer.valueOf(address.getValue()), obj);
 		}
 		for (TLStructuredTypePart part : obj.tType().getAllParts()) {
@@ -445,8 +448,8 @@ public final class ProjectFileImport {
 		TLClass type = (TLClass) TLModelUtil.findType(ProjectFile.CONTROLLER_TYPE);
 		TLObject controller = ModelService.getInstance().getFactory().createObject(type);
 		String name = Objects.toString(lan.get("name"), host);
-		controller.tUpdateByName("name", name);
-		controller.tUpdateByName("host", host.trim());
+		((Controller) controller).setName(name);
+		((Controller) controller).setHost(host.trim());
 		controller.tUpdateByName("port", primitive(type.getPart("port"), port, ProjectFile.LAN));
 		ProjectControllers.add(_project, controller);
 		_log.log(Level.INFO, I18NConstants.INFO_LAN_CONTROLLER_CREATED__NAME_ADDRESS.fill(name, host + ":" + port),

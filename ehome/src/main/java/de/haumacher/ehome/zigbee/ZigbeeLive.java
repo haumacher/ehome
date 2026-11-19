@@ -29,6 +29,7 @@ import com.top_logic.util.error.TopLogicException;
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.DaemonThreads;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Deployer;
 
@@ -452,7 +453,7 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 		ControllerConnections.refetch();
 		TLObject found = ControllerConnections.find(controllerId);
 		Target target = found == null ? null
-			: new Target(String.valueOf(found.tValueByName("name")), ZigbeeController.projects(found));
+			: new Target(String.valueOf(((Controller) found).getName()), ZigbeeController.projects(found));
 		if (target == null || target.projects().isEmpty()) {
 			Logger.debug("Zigbee event of controller " + connection.name() + " (" + controllerId
 				+ ") ignored: no project deploys to it.", ZigbeeLive.class);

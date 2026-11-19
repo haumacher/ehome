@@ -27,6 +27,9 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.template.DeviceTemplate;
+import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -97,19 +100,19 @@ public final class DeviceTemplates {
 		if (existing != null) {
 			throw new TopLogicException(I18NConstants.ERROR_TEMPLATE_EXISTS__PROGRAM.fill(program));
 		}
-		TLObject root = root();
-		TLObject template = create(TEMPLATE);
-		template.tUpdateByName("program", program);
-		List<TLObject> overlays = new ArrayList<>();
+		de.haumacher.ehome.model.template.DeviceTemplates root = (de.haumacher.ehome.model.template.DeviceTemplates) root();
+		DeviceTemplate template = (DeviceTemplate) create(TEMPLATE);
+		template.setProgram((Program) program);
+		List<ObjectOverlay> overlays = new ArrayList<>();
 		for (Interface placed : placements(program)) {
-			TLObject overlay = create(OVERLAY);
-			overlay.tUpdateByName("placement", placed);
+			ObjectOverlay overlay = (ObjectOverlay) create(OVERLAY);
+			overlay.setPlacement(placed);
 			overlays.add(overlay);
 		}
-		template.tUpdateByName("overlays", overlays);
-		List<Object> templates = new ArrayList<>((Collection<?>) root.tValueByName("templates"));
+		template.setOverlays(overlays);
+		Set<DeviceTemplate> templates = new LinkedHashSet<>(root.getTemplates());
 		templates.add(template);
-		root.tUpdateByName("templates", templates);
+		root.setTemplates(templates);
 		return template;
 	}
 
@@ -122,11 +125,11 @@ public final class DeviceTemplates {
 		if (program == null) {
 			return result;
 		}
-		for (Object element : (Collection<?>) program.tValueByName("ports")) {
-			result.addAll(((Port) element).getInterfaces());
+		for (Port port : ((Program) program).getPorts()) {
+			result.addAll(port.getInterfaces());
 		}
 		result.sort(Comparator.comparingInt((Interface i) -> i.getPort().getIndex())
-			.thenComparing(i -> String.valueOf(i.tValueByName("displayName"))));
+			.thenComparing(i -> String.valueOf(i.getDisplayName())));
 		return result;
 	}
 

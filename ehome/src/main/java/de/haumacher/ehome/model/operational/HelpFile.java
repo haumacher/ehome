@@ -12,4 +12,11 @@ public interface HelpFile extends de.haumacher.ehome.model.operational.internal.
 
 	// Wrapper functionality.
 
+	/**
+	 * The value of {@link #FALLBACK_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getFallbackOrNull() {
+		return (Boolean) tValueByName(FALLBACK_ATTR);
+	}
+
 }

@@ -46,7 +46,10 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.template.DeviceTemplate;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.ProjectIndex;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -124,10 +127,10 @@ public class TestDeviceTemplates extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(template, DeviceTemplates.template(program));
-			List<?> overlays = (List<?>) template.tValueByName("overlays");
+			List<?> overlays = ((DeviceTemplate) template).getOverlays();
 			assertEquals(DeviceTemplates.placements(program).size(), overlays.size());
 			// 91 objects, placed 410 times in the channels and cases of the program's structure.
-			assertEquals(91, ((Collection<?>) program.tValueByName("ports")).size());
+			assertEquals(91, ((Program) program).getPorts().size());
 			assertEquals(410, overlays.size());
 			TLObject overlay = ObjectTypes.overlay(placed);
 			assertNotNull(overlay);
@@ -154,7 +157,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 			assertEquals(celsius, ObjectTypes.effective(connector.tContainer(), placed));
 			assertEquals(new Dpt(9, 1), GroupAddressTypes.effective(temperature));
 			assertEquals(celsius, derived(temperature, "effectiveDatapointType"));
-			assertEquals(List.of(), temperature.tValueByName("datapointTypes"));
+			assertEquals(List.of(), ((GroupAddress) temperature).getDatapointTypes());
 			assertEquals("real", Pages.valueType(temperature));
 			assertTrue(BlockInstances.bindingOptions(input).contains(temperature));
 			assertEquals(new Dpt(9, 1), ProjectIndex.of(project).address(value(temperature)).dpt());
@@ -283,7 +286,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 	}
 
 	private static int value(TLObject address) {
-		return ((GA) address.tValueByName("address")).getValue();
+		return ((GroupAddress) address).getAddress().getValue();
 	}
 
 	private static Map<?, ?> datapoint(RuntimeImage image, String id) {
@@ -298,7 +301,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 
 	private static TLObject address(TLObject project, String text) {
 		return SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
-			.filter(a -> a.tValueByName("address") instanceof GA ga && ga.toString().equals(text))
+			.filter(a -> ((GroupAddress) a).getAddress() instanceof GA ga && ga.toString().equals(text))
 			.findFirst().orElseThrow();
 	}
 

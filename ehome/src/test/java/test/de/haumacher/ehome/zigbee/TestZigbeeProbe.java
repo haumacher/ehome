@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +26,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.RuntimeImage;
@@ -54,17 +57,17 @@ public class TestZigbeeProbe extends BasicTestCase {
 
 	public void testSpellingAndTypeChangeUnderABinding() throws Exception {
 		String text = Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8);
-		TLObject project = project("Zigbee probe", "P-TEST-40-PROBE");
+		Project project = project("Zigbee probe", "P-TEST-40-PROBE");
 		try {
 			importText(project, text);
 			List<TLObject> devices = ZigbeeImport.devices(project);
 			assertEquals(1, devices.size());
-			TLObject device = devices.get(0);
-			TLObject temperature = function(device, "temperature");
+			ZigbeeDevice device = (ZigbeeDevice) devices.get(0);
+			ZigbeeFunction temperature = function(device, "temperature");
 
-			TLObject temperatureDp;
+			ApplicationDatapoint temperatureDp;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				temperatureDp = ZigbeeBindings.createDatapoint(temperature);
+				temperatureDp = (ApplicationDatapoint) ZigbeeBindings.createDatapoint(temperature);
 				tx.commit();
 			}
 			assertTrue(RuntimeImage.build(project, 1, NOW).validate().isValid());
@@ -75,21 +78,21 @@ public class TestZigbeeProbe extends BasicTestCase {
 			importText(project, colons);
 			assertEquals(1, ZigbeeImport.devices(project).size());
 			assertSame(device, ZigbeeImport.devices(project).get(0));
-			assertEquals(IEEE, device.tValueByName("ieee"));
+			assertEquals(IEEE, device.getIeee());
 			assertEquals(List.of(temperatureDp), ZigbeeBindings.boundDatapoints(temperature));
-			assertEquals(5, objects(device, "functions").size());
+			assertEquals(5, device.getFunctions().size());
 
 			// The controller's label changed and the user named the device: the import takes the label
 			// and leaves the name, the binding and the image untouched.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				device.tUpdateByName("name", "Melder Flur");
+				device.setName("Melder Flur");
 				tx.commit();
 			}
 			String labelled = text.replace("\"label\": \"\"", "\"label\": \"Flur\"");
 			assertFalse("The fixture's empty label must be found for this probe.", labelled.equals(text));
 			importText(project, labelled);
-			assertEquals("Flur", device.tValueByName("label"));
-			assertEquals("Melder Flur", device.tValueByName("name"));
+			assertEquals("Flur", device.getLabel());
+			assertEquals("Melder Flur", device.getName());
 			assertEquals(List.of(temperatureDp), ZigbeeBindings.boundDatapoints(temperature));
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			ImageReport report = image.validate();
@@ -100,7 +103,7 @@ public class TestZigbeeProbe extends BasicTestCase {
 
 			// A datapoint of the wrong type under the binding is the validator's refusal, with the path.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				temperatureDp.tUpdateByName("type",
+				temperatureDp.setType(
 					((com.top_logic.model.TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier("boolean"));
 				tx.commit();
 			}
@@ -117,9 +120,9 @@ public class TestZigbeeProbe extends BasicTestCase {
 		}
 	}
 
-	private static TLObject function(TLObject device, String key) {
-		for (TLObject function : objects(device, "functions")) {
-			if (key.equals(function.tValueByName("function"))) {
+	private static ZigbeeFunction function(ZigbeeDevice device, String key) {
+		for (ZigbeeFunction function : device.getFunctions()) {
+			if (key.equals(function.getFunction())) {
 				return function;
 			}
 		}
@@ -136,20 +139,12 @@ public class TestZigbeeProbe extends BasicTestCase {
 		fail("Expected refusal at " + path + " (" + reason + "): " + report);
 	}
 
-	private static List<TLObject> objects(TLObject owner, String reference) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object element : (Iterable<?>) owner.tValueByName(reference)) {
-			result.add((TLObject) element);
-		}
-		return result;
-	}
-
-	private static TLObject project(String name, String extId) {
+	private static Project project(String name, String extId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("extId", extId);
+			project.setName(name);
+			project.setExtId(extId);
 			tx.commit();
 			return project;
 		}

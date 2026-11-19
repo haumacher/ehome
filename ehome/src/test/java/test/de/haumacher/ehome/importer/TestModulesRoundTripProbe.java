@@ -29,6 +29,8 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.projectfile.ProjectFile;
@@ -79,7 +81,7 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 
 	private static int programs() {
 		return (int) instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).count();
+			.filter(p -> PROGRAM.equals(((Program) p).getExtId())).count();
 	}
 
 	/**
@@ -117,7 +119,7 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 			TreeSet<String> connections = new TreeSet<>();
 			for (TLObject connection : list(connector, "connections")) {
 				connections.add(((TLClassifier) connection.tValueByName("kind")).getName() + " "
-					+ ((TLObject) connection.tValueByName("target")).tValueByName("extId"));
+					+ ((GroupAddress) connection.tValueByName("target")).getExtId());
 			}
 			result.add(prefix + "object " + ModuleParts.partId(connector, ModuleParts.PORT) + " '"
 				+ derived(connector, "displayName") + "' " + connections);

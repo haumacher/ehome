@@ -47,6 +47,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.discover.DiscoverGatewaysAction;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.monitor.CalimeroBusLink;
 import de.haumacher.ehome.monitor.ConnectMonitorAction;
 import de.haumacher.ehome.monitor.ControllerTarget;
@@ -146,7 +148,7 @@ public class TestOperatorSettings extends BasicTestCase {
 					assertRefused(() -> CalimeroScanBus.open(GATEWAY));
 
 					// The project with its stored gateway: the address stays, using it is refused.
-					assertEquals(GATEWAY_TEXT, project.tValueByName("gateway"));
+					assertEquals(GATEWAY_TEXT, ((Project) project).getGateway());
 					assertRefused(() -> new ConnectMonitorAction(null,
 						TypedConfiguration.newConfigItem(ConnectMonitorAction.Config.class)).execute(null, project));
 					assertEquals(I18NConstants.ERROR_NO_LOCAL_NETWORK,
@@ -156,7 +158,7 @@ public class TestOperatorSettings extends BasicTestCase {
 					assertEquals(I18NConstants.ERROR_NO_LOCAL_NETWORK, ProgrammingFunctions.compareVeto(device));
 					assertEquals(I18NConstants.ERROR_NO_LOCAL_NETWORK,
 						ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
-					assertEquals(GATEWAY_TEXT, project.tValueByName("gateway"));
+					assertEquals(GATEWAY_TEXT, ((Project) project).getGateway());
 
 					// The controller search.
 					assertRefused(() -> new DiscoverControllersAction(null,
@@ -337,7 +339,7 @@ public class TestOperatorSettings extends BasicTestCase {
 		try {
 			assertEquals(1, projects.size());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				projects.get(0).tUpdateByName("gateway", GATEWAY_TEXT);
+				((Project) projects.get(0)).setGateway(GATEWAY_TEXT);
 				tx.commit();
 			}
 			List<TLObject> devices = SharedData.within("ehome.physical:Device", projects);
@@ -352,10 +354,11 @@ public class TestOperatorSettings extends BasicTestCase {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject controller = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", "TestOperatorSettings");
-			controller.tUpdateByName("host", "192.0.2.1");
-			controller.tUpdateByName("port", Integer.valueOf(80));
-			controller.tUpdateByName("token", "token");
+			Controller typed = (Controller) controller;
+			typed.setName("TestOperatorSettings");
+			typed.setHost("192.0.2.1");
+			typed.setPort(80);
+			typed.setToken("token");
 			ControllerFixture.own(project, controller);
 			tx.commit();
 			return controller;

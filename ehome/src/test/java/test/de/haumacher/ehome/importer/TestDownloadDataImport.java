@@ -43,6 +43,7 @@ import de.haumacher.ehome.model.operational.Location;
 import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.model.operational.MaskVersions;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
@@ -105,7 +106,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals(List.of(250, 243, 241, 375, 13, 6, 202, 21, 256, 3),
 			segments.stream().map(CodeSegment::getSize).toList());
 		for (CodeSegment segment : segments) {
-			assertEquals(segment.getExtId(), Boolean.FALSE, segment.tValueByName("userMemory"));
+			assertEquals(segment.getExtId(), Boolean.FALSE, Boolean.valueOf(segment.getUserMemory()));
 			if (segment.getData() != null) {
 				assertEquals(segment.getExtId(), segment.getSize().intValue(), bytes(segment.getData()).length);
 				assertEquals(segment.getExtId(), segment.getSize().intValue(), bytes(segment.getMask()).length);
@@ -141,10 +142,10 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals("BigEndian", program.getParameterByteOrder().getName());
 		assertEquals("iso-8859-1", program.getTextEncoding());
 		assertEquals("UseTextParameterEncodingCodePage", program.getTextEncodingSource().getName());
-		assertEquals(Boolean.TRUE, program.tValueByName("preferPartialDownload"));
-		assertEquals(Boolean.FALSE, program.tValueByName("textZeroTerminated"));
-		assertEquals(Boolean.FALSE, program.tValueByName("objectTableLengthAlwaysOne"));
-		assertEquals(Boolean.FALSE, program.tValueByName("noPartialDownload"));
+		assertEquals(Boolean.TRUE, Boolean.valueOf(program.getPreferPartialDownload()));
+		assertEquals(Boolean.FALSE, Boolean.valueOf(program.getTextZeroTerminated()));
+		assertEquals(Boolean.FALSE, Boolean.valueOf(program.getObjectTableLengthAlwaysOne()));
+		assertEquals(Boolean.FALSE, Boolean.valueOf(program.getNoPartialDownload()));
 
 		// The mask version is the shared master data object.
 		MaskVersion mask = program.getMask();
@@ -178,7 +179,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 			resource(mask, "GroupAssociationTable").getLocation().getPointerResource());
 		assertEquals(List.of("FirstAppObjectIdx=5", "AuthorizeLevels=16", "PropertyMappedLsms=1", "VerifyMode=1",
 			"DownloadStamp=1"),
-			mask.getFeatures().stream().map(f -> f.getName() + "=" + f.tValueByName("value")).toList());
+			mask.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
 		assertEquals(3, mask.getMemory().size());
 		assertEquals(Long.valueOf(8192), mask.getMemory().get(0).getLength());
 		assertEquals("EEPROM", mask.getMemory().get(0).getMemoryType().getName());
@@ -198,17 +199,17 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals(2, router.getConfigurations().size());
 		MaskConfiguration current = router.getConfigurations().get(0);
 		MaskConfiguration legacy = router.getConfigurations().get(1);
-		assertFalse(Boolean.TRUE.equals(current.tValueByName(MaskConfiguration.LEGACY_ATTR)));
-		assertEquals(Boolean.TRUE, legacy.tValueByName(MaskConfiguration.LEGACY_ATTR));
+		assertFalse(Boolean.TRUE.equals(current.getLegacyOrNull()));
+		assertEquals(Boolean.TRUE, Boolean.valueOf(legacy.getLegacy()));
 		assertSame(current, router.getCurrentConfiguration());
 		assertEquals(List.of("all", "par"), router.getProcedures().stream().map(p -> p.getScope().getName()).toList());
 		assertEquals(List.of("RestartTime=5000", "UnloadedIndividualAddress=65280", "VerifyMode=1"),
-			router.getFeatures().stream().map(f -> f.getName() + "=" + f.tValueByName("value")).toList());
+			router.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
 		assertEquals(4, router.getResources().size());
 		assertEquals(3, router.getMemory().size());
 		assertEquals(List.of("RestartTime=5000", "UnloadedIndividualAddress=65280", "PropertyMappedLsms=1",
 			"VerifyMode=1"),
-			legacy.getFeatures().stream().map(f -> f.getName() + "=" + f.tValueByName("value")).toList());
+			legacy.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
 		assertEquals(14, legacy.getResources().size());
 		assertEquals(1, legacy.getMemory().size());
 		// The two sample files differ in the legacy procedures of this mask (4 or 5, see
@@ -454,7 +455,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 
 	private static Program program(String extId) {
 		List<TLObject> result = instances("ehome.operational:Program").stream()
-			.filter(p -> extId.equals(p.tValueByName("extId")))
+			.filter(p -> extId.equals(((Program) p).getExtId()))
 			.toList();
 		assertEquals(1, result.size());
 		return (Program) result.get(0);
@@ -481,14 +482,14 @@ public class TestDownloadDataImport extends BasicTestCase {
 
 	private static List<TLObject> masks(String extId) {
 		return instances("ehome.operational:MaskVersion").stream()
-			.filter(m -> extId.equals(m.tValueByName("extId")))
+			.filter(m -> extId.equals(((MaskVersion) m).getExtId()))
 			.toList();
 	}
 
 	private static List<?> maskRoot() {
-		TLObject root = TLModelUtil.findType("ehome.operational:MaskVersions").getModule()
+		MaskVersions root = (MaskVersions) TLModelUtil.findType("ehome.operational:MaskVersions").getModule()
 			.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
-		return (List<?>) root.tValueByName("masks");
+		return root.getMasks();
 	}
 
 	private static MaskResource resource(MaskVersion mask, String name) {

@@ -23,6 +23,9 @@ import com.top_logic.tl.ai.tool.api.ToolMethod;
 import com.top_logic.tl.ai.tool.api.ToolMode;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 
+import de.haumacher.ehome.model.monitor.Event;
+import de.haumacher.ehome.model.monitor.Telegram;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.MonitorRow;
 import de.haumacher.ehome.monitor.RecordingEntries;
 import de.haumacher.ehome.runtime.DatapointNames;
@@ -107,15 +110,15 @@ public class DiagnosisTools {
 		List<Object> entries = new ArrayList<>();
 		List<String> recordings = new ArrayList<>();
 		int found = 0;
-		for (TLObject recording : AutomationChange.objects(owner.tValueByName("recordings"))) {
+		for (TLObject recording : AutomationChange.objects(((Project) owner).getRecordings())) {
 			recordings.add(label(recording));
 			List<TLObject> objects = RecordingEntries.entries(recording);
 			List<MonitorRow> rows = RecordingEntries.rows(recording, ThreadContext.getTimeZone());
 			for (int n = 0; n < objects.size() && n < rows.size(); n++) {
 				TLObject entry = objects.get(n);
 				boolean match = RecordingEntries.isEvent(entry)
-					? imageId != null && imageId.equals(entry.tValueByName("name"))
-					: entry.tValueByName("groupAddress") == datapoint;
+					? imageId != null && imageId.equals(((Event) entry).getName())
+					: ((Telegram) entry).getGroupAddress() == datapoint;
 				if (!match) {
 					continue;
 				}

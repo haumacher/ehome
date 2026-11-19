@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -39,6 +38,8 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.zigbee.I18NConstants;
@@ -73,24 +74,24 @@ public class TestZigbeeReporting extends BasicTestCase {
 
 	public void testOverrides() throws Exception {
 		String text = Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8);
-		TLObject project = project("Zigbee reporting", "P-TEST-64-REPORTING");
+		Project project = project("Zigbee reporting", "P-TEST-64-REPORTING");
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.parse(text));
 				tx.commit();
 			}
-			List<TLObject> functions = objects(ZigbeeImport.devices(project).get(0), "functions");
-			TLObject temperature = functions.get(0);
-			TLObject illuminance = functions.get(1);
-			TLObject occupancy = functions.get(2);
-			TLObject battery = functions.get(3);
-			TLObject action = functions.get(4);
-			assertEquals("temperature", temperature.tValueByName("function"));
-			assertEquals("action", action.tValueByName("function"));
+			List<? extends ZigbeeFunction> functions = project.getZigbeeDevices().get(0).getFunctions();
+			ZigbeeFunction temperature = functions.get(0);
+			ZigbeeFunction illuminance = functions.get(1);
+			ZigbeeFunction occupancy = functions.get(2);
+			ZigbeeFunction battery = functions.get(3);
+			ZigbeeFunction action = functions.get(4);
+			assertEquals("temperature", temperature.getFunction());
+			assertEquals("action", action.getFunction());
 
 			// An export without reporting (an older controller): nothing reported, the tab shows the defaults.
-			assertNull(temperature.tValueByName("reportedMin"));
-			assertNull(temperature.tValueByName("reportedChange"));
+			assertNull(temperature.getReportedMin());
+			assertNull(temperature.getReportedChange());
 			assertEquals("Reports: every 30..600 s, change 0.1 °C (default)", summary(Locale.ENGLISH, temperature));
 			assertEquals("Berichte: alle 30..600 s, Änderung 0,1 °C (Standard)", summary(Locale.GERMAN, temperature));
 			assertEquals("Berichte: alle 10..600 s, Änderung nach Standard des Controllers (Standard)",
@@ -110,67 +111,73 @@ public class TestZigbeeReporting extends BasicTestCase {
 			assertFalse(untouched.getText(), untouched.getText().contains("\"reporting\""));
 
 			// The installer's override: exactly the members set.
-			update(temperature, Map.of(ZigbeeReporting.MIN, Integer.valueOf(30), ZigbeeReporting.MAX, Integer.valueOf(900),
-				ZigbeeReporting.CHANGE, Double.valueOf(0.5)));
+			update(() -> {
+				temperature.setReportingMin(Integer.valueOf(30));
+				temperature.setReportingMax(Integer.valueOf(900));
+				temperature.setReportingChange(Double.valueOf(0.5));
+			});
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			assertTrue(image.validate().toString(), image.validate().isValid());
 			assertEquals(map("min", Long.valueOf(30), "max", Long.valueOf(900), "change", Double.valueOf(0.5)),
 				zigbee(image, 1).get("reporting"));
 			assertFalse("A function without an override writes no reporting.", zigbee(image, 0).containsKey("reporting"));
-			update(temperature, map(ZigbeeReporting.MIN, null, ZigbeeReporting.CHANGE, null));
+			update(() -> {
+				temperature.setReportingMin(null);
+				temperature.setReportingChange(null);
+			});
 			assertEquals(map("max", Long.valueOf(900)), zigbee(RuntimeImage.build(project, 1, NOW), 1).get("reporting"));
 
 			// Without the override the image is the one of the untouched project again.
-			update(temperature, map(ZigbeeReporting.MAX, null));
+			update(() -> temperature.setReportingMax(null));
 			assertEquals(untouched.getText(), RuntimeImage.build(project, 1, NOW).getText());
 
 			// An override the controller refuses cannot be stored: the model checks the constraints at the commit.
 			try {
-				update(occupancy, map(ZigbeeReporting.CHANGE, Double.valueOf(1)));
+				update(() -> occupancy.setReportingChange(Double.valueOf(1)));
 				fail("An override the controller refuses is stored.");
 			} catch (TopLogicException ex) {
-				assertNull(occupancy.tValueByName(ZigbeeReporting.CHANGE));
+				assertNull(occupancy.getReportingChange());
 			}
 			assertNotNull(occupancyDp);
 
 			// Saved in the UI: the constraint of the attributes refuses with the controller's reason.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				occupancy.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(1));
+				occupancy.setReportingChange(Double.valueOf(1));
 				ResKey problem = problem(occupancy, ZigbeeReporting.CHANGE);
 				assertEquals(I18NConstants.REPORTING_NO_CHANGE_DISCRETE__FUNCTION.fill("occupancy"), problem);
 				assertSameText("the function occupancy has no reportable change (a discrete value reports every change)",
 					problem);
 				assertNull(problem(occupancy, ZigbeeReporting.MIN));
 
-				temperature.tUpdateByName(ZigbeeReporting.MAX, Integer.valueOf(65535));
+				temperature.setReportingMax(Integer.valueOf(65535));
 				assertNull(problem(temperature, ZigbeeReporting.MAX));
-				temperature.tUpdateByName(ZigbeeReporting.MIN, Integer.valueOf(900));
-				temperature.tUpdateByName(ZigbeeReporting.MAX, Integer.valueOf(30));
+				temperature.setReportingMin(Integer.valueOf(900));
+				temperature.setReportingMax(Integer.valueOf(30));
 				assertEquals(I18NConstants.REPORTING_MAX_BELOW_MIN, problem(temperature, ZigbeeReporting.MAX));
 				assertNull(problem(temperature, ZigbeeReporting.MIN));
-				temperature.tUpdateByName(ZigbeeReporting.MAX, null);
+				temperature.setReportingMax(null);
 				assertEquals("An absent max is the default 600.", I18NConstants.REPORTING_MIN_ABOVE_MAX,
 					problem(temperature, ZigbeeReporting.MIN));
-				temperature.tUpdateByName(ZigbeeReporting.MIN, Integer.valueOf(65535));
+				temperature.setReportingMin(Integer.valueOf(65535));
 				assertEquals(I18NConstants.REPORTING_MIN_RANGE, problem(temperature, ZigbeeReporting.MIN));
-				temperature.tUpdateByName(ZigbeeReporting.MIN, null);
-				temperature.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(327.68));
+				temperature.setReportingMin(null);
+				temperature.setReportingChange(Double.valueOf(327.68));
 				assertEquals(I18NConstants.REPORTING_CHANGE_TEMPERATURE, problem(temperature, ZigbeeReporting.CHANGE));
-				temperature.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(-0.1));
+				temperature.setReportingChange(Double.valueOf(-0.1));
 				assertEquals("Refused, not clamped.", I18NConstants.REPORTING_CHANGE_TEMPERATURE,
 					problem(temperature, ZigbeeReporting.CHANGE));
-				battery.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(100.5));
+				battery.setReportingChange(Double.valueOf(100.5));
 				assertEquals(I18NConstants.REPORTING_CHANGE_PERCENT, problem(battery, ZigbeeReporting.CHANGE));
-				illuminance.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(10));
+				illuminance.setReportingChange(Double.valueOf(10));
 				assertEquals(I18NConstants.REPORTING_NO_CHANGE_ILLUMINANCE, problem(illuminance, ZigbeeReporting.CHANGE));
-				action.tUpdateByName(ZigbeeReporting.MAX, Integer.valueOf(600));
+				action.setReportingMax(Integer.valueOf(600));
 				assertEquals(I18NConstants.REPORTING_NONE_ACTION, problem(action, ZigbeeReporting.MAX));
 				assertNull("Only the fields with a value show the refusal of the whole.", problem(action, ZigbeeReporting.MIN));
 				tx.rollback();
 			}
 
 			// An export with the effective reporting: mirrored, the installer's override stays.
-			update(temperature, map(ZigbeeReporting.MIN, Integer.valueOf(60)));
+			update(() -> temperature.setReportingMin(Integer.valueOf(60)));
 			Map<?, ?> export = (Map<?, ?>) Json.parse(text, 100);
 			List<?> exported = (List<?>) ((Map<?, ?>) ((List<?>) export.get("devices")).get(0)).get("functions");
 			put(exported.get(0), "reporting", map("min", Long.valueOf(60), "max", Long.valueOf(600), "change", Double.valueOf(0.1)));
@@ -179,24 +186,24 @@ public class TestZigbeeReporting extends BasicTestCase {
 				ZigbeeImport.importExport(project, ZigbeeExport.read(export));
 				tx.commit();
 			}
-			assertEquals(Integer.valueOf(60), temperature.tValueByName("reportedMin"));
-			assertEquals(Integer.valueOf(600), temperature.tValueByName("reportedMax"));
-			assertEquals(Double.valueOf(0.1), temperature.tValueByName("reportedChange"));
-			assertEquals(Integer.valueOf(60), temperature.tValueByName(ZigbeeReporting.MIN));
-			assertNull(temperature.tValueByName(ZigbeeReporting.MAX));
+			assertEquals(Integer.valueOf(60), temperature.getReportedMin());
+			assertEquals(Integer.valueOf(600), temperature.getReportedMax());
+			assertEquals(Double.valueOf(0.1), temperature.getReportedChange());
+			assertEquals(Integer.valueOf(60), temperature.getReportingMin());
+			assertNull(temperature.getReportingMax());
 			assertEquals("Berichte: alle 60..600 s, Änderung 0,1 °C (laut Controller)", summary(Locale.GERMAN, temperature));
 			assertEquals("Reports: on a change only, at most every 0 s (as the controller reports)",
 				summary(Locale.ENGLISH, occupancy));
-			assertNull(occupancy.tValueByName("reportedChange"));
-			assertNull(action.tValueByName("reportedMax"));
+			assertNull(occupancy.getReportedChange());
+			assertNull(action.getReportedMax());
 
 			// The same export again changes nothing; the older one empties the mirror, not the override.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.parse(text));
 				tx.commit();
 			}
-			assertNull(temperature.tValueByName("reportedMin"));
-			assertEquals(Integer.valueOf(60), temperature.tValueByName(ZigbeeReporting.MIN));
+			assertNull(temperature.getReportedMin());
+			assertEquals(Integer.valueOf(60), temperature.getReportingMin());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -284,32 +291,22 @@ public class TestZigbeeReporting extends BasicTestCase {
 		((Map<String, Object>) object).put(member, value);
 	}
 
-	private static void update(TLObject obj, Map<String, Object> values) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			for (Map.Entry<String, Object> entry : values.entrySet()) {
-				obj.tUpdateByName(entry.getKey(), entry.getValue());
-			}
+			change.run();
 			tx.commit();
 		}
 	}
 
-	private static TLObject project(String name, String extId) {
+	private static Project project(String name, String extId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("extId", extId);
+			project.setName(name);
+			project.setExtId(extId);
 			tx.commit();
 			return project;
 		}
-	}
-
-	private static List<TLObject> objects(TLObject owner, String reference) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object element : (Iterable<?>) owner.tValueByName(reference)) {
-			result.add((TLObject) element);
-		}
-		return result;
 	}
 
 	private static Map<String, Object> map(Object... keyValues) {

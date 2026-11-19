@@ -40,8 +40,11 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.importer.ArchiveContents;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 
 /**
  * Test of the messages of an ETS import ({@link Importer#getMessages()}): a value that does not fit
@@ -91,7 +94,7 @@ public class TestImportMessages extends BasicTestCase {
 
 		// The values are kept as text, and the import succeeded.
 		Parameter parameter = (Parameter) instances("ehome.operational:Parameter").stream()
-			.filter(p -> (PROGRAM + "_P-9006").equals(p.tValueByName("extId")))
+			.filter(p -> (PROGRAM + "_P-9006").equals(((Parameter) p).getExtId()))
 			.findFirst().orElseThrow();
 		assertEquals("300", parameter.getText());
 		assertNull(parameter.getNumber());
@@ -152,7 +155,7 @@ public class TestImportMessages extends BasicTestCase {
 			Map<String, TLObject> values = new HashMap<>();
 			for (String type : List.of("ehome.operational:Parameter", "ehome.operational:ParameterView")) {
 				for (TLObject value : instances(type)) {
-					String id = (String) value.tValueByName("extId");
+					String id = ((Externalized) value).getExtId();
 					if (id != null && id.startsWith(HIDDEN_PROGRAM + "_P-91")) {
 						values.put(id, value);
 					}
@@ -164,7 +167,7 @@ public class TestImportMessages extends BasicTestCase {
 			for (String id : List.of("9105", "9106")) {
 				TLObject parameter = values.get(HIDDEN_PROGRAM + "_P-" + id);
 				assertEquals("5", ParameterValues.encode(parameter));
-				assertNotNull(parameter.tValueByName(ParameterValues.CHOICE));
+				assertNotNull(((Parameter) parameter).getChoice());
 				assertKeptAsText(values.get(HIDDEN_PROGRAM + "_P-" + id + "_R-" + id));
 			}
 			List<TLObject> projects = SharedData.newProjects(before);
@@ -251,7 +254,7 @@ public class TestImportMessages extends BasicTestCase {
 				messages.stream().map(TestImportMessages::text).sorted().toList());
 			List<TLObject> projects = SharedData.newProjects(before);
 			assertEquals(1, projects.size());
-			assertEquals("P-01A0", projects.get(0).tValueByName("extId"));
+			assertEquals("P-01A0", ((Project) projects.get(0)).getExtId());
 			assertFalse(SharedData.within("ehome.logical:GroupAddress", projects).isEmpty());
 		} finally {
 			SharedData.deleteProjects(SharedData.newProjects(before));
@@ -271,7 +274,7 @@ public class TestImportMessages extends BasicTestCase {
 
 	private static List<TLObject> programs(String id) {
 		return instances("ehome.operational:Program").stream()
-			.filter(p -> id.equals(p.tValueByName("extId")))
+			.filter(p -> id.equals(((Program) p).getExtId()))
 			.toList();
 	}
 

@@ -70,6 +70,7 @@ import de.haumacher.ehome.calculation.DeviceValidations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.CalculationParameter;
+import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ParameterCalculation;
 import de.haumacher.ehome.model.operational.ParameterValidation;
 import de.haumacher.ehome.model.operational.Program;
@@ -171,17 +172,11 @@ public class Importer {
 	/** The beginning of an <code>Assign</code> element in a program file. */
 	private static final byte[] ASSIGN_MARKER = "<Assign ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
-	private static final String ASSIGNS_READ = "assignsRead";
-
 	private static final byte[] BUTTON_MARKER = "<Button ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-
-	private static final String BUTTONS_READ = "buttonsRead";
 
 	private static final byte[] CHANNEL_MARKER = "<Channel ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
 	private static final String CHANNEL_TYPE = "ehome.operational:Channel";
-
-	private static final String NUMBER = "number";
 
 	private static final byte[] EXTENSION_MARKER = "<Extension ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
@@ -487,8 +482,8 @@ public class Importer {
 			if (modules.getRefusal(id) != null) {
 				continue;
 			}
-			TLObject existing = existingProgram(id);
-			if (existing != null && Boolean.TRUE.equals(existing.tValueByName("usesModules"))) {
+			Program existing = existingProgram(id);
+			if (existing != null && Boolean.TRUE.equals(existing.getUsesModulesOrNull())) {
 				if (document == null) {
 					document = ModuleScan.parse(content);
 				}
@@ -513,8 +508,8 @@ public class Importer {
 		}
 		Document document = null;
 		for (String id : programIds(content)) {
-			TLObject existing = existingProgram(id);
-			if (existing == null || Boolean.TRUE.equals(existing.tValueByName(ASSIGNS_READ))) {
+			Program existing = existingProgram(id);
+			if (existing == null || Boolean.TRUE.equals(existing.getAssignsReadOrNull())) {
 				continue;
 			}
 			if (document == null) {
@@ -526,7 +521,7 @@ public class Importer {
 			}
 			try {
 				int count = AssignCompletion.complete(program, existing);
-				existing.tUpdateByName(ASSIGNS_READ, Boolean.TRUE);
+				existing.setAssignsRead(true);
 				if (count > 0) {
 					_messages.log(Level.INFO, I18NConstants.INFO_ASSIGNS_COMPLETED__PROGRAM_COUNT.fill(id, count));
 				}
@@ -548,8 +543,8 @@ public class Importer {
 		}
 		Document document = null;
 		for (String id : programIds(content)) {
-			TLObject existing = existingProgram(id);
-			if (!(existing instanceof Program program) || Boolean.TRUE.equals(existing.tValueByName(BUTTONS_READ))) {
+			Program program = existingProgram(id);
+			if (program == null || Boolean.TRUE.equals(program.getButtonsReadOrNull())) {
 				continue;
 			}
 			if (document == null) {
@@ -561,7 +556,7 @@ public class Importer {
 			}
 			try {
 				List<Button> added = ButtonCompletion.complete(xml, program);
-				existing.tUpdateByName(BUTTONS_READ, Boolean.TRUE);
+				program.setButtonsRead(true);
 				if (!added.isEmpty()) {
 					_messages.log(Level.INFO,
 						I18NConstants.INFO_BUTTONS_COMPLETED__PROGRAM_COUNT.fill(id, added.size()));
@@ -584,7 +579,7 @@ public class Importer {
 			return;
 		}
 		for (Map.Entry<String, Set<String>> entry : requirements(content).entrySet()) {
-			TLObject existing = existingProgram(entry.getKey());
+			Program existing = existingProgram(entry.getKey());
 			if (existing == null || _binding.isCreated(existing)) {
 				continue;
 			}
@@ -606,11 +601,11 @@ public class Importer {
 			return;
 		}
 		TLClass type = (TLClass) TLModelUtil.findType(CHANNEL_TYPE);
-		for (TLObject channel : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			Object id = channel.tValueByName("extId");
+		for (Channel channel : MetaElementUtil.getAllDirectInstancesOf(type, Channel.class)) {
+			Object id = channel.getExtId();
 			String number = id == null ? null : numbers.get(id.toString());
-			if (number != null && channel.tValueByName(NUMBER) == null && !_binding.isCreated(channel)) {
-				channel.tUpdateByName(NUMBER, number);
+			if (number != null && channel.getNumber() == null && !_binding.isCreated(channel)) {
+				channel.setNumber(number);
 				_messages.log(Level.INFO, I18NConstants.INFO_CHANNEL_NUMBER_COMPLETED__CHANNEL_NUMBER.fill(id, number));
 			}
 		}
@@ -725,10 +720,10 @@ public class Importer {
 	/**
 	 * The application program with the given ID in the database, <code>null</code> if there is none.
 	 */
-	private static TLObject existingProgram(String id) {
+	private static Program existingProgram(String id) {
 		TLClass type = (TLClass) TLModelUtil.findType(PROGRAM_TYPE);
-		for (TLObject program : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			if (id.equals(program.tValueByName("extId"))) {
+		for (Program program : MetaElementUtil.getAllDirectInstancesOf(type, Program.class)) {
+			if (id.equals(program.getExtId())) {
 				return program;
 			}
 		}
@@ -1270,8 +1265,8 @@ public class Importer {
 	private static Set<String> knownPrograms() {
 		Set<String> result = new HashSet<>();
 		TLClass type = (TLClass) TLModelUtil.findType(PROGRAM_TYPE);
-		for (TLObject program : MetaElementUtil.getAllInstancesOf(type, TLObject.class)) {
-			Object id = program.tValueByName("extId");
+		for (Program program : MetaElementUtil.getAllInstancesOf(type, Program.class)) {
+			Object id = program.getExtId();
 			if (id != null) {
 				result.add(id.toString());
 			}

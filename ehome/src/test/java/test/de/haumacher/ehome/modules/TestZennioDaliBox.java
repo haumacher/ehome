@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,14 +29,21 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.Allocator;
+import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.Location;
 import de.haumacher.ehome.model.operational.ModuleArgument;
+import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.PlacementArgument;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.TextType;
+import de.haumacher.ehome.model.operational.TimeType;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
@@ -102,8 +108,7 @@ public class TestZennioDaliBox extends BasicTestCase {
 			TLObject device;
 			try (Transaction tx = kb().beginTransaction()) {
 				TLObject assignment = assignment();
-				TLObject variant = (TLObject) ((Collection<?>) ((TLObject) assignment.tContainer())
-					.tValueByName("variants")).iterator().next();
+				TLObject variant = ((Product) assignment.tContainer()).getVariants().iterator().next();
 				device = DevicePlanning.create(line, variant, assignment, Integer.valueOf(20), "TEST DALI", null);
 				tx.commit();
 			}
@@ -209,8 +214,20 @@ public class TestZennioDaliBox extends BasicTestCase {
 	}
 
 	private static int bits(Parameter parameter) {
-		Object bits = parameter.getType().tValueByName("bits");
-		return bits instanceof Number number ? number.intValue() : 8;
+		ParameterType type = parameter.getType();
+		if (type instanceof NumericType numeric) {
+			return numeric.getBits();
+		}
+		if (type instanceof EnumerationType enumeration) {
+			return enumeration.getBits();
+		}
+		if (type instanceof TextType text) {
+			return text.getBits();
+		}
+		if (type instanceof TimeType time) {
+			return time.getBits();
+		}
+		return 8;
 	}
 
 	/**
@@ -276,12 +293,12 @@ public class TestZennioDaliBox extends BasicTestCase {
 
 	private static TLObject assignment() {
 		return instances("ehome.catalog:ProgramAssignment").stream()
-			.filter(a -> ASSIGNMENT.equals(a.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(a -> ASSIGNMENT.equals(((ProgramAssignment) a).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static Program program() {
 		return (Program) instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(p -> PROGRAM.equals(((Program) p).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static KnowledgeBase kb() {

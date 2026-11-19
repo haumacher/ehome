@@ -12,4 +12,11 @@ public interface MaskConfiguration extends de.haumacher.ehome.model.operational.
 
 	// Wrapper functionality.
 
+	/**
+	 * {@link #getLegacy()} as stored: <code>null</code> if unset.
+	 */
+	default Boolean getLegacyOrNull() {
+		return (Boolean) tValueByName(LEGACY_ATTR);
+	}
+
 }

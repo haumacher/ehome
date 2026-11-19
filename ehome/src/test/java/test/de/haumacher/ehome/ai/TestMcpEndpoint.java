@@ -16,7 +16,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +65,8 @@ import com.top_logic.tl.ai.core.security.AiToolAccessService;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.Json;
 
 /**
@@ -210,10 +211,10 @@ public class TestMcpEndpoint extends BasicTestCase {
 		PersistencyLayer.getKnowledgeBase().refetch();
 		List<TLObject> buildings = buildings();
 		assertEquals(1, buildings.size());
-		assertEquals("MCP-Haus", buildings.get(0).tValueByName("name"));
-		List<?> floors = (List<?>) buildings.get(0).tValueByName("parts");
+		assertEquals("MCP-Haus", ((BuildingDefinition) buildings.get(0)).getName());
+		List<?> floors = ((BuildingDefinition) buildings.get(0)).getParts();
 		assertEquals(1, floors.size());
-		assertEquals("Erdgeschoss", ((TLObject) floors.get(0)).tValueByName("name"));
+		assertEquals("Erdgeschoss", ((BuildingDefinition) floors.get(0)).getName());
 	}
 
 	/**
@@ -263,7 +264,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 		assertFalse(created, created.contains("when this turn ends"));
 		PersistencyLayer.getKnowledgeBase().refetch();
 		TLObject building = buildings().stream()
-			.filter(b -> "Protokollhaus".equals(b.tValueByName("name"))).findFirst().orElseThrow();
+			.filter(b -> "Protokollhaus".equals(((BuildingDefinition) b).getName())).findFirst().orElseThrow();
 		ResKey log = WrapperHistoryUtils.getCreateRevision(building).getLog();
 		String message = Resources.getInstance(Locale.ENGLISH).getString(log);
 		assertTrue("The revision of the call names the part created: " + message, message.contains("Protokollhaus"));
@@ -311,7 +312,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 
 	private List<TLObject> buildings() {
 		List<TLObject> result = new ArrayList<>();
-		for (Object building : (Collection<?>) _fixture.project().tValueByName("buildings")) {
+		for (Object building : ((Project) _fixture.project()).getBuildings()) {
 			result.add((TLObject) building);
 		}
 		return result;

@@ -29,6 +29,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ProposeFunctionsAction;
 
@@ -51,7 +52,7 @@ public class TestCommitMessages extends BasicTestCase {
 			List<TLObject> created = SharedData.newProjects(before);
 			assertEquals(1, created.size());
 			TLObject project = created.get(0);
-			assertEquals("Test", project.tValueByName("name"));
+			assertEquals("Test", ((Project) project).getName());
 
 			ResKey importMessage = WrapperHistoryUtils.getCreateRevision(project).getLog();
 			assertEquals("ETS import: Test", text(importMessage, Locale.ENGLISH));

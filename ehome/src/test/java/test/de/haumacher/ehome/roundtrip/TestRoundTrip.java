@@ -51,6 +51,11 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 
@@ -148,27 +153,30 @@ public class TestRoundTrip extends BasicTestCase {
 		assertEquals(Map.of(TASTSENSOR, Set.of("en")), _added.get(DEMO));
 		assertEquals(Map.of(), _added.get(TESTSYSTEM));
 
-		TLObject program = shared("ehome.operational:Program", TASTSENSOR);
+		Program program = shared("ehome.operational:Program", TASTSENSOR);
 		// German from Test.knxproj (the demo writes "komfort").
 		assertTexts("Tastsensor 3 Komfort 3fach 10D711", "Push button sensor 3 comfort 3-gang 10D711",
-			program, "name");
+			program.getNameKey());
 		assertTexts("Kanal 1 oder Kanal 2", "Channel 1 or channel 2",
-			shared("ehome.operational:EnumerationValue", TASTSENSOR + "_PT-2Kanal.5FBedienkonzept_EN-0"), "name");
-		TLObject function = shared("ehome.operational:Interface", TASTSENSOR + "_O-0_R-1031");
-		assertTexts("Kanal 1 Schalten", "Channel 1 switching", function, "function");
-		assertTexts("Wippe 1", "Rocker 1", shared("ehome.operational:Interface", TASTSENSOR + "_O-0_R-1662"), "name");
+			((EnumerationValue) shared("ehome.operational:EnumerationValue",
+				TASTSENSOR + "_PT-2Kanal.5FBedienkonzept_EN-0")).getNameKey());
+		Interface function = shared("ehome.operational:Interface", TASTSENSOR + "_O-0_R-1031");
+		assertTexts("Kanal 1 Schalten", "Channel 1 switching", function.getFunction());
+		assertTexts("Wippe 1", "Rocker 1",
+			((Interface) shared("ehome.operational:Interface", TASTSENSOR + "_O-0_R-1662")).getNameKey());
 		assertTexts("Funktion_SNST", "SNST_function",
-			shared("ehome.operational:ParameterView", TASTSENSOR + "_P-147_R-231"), "description");
+			((ParameterView) shared("ehome.operational:ParameterView", TASTSENSOR + "_P-147_R-231")).getDescription());
 	}
 
-	private static TLObject shared(String type, String extId) {
-		List<TLObject> result = instances(type).stream().filter(obj -> extId.equals(obj.tValueByName("extId"))).toList();
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T shared(String type, String extId) {
+		List<TLObject> result =
+			instances(type).stream().filter(obj -> extId.equals(((Externalized) obj).getExtId())).toList();
 		assertEquals(extId, 1, result.size());
-		return result.get(0);
+		return (T) result.get(0);
 	}
 
-	private static void assertTexts(String german, String english, TLObject obj, String attribute) {
-		ResKey value = (ResKey) obj.tValueByName(attribute);
+	private static void assertTexts(String german, String english, ResKey value) {
 		assertEquals(german, ResKeyUtil.getTranslation(value, Locale.GERMAN));
 		assertEquals(english, ResKeyUtil.getTranslation(value, Locale.ENGLISH));
 	}
@@ -243,7 +251,7 @@ public class TestRoundTrip extends BasicTestCase {
 		Map<String, Set<String>> known = new HashMap<>();
 		Map<String, Set<String>> added = added(importer);
 		for (TLObject program : importer.getKnown("ehome.operational:Program")) {
-			String id = (String) program.tValueByName("extId");
+			String id = ((Program) program).getExtId();
 			known.put(id.substring(0, id.indexOf('_')) + "/" + id + ".xml", added.getOrDefault(id, Set.of()));
 		}
 		List<KnxprojDiff.Difference> result = new ArrayList<>();
@@ -267,7 +275,7 @@ public class TestRoundTrip extends BasicTestCase {
 			for (Locale locale : entry.getValue()) {
 				languages.add(locale.getLanguage());
 			}
-			result.put((String) entry.getKey().tValueByName("extId"), languages);
+			result.put(((Program) entry.getKey()).getExtId(), languages);
 		}
 		return result;
 	}

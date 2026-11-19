@@ -12,4 +12,18 @@ public interface Controller extends de.haumacher.ehome.model.runtime.internal.Co
 
 	// Wrapper functionality.
 
+	/**
+	 * Whether the Zigbee network was up at the last export; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Boolean getZigbeeNetworkUpOrNull() {
+		return (Boolean) tValueByName(ZIGBEE_NETWORK_UP_ATTR);
+	}
+
+	/**
+	 * Whether the last read of the Zigbee devices was live; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Boolean getZigbeeReadLiveOrNull() {
+		return (Boolean) tValueByName(ZIGBEE_READ_LIVE_ATTR);
+	}
+
 }

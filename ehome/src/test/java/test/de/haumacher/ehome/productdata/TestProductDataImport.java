@@ -48,6 +48,13 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.etsImport.ImportProductDataJob;
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.catalog.Catalog;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Test case for the import of the product file of a manufacturer (<code>.knxprod</code>) with
@@ -167,9 +174,9 @@ public class TestProductDataImport extends BasicTestCase {
 		Importer importer = importProduct(FIXTURES + "TestNewProduct.knxprod");
 		assertEquals(List.of(), TestEtsImport.withoutMasterData(importer.getMessages()));
 
-		TLObject testProgram = byExtId("ehome.operational:Program", TEST_PROGRAM);
-		TLObject program = byExtId("ehome.operational:Program", NEW_PROGRAM);
-		int parameters = ((Collection<?>) testProgram.tValueByName("parameters")).size();
+		Program testProgram = byExtId("ehome.operational:Program", TEST_PROGRAM);
+		Program program = byExtId("ehome.operational:Program", NEW_PROGRAM);
+		int parameters = testProgram.getParameters().size();
 
 		Map<String, Integer> expected = new LinkedHashMap<>(before);
 		expected.merge("ehome.catalog:Catalog", 2, Integer::sum);
@@ -181,8 +188,8 @@ public class TestProductDataImport extends BasicTestCase {
 		assertEquals(expected, counts());
 
 		// The report of the importer.
-		TLObject manufacturer = byExtId("ehome.catalog:Manufacturer", "M-0008");
-		TLObject product = byExtId("ehome.catalog:Product", NEW_HARDWARE);
+		Manufacturer manufacturer = byExtId("ehome.catalog:Manufacturer", "M-0008");
+		Product product = byExtId("ehome.catalog:Product", NEW_HARDWARE);
 		assertEquals(List.of(product), importer.getCreated("ehome.catalog:Product"));
 		assertEquals(List.of(program), importer.getCreated("ehome.operational:Program"));
 		assertEquals(List.of(), importer.getKnown("ehome.operational:Program"));
@@ -190,30 +197,32 @@ public class TestProductDataImport extends BasicTestCase {
 
 		// The program has the content of the program of the Test project, which differs in its IDs
 		// and names only.
+		Map<String, Integer> testSizes = sizes(testProgram);
+		Map<String, Integer> sizes = sizes(program);
 		for (String part : List.of("parameterTypes", "parameters", "ports", "segments", "loadProcedures",
 			"unplaced")) {
-			assertEquals(part, size(testProgram, part), size(program, part));
+			assertEquals(part, testSizes.get(part).intValue(), sizes.get(part).intValue());
 		}
 		assertEquals(descendants(testProgram).size(), descendants(program).size());
-		assertEquals(testProgram.tValueByName("mask"), program.tValueByName("mask"));
+		assertEquals(testProgram.getMask(), program.getMask());
 		assertSame(manufacturer, program.tContainer());
-		assertEquals("TEST: Produktdaten 10D711 (künstliche Testdaten)", german(program, "name"));
+		assertEquals("TEST: Produktdaten 10D711 (künstliche Testdaten)", german(program.getNameKey()));
 
 		// The catalog: a section with a subsection listing the variant of the product, which is
 		// assigned the program.
-		TLObject section = byExtId("ehome.catalog:Catalog", "M-0008_CS-TEST");
-		assertTrue(((Collection<?>) manufacturer.tValueByName("catalogs")).contains(section));
-		assertEquals("TEST: Taster", german(section, "name"));
-		TLObject subsection = byExtId("ehome.catalog:Catalog", "M-0008_CS-TEST-P3");
-		assertEquals(List.of(subsection), list(section, "sections"));
-		TLObject variant = byExtId("ehome.catalog:Variant", NEW_VARIANT);
-		assertEquals(List.of(variant), list(subsection, "variants"));
-		assertEquals("TEST: Produktdaten (künstliche Testdaten)", german(variant, "name"));
-		assertEquals("5133 00", variant.tValueByName("orderNumber"));
+		Catalog section = byExtId("ehome.catalog:Catalog", "M-0008_CS-TEST");
+		assertTrue(manufacturer.getCatalogs().contains(section));
+		assertEquals("TEST: Taster", german(section.getNameKey()));
+		Catalog subsection = byExtId("ehome.catalog:Catalog", "M-0008_CS-TEST-P3");
+		assertEquals(List.of(subsection), list(section.getSections()));
+		Variant variant = byExtId("ehome.catalog:Variant", NEW_VARIANT);
+		assertEquals(List.of(variant), list(subsection.getVariants()));
+		assertEquals("TEST: Produktdaten (künstliche Testdaten)", german(variant.getNameKey()));
+		assertEquals("5133 00", variant.getOrderNumber());
 		assertSame(product, variant.tContainer());
-		assertTrue(((Collection<?>) manufacturer.tValueByName("products")).contains(product));
-		TLObject assignment = single(product.tValueByName("programs"));
-		assertSame(program, assignment.tValueByName("program"));
+		assertTrue(manufacturer.getProducts().contains(product));
+		ProgramAssignment assignment = (ProgramAssignment) single(product.getPrograms());
+		assertSame(program, assignment.getProgram());
 
 		// Twice: nothing changes, everything is known.
 		Map<String, Integer> imported = counts();
@@ -299,16 +308,24 @@ public class TestProductDataImport extends BasicTestCase {
 		return MetaLabelProvider.INSTANCE.getLabel(obj);
 	}
 
-	private static String german(TLObject obj, String attribute) {
-		return ResKeyUtil.getTranslation((ResKey) obj.tValueByName(attribute), Locale.GERMAN);
+	private static String german(ResKey text) {
+		return ResKeyUtil.getTranslation(text, Locale.GERMAN);
 	}
 
-	private static List<Object> list(TLObject obj, String part) {
-		return new ArrayList<>((Collection<?>) obj.tValueByName(part));
+	private static List<Object> list(Collection<?> values) {
+		return new ArrayList<>(values);
 	}
 
-	private static int size(TLObject obj, String part) {
-		return ((Collection<?>) obj.tValueByName(part)).size();
+	/** The number of the elements of the program's parts compared. */
+	private static Map<String, Integer> sizes(Program program) {
+		Map<String, Integer> result = new LinkedHashMap<>();
+		result.put("parameterTypes", program.getParameterTypes().size());
+		result.put("parameters", program.getParameters().size());
+		result.put("ports", program.getPorts().size());
+		result.put("segments", program.getSegments().size());
+		result.put("loadProcedures", program.getLoadProcedures().size());
+		result.put("unplaced", program.getUnplaced().size());
+		return result;
 	}
 
 	private static TLObject single(Object collection) {
@@ -370,15 +387,16 @@ public class TestProductDataImport extends BasicTestCase {
 			List.of(BinaryDataFactory.createBinaryDataWithName(source, source.getName())));
 	}
 
-	private static TLObject byExtId(String typeName, String extId) {
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T byExtId(String typeName, String extId) {
 		List<TLObject> result = withExtId(typeName, extId);
 		assertEquals(typeName + " " + extId, 1, result.size());
-		return result.get(0);
+		return (T) result.get(0);
 	}
 
 	private static List<TLObject> withExtId(String typeName, String extId) {
 		return instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 	}
 

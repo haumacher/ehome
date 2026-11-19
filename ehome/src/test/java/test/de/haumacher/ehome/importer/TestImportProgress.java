@@ -56,6 +56,9 @@ import de.haumacher.ehome.importer.ArchiveContents;
 import de.haumacher.ehome.importer.ImportProgress;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.importer.ProtectedProject;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 
 /**
  * Test of the progress of an ETS import (haumacher/ehome #84): the counting pass
@@ -375,7 +378,7 @@ public class TestImportProgress extends BasicTestCase {
 		try (Transaction tx = kb.beginTransaction()) {
 			project = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", "Database usable");
+			((Project) project).setName("Database usable");
 			tx.commit();
 		}
 		assertTrue(instances("ehome.project:Project").contains(project));
@@ -413,7 +416,7 @@ public class TestImportProgress extends BasicTestCase {
 				messages.add(text);
 				if (text.contains("(2 of 2)")) {
 					for (TLObject program : importer.getCreated(PROGRAM_TYPE)) {
-						createdBeforeCancel.add((String) program.tValueByName("extId"));
+						createdBeforeCancel.add(((Program) program).getExtId());
 					}
 					throw new AbortExecutionException("Cancelled by the test.", null);
 				}
@@ -561,7 +564,7 @@ public class TestImportProgress extends BasicTestCase {
 	}
 
 	private static List<TLObject> withExtId(String typeName, String extId) {
-		return instances(typeName).stream().filter(obj -> extId.equals(obj.tValueByName("extId"))).toList();
+		return instances(typeName).stream().filter(obj -> extId.equals(((Externalized) obj).getExtId())).toList();
 	}
 
 	public static Test suite() {

@@ -57,6 +57,18 @@ import de.haumacher.ehome.etsImport.UpdateFromEtsJob;
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ProjectParts;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.monitor.Telegram;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.WriteAction;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.runtime.IdRenames;
@@ -100,58 +112,58 @@ public class TestProjectUpdate extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		try {
 			TLObject project = importProject(BASE, before, projects);
-			TLObject ga3 = knx(project, P + "GA-3");
+			GroupAddress ga3 = (GroupAddress) knx(project, P + "GA-3");
 			TLObject flur = knx(project, P + "DI-2");
-			TLObject kueche = knx(project, P + "BP-3");
-			TLObject erdgeschoss = knx(project, P + "BP-2");
-			TLObject rule;
-			TLObject trigger;
-			TLObject write;
-			TLObject reaction;
-			TLObject function;
-			TLObject zigbee;
-			TLObject telegram;
-			TLObject controller;
+			BuildingDefinition kueche = (BuildingDefinition) knx(project, P + "BP-3");
+			BuildingDefinition erdgeschoss = (BuildingDefinition) knx(project, P + "BP-2");
+			Rule rule;
+			DatapointTrigger trigger;
+			WriteAction write;
+			Reaction reaction;
+			Function function;
+			ZigbeeDevice zigbee;
+			Telegram telegram;
+			Controller controller;
 			try (Transaction tx = kb().beginTransaction()) {
-				ga3.tUpdateByName("runtimeWritable", Boolean.TRUE);
-				rule = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
-				rule.tUpdateByName("identifier", "licht");
-				rule.tUpdateByName("name", text("Licht"));
-				reaction = RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
-				trigger = RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", ga3);
-				write = RuleFunctions.create(reaction, "actions", type("ehome.runtime:WriteAction"));
-				write.tUpdateByName("datapoint", ga3);
-				write.tUpdateByName("value", "true");
-				reaction.tUpdateByName("condition", "@\"0/0/3\"");
+				ga3.setRuntimeWritable(Boolean.TRUE);
+				rule = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				rule.setIdentifier("licht");
+				rule.setNameKey(text("Licht"));
+				reaction = (Reaction) RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
+				trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
+				trigger.setDatapoint(ga3);
+				write = (WriteAction) RuleFunctions.create(reaction, "actions", type("ehome.runtime:WriteAction"));
+				write.setDatapoint(ga3);
+				write.setValue("true");
+				reaction.setCondition("@\"0/0/3\"");
 
-				function = create("ehome.runtime:Function");
-				function.tUpdateByName("name", text("Licht Küche"));
-				function.tUpdateByName("kind", light());
-				function.tUpdateByName("command", ga3);
-				function.tUpdateByName("device", flur);
-				function.tUpdateByName("room", kueche);
-				project.tUpdateByName("functions", List.of(function));
+				function = (Function) create("ehome.runtime:Function");
+				function.setNameKey(text("Licht Küche"));
+				function.setKind(light());
+				function.setCommand(ga3);
+				function.setDevice(flur);
+				function.setRoom(kueche);
+				((Project) project).setFunctions(List.of(function));
 
-				zigbee = create("ehome.zigbee:ZigbeeDevice");
-				zigbee.tUpdateByName("ieee", "001788010f069c8e");
-				zigbee.tUpdateByName("location", kueche);
-				project.tUpdateByName("zigbeeDevices", List.of(zigbee));
+				zigbee = (ZigbeeDevice) create("ehome.zigbee:ZigbeeDevice");
+				zigbee.setIeee("001788010f069c8e");
+				zigbee.setLocation(kueche);
+				((Project) project).setZigbeeDevices(List.of(zigbee));
 
-				TLObject recording = create("ehome.monitor:Recording");
-				recording.tUpdateByName("name", "Aufzeichnung");
-				telegram = create("ehome.monitor:Telegram");
-				telegram.tUpdateByName("groupAddress", ga3);
-				telegram.tUpdateByName("address", ga3.tValueByName("address"));
-				telegram.tUpdateByName("sender", flur);
-				recording.tUpdateByName("telegrams", List.of(telegram));
-				project.tUpdateByName("recordings", List.of(recording));
+				Recording recording = (Recording) create("ehome.monitor:Recording");
+				recording.setName("Aufzeichnung");
+				telegram = (Telegram) create("ehome.monitor:Telegram");
+				telegram.setGroupAddress(ga3);
+				telegram.setAddress(ga3.getAddress());
+				telegram.setSender(flur);
+				recording.setTelegrams(Set.of(telegram));
+				((Project) project).setRecordings(Set.of(recording));
 
-				controller = create("ehome.runtime:Controller");
-				controller.tUpdateByName("name", "Flur");
-				controller.tUpdateByName("port", Integer.valueOf(80));
-				project.tUpdateByName("controllers", List.of(controller));
-				project.tUpdateByName("controller", controller);
+				controller = (Controller) create("ehome.runtime:Controller");
+				controller.setName("Flur");
+				controller.setPort(80);
+				((Project) project).setControllers(List.of(controller));
+				((Project) project).setController(controller);
 				tx.commit();
 			}
 
@@ -165,25 +177,25 @@ public class TestProjectUpdate extends BasicTestCase {
 			// The re-addressed and renamed group address keeps its identity and E-Home's data.
 			assertTrue(ga3.tValid());
 			assertEquals("0/0/4", Pages.imageId(ga3));
-			assertEquals("Licht Küche", ga3.tValueByName("name"));
-			assertEquals(Boolean.TRUE, ga3.tValueByName("runtimeWritable"));
-			assertSame(ga3, trigger.tValueByName("datapoint"));
-			assertSame(ga3, write.tValueByName("datapoint"));
-			assertSame(ga3, function.tValueByName("command"));
-			assertSame(ga3, telegram.tValueByName("groupAddress"));
+			assertEquals("Licht Küche", ga3.getName());
+			assertEquals(Boolean.TRUE, ga3.getRuntimeWritable());
+			assertSame(ga3, trigger.getDatapoint());
+			assertSame(ga3, write.getDatapoint());
+			assertSame(ga3, function.getCommand());
+			assertSame(ga3, telegram.getGroupAddress());
 			// The expression naming the address follows it (IdRenames).
-			assertEquals("@\"0/0/4\"", reaction.tValueByName("condition"));
+			assertEquals("@\"0/0/4\"", reaction.getCondition());
 
 			// The device moved to another line keeps its identity and its function.
 			assertTrue(flur.tValid());
-			assertSame(flur, function.tValueByName("device"));
-			assertSame(flur, telegram.tValueByName("sender"));
+			assertSame(flur, function.getDevice());
+			assertSame(flur, telegram.getSender());
 			assertEquals(P + "L-2", ExtIds.extId(flur.tContainer()));
-			assertSame(kueche, zigbee.tValueByName("location"));
-			assertSame(controller, project.tValueByName("controller"));
+			assertSame(kueche, zigbee.getLocation());
+			assertSame(controller, ((Project) project).getController());
 
 			// Additions and removals.
-			assertEquals("Neu", knx(project, P + "GA-13").tValueByName("name"));
+			assertEquals("Neu", ((GroupAddress) knx(project, P + "GA-13")).getName());
 			TLObject bad = knx(project, P + "DI-4");
 			assertEquals(P + "L-2", ExtIds.extId(bad.tContainer()));
 			assertEquals(P + "BP-6", ExtIds.extId((TLObject) bad.tValueByName("location")));
@@ -228,16 +240,16 @@ public class TestProjectUpdate extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		try {
 			TLObject project = importProject(BASE, before, projects);
-			TLObject ga1 = knx(project, P + "GA-1");
-			TLObject ga3 = knx(project, P + "GA-3");
-			Object etsName = ga1.tValueByName("name");
-			Object etsDescription = ga1.tValueByName("description");
+			GroupAddress ga1 = (GroupAddress) knx(project, P + "GA-1");
+			GroupAddress ga3 = (GroupAddress) knx(project, P + "GA-3");
+			Object etsName = ga1.getName();
+			Object etsDescription = ga1.getDescription();
 			assertFalse(String.valueOf(etsName).isBlank());
 
 			// An export of ETS that has no name and no description for GA-1.
 			try (Transaction tx = kb().beginTransaction()) {
-				ga1.tUpdateByName("name", null);
-				ga1.tUpdateByName("description", null);
+				ga1.setName(null);
+				ga1.setDescription(null);
 				tx.commit();
 			}
 			Path unnamed = Path.of("target/update/TestUpdateUnnamed.knxproj");
@@ -245,44 +257,44 @@ public class TestProjectUpdate extends BasicTestCase {
 			Files.write(unnamed, export(project));
 
 			TLObject reaction;
-			TLObject write;
+			WriteAction write;
 			try (Transaction tx = kb().beginTransaction()) {
-				ga1.tUpdateByName("name", "Zentral Licht");
-				ga1.tUpdateByName("description", "Aus E-Home");
-				ga3.tUpdateByName("name", "Mein Name");
-				ga3.tUpdateByName("identifier", "kueche.licht");
-				ga3.tUpdateByName("runtimeWritable", Boolean.TRUE);
-				TLObject rule = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
-				rule.tUpdateByName("identifier", "licht");
+				ga1.setName("Zentral Licht");
+				ga1.setDescription("Aus E-Home");
+				ga3.setName("Mein Name");
+				ga3.setIdentifier("kueche.licht");
+				ga3.setRuntimeWritable(Boolean.TRUE);
+				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				rule.setIdentifier("licht");
 				reaction = RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
-				TLObject trigger = RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", ga1);
-				write = RuleFunctions.create(reaction, "actions", type("ehome.runtime:WriteAction"));
-				write.tUpdateByName("datapoint", ga3);
-				write.tUpdateByName("value", "not @\"0/0/3\"");
+				DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
+				trigger.setDatapoint(ga1);
+				write = (WriteAction) RuleFunctions.create(reaction, "actions", type("ehome.runtime:WriteAction"));
+				write.setDatapoint(ga3);
+				write.setValue("not @\"0/0/3\"");
 				tx.commit();
 			}
 			// Entered with the address, stored with the identifier.
-			assertEquals("not @kueche.licht", write.tValueByName("value"));
+			assertEquals("not @kueche.licht", write.getValue());
 
 			// The file without the name of GA-1 keeps E-Home's name and description; GA-3's name in the
 			// file wins over the one given in E-Home.
 			update(project, unnamed.toString());
-			assertEquals("Zentral Licht", ga1.tValueByName("name"));
-			assertEquals("Aus E-Home", ga1.tValueByName("description"));
-			assertEquals("GA3", ga3.tValueByName("name"));
-			assertEquals("kueche.licht", ga3.tValueByName("identifier"));
+			assertEquals("Zentral Licht", ga1.getName());
+			assertEquals("Aus E-Home", ga1.getDescription());
+			assertEquals("GA3", ga3.getName());
+			assertEquals("kueche.licht", ga3.getIdentifier());
 
 			// Re-addressed in ETS: the identifier, the rule and the datapoint's id stay, the binding follows.
 			update(project, NEW);
 			assertTrue(ga3.tValid());
-			assertEquals("Licht Küche", ga3.tValueByName("name"));
-			assertEquals("kueche.licht", ga3.tValueByName("identifier"));
+			assertEquals("Licht Küche", ga3.getName());
+			assertEquals("kueche.licht", ga3.getIdentifier());
 			assertEquals("kueche.licht", Pages.imageId(ga3));
-			assertEquals("not @kueche.licht", write.tValueByName("value"));
-			assertSame(ga3, write.tValueByName("datapoint"));
-			assertEquals(etsName, ga1.tValueByName("name"));
-			assertEquals(etsDescription == null ? "Aus E-Home" : etsDescription, ga1.tValueByName("description"));
+			assertEquals("not @kueche.licht", write.getValue());
+			assertSame(ga3, write.getDatapoint());
+			assertEquals(etsName, ga1.getName());
+			assertEquals(etsDescription == null ? "Aus E-Home" : etsDescription, ga1.getDescription());
 			boolean found = false;
 			for (Object datapoint : (List<?>) RuntimeImage.build(project, 1, Instant.now()).getJson().get("datapoints")) {
 				if ("kueche.licht".equals(((Map<?, ?>) datapoint).get("id"))) {
@@ -305,21 +317,21 @@ public class TestProjectUpdate extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		try {
 			TLObject project = importProject(BASE, before, projects);
-			TLObject jalousie = knx(project, P + "GA-12");
-			TLObject used;
-			TLObject named;
+			GroupAddress jalousie = (GroupAddress) knx(project, P + "GA-12");
+			Rule used;
+			Rule named;
 			try (Transaction tx = kb().beginTransaction()) {
-				used = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
-				used.tUpdateByName("identifier", "jalousie");
-				used.tUpdateByName("name", text("Jalousie fahren"));
+				used = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				used.setIdentifier("jalousie");
+				used.setNameKey(text("Jalousie fahren"));
 				TLObject reaction = RuleFunctions.create(used, "reactions", type("ehome.runtime:Reaction"));
-				TLObject trigger = RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", jalousie);
-				named = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
-				named.tUpdateByName("identifier", "unbenutzt");
-				named.tUpdateByName("name", text("Unbenutzt prüfen"));
-				TLObject other = RuleFunctions.create(named, "reactions", type("ehome.runtime:Reaction"));
-				other.tUpdateByName("condition", "@\"1/0/1\"");
+				DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
+				trigger.setDatapoint(jalousie);
+				named = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				named.setIdentifier("unbenutzt");
+				named.setNameKey(text("Unbenutzt prüfen"));
+				Reaction other = (Reaction) RuleFunctions.create(named, "reactions", type("ehome.runtime:Reaction"));
+				other.setCondition("@\"1/0/1\"");
 				tx.commit();
 			}
 
@@ -382,11 +394,11 @@ public class TestProjectUpdate extends BasicTestCase {
 			assertEquals(List.of(project), SharedData.newProjects(before));
 
 			// The user's order of the rooms stays, the new room comes last.
-			TLObject erdgeschoss = knx(project, P + "BP-2");
+			BuildingDefinition erdgeschoss = (BuildingDefinition) knx(project, P + "BP-2");
 			try (Transaction tx = kb().beginTransaction()) {
-				List<TLObject> parts = new ArrayList<>(ProjectParts.values(erdgeschoss.tValueByName("parts")));
+				List<BuildingDefinition> parts = new ArrayList<>(erdgeschoss.getParts());
 				parts.add(0, parts.remove(2));
-				erdgeschoss.tUpdateByName("parts", parts);
+				erdgeschoss.setParts(parts);
 				tx.commit();
 			}
 			assertEquals(List.of("Verteiler", "Wohnzimmer", "Küche"), names(erdgeschoss));
@@ -410,24 +422,24 @@ public class TestProjectUpdate extends BasicTestCase {
 			TLObject line = kueche.tContainer();
 			TLObject range = knx(project, P + "GR-3");
 			TLObject planned;
-			TLObject address;
-			TLObject trigger;
-			TLObject function;
+			GroupAddress address;
+			DatapointTrigger trigger;
+			Function function;
 			try (Transaction tx = kb().beginTransaction()) {
 				planned = DevicePlanning.create(line, (TLObject) kueche.tValueByName("type"),
 					(TLObject) kueche.tValueByName("program"), Integer.valueOf(5), "Geplant", null);
-				address = GroupAddresses.create(range, Integer.valueOf(5), "Eigene", null);
-				TLObject rule = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
-				rule.tUpdateByName("identifier", "eigene");
-				rule.tUpdateByName("name", text("Eigene"));
+				address = (GroupAddress) GroupAddresses.create(range, Integer.valueOf(5), "Eigene", null);
+				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				rule.setIdentifier("eigene");
+				rule.setNameKey(text("Eigene"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
-				trigger = RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", address);
-				function = create("ehome.runtime:Function");
-				function.tUpdateByName("name", text("Geplant"));
-				function.tUpdateByName("kind", light());
-				function.tUpdateByName("device", planned);
-				project.tUpdateByName("functions", List.of(function));
+				trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
+				trigger.setDatapoint(address);
+				function = (Function) create("ehome.runtime:Function");
+				function.setNameKey(text("Geplant"));
+				function.setKind(light());
+				function.setDevice(planned);
+				((Project) project).setFunctions(List.of(function));
 				tx.commit();
 			}
 			// Numbered in the app's range, above the numbers of ETS.
@@ -445,9 +457,9 @@ public class TestProjectUpdate extends BasicTestCase {
 			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("kept") && m.contains("Geplant")));
 			assertTrue(address.tValid());
 			assertEquals(P + "GA-13", ExtIds.extId(address));
-			assertEquals("Neu", address.tValueByName("name"));
+			assertEquals("Neu", address.getName());
 			assertFalse(ExtIds.isCreatedInApp(address));
-			assertSame(address, trigger.tValueByName("datapoint"));
+			assertSame(address, trigger.getDatapoint());
 			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("adopted") && m.contains("Neu (0/0/5)")));
 			assertEquals(1, SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
 				.filter(a -> "0/0/5".equals(Pages.imageId(a))).count());
@@ -458,7 +470,7 @@ public class TestProjectUpdate extends BasicTestCase {
 			assertEquals(P + "DI-5", ExtIds.extId(planned));
 			assertEquals("Taster Diele", planned.tValueByName("title"));
 			assertFalse(ExtIds.isCreatedInApp(planned));
-			assertSame(planned, function.tValueByName("device"));
+			assertSame(planned, function.getDevice());
 			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("adopted") && m.contains("Taster Diele")));
 
 			// After the import of the numbers of ETS, a device planned next continues the app's range.
@@ -570,10 +582,10 @@ public class TestProjectUpdate extends BasicTestCase {
 		throw new AssertionError("No setting " + parameterSuffix);
 	}
 
-	private static List<String> names(TLObject part) {
+	private static List<String> names(BuildingDefinition part) {
 		List<String> result = new ArrayList<>();
-		for (TLObject child : ProjectParts.values(part.tValueByName("parts"))) {
-			result.add((String) child.tValueByName("name"));
+		for (BuildingDefinition child : part.getParts()) {
+			result.add(child.getName());
 		}
 		return result;
 	}

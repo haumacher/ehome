@@ -12,4 +12,11 @@ public interface DerivedPart extends de.haumacher.ehome.model.runtime.internal.D
 
 	// Wrapper functionality.
 
+	/**
+	 * {@link #getFromControl()}, <code>null</code> where it is not set.
+	 */
+	default Boolean getFromControlOrNull() {
+		return (Boolean) tValueByName(FROM_CONTROL_ATTR);
+	}
+
 }

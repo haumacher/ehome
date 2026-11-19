@@ -40,6 +40,9 @@ import de.haumacher.ehome.etsImport.UpdateFromEtsJob;
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ProjectParts;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Rule;
 import de.haumacher.ehome.runtime.IdRenames;
 import de.haumacher.ehome.runtime.RuleFunctions;
 
@@ -68,15 +71,15 @@ public class TestProjectUpdateProbe extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		try {
 			TLObject project = importProject(BASE, before, projects);
-			TLObject ga3 = knx(project, "P-0125-0_GA-3");
-			TLObject trigger;
+			GroupAddress ga3 = (GroupAddress) knx(project, "P-0125-0_GA-3");
+			DatapointTrigger trigger;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject rule = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
-				rule.tUpdateByName("identifier", "probe");
-				rule.tUpdateByName("name", ResKey.text("Probe"));
+				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				rule.setIdentifier("probe");
+				rule.setNameKey(ResKey.text("Probe"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
-				trigger = RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", ga3);
+				trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
+				trigger.setDatapoint(ga3);
 				tx.commit();
 			}
 
@@ -84,7 +87,7 @@ public class TestProjectUpdateProbe extends BasicTestCase {
 			assertSame(ga3, knx(project, "P-0125-0_GA-3"));
 			update(project, BASE);
 			assertSame(ga3, knx(project, "P-0125-0_GA-3"));
-			assertSame(ga3, trigger.tValueByName("datapoint"));
+			assertSame(ga3, trigger.getDatapoint());
 
 			TLObject fresh = importProject(BASE, before, projects);
 			List<KnxprojDiff.Difference> differences = new KnxprojDiff(new KnxprojDiff.Rules())

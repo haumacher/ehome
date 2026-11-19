@@ -11,6 +11,9 @@ import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+
 /**
  * The catalog of known Zigbee devices (haumacher/ehome #64): shared master data
  * (<code>ehome.zigbee.catalog:ZigbeeCatalog</code>, the module's singleton) that says what a device of
@@ -83,7 +86,8 @@ public final class ZigbeeCatalog {
 		if (device == null || !device.tValid()) {
 			return null;
 		}
-		return type(root(), device.tValueByName("manufacturer"), device.tValueByName("model"));
+		ZigbeeDevice typed = (ZigbeeDevice) device;
+		return type(root(), typed.getManufacturer(), typed.getModel());
 	}
 
 	/**
@@ -118,8 +122,11 @@ public final class ZigbeeCatalog {
 			return null;
 		}
 		TLObject type = type(function.tContainer());
-		return type == null ? null
-			: entry(type, function.tValueByName("endpoint"), function.tValueByName("function"));
+		if (type == null) {
+			return null;
+		}
+		ZigbeeFunction typed = (ZigbeeFunction) function;
+		return entry(type, typed.getEndpointOrNull(), typed.getFunction());
 	}
 
 	/**

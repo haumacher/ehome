@@ -52,6 +52,18 @@ import de.haumacher.ehome.connection.Enrollment;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.I18NConstants;
 import de.haumacher.ehome.knx.ProgramStructure;
+import de.haumacher.ehome.model.operational.EnumerationType;
+import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterType;
+import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
+import de.haumacher.ehome.model.runtime.Rule;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.projectfile.ProjectFileImport;
 import de.haumacher.ehome.query.Queries;
@@ -104,8 +116,8 @@ public class TestTenantLookups extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		inTransaction(() -> {
 			for (String code : List.of("TEST-AAAA", "TEST-BBBB", "TEST-CCCC")) {
-				TLObject project = project("Enrollment " + code);
-				project.tUpdateByName("enrollmentCode", code);
+				Project project = project("Enrollment " + code);
+				project.setEnrollmentCode(code);
 				projects.add(project);
 			}
 			project("Enrollment without code");
@@ -145,8 +157,8 @@ public class TestTenantLookups extends BasicTestCase {
 	 * read backwards from it.
 	 */
 	public void testProjectsOfController() {
-		TLObject[] c = new TLObject[3];
-		TLObject[] p = new TLObject[3];
+		Controller[] c = new Controller[3];
+		Project[] p = new Project[3];
 		inTransaction(() -> {
 			for (int n = 0; n < 3; n++) {
 				p[n] = project("Zigbee " + n);
@@ -155,7 +167,7 @@ public class TestTenantLookups extends BasicTestCase {
 			ControllerFixture.own(p[0], c[0]);
 			ControllerFixture.own(p[1], c[1]);
 			// A second project deploying to the first project's controller.
-			p[2].tUpdateByName("controller", c[0]);
+			p[2].setController(c[0]);
 		});
 		assertEquals(Set.of(p[0], p[2]), new HashSet<>(ZigbeeController.projects(c[0])));
 		assertEquals(List.of(p[1]), ZigbeeController.projects(c[1]));
@@ -167,9 +179,9 @@ public class TestTenantLookups extends BasicTestCase {
 	 * it and the deployments naming it lose it, read backwards from it; others are untouched.
 	 */
 	public void testForgetController() throws InterruptedException {
-		TLObject[] c = new TLObject[3];
-		TLObject[] p = new TLObject[2];
-		TLObject[] d = new TLObject[2];
+		Controller[] c = new Controller[3];
+		Project[] p = new Project[2];
+		Deployment[] d = new Deployment[2];
 		inTransaction(() -> {
 			p[0] = project("Forget 0");
 			p[1] = project("Forget 1");
@@ -179,20 +191,20 @@ public class TestTenantLookups extends BasicTestCase {
 			ControllerFixture.own(p[0], c[0]);
 			ControllerFixture.own(p[0], c[1]);
 			ControllerFixture.own(p[1], c[2]);
-			p[0].tUpdateByName("programmingController", c[0]);
-			p[1].tUpdateByName("programmingController", c[2]);
+			p[0].setProgrammingController(c[0]);
+			p[1].setProgrammingController(c[2]);
 			d[0] = deployment(p[0], c[0]);
 			d[1] = deployment(p[1], c[2]);
 		});
 		Controllers.forget(c[0]);
 		ControllerConnections.awaitKnowledgeBase();
 		assertFalse(c[0].tValid());
-		assertSame("The project's only other controller takes its place.", c[1], p[0].tValueByName("controller"));
-		assertNull(p[0].tValueByName("programmingController"));
-		assertNull(d[0].tValueByName("controller"));
-		assertSame(c[2], p[1].tValueByName("controller"));
-		assertSame(c[2], p[1].tValueByName("programmingController"));
-		assertSame(c[2], d[1].tValueByName("controller"));
+		assertSame("The project's only other controller takes its place.", c[1], p[0].getController());
+		assertNull(p[0].getProgrammingController());
+		assertNull(d[0].getController());
+		assertSame(c[2], p[1].getController());
+		assertSame(c[2], p[1].getProgrammingController());
+		assertSame(c[2], d[1].getController());
 	}
 
 	/**
@@ -207,8 +219,8 @@ public class TestTenantLookups extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>();
 		inTransaction(() -> {
 			for (String id : List.of(first, third, third, third + "-0", "p-" + ExtIds.hex4(before + 5))) {
-				TLObject project = project("Project id " + id);
-				project.tUpdateByName(ExtIds.EXT_ID, id);
+				Project project = project("Project id " + id);
+				project.setExtId(id);
 				projects.add(project);
 			}
 		});
@@ -240,9 +252,9 @@ public class TestTenantLookups extends BasicTestCase {
 		List<TLObject> rules = new ArrayList<>();
 		inTransaction(() -> {
 			for (int n = 0; n < 3; n++) {
-				TLObject rule = create("ehome.runtime:Rule");
-				rule.tUpdateByName("name", ResKey.text("Rule 172 " + n));
-				rule.tUpdateByName("identifier", "rule172_" + n);
+				Rule rule = create("ehome.runtime:Rule");
+				rule.setNameKey(ResKey.text("Rule 172 " + n));
+				rule.setIdentifier("rule172_" + n);
 				rules.add(rule);
 			}
 			StateDatapoints.ensure(rules.get(1));
@@ -268,17 +280,17 @@ public class TestTenantLookups extends BasicTestCase {
 	public void testDeleteVeto() {
 		TLObject[] o = new TLObject[10];
 		inTransaction(() -> {
-			TLObject program = create("ehome.operational:Program");
-			TLObject type = create("ehome.operational:EnumerationType");
-			type.tUpdateByName("name", "Type 172");
+			Program program = create("ehome.operational:Program");
+			EnumerationType type = create("ehome.operational:EnumerationType");
+			type.setName("Type 172");
 			// An entry held by a parameter of the program, one set by a device, one unused.
 			o[0] = entry("Held", 0);
 			o[1] = entry("Set", 1);
 			o[2] = entry("Unused", 2);
-			type.tUpdateByName("values", List.of(o[0], o[1], o[2]));
+			type.setValues(List.of((EnumerationValue) o[0], (EnumerationValue) o[1], (EnumerationValue) o[2]));
 			o[3] = parameterPlaced(type, "Holder 172");
-			o[3].tUpdateByName("choice", o[0]);
-			program.tUpdateByName("parameters", List.of(o[3]));
+			((Parameter) o[3]).setChoice((EnumerationValue) o[0]);
+			program.addParameter((Parameter) o[3]);
 
 			// A parameter whose placement a device sets (with the second entry), one whose placement
 			// nobody sets.
@@ -394,54 +406,53 @@ public class TestTenantLookups extends BasicTestCase {
 		return result;
 	}
 
-	private TLObject project(String name) {
-		TLObject result = create(PROJECT);
-		result.tUpdateByName("name", name);
+	private Project project(String name) {
+		Project result = create(PROJECT);
+		result.setName(name);
 		return result;
 	}
 
-	private TLObject controller(String id) {
-		TLObject result = create(CONTROLLER);
-		result.tUpdateByName("name", "Controller " + id);
-		result.tUpdateByName("controllerId", id);
+	private Controller controller(String id) {
+		Controller result = create(CONTROLLER);
+		result.setName("Controller " + id);
+		result.setControllerId(id);
 		return result;
 	}
 
-	private TLObject deployment(TLObject project, TLObject controller) {
-		TLObject result = create("ehome.runtime:Deployment");
-		result.tUpdateByName("controller", controller);
-		List<Object> deployments = new ArrayList<>(ExtIds.list(project, "deployments"));
-		deployments.add(result);
-		project.tUpdateByName("deployments", deployments);
+	private Deployment deployment(Project project, Controller controller) {
+		Deployment result = create("ehome.runtime:Deployment");
+		result.setController(controller);
+		project.addDeployment(result);
 		return result;
 	}
 
-	private TLObject entry(String name, int value) {
-		TLObject result = create("ehome.operational:EnumerationValue");
-		result.tUpdateByName("name", ResKey.text(name));
-		result.tUpdateByName("value", Integer.valueOf(value));
+	private EnumerationValue entry(String name, int value) {
+		EnumerationValue result = create("ehome.operational:EnumerationValue");
+		result.setNameKey(ResKey.text(name));
+		result.setValue(value);
 		return result;
 	}
 
-	private TLObject parameterPlaced(TLObject type, String name) {
-		TLObject result = create("ehome.operational:Parameter");
-		result.tUpdateByName("name", name);
-		result.tUpdateByName("type", type);
-		create("ehome.operational:ParameterView").tUpdateByName("parameter", result);
+	private Parameter parameterPlaced(ParameterType type, String name) {
+		Parameter result = create("ehome.operational:Parameter");
+		result.setName(name);
+		result.setType(type);
+		this.<ParameterView> create("ehome.operational:ParameterView").setParameter(result);
 		return result;
 	}
 
-	private TLObject portPlaced() {
-		TLObject result = create("ehome.operational:Port");
-		create("ehome.operational:Interface").tUpdateByName("port", result);
+	private Port portPlaced() {
+		Port result = create("ehome.operational:Port");
+		this.<Interface> create("ehome.operational:Interface").setPort(result);
 		return result;
 	}
 
-	private TLObject create(String typeName) {
+	@SuppressWarnings("unchecked")
+	private <T extends TLObject> T create(String typeName) {
 		TLObject result =
 			ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 		_created.add(result);
-		return result;
+		return (T) result;
 	}
 
 	private Person person(String name, String mail) {

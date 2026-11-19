@@ -7,9 +7,9 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -40,7 +40,18 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.ProgramResources;
+import de.haumacher.ehome.model.catalog.ArchiveEntry;
+import de.haumacher.ehome.model.catalog.Baggage;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Channel;
+import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.HelpFile;
+import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 
@@ -77,39 +88,39 @@ public class TestProgramResources extends BasicTestCase {
 	public void testResources() throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		List<BufferingI18NLog.Entry> messages = importProduct(FIXTURE);
-		TLObject program = byExtId("ehome.operational:Program", PROGRAM);
+		Program program = byExtId("ehome.operational:Program", PROGRAM);
 
 		// The archives the program names, unpacked.
-		TLObject icons = (TLObject) program.tValueByName("iconFile");
-		assertEquals(ICONS, icons.tValueByName("extId"));
-		assertEquals(Boolean.TRUE, icons.tValueByName("unpacked"));
+		Baggage icons = program.getIconFile();
+		assertEquals(ICONS, icons.getExtId());
+		assertEquals(Boolean.TRUE, icons.getUnpackedOrNull());
 		assertEquals(List.of("TEST_Aus.png", "TEST_Ein.png", "TEST_Kanal.png", "TEST_Block.png", "TEST_Vektor.svg"),
 			names(icons));
-		List<?> helpFiles = (List<?>) program.tValueByName("helpFiles");
+		List<? extends HelpFile> helpFiles = program.getHelpFiles();
 		assertEquals(List.of("de:true:TEST_Hilfe_DE.zip", "en:false:TEST_Hilfe_EN.zip"),
-			helpFiles.stream().map(TLObject.class::cast).map(f -> f.tValueByName("language") + ":"
-				+ f.tValueByName("fallback") + ":" + ((TLObject) f.tValueByName("file")).tValueByName("name")).toList());
+			helpFiles.stream().map(f -> f.getLanguage() + ":"
+				+ f.getFallbackOrNull() + ":" + f.getFile().getName()).toList());
 
 		// The names of the elements.
-		TLObject off = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Betriebsart_EN-0");
-		TLObject on = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Betriebsart_EN-1");
-		TLObject stairs = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Betriebsart_EN-2");
-		TLObject unchanged = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Verhalten_EN-0");
-		TLObject channel = byExtId("ehome.operational:Channel", PROGRAM + "_CH-1");
-		TLObject block = byExtId("ehome.operational:ParameterGroup", PROGRAM + "_PB-1");
-		TLObject operation = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-1_R-1");
-		TLObject delay = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-2_R-2");
-		TLObject behaviour = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-3_R-3");
-		TLObject time = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-4_R-4");
-		assertEquals("TEST_Aus", off.tValueByName("icon"));
-		assertEquals("TEST_Fehlt", stairs.tValueByName("icon"));
-		assertNull(unchanged.tValueByName("icon"));
-		assertEquals("TEST_Kanal", channel.tValueByName("icon"));
-		assertEquals("TEST_Block", block.tValueByName("icon"));
-		assertEquals("Allgemein", block.tValueByName("helpTopic"));
-		assertEquals("Betriebsart", operation.tValueByName("helpTopic"));
-		assertEquals("TEST_Vektor", time.tValueByName("icon"));
-		assertEquals("Größe", time.tValueByName("helpTopic"));
+		EnumerationValue off = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Betriebsart_EN-0");
+		EnumerationValue on = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Betriebsart_EN-1");
+		EnumerationValue stairs = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Betriebsart_EN-2");
+		EnumerationValue unchanged = byExtId("ehome.operational:EnumerationValue", PROGRAM + "_PT-Verhalten_EN-0");
+		Channel channel = byExtId("ehome.operational:Channel", PROGRAM + "_CH-1");
+		ParameterGroup block = byExtId("ehome.operational:ParameterGroup", PROGRAM + "_PB-1");
+		ParameterView operation = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-1_R-1");
+		ParameterView delay = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-2_R-2");
+		ParameterView behaviour = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-3_R-3");
+		ParameterView time = byExtId("ehome.operational:ParameterView", PROGRAM + "_P-4_R-4");
+		assertEquals("TEST_Aus", off.getIcon());
+		assertEquals("TEST_Fehlt", stairs.getIcon());
+		assertNull(unchanged.getIcon());
+		assertEquals("TEST_Kanal", channel.getIcon());
+		assertEquals("TEST_Block", block.getIcon());
+		assertEquals("Allgemein", block.getHelpTopic());
+		assertEquals("Betriebsart", operation.getHelpTopic());
+		assertEquals("TEST_Vektor", time.getIcon());
+		assertEquals("Größe", time.getHelpTopic());
 
 		// The warnings: once each, naming the first icon missing and the number of topics without text.
 		assertEquals(List.of(
@@ -179,26 +190,26 @@ public class TestProgramResources extends BasicTestCase {
 		assertEquals(List.of(), warnings(importProduct(FIXTURE)).stream().filter(w -> w.contains(PROGRAM)).toList());
 		assertEquals(helpFileCount, instances("ehome.operational:HelpFile").size());
 		assertEquals(entryCount, instances("ehome.catalog:ArchiveEntry").size());
-		assertEquals(names(icons), names((TLObject) program.tValueByName("iconFile")));
+		assertEquals(names(icons), names(program.getIconFile()));
 
 		// A program an earlier import read without them is completed by the next import of its file.
 		try (Transaction tx = kb.beginTransaction()) {
-			program.tUpdateByName("resourcesRead", null);
-			program.tUpdateByName("iconFile", null);
-			for (Object helpFile : List.copyOf((Collection<?>) program.tValueByName("helpFiles"))) {
-				((TLObject) helpFile).tDelete();
+			program.setResourcesReadOrNull(null);
+			program.setIconFile(null);
+			for (HelpFile helpFile : List.copyOf(program.getHelpFiles())) {
+				helpFile.tDelete();
 			}
-			channel.tUpdateByName("icon", null);
-			operation.tUpdateByName("helpTopic", null);
+			channel.setIcon(null);
+			operation.setHelpTopic(null);
 			tx.commit();
 		}
 		List<BufferingI18NLog.Entry> completion = importProduct(FIXTURE);
 		assertTrue(english(completion).contains(
 			"The application program \"" + PROGRAM + "\", imported earlier without its icons and help texts, gets them."));
-		assertEquals(Boolean.TRUE, program.tValueByName("resourcesRead"));
-		assertEquals("TEST_Kanal", channel.tValueByName("icon"));
-		assertEquals("Betriebsart", operation.tValueByName("helpTopic"));
-		assertEquals(2, ((Collection<?>) program.tValueByName("helpFiles")).size());
+		assertEquals(Boolean.TRUE, program.getResourcesReadOrNull());
+		assertEquals("TEST_Kanal", channel.getIcon());
+		assertEquals("Betriebsart", operation.getHelpTopic());
+		assertEquals(2, program.getHelpFiles().size());
 		assertEquals(helpFileCount, instances("ehome.operational:HelpFile").size());
 		assertEquals(entryCount, instances("ehome.catalog:ArchiveEntry").size());
 
@@ -219,13 +230,12 @@ public class TestProgramResources extends BasicTestCase {
 	 */
 	private void checkDeviceEditor() throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		TLObject variant = byExtId("ehome.catalog:Variant", "M-0008_H-TEST.20SYMBOLE-1_P-TEST.20Symbole");
-		TLObject assignment = ((Collection<?>) ((TLObject) variant.tValueByName("product")).tValueByName("programs"))
+		Variant variant = byExtId("ehome.catalog:Variant", "M-0008_H-TEST.20SYMBOLE-1_P-TEST.20Symbole");
+		ProgramAssignment assignment = variant.getProduct().getPrograms()
 			.stream()
-			.map(TLObject.class::cast)
-			.filter(a -> PROGRAM.equals(((TLObject) a.tValueByName("program")).tValueByName("extId")))
+			.filter(a -> PROGRAM.equals(a.getProgram().getExtId()))
 			.findFirst().orElseThrow();
-		TLObject project;
+		Project project;
 		TLObject device;
 		try (Transaction tx = kb.beginTransaction()) {
 			device = create("ehome.physical:Device");
@@ -239,8 +249,8 @@ public class TestProgramResources extends BasicTestCase {
 			area.tUpdateByName("address", 1);
 			area.tUpdateByName("lines", List.of(line));
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "TEST Symbole");
-			project.tUpdateByName("areas", List.of(area));
+			project.setName("TEST Symbole");
+			project.setAreas(Set.of(area));
 			tx.commit();
 		}
 		try {
@@ -282,8 +292,9 @@ public class TestProgramResources extends BasicTestCase {
 		}
 	}
 
-	private static TLObject create(String typeName) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String typeName) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 	}
 
 	/**
@@ -299,12 +310,12 @@ public class TestProgramResources extends BasicTestCase {
 			test.de.haumacher.ehome.importer.SharedData.deleteProjects(
 				test.de.haumacher.ehome.importer.SharedData.newProjects(projects));
 		}
-		TLObject program = byExtId("ehome.operational:Program", PROJECT_PROGRAM);
-		assertEquals(ICONS, ((TLObject) program.tValueByName("iconFile")).tValueByName("extId"));
-		assertEquals(2, ((Collection<?>) program.tValueByName("helpFiles")).size());
-		TLObject channel = byExtId("ehome.operational:Channel", PROJECT_PROGRAM + "_CH-1");
+		Program program = byExtId("ehome.operational:Program", PROJECT_PROGRAM);
+		assertEquals(ICONS, program.getIconFile().getExtId());
+		assertEquals(2, program.getHelpFiles().size());
+		Channel channel = byExtId("ehome.operational:Channel", PROJECT_PROGRAM + "_CH-1");
 		assertEquals("TEST_Kanal.png", ProgramResources.icon(channel).getName());
-		TLObject operation = byExtId("ehome.operational:ParameterView", PROJECT_PROGRAM + "_P-1_R-1");
+		ParameterView operation = byExtId("ehome.operational:ParameterView", PROJECT_PROGRAM + "_P-1_R-1");
 		assertEquals("<p><strong>Switching:</strong> the output follows the object.</p>",
 			ProgramResources.help(operation, Locale.ENGLISH));
 		assertTrue(warnings(messages).toString(), warnings(messages).contains("The application program \""
@@ -318,10 +329,9 @@ public class TestProgramResources extends BasicTestCase {
 		}
 	}
 
-	private static List<String> names(TLObject archive) {
-		return ((Collection<?>) archive.tValueByName("entries")).stream()
-			.map(TLObject.class::cast)
-			.map(e -> (String) e.tValueByName("name"))
+	private static List<String> names(Baggage archive) {
+		return archive.getEntries().stream()
+			.map(ArchiveEntry::getName)
 			.toList();
 	}
 
@@ -356,12 +366,13 @@ public class TestProgramResources extends BasicTestCase {
 		return importer.getMessages();
 	}
 
-	private static TLObject byExtId(String typeName, String extId) {
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals(extId, 1, result.size());
-		return result.get(0);
+		return (T) result.get(0);
 	}
 
 	public static Test suite() {

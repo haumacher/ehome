@@ -14,6 +14,11 @@ import org.w3c.dom.Element;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.SharedPlacement;
+import de.haumacher.ehome.model.operational.Switch;
+
 /**
  * Where the modules of an application program go that an earlier import left without them
  * (haumacher/ehome #119): the program in the database is marked <code>usesModules</code> and lacks
@@ -32,12 +37,6 @@ import com.top_logic.model.util.TLModelUtil;
  * @see CompleteModules
  */
 final class ModuleCompletion {
-
-	private static final String CONTENTS = "contents";
-
-	private static final String ALTERNATIVES = "alternatives";
-
-	private static final String EXT_ID = "extId";
 
 	private static final String TYPE_PREFIX = "ehome.operational:";
 
@@ -123,7 +122,7 @@ final class ModuleCompletion {
 	private void walk(Element xml, TLObject fragment, boolean topLevel) throws Mismatch {
 		// A rename (haumacher/ehome #122), an assignment (#142) or a button (#158) is no structure element the
 		// plan places anything relative to.
-		List<TLObject> contents = list(fragment, CONTENTS).stream()
+		List<TLObject> contents = list(((ConfigFragment) fragment).getContents()).stream()
 			.filter(option -> !SKIPPED.contains(TLModelUtil.qualifiedName(option.tType()))).toList();
 		Set<String> options = topLevel ? TOP_LEVEL : CHANNEL_LEVEL;
 		int index = 0;
@@ -157,7 +156,7 @@ final class ModuleCompletion {
 				case "choose":
 					expect(option, "Switch", null);
 					List<Element> cases = ModuleScan.children(child, "when");
-					List<TLObject> alternatives = list(option, ALTERNATIVES);
+					List<TLObject> alternatives = list(((Switch) option).getAlternatives());
 					if (cases.size() != alternatives.size()) {
 						throw new Mismatch("Cases of a switch differ.");
 					}
@@ -179,30 +178,23 @@ final class ModuleCompletion {
 		if (!(TYPE_PREFIX + type).equals(TLModelUtil.qualifiedName(option.tType()))) {
 			throw new Mismatch("Expected " + type + ", found " + TLModelUtil.qualifiedName(option.tType()) + ".");
 		}
-		if (id != null && !id.isEmpty() && !id.equals(option.tValueByName(EXT_ID))) {
-			throw new Mismatch("Expected " + id + ", found " + option.tValueByName(EXT_ID) + ".");
+		if (id != null && !id.isEmpty() && !id.equals(((Externalized) option).getExtId())) {
+			throw new Mismatch("Expected " + id + ", found " + ((Externalized) option).getExtId() + ".");
 		}
 	}
 
 	private static void expectPlaced(TLObject option, String refId) throws Mismatch {
 		TLObject placed = option;
 		if ((TYPE_PREFIX + "SharedPlacement").equals(TLModelUtil.qualifiedName(option.tType()))) {
-			placed = (TLObject) option.tValueByName("placed");
+			placed = ((SharedPlacement) option).getPlaced();
 		}
-		if (placed == null || !Objects.equals(refId, placed.tValueByName(EXT_ID))) {
+		if (placed == null || !Objects.equals(refId, ((Externalized) placed).getExtId())) {
 			throw new Mismatch("Expected the placement of " + refId + ".");
 		}
 	}
 
-	private static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		Object value = obj.tValueByName(attribute);
-		if (value instanceof Collection<?> collection) {
-			for (Object element : collection) {
-				result.add((TLObject) element);
-			}
-		}
-		return result;
+	private static List<TLObject> list(Collection<? extends TLObject> value) {
+		return value == null ? new ArrayList<>() : new ArrayList<>(value);
 	}
 
 }

@@ -241,8 +241,8 @@ public final class ModuleInstances {
 		List<String> parts = new ArrayList<>();
 		for (TLObject argument : differences(device)) {
 			TLObject instance = argument.tContainer();
-			TLObject definition = (TLObject) argument.tValueByName(ARGUMENT);
-			parts.add(instance.tValueByName(NAME) + " " + definition.tValueByName(NAME) + ": E-Home "
+			ModuleArgument definition = (ModuleArgument) argument.tValueByName(ARGUMENT);
+			parts.add(instance.tValueByName(NAME) + " " + definition.getName() + ": E-Home "
 				+ argument.tValueByName(VALUE) + ", " + argument.tValueByName(DEVICE_VALUE));
 		}
 		return parts.isEmpty() ? null : String.join("; ", parts);

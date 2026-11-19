@@ -16,6 +16,7 @@ import com.top_logic.basic.util.ResKey.LiteralKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
@@ -70,8 +71,6 @@ public final class ModuleParts {
 
 	/** The attribute of a connector naming its communication object reference. */
 	public static final String PORT = "port";
-
-	private static final String EXT_ID = "extId";
 
 	private static final String INDEX = "index";
 
@@ -380,7 +379,7 @@ public final class ModuleParts {
 	 */
 	public static String partId(TLObject part) {
 		TLObject template = template(part);
-		String id = template == null ? null : (String) template.tValueByName(EXT_ID);
+		String id = template == null ? null : ((Externalized) template).getExtId();
 		InstanceInfo instance = instance(part);
 		if (id == null || instance == null) {
 			return id;

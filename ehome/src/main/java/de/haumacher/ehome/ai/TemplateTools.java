@@ -37,9 +37,13 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.template.Preset;
+import de.haumacher.ehome.model.template.PresetObject;
+import de.haumacher.ehome.model.template.PresetValue;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -426,7 +430,7 @@ public class TemplateTools {
 		List<Object> values = new ArrayList<>();
 		for (TLObject value : ExtIds.list(preset, "values")) {
 			Map<String, Object> entry = new LinkedHashMap<>();
-			if (value.tValueByName("parameter") instanceof ParameterView view) {
+			if (((PresetValue) value).getParameter() instanceof ParameterView view) {
 				entry.put("parameter", ModuleParts.partId(view));
 				entry.put("title", ChannelShape.parameterLabel(view));
 				entry.put("value", DeviceTools.display(ParameterValues.valueType(view), ParameterValues.value(value)));
@@ -437,10 +441,10 @@ public class TemplateTools {
 		List<Object> objects = new ArrayList<>();
 		for (TLObject object : ExtIds.list(preset, "objects")) {
 			Map<String, Object> entry = new LinkedHashMap<>();
-			if (object.tValueByName("placement") instanceof Interface placed) {
+			if (((PresetObject) object).getPlacement() instanceof Interface placed) {
 				entry.put("object", ChannelShape.objectLabel(null, placed));
 			}
-			entry.put("role", name(object.tValueByName("role")));
+			entry.put("role", name(((PresetObject) object).getRole()));
 			objects.add(entry);
 		}
 		result.put("objects", objects);
@@ -450,13 +454,14 @@ public class TemplateTools {
 	private static Map<String, Object> presetHeader(TLObject preset) {
 		Map<String, Object> entry = new LinkedHashMap<>();
 		entry.put("id", id(preset));
-		entry.put("name", preset.tValueByName("name"));
-		entry.put("channel", ToolSupport.named((String) preset.tValueByName("channel"), Presets.presetChannelLabel(preset)));
-		entry.put("purpose", name(preset.tValueByName("purpose")));
+		Preset typed = (Preset) preset;
+		entry.put("name", typed.getName());
+		entry.put("channel", ToolSupport.named(typed.getChannel(), Presets.presetChannelLabel(preset)));
+		entry.put("purpose", name(typed.getPurpose()));
 		if (Presets.isSourcePreset(preset)) {
 			entry.put("operations", Presets.operations(preset));
 		} else {
-			entry.put("kind", name(preset.tValueByName("kind")));
+			entry.put("kind", name(typed.getKind()));
 		}
 		return entry;
 	}
@@ -659,7 +664,7 @@ public class TemplateTools {
 	@CalledByReflection
 	ResKey deletePresetMessage(ToolContext context, TLObject preset) {
 		String name = ExtIds.isA(preset, PRESET) && preset.tValid()
-			? CommitMessages.text((String) preset.tValueByName("name"))
+			? CommitMessages.text(((Preset) preset).getName())
 			: CommitMessages.label(preset);
 		return I18NConstants.COMMIT_PRESET_DELETED__PRESET.fill(name);
 	}
@@ -711,7 +716,7 @@ public class TemplateTools {
 		if (obj instanceof Program program) {
 			return program;
 		}
-		if (ExtIds.isA(obj, "ehome.catalog:ProgramAssignment") && obj.tValueByName("program") instanceof Program program) {
+		if (ExtIds.isA(obj, "ehome.catalog:ProgramAssignment") && ((ProgramAssignment) obj).getProgram() instanceof Program program) {
 			return program;
 		}
 		if (ExtIds.isA(obj, "ehome.template:DeviceTemplate")) {

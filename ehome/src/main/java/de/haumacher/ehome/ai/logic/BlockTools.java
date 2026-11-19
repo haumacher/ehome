@@ -36,6 +36,9 @@ import de.haumacher.ehome.blocks.BlockType;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
 import de.haumacher.ehome.blocks.Manifest;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.BlockParameter;
+import de.haumacher.ehome.model.runtime.BlockPort;
 import de.haumacher.ehome.runtime.BlockDiagnostics;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.BlockTexts;
@@ -312,26 +315,27 @@ public class BlockTools {
 			result.put("id", id(instance));
 		}
 		result.put("name", label(instance));
-		result.put("identifier", instance.tValueByName("identifier"));
-		result.put("type", instance.tValueByName("blockType") + " " + instance.tValueByName("version"));
-		if (instance.tValueByName("room") instanceof TLObject room) {
+		BlockInstance block = (BlockInstance) instance;
+		result.put("identifier", block.getIdentifier());
+		result.put("type", block.getBlockType() + " " + block.getVersion());
+		if (block.getRoom() instanceof TLObject room) {
 			result.put("room", label(room));
 		}
 		Map<String, Object> ports = new LinkedHashMap<>();
-		for (TLObject port : AutomationChange.objects(instance.tValueByName("ports"))) {
+		for (TLObject port : AutomationChange.objects(block.getPorts())) {
 			List<String> bound = new ArrayList<>();
 			for (TLObject datapoint : BlockInstances.bound(port)) {
 				bound.add(DatapointNames.format(DatapointNames.label(datapoint), BlockInstances.datapointImageId(datapoint)));
 			}
-			ports.put(String.valueOf(port.tValueByName("port")), bound);
+			ports.put(String.valueOf(((BlockPort) port).getPort()), bound);
 		}
 		result.put("ports", ports);
 		Map<String, Object> parameters = new LinkedHashMap<>();
-		String type = String.valueOf(instance.tValueByName("blockType"));
-		for (TLObject parameter : AutomationChange.objects(instance.tValueByName("parameters"))) {
+		String type = String.valueOf(block.getBlockType());
+		for (TLObject parameter : AutomationChange.objects(block.getParameters())) {
 			Param decl = BlockInstances.paramDecl(parameter);
 			if (decl != null) {
-				double value = parameter.tValueByName("value") instanceof Number n ? n.doubleValue() : decl.defaultValue();
+				double value = ((BlockParameter) parameter).getValue() instanceof Number n ? n.doubleValue() : decl.defaultValue();
 				parameters.put(decl.id(), BlockValues.display(type, decl, value));
 			}
 		}

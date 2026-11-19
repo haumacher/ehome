@@ -12,4 +12,11 @@ public interface ZigbeeDevice extends de.haumacher.ehome.model.zigbee.internal.Z
 
 	// Wrapper functionality.
 
+	/**
+	 * Whether the controller's interview of the device finished; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Boolean getInterviewedOrNull() {
+		return (Boolean) tValueByName(INTERVIEWED_ATTR);
+	}
+
 }

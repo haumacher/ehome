@@ -38,10 +38,13 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Rename;
+import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DeviceTexts;
@@ -148,7 +151,7 @@ public class TestChannelsAndRenames extends BasicTestCase {
 		collectRenames(program, renames);
 		List<String> found = new ArrayList<>();
 		for (Rename rename : renames) {
-			found.add(rename.getExtId() + " " + rename.getTarget().tValueByName("extId") + " "
+			found.add(rename.getExtId() + " " + ((Externalized) rename.getTarget()).getExtId() + " "
 				+ Resources.getInstance(Locale.GERMAN).getString(rename.getText()) + " / "
 				+ Resources.getInstance(Locale.ENGLISH).getString(rename.getText()));
 		}
@@ -162,12 +165,20 @@ public class TestChannelsAndRenames extends BasicTestCase {
 		if (obj instanceof Rename rename) {
 			result.add(rename);
 		}
-		for (String attribute : List.of("contents", "alternatives", "modules")) {
-			if (obj.tType().getPart(attribute) != null) {
-				for (Object element : (Collection<?>) obj.tValueByName(attribute)) {
-					collectRenames((TLObject) element, result);
-				}
-			}
+		List<TLObject> children = new ArrayList<>();
+		if (obj instanceof ConfigFragment fragment) {
+			children.addAll(fragment.getContents());
+		}
+		if (obj instanceof Switch choice) {
+			children.addAll(choice.getAlternatives());
+		}
+		if (obj instanceof Program program) {
+			children.addAll(program.getModules());
+		} else if (obj instanceof ModuleDefinition module) {
+			children.addAll(module.getModules());
+		}
+		for (TLObject element : children) {
+			collectRenames(element, result);
 		}
 	}
 

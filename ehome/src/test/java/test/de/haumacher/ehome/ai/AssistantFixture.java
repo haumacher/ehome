@@ -41,6 +41,13 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 
@@ -96,24 +103,26 @@ public class AssistantFixture {
 			_viewer = person(_prefix + "Viewer", null);
 
 			// A device needs a product variant and an application program.
-			TLObject manufacturer = create("ehome.catalog:Manufacturer");
-			TLObject program = create("ehome.operational:Program");
-			manufacturer.tUpdateByName("programs", List.of(program));
-			TLObject product = create("ehome.catalog:Product");
-			TLObject variant = create("ehome.catalog:Variant");
-			product.tUpdateByName("variants", List.of(variant));
-			TLObject assignment = create("ehome.catalog:ProgramAssignment");
-			assignment.tUpdateByName("program", program);
-			product.tUpdateByName("programs", List.of(assignment));
-			manufacturer.tUpdateByName("products", List.of(product));
+			Manufacturer manufacturer = create("ehome.catalog:Manufacturer");
+			Program program = create("ehome.operational:Program");
+			manufacturer.addProgram(program);
+			Product product = create("ehome.catalog:Product");
+			Variant variant = create("ehome.catalog:Variant");
+			product.addVariant(variant);
+			ProgramAssignment assignment = create("ehome.catalog:ProgramAssignment");
+			assignment.setProgram(program);
+			product.addProgram(assignment);
+			manufacturer.addProduct(product);
 
-			_controller = create("ehome.runtime:Controller");
-			_controller.tUpdateByName("name", PROJECT_NAME);
-			_controller.tUpdateByName("host", "localhost");
-			_controller.tUpdateByName("token", CONTROLLER_TOKEN);
+			Controller controller = create("ehome.runtime:Controller");
+			controller.setName(PROJECT_NAME);
+			controller.setHost("localhost");
+			controller.setToken(CONTROLLER_TOKEN);
+			_controller = controller;
 
-			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", PROJECT_NAME);
+			Project project = create("ehome.project:Project");
+			project.setName(PROJECT_NAME);
+			_project = project;
 			ControllerFixture.own(_project, _controller);
 			// Access per project (haumacher/ehome #152): the installer edits the project, the viewer reads it.
 			ProjectMembers.add(_project, _installer, Role.editor);
@@ -124,7 +133,7 @@ public class AssistantFixture {
 			line.tUpdateByName("devices", List.of(_actuator, sensor));
 			TLObject area = create("ehome.physical:Area");
 			area.tUpdateByName("lines", List.of(line));
-			_project.tUpdateByName("areas", List.of(area));
+			project.addArea(area);
 		});
 	}
 
@@ -284,11 +293,12 @@ public class AssistantFixture {
 		return result;
 	}
 
-	private TLObject create(String typeName) {
+	@SuppressWarnings("unchecked")
+	private <T extends TLObject> T create(String typeName) {
 		TLObject result =
 			ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 		_created.add(result);
-		return result;
+		return (T) result;
 	}
 
 	/**

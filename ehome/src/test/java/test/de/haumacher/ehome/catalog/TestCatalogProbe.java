@@ -36,6 +36,13 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ExtIds.Kind;
 import de.haumacher.ehome.knx.ProgramStructure;
 import de.haumacher.ehome.knx.ProgramStructure.Position;
+import de.haumacher.ehome.model.catalog.Catalog;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.EnumerationType;
@@ -78,15 +85,16 @@ public class TestCatalogProbe extends BasicTestCase {
 
 	private void probe() throws Exception {
 		importSample("samples/Test.knxproj");
-		TLObject root = TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
+		ManufacturerRoot root =
+			(ManufacturerRoot) TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
 		Program imported = (Program) byExtId("ehome.operational:Program", PROGRAM);
 
 		// The KNX ID of GIRA is taken: the constraint refuses the commit.
 		try (Transaction tx = _kb.beginTransaction()) {
-			TLObject clash = create("ehome.catalog:Manufacturer");
-			clash.tUpdateByName("name", "Doppelt");
-			clash.tUpdateByName("id", 8);
-			add(root, "manufacturers", clash);
+			Manufacturer clash = create("ehome.catalog:Manufacturer");
+			clash.setName("Doppelt");
+			clash.setId(8);
+			root.addManufacturer(clash);
 			try {
 				tx.commit();
 				fail("Manufacturer with the KNX ID of GIRA committed.");
@@ -96,15 +104,15 @@ public class TestCatalogProbe extends BasicTestCase {
 		}
 
 		// Manufacturers without KNX ID get consecutive private IDs after an import of 318 manufacturers.
-		TLObject first;
-		TLObject second;
+		Manufacturer first;
+		Manufacturer second;
 		try (Transaction tx = _kb.beginTransaction()) {
 			first = create("ehome.catalog:Manufacturer");
-			first.tUpdateByName("name", "Eigenbau (Testdaten)");
-			add(root, "manufacturers", first);
+			first.setName("Eigenbau (Testdaten)");
+			root.addManufacturer(first);
 			second = create("ehome.catalog:Manufacturer");
-			second.tUpdateByName("name", "Eigenbau 2 (Testdaten)");
-			add(root, "manufacturers", second);
+			second.setName("Eigenbau 2 (Testdaten)");
+			root.addManufacturer(second);
 			tx.commit();
 		}
 		long firstNumber = number(ExtIds.extId(first), "^M-FF([0-9A-F]{2})$", 16);
@@ -131,15 +139,15 @@ public class TestCatalogProbe extends BasicTestCase {
 		long importedRefs = max(ExtIds.members(imported, Kind.PARAMETER_REF), "_R-(\\d+)$");
 		try (Transaction tx = _kb.beginTransaction()) {
 			program = factory.createProgram();
-			program.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Probe").add(Locale.ENGLISH, "Probe").build());
-			add(first, "programs", program);
+			program.setNameKey(ResKey.builder().add(Locale.GERMAN, "Probe").add(Locale.ENGLISH, "Probe").build());
+			first.addProgram(program);
 
 			choice = factory.createEnumerationType();
 			choice.setName("Modus");
 			program.addParameterType(choice);
 			for (int i = 0; i < 3; i++) {
 				EnumerationValue entry = factory.createEnumerationValue();
-				entry.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Eintrag " + i).add(Locale.ENGLISH, "Entry " + i).build());
+				entry.setNameKey(ResKey.builder().add(Locale.GERMAN, "Eintrag " + i).add(Locale.ENGLISH, "Entry " + i).build());
 				// Two entries share the value 1: their IDs must still differ.
 				entry.setValue(i == 0 ? 1 : i);
 				entry.setIndex(i);
@@ -254,23 +262,23 @@ public class TestCatalogProbe extends BasicTestCase {
 		assertNull(ProgramStructure.deleteVeto(levelAgain));
 
 		// A product with a variant and the assignment of the program, as the dialogs create them.
-		TLObject product;
-		TLObject variant;
-		TLObject assignment;
+		Product product;
+		Variant variant;
+		ProgramAssignment assignment;
 		try (Transaction tx = _kb.beginTransaction()) {
-			TLObject catalog = create("ehome.catalog:Catalog");
-			catalog.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Probe").add(Locale.ENGLISH, "Probe").build());
-			add(first, "catalogs", catalog);
+			Catalog catalog = create("ehome.catalog:Catalog");
+			catalog.setNameKey(ResKey.builder().add(Locale.GERMAN, "Probe").add(Locale.ENGLISH, "Probe").build());
+			first.addCatalog(catalog);
 			product = create("ehome.catalog:Product");
-			product.tUpdateByName("name", "Probe");
-			add(first, "products", product);
+			product.setName("Probe");
+			first.addProduct(product);
 			variant = create("ehome.catalog:Variant");
-			variant.tUpdateByName("orderNumber", "1234 00");
-			add(product, "variants", variant);
-			add(catalog, "variants", variant);
+			variant.setOrderNumber("1234 00");
+			product.addVariant(variant);
+			catalog.addVariant(variant);
 			assignment = create("ehome.catalog:ProgramAssignment");
-			assignment.tUpdateByName("program", program);
-			add(product, "programs", assignment);
+			assignment.setProgram(program);
+			product.addProgram(assignment);
 			tx.commit();
 		}
 		assertTrue(ExtIds.extId(assignment), ExtIds.extId(assignment).startsWith(ExtIds.extId(product) + "_HP-"));
@@ -292,7 +300,7 @@ public class TestCatalogProbe extends BasicTestCase {
 		}
 		assertFalse("The program assignment survived the deletion of its product and program.", assignment.tValid());
 		for (TLObject dangling : instances("ehome.catalog:ProgramAssignment")) {
-			TLObject owner = (TLObject) dangling.tValueByName("product");
+			TLObject owner = ((ProgramAssignment) dangling).getProduct();
 			assertTrue("Assignment without product: " + ExtIds.extId(dangling), owner != null && owner.tValid());
 		}
 
@@ -345,20 +353,15 @@ public class TestCatalogProbe extends BasicTestCase {
 
 	private static TLObject byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals("Objects " + typeName + " with ID " + extId, 1, result.size());
 		return result.get(0);
 	}
 
-	private static TLObject create(String typeName) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
-	}
-
-	private static void add(TLObject container, String reference, TLObject element) {
-		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
-		elements.add(element);
-		container.tUpdateByName(reference, elements);
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String typeName) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 	}
 
 	private void move(List<TLObject> nodes, TLObject container, TLObject before) {

@@ -30,6 +30,10 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ExtIds.Kind;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ProjectParts;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ExpressionRenames;
 import de.haumacher.ehome.runtime.Pages;
@@ -184,8 +188,8 @@ public final class ProjectUpdate {
 	}
 
 	private void checkProject() {
-		Object id = _source.tValueByName(ExtIds.EXT_ID);
-		Object expected = _target.tValueByName(ExtIds.EXT_ID);
+		Object id = ((Project) _source).getExtId();
+		Object expected = ((Project) _target).getExtId();
 		if (!Objects.equals(id, expected)) {
 			throw new TopLogicException(I18NConstants.ERROR_UPDATE_OTHER_PROJECT__FILE_ID_PROJECT_ID.fill(
 				label(_source), id, label(_target), expected));
@@ -283,14 +287,14 @@ public final class ProjectUpdate {
 				}
 				return List.of(containerKey, String.valueOf(obj.tValueByName("address")));
 			case GROUP_ADDRESS:
-				return obj.tValueByName("address") instanceof GA address ? List.of(Integer.valueOf(address.getValue())) : null;
+				return ((GroupAddress) obj).getAddress() instanceof GA address ? List.of(Integer.valueOf(address.getValue())) : null;
 			case GROUP_RANGE:
-				if (obj.tValueByName("rangeStart") instanceof GA start && obj.tValueByName("rangeEnd") instanceof GA end) {
+				if (((GroupRange) obj).getRangeStart() instanceof GA start && ((GroupRange) obj).getRangeEnd() instanceof GA end) {
 					return List.of(Integer.valueOf(start.getValue()), Integer.valueOf(end.getValue()));
 				}
 				return null;
 			case BUILDING_PART:
-				return containerKey == null ? null : List.of(containerKey, String.valueOf(obj.tValueByName("name")));
+				return containerKey == null ? null : List.of(containerKey, String.valueOf(((BuildingDefinition) obj).getName()));
 			default:
 				return null;
 		}
@@ -339,7 +343,7 @@ public final class ProjectUpdate {
 				remaining.add(Pages.imageId(obj));
 			}
 		}
-		List<TLObject> rules = ProjectParts.values(_target.tValueByName("rules"));
+		List<TLObject> rules = ProjectParts.values(((Project) _target).getRules());
 		for (TLObject obj : removed) {
 			if (!Pages.isGroupAddress(obj)) {
 				continue;

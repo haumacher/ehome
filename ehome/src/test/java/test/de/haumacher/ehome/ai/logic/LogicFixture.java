@@ -34,6 +34,10 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 
@@ -100,28 +104,34 @@ public class LogicFixture {
 			TLObject bool = mainType(1);
 			TLObject real = mainType(9);
 			TLObject percent = mainType(5);
-			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Logic test " + _prefix);
-			_project.tUpdateByName("extId", "P-LOGIC-" + _prefix);
+			Project project = (Project) create("ehome.project:Project");
+			_project = project;
+			project.setName("Logic test " + _prefix);
+			project.setExtId("P-LOGIC-" + _prefix);
 			address("Außentemperatur", "1/0/0", real, false);
 			address("Frostschutz Heizung", "1/0/1", bool, true);
 			address("Licht Küche", "1/1/0", bool, true);
 			address("Raumtemperatur Küche", "1/2/0", real, false);
 			address("Ventil Küche", "1/2/1", percent, true);
-			_project.tUpdateByName("groupAddresses", new ArrayList<>(_addresses.values()));
-			TLObject building = part("ehome.building:Building", "Haus", "P-LOGIC-" + _prefix + "-B");
-			_room = part("ehome.building:Room", "Küche", "P-LOGIC-" + _prefix + "-K");
-			building.tUpdateByName("parts", List.of(_room));
-			_project.tUpdateByName("buildings", List.of(building));
+			for (TLObject address : _addresses.values()) {
+				project.addGroupAddresse((GroupAddress) address);
+			}
+			BuildingDefinition building = part("ehome.building:Building", "Haus", "P-LOGIC-" + _prefix + "-B");
+			BuildingDefinition room = part("ehome.building:Room", "Küche", "P-LOGIC-" + _prefix + "-K");
+			_room = room;
+			building.addPart(room);
+			project.addBuilding(building);
 			for (Map.Entry<String, String> datapoint : SKILL_DATAPOINTS.entrySet()) {
-				TLObject created = create("ehome.runtime:ApplicationDatapoint");
-				created.tUpdateByName("identifier", datapoint.getKey());
-				created.tUpdateByName("type",
+				ApplicationDatapoint created = (ApplicationDatapoint) create("ehome.runtime:ApplicationDatapoint");
+				created.setIdentifier(datapoint.getKey());
+				created.setType(
 					((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(datapoint.getValue()));
-				created.tUpdateByName("writable", Boolean.valueOf(WRITABLE.contains(datapoint.getKey())));
+				created.setWritable(WRITABLE.contains(datapoint.getKey()));
 				_datapoints.put(datapoint.getKey(), created);
 			}
-			_project.tUpdateByName("applicationDatapoints", new ArrayList<>(_datapoints.values()));
+			for (TLObject datapoint : _datapoints.values()) {
+				project.addApplicationDatapoint((ApplicationDatapoint) datapoint);
+			}
 			// Access per project (haumacher/ehome #152): the installer edits the project, the viewer reads it.
 			ProjectMembers.add(_project, installer(), Role.editor);
 			ProjectMembers.add(_project, viewer(), Role.viewer);
@@ -216,12 +226,12 @@ public class LogicFixture {
 	}
 
 	private void address(String name, String address, TLObject type, boolean writable) {
-		TLObject result = create("ehome.logical:GroupAddress");
-		result.tUpdateByName("name", name);
-		result.tUpdateByName("address", GA.parse(address, GroupAddressStyle.ThreeLevel));
-		result.tUpdateByName("datapointTypes", List.of(type));
+		GroupAddress result = (GroupAddress) create("ehome.logical:GroupAddress");
+		result.setName(name);
+		result.setAddress(GA.parse(address, GroupAddressStyle.ThreeLevel));
+		result.setDatapointTypes(List.of(type));
 		if (writable) {
-			result.tUpdateByName("runtimeWritable", Boolean.TRUE);
+			result.setRuntimeWritable(Boolean.TRUE);
 		}
 		_addresses.put(address, result);
 	}
@@ -234,10 +244,10 @@ public class LogicFixture {
 		return type;
 	}
 
-	private static TLObject part(String type, String name, String extId) {
-		TLObject part = create(type);
-		part.tUpdateByName("name", name);
-		part.tUpdateByName("extId", extId);
+	private static BuildingDefinition part(String type, String name, String extId) {
+		BuildingDefinition part = (BuildingDefinition) create(type);
+		part.setName(name);
+		part.setExtId(extId);
 		return part;
 	}
 

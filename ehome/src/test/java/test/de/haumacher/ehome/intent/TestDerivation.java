@@ -5,7 +5,6 @@ package test.de.haumacher.ehome.intent;
 
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
-import static test.de.haumacher.ehome.intent.IntentFixture.add;
 import static test.de.haumacher.ehome.intent.IntentFixture.control;
 import static test.de.haumacher.ehome.intent.IntentFixture.create;
 import static test.de.haumacher.ehome.intent.IntentFixture.device;
@@ -47,8 +46,16 @@ import de.haumacher.ehome.intent.I18NConstants;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Control;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.template.Preset;
+import de.haumacher.ehome.model.template.PresetObject;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -122,15 +129,15 @@ public class TestDerivation extends BasicTestCase {
 		TLObject actuator = devices[0];
 		TLObject keys = devices[1];
 		inTransaction(() -> FunctionProposal.apply(project));
-		TLObject licht = function(project, actuator, _f.channelA);
+		Function licht = (Function) function(project, actuator, _f.channelA);
 		inTransaction(() -> {
-			licht.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Licht").add(Locale.ENGLISH, "Licht").build());
-			licht.tUpdateByName("preset", _f.schalten);
+			licht.setNameKey(ResKey.builder().add(Locale.GERMAN, "Licht").add(Locale.ENGLISH, "Licht").build());
+			licht.setPreset((Preset) _f.schalten);
 		});
 		assertEquals(List.of(_f.schalten), Controls.functionPresets(licht));
 		assertTrue(Controls.sourcePresets(keys, _f.key1).contains(_f.toggle));
-		TLObject taste1 = control(licht, keys, _f.key1, _f.toggle, "toggle");
-		TLObject led1 = control(licht, keys, _f.led1, _f.status, "showStatus");
+		Control taste1 = (Control) control(licht, keys, _f.key1, _f.toggle, "toggle");
+		Control led1 = (Control) control(licht, keys, _f.led1, _f.status, "showStatus");
 
 		// The preview.
 		Derivation plan = Derivation.plan(project);
@@ -146,8 +153,8 @@ public class TestDerivation extends BasicTestCase {
 		assertEquals("0 Channel A: Switch On/Off", ChannelShape.objectLabel(actuator, switching));
 		assertEquals("7 Channel A: State", ChannelShape.objectLabel(actuator, state));
 		List<String> presetObjects = new ArrayList<>();
-		for (Object object : (Collection<?>) _f.schalten.tValueByName("objects")) {
-			presetObjects.add((String) ((TLObject) object).tValueByName("label"));
+		for (PresetObject object : ((Preset) _f.schalten).getObjects()) {
+			presetObjects.add(object.getLabel());
 		}
 		assertEquals(List.of("0 Channel A: Switch On/Off", "7 Channel A: State"), presetObjects);
 		// So does the dialog saving a preset, in the device it saves from.
@@ -191,15 +198,15 @@ public class TestDerivation extends BasicTestCase {
 
 		// Applying.
 		inTransaction(() -> Derivation.apply(project, plan.fingerprint()));
-		TLObject commandAddress = (TLObject) licht.tValueByName("command");
-		TLObject stateAddress = (TLObject) licht.tValueByName("state");
+		GroupAddress commandAddress = (GroupAddress) licht.getCommand();
+		GroupAddress stateAddress = (GroupAddress) licht.getState();
 		assertNotNull(commandAddress);
 		assertNotNull(stateAddress);
-		assertEquals(1 << 11, ((GA) commandAddress.tValueByName("address")).getValue());
-		assertEquals((1 << 11) + 1, ((GA) stateAddress.tValueByName("address")).getValue());
-		assertEquals(command, commandAddress.tValueByName("name"));
-		assertEquals("licht.state", stateAddress.tValueByName("identifier"));
-		assertEquals(List.of(ObjectTypes.effective(actuator, switching)), commandAddress.tValueByName("datapointTypes"));
+		assertEquals(1 << 11, commandAddress.getAddress().getValue());
+		assertEquals((1 << 11) + 1, stateAddress.getAddress().getValue());
+		assertEquals(command, commandAddress.getName());
+		assertEquals("licht.state", stateAddress.getIdentifier());
+		assertEquals(List.of(ObjectTypes.effective(actuator, switching)), commandAddress.getDatapointTypes());
 		assertEquals("1", encoded(keys, concept));
 		assertEquals(_f.toggle, Presets.use(keys, _f.key1).tValueByName("preset"));
 		assertConnected(actuator, switching, commandAddress, "receive");
@@ -207,8 +214,8 @@ public class TestDerivation extends BasicTestCase {
 		assertConnected(keys, keyObject, commandAddress, "send");
 		assertConnected(keys, keyObject, stateAddress, "receive");
 		assertConnected(keys, ledObject, stateAddress, "receive");
-		assertNull(taste1.tValueByName("problem"));
-		assertNull(led1.tValueByName("problem"));
+		assertNull(taste1.getProblem());
+		assertNull(led1.getProblem());
 
 		// The comparison for programming: the download image of each device holds both addresses, the
 		// comparison with the defaults the values of the presets.
@@ -270,16 +277,16 @@ public class TestDerivation extends BasicTestCase {
 		assertEquals(fingerprint(renamed), 2, items(renamed, Derivation.Action.CHANGE, Derivation.What.ADDRESS).size());
 		assertEquals(fingerprint(renamed), 2, renamed.getItems().size());
 		inTransaction(() -> Derivation.apply(project, renamed.fingerprint()));
-		assertEquals(text(I18NConstants.ADDRESS_NAME_STATE__FUNCTION.fill("Deckenlicht")), stateAddress.tValueByName("name"));
-		assertEquals("licht.state", stateAddress.tValueByName("identifier"));
+		assertEquals(text(I18NConstants.ADDRESS_NAME_STATE__FUNCTION.fill("Deckenlicht")), stateAddress.getName());
+		assertEquals("licht.state", stateAddress.getIdentifier());
 		named(licht, "Licht", null);
 		inTransaction(() -> Derivation.apply(project, null));
-		assertEquals(command, commandAddress.tValueByName("name"));
+		assertEquals(command, commandAddress.getName());
 		assertTrue(Derivation.plan(project).isEmpty());
 
 		// Changed by hand: reported, not overwritten.
 		inTransaction(() -> {
-			commandAddress.tUpdateByName("name", "Mein Licht");
+			commandAddress.setName("Mein Licht");
 			DeviceSettings.disconnect(actual(keys, ledObject, stateAddress, "receive"));
 		});
 		Derivation hand = Derivation.plan(project);
@@ -291,7 +298,7 @@ public class TestDerivation extends BasicTestCase {
 		assertEquals(text(I18NConstants.KEEP_CONNECTION_REMOVED), kept.get(1).detail());
 		assertEquals(fingerprint(hand), kept, hand.getItems());
 		inTransaction(() -> Derivation.apply(project, hand.fingerprint()));
-		assertEquals("Mein Licht", commandAddress.tValueByName("name"));
+		assertEquals("Mein Licht", commandAddress.getName());
 		assertNull(actual(keys, ledObject, stateAddress, "receive"));
 
 		// Deleting the function removes what it derived, the address renamed by hand excepted.
@@ -312,14 +319,14 @@ public class TestDerivation extends BasicTestCase {
 		// A function whose role is bound to an address already (imported, or a project file imported
 		// without the marks of the derivation) takes it: only the state address is new.
 		inTransaction(() -> FunctionProposal.apply(project));
-		TLObject again2 = named(function(project, actuator, _f.channelA), "Licht", _f.schalten);
-		inTransaction(() -> again2.tUpdateByName("command", commandAddress));
+		Function again2 = (Function) named(function(project, actuator, _f.channelA), "Licht", _f.schalten);
+		inTransaction(() -> again2.setCommand(commandAddress));
 		Derivation adopted = Derivation.plan(project);
 		List<Derivation.Item> created = items(adopted, Derivation.Action.CREATE, Derivation.What.ADDRESS);
 		assertEquals(fingerprint(adopted), 1, created.size());
 		assertEquals(status + " (licht.state)", created.get(0).object());
 		inTransaction(() -> Derivation.apply(project, adopted.fingerprint()));
-		assertSame(commandAddress, again2.tValueByName("command"));
+		assertSame(commandAddress, again2.getCommand());
 		assertConnected(actuator, switching, commandAddress, "receive");
 		assertTrue(Derivation.plan(project).isEmpty());
 		// The project file leaves the presets and the marks out (master data and bookkeeping of this
@@ -334,9 +341,9 @@ public class TestDerivation extends BasicTestCase {
 		TLObject actuator = devices[0];
 		TLObject keys = devices[1];
 		inTransaction(() -> FunctionProposal.apply(project));
-		TLObject light = named(function(project, actuator, _f.channelA), "Licht", _f.schalten);
-		TLObject impulse = named(function(project, actuator, _f.channelC), "Impuls", _f.schaltimpuls);
-		TLObject full = named(function(project, actuator, _f.channelD), "Voll", _f.schaltenD);
+		Function light = (Function) named(function(project, actuator, _f.channelA), "Licht", _f.schalten);
+		Function impulse = (Function) named(function(project, actuator, _f.channelC), "Impuls", _f.schaltimpuls);
+		Function full = (Function) named(function(project, actuator, _f.channelD), "Voll", _f.schaltenD);
 		TLObject toggle = control(light, keys, _f.key1, _f.toggle, "toggle");
 		TLObject dim = control(light, keys, _f.key2, _f.toggle, "dim");
 		TLObject cannot = control(light, keys, _f.key3, _f.toggle3, "on");
@@ -349,25 +356,25 @@ public class TestDerivation extends BasicTestCase {
 		// of its own in the main range.
 		int middleStart = 2 << 11 | 1 << 8;
 		inTransaction(() -> {
-			TLObject building = create("ehome.building:Building");
-			building.tUpdateByName("name", "Haus");
-			add(project, "buildings", building);
-			TLObject ground = create("ehome.building:Floor");
-			ground.tUpdateByName("name", "EG");
-			add(building, "parts", ground);
-			TLObject upper = create("ehome.building:Floor");
-			upper.tUpdateByName("name", "OG");
-			add(building, "parts", upper);
-			TLObject bath = create("ehome.building:Room");
-			bath.tUpdateByName("name", "Bad");
-			add(upper, "parts", bath);
-			full.tUpdateByName("room", bath);
+			BuildingDefinition building = (BuildingDefinition) create("ehome.building:Building");
+			building.setName("Haus");
+			((Project) project).addBuilding(building);
+			BuildingDefinition ground = (BuildingDefinition) create("ehome.building:Floor");
+			ground.setName("EG");
+			building.addPart(ground);
+			BuildingDefinition upper = (BuildingDefinition) create("ehome.building:Floor");
+			upper.setName("OG");
+			building.addPart(upper);
+			BuildingDefinition bath = (BuildingDefinition) create("ehome.building:Room");
+			bath.setName("Bad");
+			upper.addPart(bath);
+			full.setRoom(bath);
 			TLObject main = range(project, "Schalten", 2 << 11, (3 << 11) - 1);
-			TLObject middle = range(main, "OG", middleStart, middleStart);
-			TLObject taken = create("ehome.logical:GroupAddress");
-			taken.tUpdateByName("address", new GA(middleStart, null));
-			taken.tUpdateByName("name", "Belegt");
-			add(middle, "parts", taken);
+			GroupRange middle = range(main, "OG", middleStart, middleStart);
+			GroupAddress taken = (GroupAddress) create("ehome.logical:GroupAddress");
+			taken.setAddress(new GA(middleStart, null));
+			taken.setName("Belegt");
+			middle.addPart(taken);
 			assertEquals(1, Derivation.floorIndex(bath));
 		});
 		TLObject voll = control(full, keys, _f.key2, _f.toggle, "toggle");
@@ -380,7 +387,7 @@ public class TestDerivation extends BasicTestCase {
 		String lightLabel = "Licht";
 		assertEquals(fingerprint(plan), Set.of(dim, cannot, noStatus, conflict, full, voll), refusals.keySet());
 		assertEquals(I18NConstants.ERROR_CONTROL_KIND_NO_ROLE__FUNCTION_OPERATION_KIND.fill(lightLabel,
-			operation("dim"), _f.schalten.tValueByName("kind")), refusals.get(dim));
+			operation("dim"), ((Preset) _f.schalten).getKind()), refusals.get(dim));
 		assertEquals(I18NConstants.ERROR_PRESET_CANNOT__PRESET_OPERATION.fill("Taste 3: Umschalten", operation("on")),
 			refusals.get(cannot));
 		assertEquals(I18NConstants.ERROR_CONTROL_NO_ROLE__FUNCTION_OPERATION_ROLE.fill("Impuls", operation("showStatus"),
@@ -394,8 +401,8 @@ public class TestDerivation extends BasicTestCase {
 		assertEquals(text(I18NConstants.ERROR_CONTROL_FUNCTION__FUNCTION_REASON.fill("Voll", I18NConstants.ERROR_NO_FREE_ADDRESS__RANGE.fill("2/1"))),
 			text(refusals.get(voll)));
 		// At the control.
-		assertEquals(text(refusals.get(dim)), dim.tValueByName("problem"));
-		assertEquals(noFree, full.tValueByName("derivationProblem"));
+		assertEquals(text(refusals.get(dim)), ((Control) dim).getProblem());
+		assertEquals(noFree, full.getDerivationProblem());
 
 		// The others are derived: the toggle of Licht, the rocker of Impuls.
 		Interface rockerObject = Presets.objects(keys, _f.rocker3, _f.rockerOnOff).get("sendCommand");
@@ -404,11 +411,11 @@ public class TestDerivation extends BasicTestCase {
 			&& i.what() == Derivation.What.CONNECTION && i.object().equals(objectText(keys, rockerObject))));
 		assertTrue(plan.getItems().stream().noneMatch(i -> refusals.containsKey(i.origin())));
 		inTransaction(() -> Derivation.apply(project, plan.fingerprint()));
-		assertNotNull(light.tValueByName("command"));
-		assertNotNull(impulse.tValueByName("command"));
-		assertNull(full.tValueByName("command"));
-		assertConnected(keys, rockerObject, (TLObject) impulse.tValueByName("command"), "send");
-		assertEquals(2 << 11, ((GA) ((TLObject) impulse.tValueByName("command")).tValueByName("address")).getValue());
+		assertNotNull(light.getCommand());
+		assertNotNull(impulse.getCommand());
+		assertNull(full.getCommand());
+		assertConnected(keys, rockerObject, impulse.getCommand(), "send");
+		assertEquals(2 << 11, ((GroupAddress) impulse.getCommand()).getAddress().getValue());
 	}
 
 	private void checkExamples() {
@@ -417,15 +424,15 @@ public class TestDerivation extends BasicTestCase {
 		TLObject actuator = devices[0];
 		TLObject keys = devices[1];
 		inTransaction(() -> FunctionProposal.apply(project));
-		TLObject socket1 = named(function(project, actuator, _f.channelA), "Steckdose 1", _f.schalten);
-		TLObject socket2 = named(function(project, actuator, _f.channelB), "Steckdose 2", null);
-		TLObject socket3 = named(function(project, actuator, _f.channelC), "Steckdose 3", null);
+		Function socket1 = (Function) named(function(project, actuator, _f.channelA), "Steckdose 1", _f.schalten);
+		Function socket2 = (Function) named(function(project, actuator, _f.channelB), "Steckdose 2", null);
+		Function socket3 = (Function) named(function(project, actuator, _f.channelC), "Steckdose 3", null);
 		// The presets of channels B and C set the mode the channel is in (staircase light, switch impulse).
 		assertTrue(Controls.functionPresets(socket2).contains(_f.treppenlicht));
 		assertTrue(Controls.functionPresets(socket3).contains(_f.schaltimpuls));
 		inTransaction(() -> {
-			socket2.tUpdateByName("preset", _f.treppenlicht);
-			socket3.tUpdateByName("preset", _f.schaltimpuls);
+			socket2.setPreset((Preset) _f.treppenlicht);
+			socket3.setPreset((Preset) _f.schaltimpuls);
 		});
 		control(socket1, keys, _f.key1, _f.toggle, "toggle");
 		control(socket1, keys, _f.led1, _f.status, "showStatus");
@@ -438,8 +445,8 @@ public class TestDerivation extends BasicTestCase {
 		inTransaction(() -> Derivation.apply(project, plan.fingerprint()));
 
 		// Taste 1 toggles Steckdose 1 and listens to its status; the LED receives the status.
-		TLObject command1 = (TLObject) socket1.tValueByName("command");
-		TLObject state1 = (TLObject) socket1.tValueByName("state");
+		TLObject command1 = socket1.getCommand();
+		TLObject state1 = socket1.getState();
 		Interface key1 = Presets.objects(keys, _f.key1, _f.toggle).get("sendCommand");
 		assertEquals(0, key1.getPort().getIndex());
 		assertConnected(keys, key1, command1, "send");
@@ -449,12 +456,12 @@ public class TestDerivation extends BasicTestCase {
 		assertConnected(keys, Presets.objects(keys, _f.led1, _f.status).get("receiveStatus"), state1, "receive");
 
 		// Taste 3 switches Steckdose 2 (staircase light) on: it sends on the command address of object 13.
-		TLObject command2 = (TLObject) socket2.tValueByName("command");
+		TLObject command2 = socket2.getCommand();
 		assertConnected(actuator, object(actuator, 13), command2, "receive");
 		assertConnected(keys, Presets.objects(keys, _f.key3, _f.on3).get("sendCommand"), command2, "send");
 
 		// Wippe 3 switches Steckdose 3 (switch impulse) on and off on its command address.
-		TLObject command3 = (TLObject) socket3.tValueByName("command");
+		TLObject command3 = socket3.getCommand();
 		assertConnected(keys, Presets.objects(keys, _f.rocker3, _f.rockerOnOff).get("sendCommand"), command3, "send");
 		assertConnected(actuator, Presets.objects(actuator, _f.channelC, _f.schaltimpuls).get("command"), command3,
 			"receive");
@@ -479,12 +486,16 @@ public class TestDerivation extends BasicTestCase {
 
 
 
-	private static TLObject range(TLObject parent, String name, int start, int end) {
-		TLObject range = create("ehome.logical:GroupRange");
-		range.tUpdateByName("name", name);
-		range.tUpdateByName("rangeStart", new GA(start, null));
-		range.tUpdateByName("rangeEnd", new GA(end, null));
-		add(parent, ExtIds.isA(parent, "ehome.project:Project") ? "groupAddresses" : "parts", range);
+	private static GroupRange range(TLObject parent, String name, int start, int end) {
+		GroupRange range = (GroupRange) create("ehome.logical:GroupRange");
+		range.setName(name);
+		range.setRangeStart(new GA(start, null));
+		range.setRangeEnd(new GA(end, null));
+		if (ExtIds.isA(parent, "ehome.project:Project")) {
+			((Project) parent).addGroupAddresse(range);
+		} else {
+			((GroupRange) parent).addPart(range);
+		}
 		return range;
 	}
 

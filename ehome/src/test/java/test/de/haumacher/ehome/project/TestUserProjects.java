@@ -58,6 +58,8 @@ import com.top_logic.tool.boundsec.simple.CommandGroupRegistry;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 import de.haumacher.ehome.project.ProjectOwners;
@@ -193,7 +195,7 @@ public class TestUserProjects extends BasicTestCase {
 			inTransaction(() -> result[0] = project("Member test D"));
 			return result[0];
 		});
-		assertTrue("The creator owns it.", ((Collection<?>) created.tValueByName("owners")).contains(_user));
+		assertTrue("The creator owns it.", ((Project) created).getOwners().contains(_user));
 		assertEquals(List.of(_a, _b, _c, created), as(_user, () -> rows(null)));
 		assertEquals(List.of(_b, _c), as(_owner, () -> rows(null)));
 	}
@@ -245,9 +247,9 @@ public class TestUserProjects extends BasicTestCase {
 		TLObject[] controllers = new TLObject[2];
 		inTransaction(() -> {
 			controllers[0] = create("ehome.runtime:Controller");
-			controllers[0].tUpdateByName("name", "Orphan");
+			((Controller) controllers[0]).setName("Orphan");
 			controllers[1] = create("ehome.runtime:Controller");
-			controllers[1].tUpdateByName("name", "Owned");
+			((Controller) controllers[1]).setName("Owned");
 			ControllerFixture.own(_a, controllers[1]);
 		});
 		List<TLObject> found = as(_admin, () -> Administration.controllersWithoutProject());
@@ -362,7 +364,7 @@ public class TestUserProjects extends BasicTestCase {
 	 */
 	private static Set<Object> formerRows() {
 		Set<Object> result = new HashSet<>(SearchExpression.asCollection(eval("x -> all(`" + PROJECT + "`)", null)));
-		result.removeIf(p -> !String.valueOf(((TLObject) p).tValueByName("name")).startsWith("Member test"));
+		result.removeIf(p -> !String.valueOf(((Project) p).getName()).startsWith("Member test"));
 		return result;
 	}
 
@@ -399,7 +401,7 @@ public class TestUserProjects extends BasicTestCase {
 	private static List<String> names(List<TLObject> projects) {
 		List<String> result = new ArrayList<>();
 		for (TLObject project : projects) {
-			result.add((String) project.tValueByName("name"));
+			result.add(((Project) project).getName());
 		}
 		return result;
 	}
@@ -418,7 +420,7 @@ public class TestUserProjects extends BasicTestCase {
 
 	private TLObject project(String name) {
 		TLObject result = create(PROJECT);
-		result.tUpdateByName("name", name);
+		((Project) result).setName(name);
 		return result;
 	}
 

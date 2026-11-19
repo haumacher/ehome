@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import junit.framework.Test;
@@ -26,6 +25,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.operational.EnumerationType;
+import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
@@ -153,9 +155,9 @@ public class TestMdtAkkModules extends BasicTestCase {
 	}
 
 	private static Object otherChoice(ParameterView view, String current) {
-		TLObject type = (TLObject) view.getParameter().getType();
-		for (Object entry : (Collection<?>) type.tValueByName("values")) {
-			Object value = ((TLObject) entry).tValueByName("value");
+		EnumerationType type = (EnumerationType) view.getParameter().getType();
+		for (EnumerationValue entry : type.getValues()) {
+			Object value = entry.getValue();
 			if (!String.valueOf(value).equals(current)) {
 				return value;
 			}
@@ -216,12 +218,12 @@ public class TestMdtAkkModules extends BasicTestCase {
 
 	private static TLObject assignment() {
 		return instances("ehome.catalog:ProgramAssignment").stream()
-			.filter(a -> ASSIGNMENT.equals(a.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(a -> ASSIGNMENT.equals(((ProgramAssignment) a).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static Program program() {
 		return (Program) instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(p -> PROGRAM.equals(((Program) p).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static TLObject kind(String name) {

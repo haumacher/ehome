@@ -55,7 +55,7 @@ public class ReportingConstraint extends AbstractConfiguredInstance<ReportingCon
 		}
 		String name = attribute.getName();
 		if (name.equals(refusal.member().attribute())
-			|| (refusal.member() == ZigbeeReporting.Member.WHOLE && object.tValueByName(name) != null)) {
+			|| (refusal.member() == ZigbeeReporting.Member.WHOLE && object.tValue(attribute) != null)) {
 			return refusal.reason();
 		}
 		return null;

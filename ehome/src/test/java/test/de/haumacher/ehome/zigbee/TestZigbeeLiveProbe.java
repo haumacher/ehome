@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +30,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Controllers;
 import de.haumacher.ehome.connection.Enrollment;
@@ -87,8 +90,8 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 	public void testBindingsAndReconnect() throws Exception {
 		String export = Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8);
 		_fake.setZigbeeExport(export, 16);
-		TLObject project = ControllerEndpoint.project("Zigbee live probe");
-		TLObject controller = null;
+		Project project = (Project) ControllerEndpoint.project("Zigbee live probe");
+		Controller controller = null;
 		try {
 			Enrolled enrolled = enroll(project, "homecontrol-probe");
 			controller = enrolled.controller();
@@ -97,15 +100,15 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 
 			link.send(event("interviewed"));
 			awaitRead(id, null);
-			TLObject device = ZigbeeImport.devices(project).get(0);
-			TLObject occupancy = function(device, "occupancy");
+			ZigbeeDevice device = project.getZigbeeDevices().get(0);
+			ZigbeeFunction occupancy = function(device, "occupancy");
 			ZigbeeLive.Read first = ZigbeeLive.lastRead(id);
 
 			// The installer names the device and binds its occupancy; the controller then exports the
 			// device with a label and without the occupancy function.
 			TLObject occupancyDp;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				device.tUpdateByName("name", "Flur Bewegung");
+				device.setName("Flur Bewegung");
 				occupancyDp = ZigbeeBindings.createDatapoint(occupancy);
 				tx.commit();
 			}
@@ -121,14 +124,14 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 			awaitRead(id, first);
 			assertEquals(2, exportRequests(link).size());
 
-			assertEquals("The user's name survives the live import.", "Flur Bewegung", device.tValueByName("name"));
-			assertEquals("The controller's label is taken.", "Hallway", device.tValueByName("label"));
-			assertEquals(5, ((Collection<?>) device.tValueByName("functions")).size());
+			assertEquals("The user's name survives the live import.", "Flur Bewegung", device.getName());
+			assertEquals("The controller's label is taken.", "Hallway", device.getLabel());
+			assertEquals(5, device.getFunctions().size());
 			assertTrue(occupancy.tValid());
-			assertEquals(Boolean.TRUE, occupancy.tValueByName("absent"));
+			assertEquals(Boolean.TRUE, occupancy.getAbsentOrNull());
 			assertEquals(List.of(occupancyDp), ZigbeeBindings.boundDatapoints(occupancy));
-			assertEquals(Boolean.FALSE, function(device, "battery").tValueByName("absent"));
-			assertEquals(60L, ((Number) controller.tValueByName("zigbeePermitJoin")).longValue());
+			assertEquals(Boolean.FALSE, function(device, "battery").getAbsentOrNull());
+			assertEquals(60L, controller.getZigbeePermitJoin().longValue());
 			// A live read is fresh: its permit time counts from the read, not from the export's own
 			// (here: old) time stamp.
 			String open = ZigbeeStatus.networkState(project, Instant.now());
@@ -159,7 +162,7 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 			awaitRead(id, second);
 			assertEquals(1, exportRequests(again).size());
 			assertEquals(List.of(device), ZigbeeImport.devices(project));
-			assertEquals("Flur Bewegung", device.tValueByName("name"));
+			assertEquals("Flur Bewegung", device.getName());
 			assertNull(ZigbeeStatus.liveProblem(project));
 		} finally {
 			if (controller != null) {
@@ -170,20 +173,20 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 		}
 	}
 
-	private record Enrolled(String id, String secret, URI socket, TLObject controller) {
+	private record Enrolled(String id, String secret, URI socket, Controller controller) {
 		// A record.
 	}
 
-	private Enrolled enroll(TLObject project, String name) throws Exception {
+	private Enrolled enroll(Project project, String name) throws Exception {
 		Enrollment.createCode(project, null, Instant.now());
 		Map<String, Object> request = new LinkedHashMap<>();
-		request.put("code", project.tValueByName("enrollmentCode"));
+		request.put("code", project.getEnrollmentCode());
 		request.put("name", name);
 		Enrollment.Answer answer = Enrollment.enroll(request, _endpoint.base(), Instant.now());
 		assertEquals(answer.body().toString(), 200, answer.status());
 		ControllerConnections.refetch();
 		return new Enrolled((String) answer.body().get("controller"), (String) answer.body().get("secret"),
-			URI.create((String) answer.body().get("socket")), (TLObject) project.tValueByName("controller"));
+			URI.create((String) answer.body().get("socket")), project.getController());
 	}
 
 	private FakeControllerLink connect(Enrolled enrolled) throws Exception {
@@ -202,10 +205,10 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 		return result;
 	}
 
-	private static TLObject function(TLObject device, String key) {
-		for (Object function : (Collection<?>) device.tValueByName("functions")) {
-			if (key.equals(((TLObject) function).tValueByName("function"))) {
-				return (TLObject) function;
+	private static ZigbeeFunction function(ZigbeeDevice device, String key) {
+		for (ZigbeeFunction function : device.getFunctions()) {
+			if (key.equals(function.getFunction())) {
+				return function;
 			}
 		}
 		throw new AssertionError("No function " + key);

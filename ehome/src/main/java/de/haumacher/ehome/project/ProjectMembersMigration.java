@@ -23,6 +23,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.tool.boundsec.wrap.Group;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 
 /**
@@ -69,12 +70,12 @@ public class ProjectMembersMigration implements StartupAction {
 		List<String> report = new ArrayList<>();
 		List<TLObject> projects = new ArrayList<>(MetaElementUtil
 			.getAllDirectInstancesOf((TLClass) TLModelUtil.findType(ProjectMembers.PROJECT_TYPE), TLObject.class));
-		projects.sort(Comparator.comparing((TLObject p) -> String.valueOf(p.tValueByName("name")))
+		projects.sort(Comparator.comparing((TLObject p) -> String.valueOf(((Project) p).getName()))
 			.thenComparing(p -> p.tIdLocal()));
 		Collection<Person> installers = members(INSTALLERS);
 		Collection<Person> viewers = members(VIEWERS);
 		for (TLObject project : projects) {
-			String name = String.valueOf(project.tValueByName("name"));
+			String name = String.valueOf(((Project) project).getName());
 			Person creator = creator(project);
 			if (creator != null && ProjectMembers.ownIfUnowned(project, creator)) {
 				report.add("Project '" + name + "': its creator '" + creator.getName()

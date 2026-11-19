@@ -53,11 +53,21 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GALabelProvider;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.knx.WithinGroupRange;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.operational.Case;
+import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.NumericType;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.project.Project;
 
 /**
  * Test case for {@link Importer} importing the ETS sample project <code>samples/Test.knxproj</code>.
@@ -106,16 +116,16 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals(1, _projects.size());
 		TLObject project = _projects.get(0);
 		_first = project;
-		assertEquals("Test", project.tValueByName("name"));
-		assertEquals("P-01A0", project.tValueByName("extId"));
-		Object style = project.tValueByName("groupAddressStyle");
+		assertEquals("Test", ((Project) project).getName());
+		assertEquals("P-01A0", ((Project) project).getExtId());
+		Object style = ((Project) project).getGroupAddressStyle();
 		assertNotNull("Group address style not imported.", style);
 		assertEquals("ThreeLevel", ((TLClassifier) style).getName());
 
 		List<TLObject> addresses = SharedData.within("ehome.logical:GroupAddress", _projects);
 		assertFalse("No group address imported.", addresses.isEmpty());
 		for (TLObject address : addresses) {
-			Object value = address.tValueByName("address");
+			Object value = ((GroupAddress) address).getAddress();
 			assertInstanceof("Group address not read as GA.", value, GA.class);
 			assertEquals(GroupAddressStyle.ThreeLevel, ((GA) value).getStyle());
 			// Labels (table cells, search and filter texts) show the same notation.
@@ -203,7 +213,7 @@ public class TestEtsImport extends BasicTestCase {
 		TLObject unassigned = byTitle("Taster Reserve");
 		TLObject project = unassigned.tContainer();
 		assertEquals("ehome.project:Project", TLModelUtil.qualifiedName(project.tType()));
-		assertEquals(List.of(unassigned), project.tValueByName("unassignedDevices"));
+		assertEquals(List.of(unassigned), ((Project) project).getUnassignedDevices());
 		assertSame(project, device.tContainer().tContainer().tContainer());
 
 		checkGroups(project);
@@ -213,8 +223,8 @@ public class TestEtsImport extends BasicTestCase {
 	private void checkProgramStructure() throws Exception {
 		// The structure of a program is one tree owned by the program: channels, blocks, switches,
 		// and entries placing parameters and communication objects.
-		TLObject program = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000A");
-		List<?> contents = (List<?>) program.tValueByName("contents");
+		Program program = (Program) byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000A");
+		List<?> contents = program.getContents();
 		assertEquals(1, contents.size());
 		TLObject channel = (TLObject) contents.get(0);
 		assertEquals("ehome.operational:Channel", TLModelUtil.qualifiedName(channel.tType()));
@@ -226,14 +236,14 @@ public class TestEtsImport extends BasicTestCase {
 			.toList();
 		assertEquals(3862, placed.size());
 		for (TLObject reference : placed) {
-			assertNotNull(reference.tValueByName("parameter"));
-			assertTrue(((Collection<?>) ((TLObject) reference.tValueByName("parameter")).tValueByName("views"))
+			assertNotNull(((ParameterView) reference).getParameter());
+			assertTrue(((ParameterView) reference).getParameter().getViews()
 				.contains(reference));
 		}
 		assertEquals(410, descendants(channel).stream()
 			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:Interface"))
 			.count());
-		List<?> unplaced = (List<?>) program.tValueByName("unplaced");
+		List<?> unplaced = program.getUnplaced();
 		assertEquals(59, unplaced.size());
 		for (Object reference : unplaced) {
 			assertSame(program, ((TLObject) reference).tContainer());
@@ -244,60 +254,60 @@ public class TestEtsImport extends BasicTestCase {
 		TLObject grouping = descendants(channel).stream()
 			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:Switch"))
 			.filter(o -> "M-0008_A-10D7-11-A0E5-O000A_P-3739_R-3739".equals(
-				((TLObject) o.tValueByName("input")).tValueByName("extId")))
+				((Switch) o).getInput().getExtId()))
 			.findFirst().orElseThrow();
 		assertTrue((String) derived(grouping, "displayName"),
 			((String) derived(grouping, "displayName")).matches("(Gruppe|Group) Bedienkonzept"));
 		TLObject buttons = descendants(grouping).stream()
 			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:Switch"))
 			.filter(o -> "Bedienkonzept der Tasten 1 und 2".equals(
-				((String) derived((TLObject) o.tValueByName("input"), "title")).trim()))
+				((String) derived(((Switch) o).getInput(), "title")).trim()))
 			.findFirst().orElseThrow();
-		TLObject buttonCase = ((List<?>) buttons.tValueByName("alternatives")).stream()
+		TLObject buttonCase = ((Switch) buttons).getAlternatives().stream()
+			.filter(c -> "1".equals(c.getPattern()))
 			.map(TLObject.class::cast)
-			.filter(c -> "1".equals(c.tValueByName("pattern")))
 			.findFirst().orElseThrow();
 		String caseLabel = (String) derived(buttonCase, "displayName");
 		assertTrue(caseLabel, caseLabel.startsWith("= 1 (") && caseLabel.endsWith(")"));
 
 		// A block without a title of its own takes it from its title parameter; its own display wins
 		// over that of the title parameter.
-		TLObject general = byExtId("ehome.operational:ParameterGroup", "M-0008_A-10D7-11-A0E5-O000A_PB-3762", 0);
-		TLObject titleParameter = (TLObject) general.tValueByName("input");
-		assertNull(general.tValueByName("description"));
+		ParameterGroup general = (ParameterGroup) byExtId("ehome.operational:ParameterGroup", "M-0008_A-10D7-11-A0E5-O000A_PB-3762", 0);
+		TLObject titleParameter = general.getInput();
+		assertNull(general.getDescription());
 		assertEquals(derived(titleParameter, "title"), derived(general, "effectiveTitle"));
 		assertEquals(derived(general, "effectiveTitle"), derived(general, "displayName"));
-		assertNotNull(general.tValueByName("access"));
-		assertEquals(general.tValueByName("access"), derived(general, "effectiveAccess"));
+		assertNotNull(general.getAccess());
+		assertEquals(general.getAccess(), derived(general, "effectiveAccess"));
 
 		// A channel that depends on a parameter: a switch directly in the program, after the channel
 		// independent part showing the parameter.
 		importSample("src/test/fixtures/TestDynamic.knxproj");
 		TestDownloadDataImport.checkFixture();
-		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000E");
-		List<?> top = (List<?>) dynamic.tValueByName("contents");
+		Program dynamic = (Program) byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000E");
+		List<?> top = dynamic.getContents();
 		assertEquals(2, top.size());
 		assertEquals("ehome.operational:ChannelIndependent",
 			TLModelUtil.qualifiedName(((TLObject) top.get(0)).tType()));
 		TLObject choice = (TLObject) top.get(1);
 		assertEquals("ehome.operational:Switch", TLModelUtil.qualifiedName(choice.tType()));
 		assertEquals("M-0008_A-10D7-11-A0E5-O000E_P-9010_R-9010",
-			((TLObject) choice.tValueByName("input")).tValueByName("extId"));
-		List<?> cases = (List<?>) choice.tValueByName("alternatives");
+			((Switch) choice).getInput().getExtId());
+		List<? extends Case> cases = ((Switch) choice).getAlternatives();
 		assertEquals(2, cases.size());
-		TLObject first = (TLObject) cases.get(0);
-		assertEquals("1", first.tValueByName("pattern"));
-		assertNotSame(Boolean.TRUE, first.tValueByName("isDefault"));
-		List<?> caseContents = (List<?>) first.tValueByName("contents");
+		Case first = cases.get(0);
+		assertEquals("1", first.getPattern());
+		assertNotSame(Boolean.TRUE, first.getIsDefaultOrNull());
+		List<?> caseContents = first.getContents();
 		assertEquals(1, caseContents.size());
 		assertEquals("ehome.operational:Channel",
 			TLModelUtil.qualifiedName(((TLObject) caseContents.get(0)).tType()));
-		TLObject otherwise = (TLObject) cases.get(1);
-		assertEquals(Boolean.TRUE, otherwise.tValueByName("isDefault"));
-		assertTrue(((List<?>) otherwise.tValueByName("contents")).isEmpty());
+		Case otherwise = cases.get(1);
+		assertEquals(Boolean.TRUE, otherwise.getIsDefaultOrNull());
+		assertTrue(otherwise.getContents().isEmpty());
 
 		// The known program of the Test sample was not changed by the import of the new version.
-		assertEquals(1, ((List<?>) program.tValueByName("contents")).size());
+		assertEquals(1, program.getContents().size());
 	}
 
 	/**
@@ -319,27 +329,26 @@ public class TestEtsImport extends BasicTestCase {
 		while (!todo.isEmpty()) {
 			TLObject current = todo.remove(todo.size() - 1);
 			result.add(current);
-			for (String part : List.of("contents", "alternatives")) {
-				if (current.tType().getPart(part) != null) {
-					for (Object child : (Collection<?>) current.tValueByName(part)) {
-						todo.add((TLObject) child);
-					}
-				}
+			if (current instanceof ConfigFragment fragment) {
+				todo.addAll(fragment.getContents());
+			}
+			if (current instanceof Switch choice) {
+				todo.addAll(choice.getAlternatives());
 			}
 		}
 		return result;
 	}
 
 	private void checkGroups(TLObject project) throws Exception {
-		TLObject address = byDescription("ehome.logical:GroupAddress", "Raumtemperatur Küche");
-		assertEquals(Boolean.TRUE, address.tValueByName("central"));
-		assertEquals(Boolean.TRUE, address.tValueByName("unfiltered"));
+		GroupAddress address = (GroupAddress) byDescription("ehome.logical:GroupAddress", "Raumtemperatur Küche");
+		assertEquals(Boolean.TRUE, Boolean.valueOf(address.getCentral()));
+		assertEquals(Boolean.TRUE, Boolean.valueOf(address.getUnfiltered()));
 		assertEquals("0/0/1 GA1", derived(address, "displayName"));
 
-		TLObject middle = byDescription("ehome.logical:GroupRange", "Küche");
-		assertEquals(Boolean.TRUE, middle.tValueByName("unfiltered"));
-		assertEquals(1, ((GA) middle.tValueByName("rangeStart")).getValue());
-		assertEquals(255, ((GA) middle.tValueByName("rangeEnd")).getValue());
+		GroupRange middle = (GroupRange) byDescription("ehome.logical:GroupRange", "Küche");
+		assertEquals(Boolean.TRUE, Boolean.valueOf(middle.getUnfiltered()));
+		assertEquals(1, middle.getRangeStart().getValue());
+		assertEquals(255, middle.getRangeEnd().getValue());
 		assertEquals("0/0 MG11", derived(middle, "displayName"));
 		assertEquals("0 HG1", derived(middle.tContainer(), "displayName"));
 		assertSame(project, middle.tContainer().tContainer());
@@ -351,7 +360,7 @@ public class TestEtsImport extends BasicTestCase {
 		assertNull(constraint.check(address, addressPart));
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		try (Transaction tx = kb.beginTransaction()) {
-			address.tUpdateByName("address", 300);
+			address.setAddress(new GA(300, null));
 			assertNotNull("Address outside its range accepted.", constraint.check(address, addressPart));
 			tx.rollback();
 		}
@@ -359,7 +368,7 @@ public class TestEtsImport extends BasicTestCase {
 
 	private TLObject byDescription(String typeName, String description) {
 		List<TLObject> result = SharedData.within(typeName, _projects).stream()
-			.filter(obj -> description.equals(obj.tValueByName("description")))
+			.filter(obj -> description.equals(((GroupAddressDefinition) obj).getDescription()))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);
@@ -376,7 +385,7 @@ public class TestEtsImport extends BasicTestCase {
 	private void checkTranslations() {
 		// The program of the Test device is written in German; EHomeDemo adds the English texts.
 		TLObject parameter = byExtId("ehome.operational:Parameter", "M-0008_A-10D7-11-A0E5-O000A_P-696");
-		ResKey description = (ResKey) parameter.tValueByName("description");
+		ResKey description = ((Parameter) parameter).getDescription();
 		assertEquals("Funktion der Status-LED rechts", ResKeyUtil.getTranslation(description, Locale.GERMAN));
 		assertEquals("Function of right status LED", ResKeyUtil.getTranslation(description, Locale.ENGLISH));
 
@@ -413,7 +422,7 @@ public class TestEtsImport extends BasicTestCase {
 
 	private static List<TLObject> withExtId(String typeName, String extId) {
 		return instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 	}
 
@@ -427,7 +436,7 @@ public class TestEtsImport extends BasicTestCase {
 		EnumerationValue entry = (EnumerationValue) led.tValueByName("choice");
 		assertNotNull(entry);
 		assertEquals(9, entry.getValue());
-		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", ResKeyUtil.getTranslation((ResKey) entry.tValueByName("name"), Locale.GERMAN));
+		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", ResKeyUtil.getTranslation(entry.getNameKey(), Locale.GERMAN));
 		EnumerationType ledType = (EnumerationType) ((ParameterView) led.tValueByName("parameter")).getParameter().getType();
 		assertTrue(ledType.getValues().contains(entry));
 		assertEquals("9", derived(led, "encodedValue"));

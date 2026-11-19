@@ -40,9 +40,11 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -189,7 +191,7 @@ public class TestObjectKinds extends BasicTestCase {
 			Interface other = ObjectKinds.placements(temperature).stream().filter(p -> p != connected)
 				.findFirst().orElseThrow();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				ObjectTypes.overlay(other).tUpdateByName("datapointTypes", List.of(lux));
+				((ObjectOverlay) ObjectTypes.overlay(other)).setDatapointTypes(List.of(lux));
 				tx.commit();
 			}
 			assertTrue(ObjectKinds.mixed(template, temperature));
@@ -335,7 +337,7 @@ public class TestObjectKinds extends BasicTestCase {
 
 	private static TLObject address(TLObject project, String text) {
 		return SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
-			.filter(a -> a.tValueByName("address") instanceof GA ga && ga.toString().equals(text))
+			.filter(a -> ((GroupAddress) a).getAddress() instanceof GA ga && ga.toString().equals(text))
 			.findFirst().orElseThrow();
 	}
 

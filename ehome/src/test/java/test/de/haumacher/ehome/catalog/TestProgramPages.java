@@ -57,7 +57,7 @@ public class TestProgramPages extends BasicTestCase {
 		try {
 			importSample("samples/Test.knxproj");
 			Program program = (Program) instances("ehome.operational:Program").stream()
-				.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).findFirst().get();
+				.filter(p -> PROGRAM.equals(((Program) p).getExtId())).findFirst().get();
 			checkPages(program);
 
 			// A new parameter is placed nowhere: it is listed last. It is not committed, so that it takes
@@ -139,8 +139,8 @@ public class TestProgramPages extends BasicTestCase {
 		for (Map<String, Object> hit : hits) {
 			Parameter parameter = (Parameter) hit.get(ProgramPages.DEFINITION);
 			ParameterView placement = (ParameterView) hit.get(ProgramPages.PLACEMENT);
-			String texts = (parameter.getName() + " " + parameter.tValueByName("description") + " "
-				+ placement.tValueByName("description") + " " + parameter.getType().getName()).toLowerCase(Locale.ROOT);
+			String texts = (parameter.getName() + " " + parameter.getDescription() + " "
+				+ placement.getDescription() + " " + parameter.getType().getName()).toLowerCase(Locale.ROOT);
 			assertTrue(texts, texts.contains("helligkeit"));
 		}
 		assertEquals(List.of(), pages.parameterRows("Gibt es nicht", false));

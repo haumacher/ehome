@@ -14,10 +14,12 @@ import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.TypedConfiguration;
 import com.top_logic.basic.config.annotation.DefaultContainer;
 import com.top_logic.basic.config.annotation.TagName;
-import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
 import com.top_logic.xio.importer.handlers.Handler;
+
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Imports the content of a device (ETS: <code>DeviceInstance</code>) with the scopes that the short
@@ -48,10 +50,6 @@ public class DeviceScope<C extends DeviceScope.Config<?>> extends ConfiguredImpo
 	private static final String ID = "Id";
 
 	private static final String ASSIGNMENT = "Hardware2ProgramRefId";
-
-	private static final String PROGRAM = "program";
-
-	private static final String EXT_ID = "extId";
 
 	/**
 	 * Separator of the parts of an ETS ID.
@@ -103,8 +101,8 @@ public class DeviceScope<C extends DeviceScope.Config<?>> extends ConfiguredImpo
 			return null;
 		}
 		Object assignment = context.resolveObjectBackwards(this, in.getLocation(), assignmentId.trim());
-		if (assignment instanceof TLObject obj && obj.tValueByName(PROGRAM) instanceof TLObject program) {
-			return (String) program.tValueByName(EXT_ID);
+		if (assignment instanceof ProgramAssignment obj && obj.getProgram() instanceof Program program) {
+			return program.getExtId();
 		}
 		return null;
 	}

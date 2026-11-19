@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,11 +32,19 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Control;
+import de.haumacher.ehome.model.runtime.DerivedPart;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -270,9 +279,9 @@ public final class Derivation {
 
 	private final Map<Phase, List<Runnable>> _operations = new EnumMap<>(Phase.class);
 
-	private final List<TLObject> _marks;
+	private final List<DerivedPart> _marks;
 
-	private final Set<TLObject> _usedMarks = new HashSet<>();
+	private final Set<DerivedPart> _usedMarks = new HashSet<>();
 
 	private final List<Participant> _participants = new ArrayList<>();
 
@@ -292,13 +301,13 @@ public final class Derivation {
 
 		final boolean _control;
 
-		final TLObject _function;
+		final Function _function;
 
 		final TLObject _device;
 
 		final String _channel;
 
-		final TLObject _preset;
+		final Preset _preset;
 
 		final String _label;
 
@@ -309,8 +318,8 @@ public final class Derivation {
 		/** Of a function: the address of each role. */
 		final Map<String, Slot> _slots = new LinkedHashMap<>();
 
-		Participant(TLObject origin, boolean control, TLObject function, TLObject device, String channel,
-				TLObject preset, String label) {
+		Participant(TLObject origin, boolean control, Function function, TLObject device, String channel,
+				Preset preset, String label) {
 			_origin = origin;
 			_control = control;
 			_function = function;
@@ -326,10 +335,10 @@ public final class Derivation {
 		final String _role;
 
 		/** The address; for a planned one set when it is created. */
-		TLObject _address;
+		GroupAddress _address;
 
 		/** The mark, <code>null</code> for a planned address. */
-		TLObject _mark;
+		DerivedPart _mark;
 
 		/** A marked address removed by hand: nothing is connected to it. */
 		boolean _gone;
@@ -361,7 +370,7 @@ public final class Derivation {
 	private Derivation(TLObject project) {
 		_project = project;
 		_revision = HistoryUtils.getSessionRevision().getCommitNumber();
-		_marks = ExtIds.list(project, "derivedParts");
+		_marks = project == null ? new ArrayList<>() : new ArrayList<>(((Project) project).getDerivedParts());
 		for (Phase phase : Phase.values()) {
 			_operations.put(phase, new ArrayList<>());
 		}
@@ -476,9 +485,10 @@ public final class Derivation {
 		_allocator = new Allocator(_project);
 		_identifiers = GroupAddressIds.taken(_project);
 		List<TLObject> functions = FunctionProposal.functions(_project);
-		for (TLObject function : functions) {
-			List<TLObject> controls = ExtIds.list(function, "controls");
-			if (function.tValueByName("preset") == null && controls.isEmpty()) {
+		for (TLObject element : functions) {
+			Function function = (Function) element;
+			List<Control> controls = new ArrayList<>(function.getControls());
+			if (function.getPreset() == null && controls.isEmpty()) {
 				continue;
 			}
 			ResKey veto = functionVeto(function);
@@ -492,7 +502,7 @@ public final class Derivation {
 			}
 			if (veto != null) {
 				refuse(function, label(function), veto);
-				for (TLObject control : controls) {
+				for (Control control : controls) {
 					refuse(control, controlLabel(control),
 						I18NConstants.ERROR_CONTROL_FUNCTION__FUNCTION_REASON.fill(label(function), veto));
 				}
@@ -502,7 +512,7 @@ public final class Derivation {
 			_functions.put(function, participant);
 		}
 		for (Map.Entry<TLObject, Participant> entry : new ArrayList<>(_functions.entrySet())) {
-			for (TLObject control : ExtIds.list(entry.getKey(), "controls")) {
+			for (Control control : ((Function) entry.getKey()).getControls()) {
 				ResKey veto = controlVeto(control, entry.getValue());
 				Participant participant = null;
 				if (veto == null) {
@@ -535,22 +545,22 @@ public final class Derivation {
 		_refusals.putIfAbsent(origin, new Refusal(origin, label, reason));
 	}
 
-	private ResKey functionVeto(TLObject function) {
-		TLObject preset = (TLObject) function.tValueByName("preset");
+	private ResKey functionVeto(Function function) {
+		Preset preset = function.getPreset();
 		if (preset == null) {
 			return I18NConstants.ERROR_FUNCTION_NO_PRESET;
 		}
-		TLObject device = (TLObject) function.tValueByName("device");
-		Object channel = function.tValueByName("channel");
+		TLObject device = function.getDevice();
+		Object channel = function.getChannel();
 		if (device == null || channel == null) {
 			return I18NConstants.ERROR_FUNCTION_NO_CHANNEL;
 		}
 		if (Presets.isSourcePreset(preset)) {
 			return I18NConstants.ERROR_FUNCTION_SOURCE_PRESET__PRESET.fill(presetLabel(preset));
 		}
-		String kind = name(preset.tValueByName("kind"));
+		String kind = name(preset.getKind());
 		if (!DERIVED_KINDS.contains(kind)) {
-			return I18NConstants.ERROR_KIND_NOT_YET__KIND.fill(preset.tValueByName("kind"));
+			return I18NConstants.ERROR_KIND_NOT_YET__KIND.fill(preset.getKind());
 		}
 		ResKey offer = Presets.offerVeto(device, channel.toString(), preset);
 		if (offer != null) {
@@ -562,37 +572,37 @@ public final class Derivation {
 		return hand(device, channel.toString(), preset, function);
 	}
 
-	private Participant functionParticipant(TLObject function) {
-		TLObject device = (TLObject) function.tValueByName("device");
-		String channel = function.tValueByName("channel").toString();
-		TLObject preset = (TLObject) function.tValueByName("preset");
+	private Participant functionParticipant(Function function) {
+		TLObject device = function.getDevice();
+		String channel = function.getChannel().toString();
+		Preset preset = function.getPreset();
 		Participant result = new Participant(function, false, function, device, channel, preset, label(function));
 		result._values = Presets.values(device, channel, preset);
 		result._objects = Presets.objects(device, channel, preset);
 		return result;
 	}
 
-	private ResKey controlVeto(TLObject control, Participant function) {
-		TLObject operation = (TLObject) control.tValueByName("operation");
+	private ResKey controlVeto(Control control, Participant function) {
+		TLObject operation = control.getOperation();
 		if (operation == null) {
 			return I18NConstants.ERROR_CONTROL_NO_OPERATION;
 		}
-		TLObject device = (TLObject) control.tValueByName("device");
-		Object channel = control.tValueByName("channel");
+		TLObject device = control.getDevice();
+		Object channel = control.getChannel();
 		if (device == null || channel == null) {
 			return I18NConstants.ERROR_CONTROL_NO_SOURCE;
 		}
 		String needed = neededRole(name(operation));
-		String kind = name(function._preset.tValueByName("kind"));
+		String kind = name(function._preset.getKind());
 		if (!FunctionKinds.roles(kind).contains(needed)) {
 			return I18NConstants.ERROR_CONTROL_KIND_NO_ROLE__FUNCTION_OPERATION_KIND.fill(function._label, operation,
-				function._preset.tValueByName("kind"));
+				function._preset.getKind());
 		}
 		if (!function._objects.containsKey(needed)) {
 			return I18NConstants.ERROR_CONTROL_NO_ROLE__FUNCTION_OPERATION_ROLE.fill(function._label, operation,
 				role(needed));
 		}
-		TLObject preset = (TLObject) control.tValueByName("preset");
+		Preset preset = control.getPreset();
 		if (preset == null) {
 			return I18NConstants.ERROR_CONTROL_NO_PRESET;
 		}
@@ -635,18 +645,18 @@ public final class Derivation {
 		if (use == null || use.tValueByName("preset") == preset) {
 			return null;
 		}
-		TLObject mark = findMark("preset", origin, m -> m.tValueByName("device") == device
-			&& channel.equals(m.tValueByName("channel")));
-		if (mark != null && mark.tValueByName("preset") == use.tValueByName("preset")) {
+		DerivedPart mark = findMark("preset", origin, m -> m.getDevice() == device
+			&& channel.equals(m.getChannel()));
+		if (mark != null && mark.getPreset() == use.tValueByName("preset")) {
 			return null;
 		}
 		return I18NConstants.ERROR_HAND_PRESET__PRESET.fill(presetLabel((TLObject) use.tValueByName("preset")));
 	}
 
-	private Participant controlParticipant(TLObject control, Participant function) {
-		TLObject device = (TLObject) control.tValueByName("device");
-		String channel = control.tValueByName("channel").toString();
-		TLObject preset = (TLObject) control.tValueByName("preset");
+	private Participant controlParticipant(Control control, Participant function) {
+		TLObject device = control.getDevice();
+		String channel = control.getChannel().toString();
+		Preset preset = control.getPreset();
 		Participant result = new Participant(control, true, function._function, device, channel, preset,
 			controlLabel(control));
 		result._values = Presets.values(device, channel, preset);
@@ -688,7 +698,7 @@ public final class Derivation {
 	 * The addresses of the function's roles: the marked ones, and new ones allocated for the others.
 	 */
 	private ResKey allocate(Participant function) {
-		String kind = name(function._preset.tValueByName("kind"));
+		String kind = name(function._preset.getKind());
 		List<Slot> planned = new ArrayList<>();
 		for (String role : FunctionKinds.roles(kind)) {
 			Interface placed = function._objects.get(role);
@@ -697,28 +707,29 @@ public final class Derivation {
 			}
 			Slot slot = new Slot(role);
 			slot._type = ObjectTypes.effective(function._device, placed);
-			TLObject mark = findMark("address", function._origin, m -> role.equals(m.tValueByName("role")));
+			DerivedPart mark = findMark("address", function._origin, m -> role.equals(m.getRole()));
 			if (mark != null) {
 				slot._mark = mark;
-				TLObject address = (TLObject) mark.tValueByName("address");
+				GroupAddress address = mark.getAddress();
 				if (address == null || !address.tValid()) {
 					slot._gone = true;
 				} else {
 					slot._address = address;
 				}
-				slot._name = text(mark.tValueByName("name"));
-				slot._identifier = text(mark.tValueByName("identifier"));
-				slot._number = mark.tValueByName("number") instanceof Number number ? number.intValue() : -1;
+				slot._name = text(mark.getName());
+				slot._identifier = text(mark.getIdentifier());
+				slot._number = mark.getNumber() instanceof Number number ? number.intValue() : -1;
 			} else if (function._function.tValueByName(role) instanceof TLObject bound && bound.tValid()
 				&& ExtIds.isA(bound, "ehome.logical:GroupAddress") && !markedElsewhere(bound)) {
 				// The role is bound to an address already (an imported function, a project file imported
 				// without its marks): the derivation takes it as it is.
-				slot._address = bound;
+				GroupAddress address = (GroupAddress) bound;
+				slot._address = address;
 				slot._adopted = true;
-				slot._name = text(bound.tValueByName("name"));
-				slot._identifier = text(bound.tValueByName("identifier"));
-				slot._number = bound.tValueByName("address") instanceof GA ga ? ga.getValue() : -1;
-				Object types = bound.tValueByName("datapointTypes");
+				slot._name = text(address.getName());
+				slot._identifier = text(address.getIdentifier());
+				slot._number = address.getAddress() instanceof GA ga ? ga.getValue() : -1;
+				Object types = address.getDatapointTypes();
 				slot._boundType = types instanceof Collection<?> list && !list.isEmpty() ? (TLObject) list.iterator().next()
 					: null;
 			} else {
@@ -728,13 +739,13 @@ public final class Derivation {
 		}
 		if (!planned.isEmpty()) {
 			int main = mainGroup(kind);
-			int floor = floorIndex((TLObject) function._function.tValueByName("room"));
+			int floor = floorIndex(function._function.getRoom());
 			int middle = Math.min(floor, MIDDLE_GROUPS - 1);
 			List<Integer> numbers = new ArrayList<>();
 			Allocator.Mark undo = _allocator.mark();
 			for (int n = 0; n < planned.size(); n++) {
 				Integer number = _allocator.allocate(main, middle, kindRange(kind),
-					floorName((TLObject) function._function.tValueByName("room")));
+					floorName(function._function.getRoom()));
 				if (number == null) {
 					_allocator.reset(undo);
 					return I18NConstants.ERROR_NO_FREE_ADDRESS__RANGE.fill(_allocator.blockText(main, middle));
@@ -766,18 +777,18 @@ public final class Derivation {
 	 * The items and operations of an accepted function: its addresses, its kind and roles.
 	 */
 	private void deriveFunction(Participant function) {
-		TLObject f = function._function;
+		Function f = function._function;
 		for (Slot slot : function._slots.values()) {
 			if (slot._adopted) {
 				_operations.get(Phase.MARKS).add(() -> {
-					TLObject mark = newMark("address", function);
-					mark.tUpdateByName("role", slot._role);
-					mark.tUpdateByName("address", slot._address);
-					mark.tUpdateByName("name", slot._name);
-					mark.tUpdateByName("identifier", slot._identifier);
-					mark.tUpdateByName("datapointType", slot._boundType);
-					mark.tUpdateByName("number", Integer.valueOf(slot._number));
-					mark.tUpdateByName("functionName", functionName(function._function, _resources));
+					DerivedPart mark = newMark("address", function);
+					mark.setRole(slot._role);
+					mark.setAddress(slot._address);
+					mark.setName(slot._name);
+					mark.setIdentifier(slot._identifier);
+					mark.setDatapointType(slot._boundType);
+					mark.setNumber(Integer.valueOf(slot._number));
+					mark.setFunctionName(functionName(function._function, _resources));
 				});
 				continue;
 			}
@@ -791,7 +802,7 @@ public final class Derivation {
 					_resources.getString(I18NConstants.KEEP_ADDRESS_REMOVED), function._origin, function._label));
 				continue;
 			}
-			TLObject address = slot._address;
+			GroupAddress address = slot._address;
 			if (changedByHand(address, slot._mark)) {
 				_items.add(new Item(Action.KEEP, What.ADDRESS, addressLabel(address),
 					_resources.getString(I18NConstants.KEEP_CHANGED__DERIVED.fill(slot.label())), function._origin,
@@ -799,7 +810,7 @@ public final class Derivation {
 				continue;
 			}
 			String name = slot._name;
-			String namedAfter = text(slot._mark.tValueByName("functionName"));
+			String namedAfter = text(slot._mark.getFunctionName());
 			if (namedAfter != null && !isFunctionName(f, namedAfter)) {
 				// The function was renamed since: so is its address.
 				String newName = addressName(f, slot._role, _resources);
@@ -807,34 +818,34 @@ public final class Derivation {
 				_items.add(new Item(Action.CHANGE, What.ADDRESS, addressLabel(address),
 					_resources.getString(I18NConstants.DETAIL_RENAME__OLD_NEW.fill(name, newName)), function._origin,
 					function._label));
-				TLObject mark = slot._mark;
+				DerivedPart mark = slot._mark;
 				_operations.get(Phase.ADDRESSES).add(() -> {
-					address.tUpdateByName("name", newName);
-					mark.tUpdateByName("name", newName);
-					mark.tUpdateByName("functionName", functionName);
+					address.setName(newName);
+					mark.setName(newName);
+					mark.setFunctionName(functionName);
 				});
 				slot._name = newName;
 			}
-			TLObject markType = (TLObject) slot._mark.tValueByName("datapointType");
+			TLObject markType = slot._mark.getDatapointType();
 			if (slot._type != null && slot._type != markType) {
 				TLObject type = slot._type;
 				_items.add(new Item(Action.CHANGE, What.ADDRESS, addressLabel(address),
 					_resources.getString(I18NConstants.DETAIL_TYPE__OLD_NEW.fill(typeLabel(markType), typeLabel(type))),
 					function._origin, function._label));
-				TLObject mark = slot._mark;
+				DerivedPart mark = slot._mark;
 				_operations.get(Phase.ADDRESSES).add(() -> {
-					address.tUpdateByName("datapointTypes", List.of(type));
-					mark.tUpdateByName("datapointType", type);
+					address.setDatapointTypes(List.of(type));
+					mark.setDatapointType(type);
 				});
 			}
 		}
 
 		// The kind and the roles of the function.
-		TLObject kind = (TLObject) function._preset.tValueByName("kind");
-		if (f.tValueByName("kind") != kind) {
+		TLClassifier kind = function._preset.getKind();
+		if (f.getKind() != kind) {
 			_items.add(new Item(Action.CHANGE, What.FUNCTION, function._label, _resources.getString(
-				I18NConstants.DETAIL_KIND__OLD_NEW.fill(f.tValueByName("kind"), kind)), f, function._label));
-			_operations.get(Phase.FUNCTIONS).add(() -> f.tUpdateByName("kind", kind));
+				I18NConstants.DETAIL_KIND__OLD_NEW.fill(f.getKind(), kind)), f, function._label));
+			_operations.get(Phase.FUNCTIONS).add(() -> f.setKind(kind));
 		}
 		for (Slot slot : function._slots.values()) {
 			if (slot._gone) {
@@ -863,19 +874,20 @@ public final class Derivation {
 		_items.add(new Item(Action.CREATE, What.ADDRESS, slot.label(), detail, function._origin, function._label));
 		_operations.get(Phase.ADDRESSES).add(() -> {
 			TLObject range = _allocator.rangeOf(slot._number);
-			TLObject address = GroupAddresses.create(range, Integer.valueOf(slot._number), slot._name, slot._type);
-			address.tUpdateByName("identifier", slot._identifier);
+			GroupAddress address =
+				(GroupAddress) GroupAddresses.create(range, Integer.valueOf(slot._number), slot._name, slot._type);
+			address.setIdentifier(slot._identifier);
 			slot._address = address;
 		});
 		_operations.get(Phase.MARKS).add(() -> {
-			TLObject mark = newMark("address", function);
-			mark.tUpdateByName("role", slot._role);
-			mark.tUpdateByName("address", slot._address);
-			mark.tUpdateByName("name", slot._name);
-			mark.tUpdateByName("identifier", slot._identifier);
-			mark.tUpdateByName("datapointType", slot._type);
-			mark.tUpdateByName("number", Integer.valueOf(slot._number));
-			mark.tUpdateByName("functionName", functionName);
+			DerivedPart mark = newMark("address", function);
+			mark.setRole(slot._role);
+			mark.setAddress(slot._address);
+			mark.setName(slot._name);
+			mark.setIdentifier(slot._identifier);
+			mark.setDatapointType(slot._type);
+			mark.setNumber(Integer.valueOf(slot._number));
+			mark.setFunctionName(functionName);
 		});
 	}
 
@@ -883,8 +895,8 @@ public final class Derivation {
 	 * Whether a mark of another function names the address.
 	 */
 	private boolean markedElsewhere(TLObject address) {
-		for (TLObject mark : _marks) {
-			if ("address".equals(kindName(mark)) && mark.tValueByName("address") == address) {
+		for (DerivedPart mark : _marks) {
+			if ("address".equals(kindName(mark)) && mark.getAddress() == address) {
 				return true;
 			}
 		}
@@ -895,9 +907,9 @@ public final class Derivation {
 	 * Whether the given address was derived for the given function (a mark of it names the address).
 	 */
 	private boolean derivedBy(TLObject address, TLObject function) {
-		for (TLObject mark : _marks) {
-			if ("address".equals(kindName(mark)) && mark.tValueByName("address") == address
-				&& mark.tValueByName("function") == function) {
+		for (DerivedPart mark : _marks) {
+			if ("address".equals(kindName(mark)) && mark.getAddress() == address
+				&& mark.getFunction() == function) {
 				return true;
 			}
 		}
@@ -907,18 +919,18 @@ public final class Derivation {
 	/**
 	 * Whether the address differs from its mark in its name, identifier, datapoint type or number.
 	 */
-	private static boolean changedByHand(TLObject address, TLObject mark) {
-		if (!Objects.equals(text(address.tValueByName("name")), text(mark.tValueByName("name")))
-			|| !Objects.equals(text(address.tValueByName("identifier")), text(mark.tValueByName("identifier")))) {
+	private static boolean changedByHand(GroupAddress address, DerivedPart mark) {
+		if (!Objects.equals(text(address.getName()), text(mark.getName()))
+			|| !Objects.equals(text(address.getIdentifier()), text(mark.getIdentifier()))) {
 			return true;
 		}
-		Object types = address.tValueByName("datapointTypes");
+		Object types = address.getDatapointTypes();
 		Object first = types instanceof Collection<?> list && !list.isEmpty() ? list.iterator().next() : null;
-		if (first != mark.tValueByName("datapointType")) {
+		if (first != mark.getDatapointType()) {
 			return true;
 		}
-		int number = address.tValueByName("address") instanceof GA ga ? ga.getValue() : -1;
-		return !(mark.tValueByName("number") instanceof Number marked) || marked.intValue() != number;
+		int number = address.getAddress() instanceof GA ga ? ga.getValue() : -1;
+		return !(mark.getNumber() instanceof Number marked) || marked.intValue() != number;
 	}
 
 	/**
@@ -942,7 +954,7 @@ public final class Derivation {
 	 * there).
 	 */
 	private static String functionName(TLObject function, Resources resources) {
-		Object name = function.tValueByName("name");
+		Object name = ((Function) function).getNameKey();
 		String text = name instanceof ResKey key ? resources.getString(key, null) : text(name);
 		if (text == null || text.isBlank()) {
 			text = name instanceof ResKey key ? Resources.getInstance().getString(key) : "?";
@@ -968,17 +980,17 @@ public final class Derivation {
 	 * no longer names) where nothing else uses them.
 	 */
 	private void removeAddresses() {
-		for (TLObject mark : _marks) {
+		for (DerivedPart mark : _marks) {
 			if (_usedMarks.contains(mark) || !"address".equals(kindName(mark))) {
 				continue;
 			}
 			_usedMarks.add(mark);
 			_operations.get(Phase.MARKS).add(mark::tDelete);
-			TLObject address = (TLObject) mark.tValueByName("address");
+			GroupAddress address = mark.getAddress();
 			if (address == null || !address.tValid()) {
 				continue;
 			}
-			TLObject origin = (TLObject) mark.tValueByName("function");
+			Function origin = mark.getFunction();
 			String originLabel = origin == null ? "" : label(origin);
 			if (changedByHand(address, mark)) {
 				_items.add(new Item(Action.KEEP, What.ADDRESS, addressLabel(address),
@@ -1035,22 +1047,22 @@ public final class Derivation {
 		for (Participant participant : _participants) {
 			wanted.add(useKey(participant._device, participant._channel));
 			TLObject use = Presets.use(participant._device, participant._channel);
-			TLObject mark = findMark("preset", participant._origin, m -> m.tValueByName("device") == participant._device
-				&& participant._channel.equals(m.tValueByName("channel")));
+			DerivedPart mark = findMark("preset", participant._origin, m -> m.getDevice() == participant._device
+				&& participant._channel.equals(m.getChannel()));
 			String object = presetObject(participant._device, participant._channel);
-			TLObject preset = participant._preset;
+			Preset preset = participant._preset;
 			TLObject device = participant._device;
 			String channel = participant._channel;
 			if (mark != null) {
 				_usedMarks.add(mark);
-				TLObject marked = (TLObject) mark.tValueByName("preset");
+				Preset marked = mark.getPreset();
 				if (marked != preset) {
 					_items.add(new Item(Action.CHANGE, What.PRESET, object, _resources.getString(
 						I18NConstants.DETAIL_PRESET_CHANGE__OLD_NEW.fill(presetLabel(marked), presetLabel(preset))),
 						participant._origin, participant._label));
 					_operations.get(Phase.USES).add(() -> {
 						Presets.recordUse(device, channel, preset);
-						mark.tUpdateByName("preset", preset);
+						mark.setPreset(preset);
 					});
 				} else if (use == null) {
 					// The record was taken back by hand: recorded again, the values are what matters.
@@ -1065,25 +1077,25 @@ public final class Derivation {
 				_operations.get(Phase.USES).add(() -> Presets.recordUse(device, channel, preset));
 			}
 			_operations.get(Phase.MARKS).add(() -> {
-				TLObject created = newMark("preset", participant);
-				created.tUpdateByName("device", device);
-				created.tUpdateByName("channel", channel);
-				created.tUpdateByName("preset", preset);
+				DerivedPart created = newMark("preset", participant);
+				created.setDevice(device);
+				created.setChannel(channel);
+				created.setPreset(preset);
 			});
 		}
-		for (TLObject mark : _marks) {
+		for (DerivedPart mark : _marks) {
 			if (_usedMarks.contains(mark) || !"preset".equals(kindName(mark))) {
 				continue;
 			}
 			_usedMarks.add(mark);
 			_operations.get(Phase.MARKS).add(mark::tDelete);
-			TLObject device = (TLObject) mark.tValueByName("device");
-			String channel = text(mark.tValueByName("channel"));
+			TLObject device = mark.getDevice();
+			String channel = text(mark.getChannel());
 			if (device == null || channel == null || wanted.contains(useKey(device, channel))) {
 				continue;
 			}
 			TLObject use = Presets.use(device, channel);
-			TLObject preset = (TLObject) mark.tValueByName("preset");
+			Preset preset = mark.getPreset();
 			if (use != null && use.tValueByName("preset") == preset) {
 				_items.add(new Item(Action.REMOVE, What.PRESET, presetObject(device, channel),
 					_resources.getString(I18NConstants.DETAIL_PRESET_REMOVE__PRESET.fill(presetLabel(preset))),
@@ -1127,12 +1139,12 @@ public final class Derivation {
 			TLObject device = participant._device;
 			ParameterView view = value.view();
 			String current = current(device, view);
-			TLObject mark = findMark("value", participant._origin,
-				m -> m.tValueByName("device") == device && Objects.equals(ModuleParts.parameter(m), view));
+			DerivedPart mark = findMark("value", participant._origin,
+				m -> m.getDevice() == device && Objects.equals(ModuleParts.parameter(m), view));
 			String object = valueObject(device, view);
 			if (mark != null) {
 				_usedMarks.add(mark);
-				String marked = text(mark.tValueByName("value"));
+				String marked = text(mark.getValue());
 				if (!Objects.equals(current, marked)) {
 					_items.add(new Item(Action.KEEP, What.VALUE, object, _resources.getString(
 						I18NConstants.KEEP_VALUE_CHANGED__CURRENT_DERIVED.fill(display(view, current), display(view, marked))),
@@ -1141,7 +1153,7 @@ public final class Derivation {
 				}
 				if (!Objects.equals(value.encoded(), marked)) {
 					change(sets, planned, participant, device, view, current, value.encoded(), object);
-					_operations.get(Phase.MARKS).add(() -> mark.tUpdateByName("value", value.encoded()));
+					_operations.get(Phase.MARKS).add(() -> mark.setValue(value.encoded()));
 				}
 				continue;
 			}
@@ -1149,25 +1161,25 @@ public final class Derivation {
 				change(sets, planned, participant, device, view, current, value.encoded(), object);
 			}
 			_operations.get(Phase.MARKS).add(() -> {
-				TLObject created = newMark("value", participant);
-				created.tUpdateByName("device", device);
+				DerivedPart created = newMark("value", participant);
+				created.setDevice(device);
 				ModuleParts.bind(created, ModuleParts.PARAMETER, view);
-				created.tUpdateByName("value", value.encoded());
+				created.setValue(value.encoded());
 			});
 		}
-		for (TLObject mark : _marks) {
+		for (DerivedPart mark : _marks) {
 			if (_usedMarks.contains(mark) || !"value".equals(kindName(mark))) {
 				continue;
 			}
 			_usedMarks.add(mark);
 			_operations.get(Phase.MARKS).add(mark::tDelete);
-			TLObject device = (TLObject) mark.tValueByName("device");
+			TLObject device = mark.getDevice();
 			ParameterView view = ModuleParts.parameter(mark);
 			if (device == null || !device.tValid() || view == null || wantedKeys.contains(valueKey(device, view))) {
 				continue;
 			}
 			String current = current(device, view);
-			String marked = text(mark.tValueByName("value"));
+			String marked = text(mark.getValue());
 			String object = valueObject(device, view);
 			if (!Objects.equals(current, marked)) {
 				_items.add(new Item(Action.KEEP, What.VALUE, object, _resources.getString(I18NConstants.KEEP_LEFT_CHANGED),
@@ -1235,7 +1247,7 @@ public final class Derivation {
 		if (type instanceof EnumerationType enumeration) {
 			for (EnumerationValue value : enumeration.getValues()) {
 				if (Integer.toString(value.getValue()).equals(encoded)) {
-					Object name = value.tValueByName("name");
+					Object name = value.getNameKey();
 					return name instanceof ResKey key ? _resources.getString(key) : String.valueOf(name);
 				}
 			}
@@ -1256,17 +1268,17 @@ public final class Derivation {
 		for (Participant participant : _participants) {
 			links.addAll(links(participant));
 		}
-		Map<Link, TLObject> marked = new LinkedHashMap<>();
+		Map<Link, DerivedPart> marked = new LinkedHashMap<>();
 		List<Link> fresh = new ArrayList<>();
 		for (Link link : links) {
 			if (link.slot()._gone) {
 				continue;
 			}
 			TLObject device = link.participant()._device;
-			TLObject address = link.slot()._address;
-			TLObject mark = address == null ? null : findMark("connection", link.participant()._origin,
-				m -> m.tValueByName("device") == device && Objects.equals(ModuleParts.port(m), link.placed())
-					&& m.tValueByName("address") == address && link.kind().equals(name(m.tValueByName("connectionKind"))));
+			GroupAddress address = link.slot()._address;
+			DerivedPart mark = address == null ? null : findMark("connection", link.participant()._origin,
+				m -> m.getDevice() == device && Objects.equals(ModuleParts.port(m), link.placed())
+					&& m.getAddress() == address && link.kind().equals(name(m.getConnectionKind())));
 			if (mark != null) {
 				_usedMarks.add(mark);
 				marked.put(link, mark);
@@ -1274,7 +1286,7 @@ public final class Derivation {
 				fresh.add(link);
 			}
 		}
-		for (Map.Entry<Link, TLObject> entry : marked.entrySet()) {
+		for (Map.Entry<Link, DerivedPart> entry : marked.entrySet()) {
 			Link link = entry.getKey();
 			if (actual(link.participant()._device, link.placed(), link.slot()._address, link.kind()) == null) {
 				_items.add(new Item(Action.KEEP, What.CONNECTION, connectionObject(link),
@@ -1282,19 +1294,19 @@ public final class Derivation {
 					link.participant()._label));
 			}
 		}
-		for (TLObject mark : _marks) {
+		for (DerivedPart mark : _marks) {
 			if (_usedMarks.contains(mark) || !"connection".equals(kindName(mark))) {
 				continue;
 			}
 			_usedMarks.add(mark);
 			_operations.get(Phase.MARKS).add(mark::tDelete);
-			TLObject device = (TLObject) mark.tValueByName("device");
+			TLObject device = mark.getDevice();
 			Interface placed = ModuleParts.port(mark);
-			TLObject address = (TLObject) mark.tValueByName("address");
+			GroupAddress address = mark.getAddress();
 			if (device == null || !device.tValid() || placed == null || address == null || !address.tValid()) {
 				continue;
 			}
-			String kind = name(mark.tValueByName("connectionKind"));
+			String kind = name(mark.getConnectionKind());
 			TLObject connection = actual(device, placed, address, kind);
 			if (connection == null) {
 				continue;
@@ -1351,7 +1363,7 @@ public final class Derivation {
 			}
 			return result;
 		}
-		String operation = name(((TLObject) participant._origin).tValueByName("operation"));
+		String operation = name(((Control) participant._origin).getOperation());
 		Interface sender = objects.get(SEND_COMMAND);
 		switch (operation) {
 			case "showStatus":
@@ -1375,12 +1387,12 @@ public final class Derivation {
 	}
 
 	private void connectionMark(Link link) {
-		TLObject mark = newMark("connection", link.participant());
-		mark.tUpdateByName("role", link.role());
-		mark.tUpdateByName("device", link.participant()._device);
+		DerivedPart mark = newMark("connection", link.participant());
+		mark.setRole(link.role());
+		mark.setDevice(link.participant()._device);
 		ModuleParts.bind(mark, ModuleParts.PORT, link.placed());
-		mark.tUpdateByName("address", link.slot()._address);
-		mark.tUpdateByName("connectionKind", connectionKind(link.kind()));
+		mark.setAddress(link.slot()._address);
+		mark.setConnectionKind(connectionKind(link.kind()));
 	}
 
 	/**
@@ -1431,14 +1443,14 @@ public final class Derivation {
 	// Marks.
 
 	private interface MarkTest {
-		boolean matches(TLObject mark);
+		boolean matches(DerivedPart mark);
 	}
 
 	/**
 	 * The first mark of the given kind of the origin not taken yet that passes the test.
 	 */
-	private TLObject findMark(String kind, TLObject origin, MarkTest test) {
-		for (TLObject mark : _marks) {
+	private DerivedPart findMark(String kind, TLObject origin, MarkTest test) {
+		for (DerivedPart mark : _marks) {
 			if (_usedMarks.contains(mark) || !kind.equals(kindName(mark)) || origin(mark) != origin) {
 				continue;
 			}
@@ -1452,34 +1464,35 @@ public final class Derivation {
 	/**
 	 * The function or control a mark comes from, <code>null</code> once it is deleted.
 	 */
-	private static TLObject origin(TLObject mark) {
-		Object origin = Boolean.TRUE.equals(mark.tValueByName("fromControl")) ? mark.tValueByName("control")
-			: mark.tValueByName("function");
+	private static TLObject origin(DerivedPart mark) {
+		Object origin = Boolean.TRUE.equals(mark.getFromControlOrNull()) ? mark.getControl() : mark.getFunction();
 		return origin instanceof TLObject obj && obj.tValid() ? obj : null;
 	}
 
-	private String originLabel(TLObject mark) {
+	private String originLabel(DerivedPart mark) {
 		TLObject origin = origin(mark);
 		if (origin == null) {
 			return "";
 		}
-		return ExtIds.isA(origin, "ehome.runtime:Control") ? controlLabel(origin) : label(origin);
+		return ExtIds.isA(origin, "ehome.runtime:Control") ? controlLabel((Control) origin) : label(origin);
 	}
 
-	private TLObject newMark(String kind, Participant participant) {
-		TLObject mark = ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(MARK));
-		mark.tUpdateByName("kind", TLModelUtil.findPart("ehome.runtime:DerivedKind#" + kind));
-		mark.tUpdateByName("fromControl", Boolean.valueOf(participant._control));
-		mark.tUpdateByName("function", participant._function);
-		mark.tUpdateByName("control", participant._control ? participant._origin : null);
-		List<TLObject> marks = ExtIds.list(_project, "derivedParts");
+	private DerivedPart newMark(String kind, Participant participant) {
+		DerivedPart mark =
+			(DerivedPart) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(MARK));
+		mark.setKind((TLClassifier) TLModelUtil.findPart("ehome.runtime:DerivedKind#" + kind));
+		mark.setFromControl(participant._control);
+		mark.setFunction(participant._function);
+		mark.setControl(participant._control ? (Control) participant._origin : null);
+		Project project = (Project) _project;
+		List<DerivedPart> marks = new ArrayList<>(project.getDerivedParts());
 		marks.add(mark);
-		_project.tUpdateByName("derivedParts", marks);
+		project.setDerivedParts(marks);
 		return mark;
 	}
 
-	private static String kindName(TLObject mark) {
-		return name(mark.tValueByName("kind"));
+	private static String kindName(DerivedPart mark) {
+		return name(mark.getKind());
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -1543,21 +1556,21 @@ public final class Derivation {
 	 * The name of a control: its channel, its device and its operation ("Taste 1 of Taster (1.1.2),
 	 * toggle").
 	 */
-	String controlLabel(TLObject control) {
-		TLObject device = (TLObject) control.tValueByName("device");
-		Object channel = control.tValueByName("channel");
+	String controlLabel(Control control) {
+		TLObject device = control.getDevice();
+		Object channel = control.getChannel();
 		String channelName = device == null || channel == null ? "" : Presets.channelLabel(device, channel.toString());
 		return _resources.getString(I18NConstants.CONTROL_LABEL__CHANNEL_DEVICE_OPERATION.fill(channelName,
-			GroupAddressConnections.deviceLabel(device), control.tValueByName("operation")));
+			GroupAddressConnections.deviceLabel(device), control.getOperation()));
 	}
 
 	private String presetLabel(TLObject preset) {
-		return preset == null ? "" : String.valueOf(preset.tValueByName("name"));
+		return preset == null ? "" : String.valueOf(((Preset) preset).getName());
 	}
 
 	private String addressLabel(TLObject address) {
 		String name = DatapointNames.name(address);
-		return name == null ? String.valueOf(address.tValueByName("address")) : name;
+		return name == null ? String.valueOf(((GroupAddress) address).getAddress()) : name;
 	}
 
 	private String typeLabel(TLObject type) {
@@ -1646,16 +1659,22 @@ public final class Derivation {
 			}
 
 			void create() {
-				TLObject range = ModelService.getInstance().getFactory()
+				GroupRange range = (GroupRange) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupRange"));
-				range.tUpdateByName("name", _name);
-				range.tUpdateByName("rangeStart", new GA(_start, _style));
-				range.tUpdateByName("rangeEnd", new GA(_end, _style));
-				TLObject parent = _parent == null ? _project : _parent.range();
-				String reference = _parent == null ? "groupAddresses" : "parts";
-				List<TLObject> parts = ExtIds.list(parent, reference);
-				parts.add(range);
-				parent.tUpdateByName(reference, parts);
+				range.setName(_name);
+				range.setRangeStart(new GA(_start, _style));
+				range.setRangeEnd(new GA(_end, _style));
+				if (_parent == null) {
+					Project project = (Project) _project;
+					Set<GroupAddressDefinition> parts = new LinkedHashSet<>(project.getGroupAddresses());
+					parts.add(range);
+					project.setGroupAddresses(parts);
+				} else {
+					GroupRange parent = (GroupRange) _parent.range();
+					Set<GroupAddressDefinition> parts = new LinkedHashSet<>(parent.getParts());
+					parts.add(range);
+					parent.setParts(parts);
+				}
 				ExtIds.assign(range);
 				_created = range;
 			}
@@ -1683,14 +1702,16 @@ public final class Derivation {
 		Allocator(TLObject project) {
 			_project = project;
 			_style = style(project);
-			for (TLObject part : ExtIds.list(project, "groupAddresses")) {
-				collect(part, _roots);
+			if (project != null) {
+				for (TLObject part : ((Project) project).getGroupAddresses()) {
+					collect(part, _roots);
+				}
 			}
 		}
 
 		private void collect(TLObject part, List<Node> nodes) {
 			if (ExtIds.isA(part, "ehome.logical:GroupAddress")) {
-				if (part.tValueByName("address") instanceof GA ga) {
+				if (((GroupAddress) part).getAddress() instanceof GA ga) {
 					_takenSet.add(Integer.valueOf(ga.getValue()));
 				}
 				return;
@@ -1698,17 +1719,18 @@ public final class Derivation {
 			if (!ExtIds.isA(part, "ehome.logical:GroupRange")) {
 				return;
 			}
-			int start = part.tValueByName("rangeStart") instanceof GA ga ? ga.getValue() : 0;
-			int end = part.tValueByName("rangeEnd") instanceof GA ga ? ga.getValue() : -1;
+			GroupRange range = (GroupRange) part;
+			int start = range.getRangeStart() instanceof GA ga ? ga.getValue() : 0;
+			int end = range.getRangeEnd() instanceof GA ga ? ga.getValue() : -1;
 			Node node = new Node(part, null, start, end);
 			nodes.add(node);
-			for (TLObject child : ExtIds.list(part, "parts")) {
+			for (TLObject child : range.getParts()) {
 				collect(child, node._children);
 			}
 		}
 
 		private static GroupAddressStyle style(TLObject project) {
-			Object style = project.tValueByName("groupAddressStyle");
+			Object style = ((Project) project).getGroupAddressStyle();
 			if (style instanceof TLClassifier classifier) {
 				try {
 					return GroupAddressStyle.valueOf(classifier.getName());

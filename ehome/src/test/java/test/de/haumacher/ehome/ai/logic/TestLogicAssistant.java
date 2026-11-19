@@ -13,7 +13,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -62,6 +61,12 @@ import com.top_logic.tl.ai.core.security.RunSecurity;
 import com.top_logic.tl.ai.tool.api.CancellationToken;
 import com.top_logic.util.TLContext;
 
+import de.haumacher.ehome.model.runtime.Action;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.Trigger;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
 
@@ -144,11 +149,11 @@ public class TestLogicAssistant extends BasicTestCase {
 
 		List<TLObject> rules = RuleExport.orderedRules(_fixture.project());
 		assertEquals(1, rules.size());
-		TLObject reaction = (TLObject) ((Collection<?>) rules.get(0).tValueByName("reactions")).iterator().next();
-		TLObject trigger = (TLObject) ((Collection<?>) reaction.tValueByName("triggers")).iterator().next();
-		TLObject write = (TLObject) ((Collection<?>) reaction.tValueByName("actions")).iterator().next();
-		assertEquals(_fixture.address("1/0/0"), trigger.tValueByName("datapoint"));
-		assertEquals(_fixture.address("1/0/1"), write.tValueByName("datapoint"));
+		Reaction reaction = ((Rule) rules.get(0)).getReactions().iterator().next();
+		Trigger trigger = reaction.getTriggers().iterator().next();
+		Action write = reaction.getActions().iterator().next();
+		assertEquals(_fixture.address("1/0/0"), ((DatapointTrigger) trigger).getDatapoint());
+		assertEquals(_fixture.address("1/0/1"), ((WriteAction) write).getDatapoint());
 	}
 
 	public void testViewerReadsAndIsRefusedSaving() throws Exception {

@@ -46,12 +46,18 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.FillTextParameter;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.ModuleArgument;
 import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ModulePlacement;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.Repeat;
+import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.planning.DevicePlanning;
@@ -230,9 +236,9 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals(Integer.valueOf(6), first.getOrder());
 		assertSame(definition, first.getModule());
 		assertEquals(List.of("96", "1", "A"), first.getArguments().stream().map(a -> a.getValue()).toList());
-		TLObject inCase = list(list((TLObject) contents.get(2), "alternatives").get(0), "contents").get(0);
-		assertEquals(F + "MD-1_M-2", inCase.tValueByName("extId"));
-		assertEquals(Integer.valueOf(12), inCase.tValueByName("order"));
+		ModulePlacement inCase = (ModulePlacement) ((Switch) contents.get(2)).getAlternatives().get(0).getContents().get(0);
+		assertEquals(F + "MD-1_M-2", inCase.getExtId());
+		assertEquals(Integer.valueOf(12), inCase.getOrder());
 	}
 
 	private void checkFixedDevice(TLObject device) {
@@ -244,7 +250,7 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals(Set.of(F + "P-1_R-1", F + "MD-1_M-1_MI-1_P-1_R-1", F + "MD-1_M-1_MI-1_P-2_R-1",
 			F + "MD-1_M-2_MI-1_P-2_R-1"), settings.keySet());
 		assertEquals(Integer.valueOf(1),
-			((TLObject) settings.get(F + "MD-1_M-1_MI-1_P-1_R-1").tValueByName("choice")).tValueByName("value"));
+			Integer.valueOf(((EnumerationValue) settings.get(F + "MD-1_M-1_MI-1_P-1_R-1").tValueByName("choice")).getValue()));
 		assertEquals("WZ", settings.get(F + "MD-1_M-1_MI-1_P-2_R-1").tValueByName("text"));
 
 		// The objects on their instances with their group addresses, numbered by the instances.
@@ -261,7 +267,7 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals("0 Zentral Haus: Ein/Aus", label(connectors.get(F + "O-0_R-1"), Locale.GERMAN));
 		assertEquals("1 Kanal A: WZ: Ein/Aus", label(connectors.get(F + "MD-1_M-1_MI-1_O-2-0_R-1"), Locale.GERMAN));
 		assertEquals("Channel A: {{0}}", ResKeyUtil.getTranslation(
-			(ResKey) ModuleParts.port(connectors.get(F + "MD-1_M-1_MI-1_O-2-0_R-1")).tValueByName("name"), Locale.ENGLISH));
+			ModuleParts.port(connectors.get(F + "MD-1_M-1_MI-1_O-2-0_R-1")).getNameKey(), Locale.ENGLISH));
 		assertEquals("2 Kanal A: Status: Status", label(connectors.get(F + "MD-1_M-1_MI-1_O-2-1_R-1"), Locale.GERMAN));
 		assertEquals("3 Kanal B: Ein/Aus", label(connectors.get(F + "MD-1_M-2_MI-1_O-2-0_R-1"), Locale.GERMAN));
 		TLObject connection = list(connectors.get(F + "MD-1_M-1_MI-1_O-2-0_R-1"), "connections").get(0);
@@ -318,8 +324,8 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals(5, program.getAllocators().size());
 		TLObject repeat = (TLObject) program.getContents().get(1);
 		assertEquals("ehome.operational:Repeat", TLModelUtil.qualifiedName(repeat.tType()));
-		assertEquals(Integer.valueOf(5), repeat.tValueByName("order"));
-		assertEquals(R + "P-1_R-1", ((TLObject) repeat.tValueByName("countParameter")).tValueByName("extId"));
+		assertEquals(Integer.valueOf(5), ((Repeat) repeat).getOrder());
+		assertEquals(R + "P-1_R-1", ((Repeat) repeat).getCountParameter().getExtId());
 	}
 
 	private void checkRepeatDevice(TLObject device) {
@@ -579,7 +585,7 @@ public class TestDynamicModules extends BasicTestCase {
 			Map<String, String> values = new LinkedHashMap<>();
 			for (Object element : (Collection<?>) instance.tValueByName(ModuleInstances.ARGUMENTS)) {
 				TLObject argument = (TLObject) element;
-				values.put((String) ((TLObject) argument.tValueByName(ModuleInstances.ARGUMENT)).tValueByName("name"),
+				values.put(((ModuleArgument) argument.tValueByName(ModuleInstances.ARGUMENT)).getName(),
 					(String) argument.tValueByName(ModuleInstances.VALUE));
 			}
 			result.add(instance.tValueByName(ModuleInstances.NAME) + " " + instance.tValueByName(ModuleInstances.REPEAT_INDEX)
@@ -668,14 +674,16 @@ public class TestDynamicModules extends BasicTestCase {
 	}
 
 	private static void removePlacements(TLObject fragment) {
-		for (TLObject option : list(fragment, "contents")) {
+		List<TLObject> contents = fragment instanceof ConfigFragment withContents ? List.copyOf(withContents.getContents()) : List.of();
+		for (TLObject option : contents) {
 			String type = TLModelUtil.qualifiedName(option.tType());
 			if (type.equals("ehome.operational:ModulePlacement") || type.equals("ehome.operational:Repeat")) {
 				option.tDelete();
 				continue;
 			}
 			removePlacements(option);
-			for (TLObject alternative : list(option, "alternatives")) {
+			List<TLObject> alternatives = option instanceof Switch choice ? List.copyOf(choice.getAlternatives()) : List.of();
+			for (TLObject alternative : alternatives) {
 				removePlacements(alternative);
 			}
 		}
@@ -712,7 +720,7 @@ public class TestDynamicModules extends BasicTestCase {
 
 	private static Program program(String id) {
 		List<TLObject> programs = instances("ehome.operational:Program").stream()
-			.filter(p -> id.equals(p.tValueByName("extId")))
+			.filter(p -> id.equals(((Program) p).getExtId()))
 			.toList();
 		assertEquals(1, programs.size());
 		return (Program) programs.get(0);
@@ -738,7 +746,7 @@ public class TestDynamicModules extends BasicTestCase {
 	private static Set<String> connections(TLObject connector) {
 		return list(connector, "connections").stream()
 			.map(c -> ((TLClassifier) c.tValueByName("kind")).getName() + " "
-				+ ((TLObject) c.tValueByName("target")).tValueByName("extId"))
+				+ ((GroupAddress) c.tValueByName("target")).getExtId())
 			.collect(Collectors.toSet());
 	}
 

@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +31,11 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.Building;
+import de.haumacher.ehome.model.building.Room;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.zigbee.I18NConstants;
@@ -66,17 +70,17 @@ public class TestZigbeeTab extends BasicTestCase {
 		functions.add(function("zigbee." + IEEE + ".2.contact", "ias_zone", 1280, 2, "boolean"));
 		functions.add(function("zigbee." + IEEE + ".2.foo_bar", "foo_bar", 64512, 0, "unsigned"));
 
-		TLObject project;
-		TLObject room;
+		Project project;
+		Room room;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Zigbee tab");
-			TLObject building = create("ehome.building:Building");
-			building.tUpdateByName("name", "House");
-			room = create("ehome.building:Room");
-			room.tUpdateByName("name", "Living room");
-			building.tUpdateByName("parts", List.of(room));
-			project.tUpdateByName("buildings", List.of(building));
+			project = (Project) create("ehome.project:Project");
+			project.setName("Zigbee tab");
+			Building building = (Building) create("ehome.building:Building");
+			building.setName("House");
+			room = (Room) create("ehome.building:Room");
+			room.setName("Living room");
+			building.setParts(List.of(room));
+			project.setBuildings(List.of(building));
 			tx.commit();
 		}
 		try {
@@ -84,18 +88,18 @@ public class TestZigbeeTab extends BasicTestCase {
 				ZigbeeImport.importExport(project, ZigbeeExport.read(export));
 				tx.commit();
 			}
-			TLObject device = ZigbeeImport.devices(project).get(0);
-			TLObject occupancy = function(device, "occupancy");
-			TLObject illuminance = function(device, "illuminance");
-			TLObject contact = function(device, "ias_zone");
-			TLObject unknown = function(device, "foo_bar");
+			ZigbeeDevice device = project.getZigbeeDevices().get(0);
+			ZigbeeFunction occupancy = function(device, "occupancy");
+			ZigbeeFunction illuminance = function(device, "illuminance");
+			ZigbeeFunction contact = function(device, "ias_zone");
+			ZigbeeFunction unknown = function(device, "foo_bar");
 
 			// The functions by their names.
-			assertEquals("Philips SML002 Anwesenheit (2)", inLocale(Locale.GERMAN, occupancy, "displayName"));
-			assertEquals("Philips SML002 Occupancy (2)", inLocale(Locale.ENGLISH, occupancy, "displayName"));
-			assertEquals("Philips SML002 foo_bar (2)", inLocale(Locale.GERMAN, unknown, "displayName"));
-			assertEquals("Philips SML002 foo_bar (2)", inLocale(Locale.ENGLISH, unknown, "displayName"));
-			assertEquals("Philips SML002 Kontakt (2)", inLocale(Locale.GERMAN, contact, "displayName"));
+			assertEquals("Philips SML002 Anwesenheit (2)", inLocale(Locale.GERMAN, occupancy::getDisplayName));
+			assertEquals("Philips SML002 Occupancy (2)", inLocale(Locale.ENGLISH, occupancy::getDisplayName));
+			assertEquals("Philips SML002 foo_bar (2)", inLocale(Locale.GERMAN, unknown::getDisplayName));
+			assertEquals("Philips SML002 foo_bar (2)", inLocale(Locale.ENGLISH, unknown::getDisplayName));
+			assertEquals("Philips SML002 Kontakt (2)", inLocale(Locale.GERMAN, contact::getDisplayName));
 			assertEquals("Contact", label(Locale.ENGLISH, contact));
 			assertEquals("Ein/Aus", label(Locale.GERMAN, "on_off"));
 			assertEquals("Helligkeit", label(Locale.GERMAN, "level"));
@@ -112,12 +116,12 @@ public class TestZigbeeTab extends BasicTestCase {
 			assertEquals("Aktion", label(Locale.GERMAN, "action"));
 
 			// The room lists the device placed in it.
-			assertTrue(((Collection<?>) room.tValueByName("zigbeeDevices")).isEmpty());
+			assertTrue(room.getZigbeeDevices().isEmpty());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				device.tUpdateByName("location", room);
+				device.setLocation(room);
 				tx.commit();
 			}
-			assertEquals(List.of(device), new ArrayList<>((Collection<?>) room.tValueByName("zigbeeDevices")));
+			assertEquals(List.of(device), new ArrayList<>(room.getZigbeeDevices()));
 
 			// Nothing absent: the cleanup refuses.
 			assertEquals(I18NConstants.VETO_NOTHING_ABSENT, ZigbeeStatus.removeAbsentVeto(device));
@@ -142,8 +146,8 @@ public class TestZigbeeTab extends BasicTestCase {
 				ZigbeeBindings.unbind(illuminance);
 				tx.commit();
 			}
-			assertEquals(Boolean.TRUE, occupancy.tValueByName("absent"));
-			assertEquals(Boolean.TRUE, illuminance.tValueByName("absent"));
+			assertEquals(Boolean.TRUE, occupancy.getAbsentOrNull());
+			assertEquals(Boolean.TRUE, illuminance.getAbsentOrNull());
 			assertNull(ZigbeeStatus.removeAbsentVeto(device));
 
 			String message;
@@ -157,7 +161,7 @@ public class TestZigbeeTab extends BasicTestCase {
 					"zigbee." + IEEE + ".2.occupancy", DatapointNames.name(occupancyDp))))), message);
 			assertFalse(illuminance.tValid());
 			assertTrue(occupancy.tValid());
-			assertTrue(((Collection<?>) device.tValueByName("functions")).contains(occupancy));
+			assertTrue(device.getFunctions().contains(occupancy));
 			assertEquals(List.of(occupancyDp), ZigbeeBindings.boundDatapoints(occupancy));
 		} finally {
 			SharedData.deleteProjects(List.of(project));
@@ -189,10 +193,10 @@ public class TestZigbeeTab extends BasicTestCase {
 		return result;
 	}
 
-	private static TLObject function(TLObject device, String key) {
-		for (Object function : (Collection<?>) device.tValueByName("functions")) {
-			if (key.equals(((TLObject) function).tValueByName("function"))) {
-				return (TLObject) function;
+	private static ZigbeeFunction function(ZigbeeDevice device, String key) {
+		for (ZigbeeFunction function : device.getFunctions()) {
+			if (key.equals(function.getFunction())) {
+				return function;
 			}
 		}
 		throw new AssertionError("No function " + key);
@@ -204,10 +208,6 @@ public class TestZigbeeTab extends BasicTestCase {
 
 	private static String label(Locale locale, TLObject function) {
 		return inLocale(locale, () -> ZigbeeStatus.functionLabel(function));
-	}
-
-	private static Object inLocale(Locale locale, TLObject obj, String attribute) {
-		return inLocale(locale, () -> obj.tValueByName(attribute));
 	}
 
 	private static <T> T inLocale(Locale locale, java.util.function.Supplier<T> value) {

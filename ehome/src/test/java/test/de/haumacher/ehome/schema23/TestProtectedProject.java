@@ -25,6 +25,7 @@ import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.PasswordRequiredException;
 import de.haumacher.ehome.importer.ProtectedProject;
+import de.haumacher.ehome.model.project.Project;
 
 import test.de.haumacher.ehome.etsImport.RecordingJobMonitor;
 import test.de.haumacher.ehome.importer.SharedData;
@@ -109,7 +110,7 @@ public class TestProtectedProject extends BasicTestCase {
 				: null);
 			TLObject project = (TLObject) report.get(ImportEtsProjectJob.PROJECT);
 			assertNotNull(project);
-			assertEquals("TestEts6", project.tValueByName("name"));
+			assertEquals("TestEts6", ((Project) project).getName());
 			assertEquals(List.of(project), SharedData.newProjects(before));
 			assertEquals(1, SharedData.within("ehome.physical:Device", List.of(project)).size());
 			assertEquals(10, SharedData.within("ehome.logical:GroupAddress", List.of(project)).size());
