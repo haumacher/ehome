@@ -229,6 +229,10 @@ public class TestInstallationKey extends BasicTestCase {
 			FakeControllerLink back = new FakeControllerLink(_fake, TOKEN, id, secret);
 			assertEquals("ready", back.connect(socket).get("type"));
 			await(() -> back.getReceived().stream().anyMatch(m -> "subscribe".equals(m.get("type"))));
+			// The rotation completes when the new connection shows the device's key: the store of the
+			// key is queued before (ControllerConnections.deviceKey), not before 'subscribe'.
+			await(() -> ControllerConnections.get(id) != null
+				&& third.fingerprint().equals(ControllerConnections.get(id).deviceKey()));
 			ControllerConnections.awaitKnowledgeBase();
 			assertEquals(third, InstallationKeys.key(project));
 			assertNull(InstallationKeys.newKey(project));
