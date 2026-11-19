@@ -19,8 +19,10 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.template.ObjectTypes;
 
@@ -332,8 +334,8 @@ public class GroupAddressConnections {
 	private static ResKey connectorProblem(TLObject device, TLObject connector) {
 		List<String> addresses = new ArrayList<>();
 		for (Object value : (Collection<?>) connector.tValueByName("connections")) {
-			if (((TLObject) value).tValueByName("target") instanceof TLObject target) {
-				Object address = target.tValueByName("address");
+			if (((TLObject) value).tValueByName("target") instanceof GroupAddress target) {
+				Object address = target.getAddress();
 				addresses.add(address == null ? "?" : address.toString());
 			}
 		}
@@ -467,14 +469,14 @@ public class GroupAddressConnections {
 		List<TLObject> result = new ArrayList<>();
 		TLObject project = project(obj);
 		if (project != null) {
-			for (Object area : (Collection<?>) project.tValueByName("areas")) {
+			for (Object area : ((Project) project).getAreas()) {
 				for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 					for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 						result.add((TLObject) device);
 					}
 				}
 			}
-			for (Object device : (Collection<?>) project.tValueByName("unassignedDevices")) {
+			for (Object device : ((Project) project).getUnassignedDevices()) {
 				result.add((TLObject) device);
 			}
 		}

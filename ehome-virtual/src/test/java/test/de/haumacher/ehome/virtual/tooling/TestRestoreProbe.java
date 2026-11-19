@@ -25,6 +25,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
@@ -60,7 +61,7 @@ public class TestRestoreProbe extends BasicTestCase {
 			SimulatedDevice simulated = ProjectDevices.create(device, MappedLoadStateRule.ECHO);
 			Endpoint endpoint = loopback();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("gateway", Gateways.format(gateway(endpoint)));
+				((Project) project).setGateway(Gateways.format(gateway(endpoint)));
 				tx.commit();
 			}
 

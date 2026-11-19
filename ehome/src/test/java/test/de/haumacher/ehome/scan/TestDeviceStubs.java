@@ -14,9 +14,11 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -49,6 +51,14 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.building.Building;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.scan.CatalogMatch;
@@ -130,7 +140,7 @@ public class TestDeviceStubs extends BasicTestCase {
 			assertEquals("000A:0476250B", stub.tValueByName("serialText"));
 			assertEquals("000820BD11", stub.tValueByName("programVersion"));
 			assertEquals(ORDER_NUMBER, stub.tValueByName("orderNumber"));
-			String manufacturer = (String) CatalogMatch.manufacturer(GIRA).tValueByName("name");
+			String manufacturer = ((Manufacturer) CatalogMatch.manufacturer(GIRA)).getName();
 			assertEquals(manufacturer, stub.tValueByName("manufacturer"));
 			assertEquals(manufacturer + " " + ORDER_NUMBER + " (1.1.7)", GroupAddressConnections.deviceLabel(stub));
 			assertEquals(manufacturer + " " + ORDER_NUMBER + " (1.1.7)", MetaLabelProvider.INSTANCE.getLabel(stub));
@@ -143,13 +153,13 @@ public class TestDeviceStubs extends BasicTestCase {
 			TLObject building;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				building = create("ehome.building:Building");
-				building.tUpdateByName("name", "Haus");
-				project.tUpdateByName("buildings", List.of(building));
+				((Building) building).setName("Haus");
+				((Project) project).setBuildings(List.of((BuildingDefinition) building));
 				stub.tUpdateByName("title", "Taster Flur");
 				stub.tUpdateByName("location", building);
 				tx.commit();
 			}
-			assertEquals("The building lists the stub.", List.of(stub), list(building, "devices"));
+			assertEquals("The building lists the stub.", List.of(stub), new ArrayList<>(((Building) building).getDevices()));
 			String extId = ExtIds.extId(stub);
 
 			// Without the product data.
@@ -179,7 +189,7 @@ public class TestDeviceStubs extends BasicTestCase {
 			assertEquals("Taster Flur", device.tValueByName("title"));
 			assertEquals(found.serialStored(), device.tValueByName("serialNumber"));
 			assertSame(building, device.tValueByName("location"));
-			assertEquals(List.of(device), list(building, "devices"));
+			assertEquals(List.of(device), new ArrayList<>(((Building) building).getDevices()));
 			assertEquals("The device keeps the ID of the stub.", extId, ExtIds.extId(device));
 			assertSame(program, DeviceConfiguration.program(device));
 			assertEquals(1, list(line, "devices").size());
@@ -206,7 +216,7 @@ public class TestDeviceStubs extends BasicTestCase {
 			}
 			assertEquals("00 0A 00 00 00 34", stub.tValueByName("orderNumber"));
 			assertEquals("FF FF FF FF FF FF FF FF FF FF", stub.tValueByName("orderInfo"));
-			String manufacturer = (String) CatalogMatch.manufacturer(GIRA).tValueByName("name");
+			String manufacturer = ((Manufacturer) CatalogMatch.manufacturer(GIRA)).getName();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				DeviceStubs.assign(stub);
 				fail("The catalog has no product for the device.");
@@ -347,7 +357,7 @@ public class TestDeviceStubs extends BasicTestCase {
 			assertEquals(Integer.valueOf(5), created.tValueByName("address"));
 
 			assertSame(occupied, InstallationBuilder.device(project, 0x1105));
-			assertEquals(List.of(unplaced), list(project, "unassignedDevices"));
+			assertEquals(List.of(unplaced), new ArrayList<>(((Project) project).getUnassignedDevices()));
 			assertEquals(Integer.valueOf(5), unplaced.tValueByName("address"));
 			assertNotNull(ExtIds.extId(unplaced));
 		} finally {
@@ -393,9 +403,9 @@ public class TestDeviceStubs extends BasicTestCase {
 		stub.tUpdateByName("serialNumber", serialHex);
 		stub.tUpdateByName("manufacturerId", Integer.valueOf(GIRA));
 		stub.tUpdateByName("programVersion", "000820BD11");
-		List<TLObject> unassigned = list(project, "unassignedDevices");
+		List<TLObject> unassigned = new ArrayList<>(((Project) project).getUnassignedDevices());
 		unassigned.add(stub);
-		project.tUpdateByName("unassignedDevices", unassigned);
+		((Project) project).setUnassignedDevices(unassigned);
 		return stub;
 	}
 
@@ -420,26 +430,26 @@ public class TestDeviceStubs extends BasicTestCase {
 	 * @return The program.
 	 */
 	private static TLObject productData(List<TLObject> created, int application, int version, String orderNumber) {
-		TLObject manufacturer = CatalogMatch.manufacturer(GIRA);
+		Manufacturer manufacturer = (Manufacturer) CatalogMatch.manufacturer(GIRA);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject program = create("ehome.operational:Program");
-			program.tUpdateByName("applicationNumber", Integer.valueOf(application));
-			program.tUpdateByName("applicationVersion", Integer.valueOf(version));
-			List<TLObject> programs = list(manufacturer, "programs");
+			Program program = (Program) create("ehome.operational:Program");
+			program.setApplicationNumber(Integer.valueOf(application));
+			program.setApplicationVersion(Integer.valueOf(version));
+			Set<Program> programs = new LinkedHashSet<>(manufacturer.getPrograms());
 			programs.add(program);
-			manufacturer.tUpdateByName("programs", programs);
+			manufacturer.setPrograms(programs);
 
-			TLObject product = create("ehome.catalog:Product");
-			product.tUpdateByName("name", "Test product " + orderNumber);
-			TLObject variant = create("ehome.catalog:Variant");
-			variant.tUpdateByName("orderNumber", orderNumber);
-			TLObject assignment = create("ehome.catalog:ProgramAssignment");
-			assignment.tUpdateByName("program", program);
-			product.tUpdateByName("variants", List.of(variant));
-			product.tUpdateByName("programs", List.of(assignment));
-			List<TLObject> products = list(manufacturer, "products");
+			Product product = (Product) create("ehome.catalog:Product");
+			product.setName("Test product " + orderNumber);
+			Variant variant = (Variant) create("ehome.catalog:Variant");
+			variant.setOrderNumber(orderNumber);
+			ProgramAssignment assignment = (ProgramAssignment) create("ehome.catalog:ProgramAssignment");
+			assignment.setProgram(program);
+			product.setVariants(Set.of(variant));
+			product.setPrograms(Set.of(assignment));
+			Set<Product> products = new LinkedHashSet<>(manufacturer.getProducts());
 			products.add(product);
-			manufacturer.tUpdateByName("products", products);
+			manufacturer.setProducts(products);
 			tx.commit();
 			created.add(product);
 			created.add(program);

@@ -12,4 +12,9 @@ public interface DateType extends de.haumacher.ehome.model.operational.internal.
 
 	// Wrapper functionality.
 
+	/** The value of {@link #SHOWS_YEAR_ATTR}, <code>null</code> when unset. */
+	default Boolean getShowsYearOrNull() {
+		return (Boolean) tValueByName(SHOWS_YEAR_ATTR);
+	}
+
 }

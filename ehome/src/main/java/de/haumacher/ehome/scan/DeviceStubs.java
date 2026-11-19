@@ -13,6 +13,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.catalog.Manufacturer;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 
@@ -130,8 +131,8 @@ public final class DeviceStubs {
 		if (id == null) {
 			return null;
 		}
-		TLObject manufacturer = CatalogMatch.manufacturer(id.intValue());
-		return manufacturer != null && manufacturer.tValueByName("name") instanceof String name && !name.isBlank() ? name
+		Manufacturer manufacturer = (Manufacturer) CatalogMatch.manufacturer(id.intValue());
+		return manufacturer != null && manufacturer.getName() instanceof String name && !name.isBlank() ? name
 			: String.format("M-%04X", id);
 	}
 

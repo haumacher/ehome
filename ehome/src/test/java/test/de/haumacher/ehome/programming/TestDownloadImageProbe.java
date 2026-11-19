@@ -34,6 +34,11 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ProgramStructure;
 import de.haumacher.ehome.knx.ProgramStructure.Position;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
@@ -46,6 +51,7 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -225,9 +231,9 @@ public class TestDownloadImageProbe extends BasicTestCase {
 		Parameter parameter;
 		try (Transaction tx = kb.beginTransaction()) {
 			TLObject root = TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
-			TLObject manufacturer = create("ehome.catalog:Manufacturer");
-			manufacturer.tUpdateByName("name", "Probe");
-			add(root, "manufacturers", manufacturer);
+			Manufacturer manufacturer = (Manufacturer) create("ehome.catalog:Manufacturer");
+			manufacturer.setName("Probe");
+			((ManufacturerRoot) root).addManufacturer(manufacturer);
 			created.add(manufacturer);
 
 			Program program = factory.createProgram();
@@ -235,9 +241,9 @@ public class TestDownloadImageProbe extends BasicTestCase {
 			// The mask of the program of the Test project (0705), whose tables the image writes; not
 			// any program's: the shared data hold masks with tables of other formats (the router's).
 			program.setMask(((Program) instances("ehome.operational:Program").stream()
-				.filter(p -> "M-0008_A-10D7-11-A0E5-O000A".equals(p.tValueByName("extId"))).findFirst().orElseThrow())
+				.filter(p -> "M-0008_A-10D7-11-A0E5-O000A".equals(((Program) p).getExtId())).findFirst().orElseThrow())
 				.getMask());
-			add(manufacturer, "programs", program);
+			manufacturer.addProgram(program);
 
 			CodeSegment segment = factory.createCodeSegment();
 			segment.setAddress(0x4000);
@@ -271,18 +277,18 @@ public class TestDownloadImageProbe extends BasicTestCase {
 			program.addLocation(pointer);
 			program.addParameter(parameter);
 
-			TLObject product = create("ehome.catalog:Product");
-			product.tUpdateByName("name", "Probe product");
-			add(manufacturer, "products", product);
-			TLObject variant = create("ehome.catalog:Variant");
+			Product product = (Product) create("ehome.catalog:Product");
+			product.setName("Probe product");
+			manufacturer.addProduct(product);
+			Variant variant = (Variant) create("ehome.catalog:Variant");
 			variant.tUpdateByName("name", text("Probe variant", "Probevariante"));
-			variant.tUpdateByName("orderNumber", "PROBE-1");
-			add(product, "variants", variant);
-			TLObject assignment = create("ehome.catalog:ProgramAssignment");
-			assignment.tUpdateByName("program", program);
-			add(product, "programs", assignment);
+			variant.setOrderNumber("PROBE-1");
+			product.addVariant(variant);
+			ProgramAssignment assignment = (ProgramAssignment) create("ehome.catalog:ProgramAssignment");
+			assignment.setProgram(program);
+			product.addProgram(assignment);
 
-			TLObject line = (TLObject) ((Collection<?>) ((TLObject) ((Collection<?>) project.tValueByName("areas"))
+			TLObject line = (TLObject) ((Collection<?>) ((TLObject) (((Project) project).getAreas())
 				.iterator().next()).tValueByName("lines")).iterator().next();
 			device = create("ehome.physical:Device");
 			device.tUpdateByName("address", 200);
@@ -362,7 +368,7 @@ public class TestDownloadImageProbe extends BasicTestCase {
 
 	private static TLObject device(TLObject project) {
 		List<TLObject> devices = new ArrayList<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					devices.add((TLObject) device);

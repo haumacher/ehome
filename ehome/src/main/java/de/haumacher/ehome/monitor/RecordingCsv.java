@@ -15,6 +15,10 @@ import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.monitor.Event;
+import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.monitor.Telegram;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 
 /**
@@ -50,38 +54,40 @@ public class RecordingCsv {
 		List<TLObject> entries = RecordingEntries.entries(recording);
 		List<String> result = new ArrayList<>(entries.size() + 1);
 		result.add(HEADER);
-		for (TLObject telegram : entries) {
-			if (RecordingEntries.isEvent(telegram)) {
-				Object time = telegram.tValueByName("time");
+		for (TLObject entry : entries) {
+			if (RecordingEntries.isEvent(entry)) {
+				Event event = (Event) entry;
+				Object time = event.getTime();
 				result.add(String.join(";",
-					text(telegram.tValueByName("number")),
+					text(event.getNumber()),
 					time instanceof Date date ? format.format(date) : "",
 					"", "", "",
-					field(text(telegram.tValueByName("name"))),
+					field(text(event.getName())),
 					"", "", "", "", "",
-					field(text(telegram.tValueByName("value"))),
+					field(text(event.getValue())),
 					"",
-					classifier(telegram.tValueByName("kind")),
-					field(text(telegram.tValueByName("text")))));
+					classifier(event.getKind()),
+					field(text(event.getText()))));
 				continue;
 			}
-			TLObject sender = (TLObject) telegram.tValueByName("sender");
-			TLObject groupAddress = (TLObject) telegram.tValueByName("groupAddress");
-			Object time = telegram.tValueByName("time");
+			Telegram telegram = (Telegram) entry;
+			TLObject sender = telegram.getSender();
+			GroupAddress groupAddress = telegram.getGroupAddress();
+			Object time = telegram.getTime();
 			result.add(String.join(";",
-				text(telegram.tValueByName("number")),
+				text(telegram.getNumber()),
 				time instanceof Date date ? format.format(date) : "",
-				text(telegram.tValueByName("source")),
+				text(telegram.getSource()),
 				sender == null ? "" : field(GroupAddressConnections.deviceLabel(sender)),
-				text(telegram.tValueByName("address")),
-				groupAddress == null ? "" : field(text(groupAddress.tValueByName("name"))),
-				classifier(telegram.tValueByName("service")),
-				classifier(telegram.tValueByName("priority")),
-				text(telegram.tValueByName("repeated")),
-				text(telegram.tValueByName("hopCount")),
-				text(telegram.tValueByName("data")),
-				field(text(telegram.tValueByName("value"))),
-				text(telegram.tValueByName("own")),
+				text(telegram.getAddress()),
+				groupAddress == null ? "" : field(text(groupAddress.getName())),
+				classifier(telegram.getService()),
+				classifier(telegram.getPriority()),
+				text(telegram.getRepeatedOrNull()),
+				text(telegram.getHopCount()),
+				text(telegram.getData()),
+				field(text(telegram.getValue())),
+				text(telegram.getOwnOrNull()),
 				"knx",
 				""));
 		}
@@ -104,7 +110,7 @@ public class RecordingCsv {
 	 * The file name of the export: the name of the recording with the extension <code>.csv</code>.
 	 */
 	public static String fileName(TLObject recording) {
-		Object name = recording.tValueByName("name");
+		Object name = ((Recording) recording).getName();
 		String base = name == null || name.toString().isBlank() ? "recording" : name.toString();
 		return base.replaceAll("[\\\\/:*?\"<>|]", "_").trim() + ".csv";
 	}

@@ -18,7 +18,6 @@ import org.eclipse.jetty.server.ServerConnector;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.model.TLClass;
-import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.WebSocketEndpointListener;
 import com.top_logic.util.model.ModelService;
@@ -26,6 +25,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.ControllerServlet;
 import de.haumacher.ehome.connection.ControllerSocket;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.Json;
 
 /**
@@ -111,11 +111,11 @@ public class ControllerEndpoint {
 	/**
 	 * A new project of the given name, without anything in it.
 	 */
-	public static TLObject project(String name) {
+	public static Project project(String name) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
+			project.setName(name);
 			tx.commit();
 			return project;
 		}

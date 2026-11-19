@@ -33,10 +33,14 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.planning.I18NConstants;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -77,22 +81,18 @@ public class TestDevicePlanning extends BasicTestCase {
 			// A second program of the product with the same name and version (as ETS exports of the same
 			// device do, differing only in the hash in the ID): both labels carry the ID. Rolled back.
 			try (Transaction tx = kb.beginTransaction()) {
-				TLObject known = (TLObject) programs.get(0).tValueByName("program");
-				TLObject product = programs.get(0).tContainer();
-				TLObject twin = de.haumacher.ehome.model.operational.EhomeOperationalFactory.getInstance()
+				Program known = ((ProgramAssignment) programs.get(0)).getProgram();
+				Product product = (Product) programs.get(0).tContainer();
+				Program twin = de.haumacher.ehome.model.operational.EhomeOperationalFactory.getInstance()
 					.createProgram(known.tContainer());
 				twin.tUpdateByName("name", known.tValueByName("name"));
-				twin.tUpdateByName("applicationVersion", known.tValueByName("applicationVersion"));
-				twin.tUpdateByName("extId", "M-0008_A-TEST-TWIN");
-				List<Object> manufacturerPrograms = new ArrayList<>((Collection<?>) known.tContainer().tValueByName("programs"));
-				manufacturerPrograms.add(twin);
-				known.tContainer().tUpdateByName("programs", manufacturerPrograms);
-				TLObject assignment = com.top_logic.util.model.ModelService.getInstance().getFactory().createObject(
+				twin.setApplicationVersion(known.getApplicationVersion());
+				twin.setExtId("M-0008_A-TEST-TWIN");
+				((Manufacturer) known.tContainer()).addProgram(twin);
+				ProgramAssignment assignment = (ProgramAssignment) com.top_logic.util.model.ModelService.getInstance().getFactory().createObject(
 					(com.top_logic.model.TLClass) com.top_logic.model.util.TLModelUtil.findType("ehome.catalog:ProgramAssignment"));
-				assignment.tUpdateByName("program", twin);
-				List<Object> productPrograms = new ArrayList<>((Collection<?>) product.tValueByName("programs"));
-				productPrograms.add(assignment);
-				product.tUpdateByName("programs", productPrograms);
+				assignment.setProgram(twin);
+				product.addProgram(assignment);
 				String plain = DevicePlanning.programLabel(programs.get(0));
 				String other = DevicePlanning.programLabel(assignment);
 				assertTrue(plain + " / " + other, plain.endsWith(" (" + ExtIds.extId(known) + ")"));

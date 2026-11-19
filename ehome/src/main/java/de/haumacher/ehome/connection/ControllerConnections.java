@@ -31,6 +31,7 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.runtime.Deployer;
 
 /**
@@ -252,7 +253,7 @@ public final class ControllerConnections {
 		if (controller == null || !controller.tValid()) {
 			return null;
 		}
-		Object id = controller.tValueByName("controllerId");
+		Object id = ((Controller) controller).getControllerId();
 		return id == null || id.toString().isBlank() ? null : id.toString();
 	}
 
@@ -377,17 +378,17 @@ public final class ControllerConnections {
 	static Credentials credentials(String controllerId) {
 		return ThreadContext.inSystemContext(ControllerConnections.class, () -> {
 			refetch();
-			TLObject controller = find(controllerId);
+			Controller controller = (Controller) find(controllerId);
 			if (controller == null) {
 				return null;
 			}
-			Object secret = controller.tValueByName("secret");
+			Object secret = controller.getSecret();
 			if (secret == null || !secret.toString().matches("[0-9a-fA-F]{64}")) {
 				return null;
 			}
 			Signatures.Keys target = InstallationKeys.target(controller.tContainer());
-			return new Credentials(secret.toString(), Objects.toString(controller.tValueByName("name"), ""),
-				Objects.toString(controller.tValueByName("installation"), ""),
+			return new Credentials(secret.toString(), Objects.toString(controller.getName(), ""),
+				Objects.toString(controller.getInstallation(), ""),
 				target == null ? null : target.publicKey(), target == null ? null : target.fingerprint());
 		});
 	}
@@ -545,20 +546,20 @@ public final class ControllerConnections {
 	}
 
 	private static void store(String controllerId, Instant contact, String version, String build) {
-		TLObject controller = find(controllerId);
+		Controller controller = (Controller) find(controllerId);
 		if (controller == null) {
 			return;
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
-			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_CONTACT__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
+			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_CONTACT__CONTROLLER.fill(String.valueOf(controller.getName())))) {
 			if (contact != null) {
-				controller.tUpdateByName("lastContact", Date.from(contact));
+				controller.setLastContact(Date.from(contact));
 			}
-			if (version != null && !version.equals(controller.tValueByName("firmwareVersion"))) {
-				controller.tUpdateByName("firmwareVersion", version);
+			if (version != null && !version.equals(controller.getFirmwareVersion())) {
+				controller.setFirmwareVersion(version);
 			}
-			if (build != null && !build.equals(controller.tValueByName("firmwareBuild"))) {
-				controller.tUpdateByName("firmwareBuild", build);
+			if (build != null && !build.equals(controller.getFirmwareBuild())) {
+				controller.setFirmwareBuild(build);
 			}
 			tx.commit();
 		}

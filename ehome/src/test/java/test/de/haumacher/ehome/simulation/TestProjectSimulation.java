@@ -30,6 +30,10 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ObjectFollower;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.rules.Val;
@@ -37,7 +41,6 @@ import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleImport;
 import de.haumacher.ehome.simulation.KnxBinding;
-import de.haumacher.ehome.simulation.Overrides;
 import de.haumacher.ehome.simulation.ProjectSimulation;
 import de.haumacher.ehome.simulation.Simulation;
 import de.haumacher.ehome.simulation.Simulation.Kind;
@@ -99,12 +102,12 @@ public class TestProjectSimulation extends BasicTestCase {
 		assertEquals(1, projects.size());
 		TLObject project = projects.get(0);
 		try {
-			TLObject parameter;
+			RuleParameter parameter;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject rule = new RuleImport()
+				Rule rule = (Rule) new RuleImport()
 					.importRules(project, List.of(Json.parse(RULE, 100), Json.parse(SCENE_RULE, 100))).get(0);
-				parameter = (TLObject) ((List<?>) rule.tValueByName("parameters")).get(0);
-				parameter.tUpdateByName(Overrides.SIMULATION_VALUE, "1min");
+				parameter = rule.getParameters().get(0);
+				parameter.setSimulationValue("1min");
 				TLObject actuator = projectDevice(project, 0x1305);
 				addFollower(project, actuator, 0, 7, false);
 				addFollower(project, actuator, 12, 19, true);
@@ -120,7 +123,7 @@ public class TestProjectSimulation extends BasicTestCase {
 		}
 	}
 
-	private void run(TLObject project, TLObject parameter) throws Exception {
+	private void run(TLObject project, RuleParameter parameter) throws Exception {
 		AtomicInteger changes = new AtomicInteger();
 		Runnable listener = changes::incrementAndGet;
 		Simulations simulations = Simulations.getInstance();
@@ -141,7 +144,7 @@ public class TestProjectSimulation extends BasicTestCase {
 		}
 	}
 
-	private void run(ProjectSimulation running, TLObject parameter, AtomicInteger changes) throws Exception {
+	private void run(ProjectSimulation running, RuleParameter parameter, AtomicInteger changes) throws Exception {
 		Simulation simulation = running.simulation();
 		GroupDevice button = device(running, 0x1332);
 		GroupDevice actuator = device(running, 0x1305);
@@ -200,9 +203,9 @@ public class TestProjectSimulation extends BasicTestCase {
 		}
 
 		running.setParameter("key-light/delay", "30s");
-		assertEquals("30s", parameter.tValueByName(Overrides.SIMULATION_VALUE));
+		assertEquals("30s", parameter.getSimulationValue());
 		running.resetParameter("key-light/delay");
-		assertNull(parameter.tValueByName(Overrides.SIMULATION_VALUE));
+		assertNull(parameter.getSimulationValue());
 
 		// The timeline names the addresses, datapoints and parameters as "Name (id)" (haumacher/ehome #113).
 		assertEquals(light, simulation.names().datapoint("0/0/34"));
@@ -246,16 +249,16 @@ public class TestProjectSimulation extends BasicTestCase {
 
 	private static void addFollower(TLObject project, TLObject device, int source, int follower, boolean inverted) {
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.runtime:ObjectFollower");
-		TLObject result = ModelService.getInstance().getFactory().createObject(type);
+		ObjectFollower result = (ObjectFollower) ModelService.getInstance().getFactory().createObject(type);
 		if (device != null) {
-			result.tUpdateByName("device", device);
-			result.tUpdateByName("source", object(device, source));
-			result.tUpdateByName("follower", object(device, follower));
-			result.tUpdateByName("inverted", Boolean.valueOf(inverted));
+			result.setDevice(device);
+			result.setSource(object(device, source));
+			result.setFollower(object(device, follower));
+			result.setInverted(inverted);
 		}
-		List<Object> followers = new ArrayList<>((List<?>) project.tValueByName("simulationFollowers"));
+		List<ObjectFollower> followers = new ArrayList<>(((Project) project).getSimulationFollowers());
 		followers.add(result);
-		project.tUpdateByName("simulationFollowers", followers);
+		((Project) project).setSimulationFollowers(followers);
 	}
 
 	private static TLObject object(TLObject device, int number) {

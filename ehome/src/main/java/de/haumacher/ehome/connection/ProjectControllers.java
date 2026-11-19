@@ -4,7 +4,6 @@
 package de.haumacher.ehome.connection;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -17,6 +16,8 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
@@ -50,7 +51,7 @@ public final class ProjectControllers {
 	 * The attributes a copy of a controller does not take over ({@link #copy(TLObject)}): the identity
 	 * of an enrolled controller's connection, which only one controller may have.
 	 */
-	private static final Set<String> NOT_COPIED = Set.of("controllerId", "secret");
+	private static final Set<String> NOT_COPIED = Set.of(Controller.CONTROLLER_ID_ATTR, Controller.SECRET_ATTR);
 
 	private ProjectControllers() {
 		// Static helpers.
@@ -71,12 +72,12 @@ public final class ProjectControllers {
 			return null;
 		}
 		TLObject holder = controller == null || !controller.tValid() ? null : controller.tContainer();
-		String name = controller == null || !controller.tValid() ? "" : String.valueOf(controller.tValueByName("name"));
+		String name = controller == null || !controller.tValid() ? "" : String.valueOf(((Controller) controller).getName());
 		if (holder == null) {
 			return I18NConstants.ERROR_CONTROLLER_WITHOUT_PROJECT__CONTROLLER.fill(name);
 		}
 		return I18NConstants.ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT.fill(name,
-			String.valueOf(holder.tValueByName("name")));
+			String.valueOf(((Project) holder).getName()));
 	}
 
 	/**
@@ -84,9 +85,9 @@ public final class ProjectControllers {
 	 */
 	public static List<TLObject> controllers(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		if (project != null && project.tValid() && project.tValueByName(CONTROLLERS) instanceof Collection<?> all) {
-			for (Object entry : all) {
-				if (entry instanceof TLObject controller && controller.tValid()) {
+		if (project != null && project.tValid()) {
+			for (Controller controller : ((Project) project).getControllers()) {
+				if (controller != null && controller.tValid()) {
 					result.add(controller);
 				}
 			}
@@ -127,15 +128,15 @@ public final class ProjectControllers {
 		TLObject known = find(project, hostText, portNumber);
 		if (known != null) {
 			throw new TopLogicException(
-				I18NConstants.ERROR_CONTROLLER_ADDRESS_KNOWN__CONTROLLER.fill(String.valueOf(known.tValueByName("name"))));
+				I18NConstants.ERROR_CONTROLLER_ADDRESS_KNOWN__CONTROLLER.fill(String.valueOf(((Controller) known).getName())));
 		}
-		TLObject controller = ModelService.getInstance().getFactory()
+		Controller controller = (Controller) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType(CONTROLLER_TYPE));
-		controller.tUpdateByName("name", blank(name) ? hostText : name.toString().trim());
-		controller.tUpdateByName("host", hostText);
-		controller.tUpdateByName("port", Integer.valueOf(portNumber));
+		controller.setName(blank(name) ? hostText : name.toString().trim());
+		controller.setHost(hostText);
+		controller.setPort(portNumber);
 		if (!blank(token)) {
-			controller.tUpdateByName("token", token.toString().trim());
+			controller.setToken(token.toString().trim());
 		}
 		add(project, controller);
 		return controller;
@@ -146,8 +147,8 @@ public final class ProjectControllers {
 	 */
 	public static TLObject find(TLObject project, String host, int port) {
 		for (TLObject controller : controllers(project)) {
-			Object otherHost = controller.tValueByName("host");
-			Object otherPort = controller.tValueByName("port");
+			Object otherHost = ((Controller) controller).getHost();
+			Object otherPort = ((Controller) controller).getPortOrNull();
 			if (otherHost != null && otherHost.toString().trim().equalsIgnoreCase(host)
 				&& otherPort instanceof Number number && number.intValue() == port) {
 				return controller;
@@ -174,7 +175,7 @@ public final class ProjectControllers {
 		TLObject holder = controller.tContainer();
 		if (holder != null) {
 			throw new TopLogicException(I18NConstants.ERROR_CONTROLLER_HAS_PROJECT__CONTROLLER_PROJECT.fill(
-				String.valueOf(controller.tValueByName("name")), String.valueOf(holder.tValueByName("name"))));
+				String.valueOf(((Controller) controller).getName()), String.valueOf(((Project) holder).getName())));
 		}
 		add(project, controller);
 		return controller;
@@ -185,11 +186,15 @@ public final class ProjectControllers {
 	 * project has none.
 	 */
 	public static void add(TLObject project, TLObject controller) {
-		List<Object> controllers = new ArrayList<>(controllers(project));
-		controllers.add(controller);
-		project.tUpdateByName(CONTROLLERS, controllers);
-		if (!(project.tValueByName(TARGET) instanceof TLObject target) || !target.tValid()) {
-			project.tUpdateByName(TARGET, controller);
+		Project holder = (Project) project;
+		List<Controller> controllers = new ArrayList<>();
+		for (TLObject entry : controllers(project)) {
+			controllers.add((Controller) entry);
+		}
+		controllers.add((Controller) controller);
+		holder.setControllers(controllers);
+		if (!(holder.getController() instanceof TLObject target) || !target.tValid()) {
+			holder.setController((Controller) controller);
 		}
 	}
 

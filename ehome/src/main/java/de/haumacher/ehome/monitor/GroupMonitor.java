@@ -28,6 +28,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
@@ -37,6 +38,11 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.monitor.Event;
+import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.monitor.Telegram;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.ProjectIndex.AddressInfo;
 import de.haumacher.ehome.monitor.ProjectIndex.DeviceInfo;
@@ -129,7 +135,7 @@ public class GroupMonitor {
 
 	private long _received;
 
-	private TLObject _recording;
+	private Recording _recording;
 
 	/**
 	 * The name of {@link #_recording}, kept as text: a snapshot is built on threads without a context
@@ -783,16 +789,16 @@ public class GroupMonitor {
 				? Resources.getInstance().getString(
 					I18NConstants.DEFAULT_RECORDING_NAME__TIME.fill(format(now.getTime(), "yyyy-MM-dd HH:mm:ss")))
 				: name.trim();
-			TLObject recording;
+			Recording recording;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(
 				I18NConstants.COMMIT_RECORDING_STARTED__RECORDING_PROJECT.fill(recordingName,
 					MetaLabelProvider.INSTANCE.getLabel(getProject())))) {
-				recording = ModelService.getInstance().getFactory()
+				recording = (Recording) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.monitor:Recording"));
-				recording.tUpdateByName("name", recordingName);
-				recording.tUpdateByName("gateway", _gateway);
-				recording.tUpdateByName("start", now);
-				recording.tUpdateByName("count", Integer.valueOf(0));
+				recording.setName(recordingName);
+				recording.setGateway(_gateway);
+				recording.setStart(now);
+				recording.setCount(Integer.valueOf(0));
 				getProject().tAdd((TLReference) TLModelUtil.findPart("ehome.project:Project#recordings"), recording);
 				tx.commit();
 			}
@@ -824,7 +830,7 @@ public class GroupMonitor {
 				.beginTransaction(I18NConstants.COMMIT_RECORDING_STOPPED__RECORDING.fill(recordingLabel()))) {
 				storePending();
 				if (_recording.tValid()) {
-					_recording.tUpdateByName("end", new Date());
+					_recording.setEnd(new Date());
 				}
 				tx.commit();
 			} catch (RuntimeException ex) {
@@ -841,7 +847,7 @@ public class GroupMonitor {
 	 * The name of the running recording, for the commit messages of its changes.
 	 */
 	private String recordingLabel() {
-		return _recording.tValid() ? String.valueOf(_recording.tValueByName("name")) : "";
+		return _recording.tValid() ? String.valueOf(_recording.getName()) : "";
 	}
 
 	/**
@@ -884,48 +890,48 @@ public class GroupMonitor {
 		TLReference telegrams = (TLReference) TLModelUtil.findPart("ehome.monitor:Recording#telegrams");
 		TLClass eventType = (TLClass) TLModelUtil.findType("ehome.monitor:Event");
 		TLReference events = (TLReference) TLModelUtil.findPart("ehome.monitor:Recording#events");
-		GroupAddressStyle style = GroupAddressStyle.fromModel(getProject().tValueByName("groupAddressStyle"));
+		GroupAddressStyle style = GroupAddressStyle.fromModel(((Project) getProject()).getGroupAddressStyle());
 		if (style == null) {
 			style = GroupAddressStyle.DEFAULT;
 		}
 		for (Object pending : _pending) {
 			if (pending instanceof LinkEvent event) {
-				TLObject stored = ModelService.getInstance().getFactory().createObject(eventType);
-				stored.tUpdateByName("number", Integer.valueOf(++_recorded));
-				stored.tUpdateByName("time", new Date(event.time()));
-				stored.tUpdateByName("kind", classifier("ehome.monitor:EventKind#" + event.kind().externalName()));
-				stored.tUpdateByName("text", Resources.getInstance().getString(describe(event)));
-				stored.tUpdateByName("name", event.name());
+				Event stored = (Event) ModelService.getInstance().getFactory().createObject(eventType);
+				stored.setNumber(Integer.valueOf(++_recorded));
+				stored.setTime(new Date(event.time()));
+				stored.setKind(classifier("ehome.monitor:EventKind#" + event.kind().externalName()));
+				stored.setText(Resources.getInstance().getString(describe(event)));
+				stored.setName(event.name());
 				String value = DatapointCodec.valueText(null, event.value());
-				stored.tUpdateByName("value", value == null || value.isEmpty() ? null : value);
+				stored.setValue(value == null || value.isEmpty() ? null : value);
 				_recording.tAdd(events, stored);
 				continue;
 			}
 			BusTelegram telegram = (BusTelegram) pending;
-			TLObject stored = ModelService.getInstance().getFactory().createObject(type);
-			stored.tUpdateByName("number", Integer.valueOf(++_recorded));
-			stored.tUpdateByName("time", new Date(telegram.time()));
-			stored.tUpdateByName("source", telegram.sourceText());
+			Telegram stored = (Telegram) ModelService.getInstance().getFactory().createObject(type);
+			stored.setNumber(Integer.valueOf(++_recorded));
+			stored.setTime(new Date(telegram.time()));
+			stored.setSource(telegram.sourceText());
 			DeviceInfo device = _index.device(telegram.source());
 			if (device != null && device.device().tValid()) {
-				stored.tUpdateByName("sender", device.device());
+				stored.setSender(device.device());
 			}
-			stored.tUpdateByName("address", new GA(telegram.destination(), style));
+			stored.setAddress(new GA(telegram.destination(), style));
 			AddressInfo address = _index.address(telegram.destination());
 			if (address != null && address.groupAddress().tValid()) {
-				stored.tUpdateByName("groupAddress", address.groupAddress());
+				stored.setGroupAddress((GroupAddress) address.groupAddress());
 			}
-			stored.tUpdateByName("service",
+			stored.setService(
 				classifier("ehome.monitor:TelegramService#" + telegram.service().classifier()));
-			stored.tUpdateByName("priority", classifier("ehome.monitor:TelegramPriority#" + telegram.priorityName()));
-			stored.tUpdateByName("repeated", Boolean.valueOf(telegram.repeated()));
-			stored.tUpdateByName("hopCount", Integer.valueOf(telegram.hopCount()));
-			stored.tUpdateByName("data", telegram.hex());
-			stored.tUpdateByName("value", decode(telegram));
-			stored.tUpdateByName("own", Boolean.valueOf(telegram.own()));
+			stored.setPriority(classifier("ehome.monitor:TelegramPriority#" + telegram.priorityName()));
+			stored.setRepeated(telegram.repeated());
+			stored.setHopCount(Integer.valueOf(telegram.hopCount()));
+			stored.setData(telegram.hex());
+			stored.setValue(decode(telegram));
+			stored.setOwn(telegram.own());
 			_recording.tAdd(telegrams, stored);
 		}
-		_recording.tUpdateByName("count", Integer.valueOf(_recorded));
+		_recording.setCount(Integer.valueOf(_recorded));
 		_pending.clear();
 	}
 
@@ -1060,8 +1066,8 @@ public class GroupMonitor {
 	 * The classifier with the given name; looked up once, so that the threads of the link need no
 	 * access to the model.
 	 */
-	private static Object classifier(String name) {
-		return CLASSIFIERS.computeIfAbsent(name, TLModelUtil::findPart);
+	private static TLClassifier classifier(String name) {
+		return (TLClassifier) CLASSIFIERS.computeIfAbsent(name, TLModelUtil::findPart);
 	}
 
 	/**

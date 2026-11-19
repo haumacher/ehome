@@ -7,7 +7,6 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -25,6 +24,9 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
+
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 
 /**
  * The enrollment of a controller for a project (haumacher/ehome #54, homecontrol
@@ -109,9 +111,10 @@ public final class Enrollment {
 		String code = newCode();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_ENROLLMENT_CODE__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)))) {
-			project.tUpdateByName("enrollmentCode", code);
-			project.tUpdateByName("enrollmentExpires", Date.from(now.plus(VALIDITY)));
-			project.tUpdateByName("enrollmentCreatedBy", creator);
+			Project target = (Project) project;
+			target.setEnrollmentCode(code);
+			target.setEnrollmentExpires(Date.from(now.plus(VALIDITY)));
+			target.setEnrollmentCreatedBy(creator);
 			tx.commit();
 		}
 		return code;
@@ -172,11 +175,11 @@ public final class Enrollment {
 		}
 		String code = normalize(codeText);
 		synchronized (LOCK) {
-			TLObject project = code == null ? null : project(code);
+			Project project = code == null ? null : (Project) project(code);
 			if (project == null) {
 				return Answer.refused(404, CODE_UNKNOWN, "The enrollment code is unknown or used.");
 			}
-			Object expires = project.tValueByName("enrollmentExpires");
+			Object expires = project.getEnrollmentExpires();
 			if (!(expires instanceof Date date) || !date.toInstant().isAfter(now)) {
 				return Answer.refused(410, CODE_EXPIRED, "The enrollment code has expired; ask for a new one.");
 			}
@@ -187,42 +190,39 @@ public final class Enrollment {
 			}
 			String id = hex(16);
 			String secret = hex(32);
-			String installation = Objects.toString(project.tValueByName("name"), "");
+			String installation = Objects.toString(project.getName(), "");
 			Signatures.Keys key;
 			String controllerName = name(request.get("name"));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 				.beginTransaction(I18NConstants.COMMIT_ENROLLED__CONTROLLER_PROJECT.fill(controllerName, MetaLabelProvider.INSTANCE.getLabel(project)))) {
-				TLObject controller = ModelService.getInstance().getFactory()
+				Controller controller = (Controller) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-				controller.tUpdateByName("name", controllerName);
-				controller.tUpdateByName("controllerId", id);
-				controller.tUpdateByName("secret", secret);
-				controller.tUpdateByName("installation", installation);
-				controller.tUpdateByName("firmwareVersion", text(request.get("version")));
-				controller.tUpdateByName("firmwareBuild", text(request.get("build")));
-				controller.tUpdateByName("enrolled", Date.from(now));
-				controller.tUpdateByName("enrolledBy", project.tValueByName("enrollmentCreatedBy"));
-				List<Object> controllers = new ArrayList<>();
-				if (project.tValueByName("controllers") instanceof Collection<?> before) {
-					controllers.addAll(before);
-				}
+				controller.setName(controllerName);
+				controller.setControllerId(id);
+				controller.setSecret(secret);
+				controller.setInstallation(installation);
+				controller.setFirmwareVersion(text(request.get("version")));
+				controller.setFirmwareBuild(text(request.get("build")));
+				controller.setEnrolled(Date.from(now));
+				controller.setEnrolledBy(project.getEnrollmentCreatedBy());
+				List<Controller> controllers = new ArrayList<>(project.getControllers());
 				// The first enrolled controller; the project's controllers on the LAN do not count (haumacher/ehome #151).
 				key = InstallationKeys.enrollmentKey(project,
 					controllers.stream().noneMatch(c -> c instanceof TLObject other && ControllerConnections.controllerId(other) != null));
-				controller.tUpdateByName(InstallationKeys.DEVICE_KEY, key == null ? null : key.fingerprint());
+				controller.setDeviceKey(key == null ? null : key.fingerprint());
 				controllers.add(controller);
-				project.tUpdateByName("controllers", controllers);
+				project.setControllers(controllers);
 				// The new controller becomes the target unless the target is one of the project's own
 				// enrolled controllers already (haumacher/ehome #69): a controller on the LAN, which is one of
 				// the project's own as well since haumacher/ehome #151, gives way.
-				Object target = project.tValueByName("controller");
+				Object target = project.getController();
 				if (!(target instanceof TLObject current) || !controllers.contains(current)
 					|| ControllerConnections.controllerId(current) == null) {
-					project.tUpdateByName("controller", controller);
+					project.setController(controller);
 				}
-				project.tUpdateByName("enrollmentCode", null);
-				project.tUpdateByName("enrollmentExpires", null);
-				project.tUpdateByName("enrollmentCreatedBy", null);
+				project.setEnrollmentCode(null);
+				project.setEnrollmentExpires(null);
+				project.setEnrollmentCreatedBy(null);
 				tx.commit();
 			}
 			Map<String, Object> body = new LinkedHashMap<>();

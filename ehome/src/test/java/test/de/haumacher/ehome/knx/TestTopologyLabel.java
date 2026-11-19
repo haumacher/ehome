@@ -22,6 +22,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+
 /**
  * An area or a line without a name (ETS 6 writes none, haumacher/ehome #168) is labeled by its
  * address; a name, where there is one, is its label; the address is never stored as the name.
@@ -37,7 +39,7 @@ public class TestTopologyLabel extends BasicTestCase {
 		TLObject named;
 		try (Transaction tx = kb.beginTransaction()) {
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "TestTopologyLabel");
+			((Project) project).setName("TestTopologyLabel");
 			area = create("ehome.physical:Area");
 			area.tUpdateByName("address", Integer.valueOf(1));
 			unnamed = create("ehome.physical:Line");
@@ -46,7 +48,7 @@ public class TestTopologyLabel extends BasicTestCase {
 			named.tUpdateByName("address", Integer.valueOf(2));
 			named.tUpdateByName("name", "Erdgeschoss");
 			area.tUpdateByName("lines", List.of(unnamed, named));
-			project.tUpdateByName("areas", List.of(area));
+			((Project) project).addArea(area);
 			tx.commit();
 		}
 		try {

@@ -26,6 +26,7 @@ import de.haumacher.ehome.connection.Enrollment;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
@@ -54,8 +55,8 @@ public class TestInstallationKeyIdentityProbe extends BasicTestCase {
 	}
 
 	public void testKeyBelongsToTheProject() throws Exception {
-		TLObject one = ControllerEndpoint.project("Key identity one");
-		TLObject two = ControllerEndpoint.project("Key identity two");
+		Project one = ControllerEndpoint.project("Key identity one");
+		Project two = ControllerEndpoint.project("Key identity two");
 		try {
 			String firstKey = (String) enroll(one, "a").body().get("public_key");
 			String otherKey = (String) enroll(two, "b").body().get("public_key");
@@ -66,7 +67,7 @@ public class TestInstallationKeyIdentityProbe extends BasicTestCase {
 			assertEquals(firstKey, key.publicKey());
 
 			// Forget the only controller: the project's key stays, and the next controller gets the same one.
-			TLObject controller = (TLObject) one.tValueByName("controller");
+			TLObject controller = one.getController();
 			Controllers.forget(controller);
 			ControllerConnections.awaitKnowledgeBase();
 			assertEquals(key, InstallationKeys.key(one));
@@ -85,8 +86,8 @@ public class TestInstallationKeyIdentityProbe extends BasicTestCase {
 			assertEquals("ce7d 4a41 a476 9ee3",
 				Signatures.fingerprint("13833fbfa81080cdb4c1210131a5bb3e98f17675236e66124aed84cc490bccb1"));
 		} finally {
-			for (TLObject project : List.of(one, two)) {
-				for (Object controller : (Iterable<?>) project.tValueByName("controllers")) {
+			for (Project project : List.of(one, two)) {
+				for (Object controller : project.getControllers()) {
 					Controllers.forget((TLObject) controller);
 				}
 			}
@@ -95,10 +96,10 @@ public class TestInstallationKeyIdentityProbe extends BasicTestCase {
 		}
 	}
 
-	private Enrollment.Answer enroll(TLObject project, String name) {
+	private Enrollment.Answer enroll(Project project, String name) {
 		Enrollment.createCode(project, null, Instant.now());
 		Map<String, Object> request = new LinkedHashMap<>();
-		request.put("code", project.tValueByName("enrollmentCode"));
+		request.put("code", project.getEnrollmentCode());
 		request.put("name", name);
 		Enrollment.Answer answer = Enrollment.enroll(request, _endpoint.base(), Instant.now());
 		assertEquals(answer.body().toString(), 200, answer.status());

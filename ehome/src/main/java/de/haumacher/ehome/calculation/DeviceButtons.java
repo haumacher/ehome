@@ -281,7 +281,7 @@ public final class DeviceButtons {
 			Set<? extends Parameter> parameters =
 				_instance == null ? _program.getParameters() : _instance.getDefinition().getParameters();
 			for (Parameter parameter : parameters) {
-				if (key.equals(parameter.tValueByName("name"))) {
+				if (key.equals(parameter.getName())) {
 					ParameterView active =
 						_configuration.getActiveViews().get(ModuleParts.wrap(parameter, _instance));
 					if (active != null) {

@@ -34,6 +34,8 @@ import tuwien.auto.calimero.IndividualAddress;
 
 import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.connection.ControllerConnections;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CompareJob;
@@ -111,8 +113,8 @@ public class TestBusSessionCancel extends BasicTestCase {
 		try {
 			fake = FakeBusController.connect(project, CONTROLLER, true);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName(BusPath.PROGRAMMING_CONTROLLER, fake.controller());
-				project.tUpdateByName("gateway", null);
+				((Project) project).setProgrammingController((Controller) fake.controller());
+				((Project) project).setGateway(null);
 				tx.commit();
 			}
 			TLObject device = SharedData.within("ehome.physical:Device", List.of(project)).get(0);

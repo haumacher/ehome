@@ -41,7 +41,10 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -89,15 +92,15 @@ public class TestBuildingDevices extends BasicTestCase {
 	}
 
 	private void check(TLObject project) throws Exception {
-		TLObject house = single(list(project, "buildings"));
-		assertEquals("Haus", house.tValueByName("name"));
+		BuildingDefinition house = single(((Project) project).getBuildings());
+		assertEquals("Haus", house.getName());
 		assertEquals("ehome.building:Building", TLModelUtil.qualifiedName(house.tType()));
-		TLObject floor = single(list(house, "parts"));
+		BuildingDefinition floor = single(house.getParts());
 		assertEquals("ehome.building:Floor", TLModelUtil.qualifiedName(floor.tType()));
-		List<TLObject> rooms = list(floor, "parts");
+		List<TLObject> rooms = new ArrayList<>(floor.getParts());
 		assertEquals(3, rooms.size());
-		TLObject kitchen = byName(rooms, "Küche");
-		TLObject board = byName(rooms, "Verteiler");
+		BuildingDefinition kitchen = byName(rooms, "Küche");
+		BuildingDefinition board = byName(rooms, "Verteiler");
 		assertEquals("ehome.building:Room", TLModelUtil.qualifiedName(kitchen.tType()));
 		assertEquals("ehome.building:DistributionBoard", TLModelUtil.qualifiedName(board.tType()));
 
@@ -107,7 +110,7 @@ public class TestBuildingDevices extends BasicTestCase {
 		// The import places the device in the kitchen; the part sees it through the backwards reference.
 		assertSame(kitchen, device.tValueByName("location"));
 		assertNull(reserve.tValueByName("location"));
-		assertEquals(Set.of(device), new HashSet<>((Collection<?>) kitchen.tValueByName("devices")));
+		assertEquals(Set.of(device), new HashSet<>(kitchen.getDevices()));
 		assertEquals(List.of(device), BuildingDevices.devices(kitchen));
 		checkPath(project, house, floor, kitchen);
 
@@ -220,9 +223,9 @@ public class TestBuildingDevices extends BasicTestCase {
 
 		// A part of another project is refused with a reason.
 		try (Transaction tx = kb().beginTransaction()) {
-			TLObject foreign = ModelService.getInstance().getFactory()
+			BuildingDefinition foreign = (BuildingDefinition) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.building:Building"));
-			foreign.tUpdateByName("name", "Fremd");
+			foreign.setName("Fremd");
 			try {
 				BuildingDevices.place(device, foreign);
 				fail("A part of another project must be refused.");
@@ -258,14 +261,14 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertEquals("Haus", BuildingDevices.path(house));
 		assertNull(BuildingDevices.path(null));
 
-		TLObject second;
+		BuildingDefinition second;
 		try (Transaction tx = kb().beginTransaction()) {
-			second = ModelService.getInstance().getFactory()
+			second = (BuildingDefinition) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.building:Building"));
-			second.tUpdateByName("name", "Garage");
-			List<TLObject> buildings = list(project, "buildings");
+			second.setName("Garage");
+			List<BuildingDefinition> buildings = new ArrayList<>(((Project) project).getBuildings());
 			buildings.add(second);
-			project.tUpdateByName("buildings", buildings);
+			((Project) project).setBuildings(buildings);
 			tx.commit();
 		}
 		try {
@@ -285,8 +288,7 @@ public class TestBuildingDevices extends BasicTestCase {
 	private static void assertSorted(List<TLObject> connections) {
 		int last = Integer.MIN_VALUE;
 		for (TLObject connection : connections) {
-			int value = ((de.haumacher.ehome.knx.GA) ((TLObject) connection.tValueByName("target"))
-				.tValueByName("address")).getValue();
+			int value = ((GroupAddress) connection.tValueByName("target")).getAddress().getValue();
 			assertTrue(last <= value);
 			last = value;
 		}
@@ -310,22 +312,14 @@ public class TestBuildingDevices extends BasicTestCase {
 			.orElseThrow(() -> new AssertionError("No device " + title));
 	}
 
-	private static TLObject byName(List<TLObject> parts, String name) {
-		return parts.stream().filter(p -> name.equals(p.tValueByName("name"))).findFirst()
+	private static BuildingDefinition byName(List<TLObject> parts, String name) {
+		return parts.stream().map(BuildingDefinition.class::cast).filter(p -> name.equals(p.getName())).findFirst()
 			.orElseThrow(() -> new AssertionError("No part " + name));
 	}
 
-	private static TLObject single(List<TLObject> values) {
+	private static <T> T single(List<? extends T> values) {
 		assertEquals(1, values.size());
 		return values.get(0);
-	}
-
-	private static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object value : (Collection<?>) obj.tValueByName(attribute)) {
-			result.add((TLObject) value);
-		}
-		return result;
 	}
 
 	private static List<Object> children(QueryExecutor children, TLObject project, TLObject node) {

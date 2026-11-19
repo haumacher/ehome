@@ -18,6 +18,8 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.runtime.Controller;
+
 /**
  * The TL-Script functions of the E-Home connection (haumacher/ehome #54), registered in
  * <code>ehome.runtime.config.xml</code> under the names of the {@link Function} constants.
@@ -132,7 +134,7 @@ public class ConnectionFunctions extends GenericMethod {
 			}
 			case forgetConfirmation:
 				return Resources.getInstance()
-					.getString(I18NConstants.CONFIRM_FORGET__CONTROLLER.fill(String.valueOf(obj.tValueByName("name"))));
+					.getString(I18NConstants.CONFIRM_FORGET__CONTROLLER.fill(String.valueOf(((Controller) obj).getName())));
 			default:
 				return null;
 		}

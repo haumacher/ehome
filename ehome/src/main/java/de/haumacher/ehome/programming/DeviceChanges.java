@@ -29,11 +29,13 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
@@ -441,8 +443,8 @@ public class DeviceChanges {
 		Map<PartRef, List<TLObject>> result = new LinkedHashMap<>();
 		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
 			TLObject value = (TLObject) connector;
-			if (!(value.tValueByName("port") instanceof TLObject placed)
-				|| !(placed.tValueByName("port") instanceof TLObject port)) {
+			if (!(value.tValueByName("port") instanceof Interface placed)
+				|| !(placed.getPort() instanceof TLObject port)) {
 				continue;
 			}
 			Collection<?> connections = (Collection<?>) value.tValueByName("connections");
@@ -465,8 +467,8 @@ public class DeviceChanges {
 		Map<PartRef, TLObject> result = new LinkedHashMap<>();
 		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
 			TLObject value = (TLObject) connector;
-			if (value.tValueByName("port") instanceof TLObject placed
-				&& placed.tValueByName("port") instanceof TLObject port) {
+			if (value.tValueByName("port") instanceof Interface placed
+				&& placed.getPort() instanceof TLObject port) {
 				result.putIfAbsent(new PartRef(identity(port), ModuleParts.instanceId(value)), value);
 			}
 		}
@@ -630,7 +632,7 @@ public class DeviceChanges {
 		List<String> texts = new ArrayList<>();
 		for (TLObject connection : connections) {
 			Object target = connection.tValueByName("target");
-			Object address = target instanceof TLObject groupAddress ? groupAddress.tValueByName("address") : null;
+			Object address = target instanceof GroupAddress groupAddress ? groupAddress.getAddress() : null;
 			Object kind = connection.tValueByName("kind");
 			String kindText = kind instanceof TLClassifier classifier ? MetaLabelProvider.INSTANCE.getLabel(
 				kind(classifier.getName())) : "";
@@ -705,11 +707,11 @@ public class DeviceChanges {
 			if (current.contains(key(connection))) {
 				continue;
 			}
-			TLObject target = (TLObject) connection.tValueByName("target");
+			GroupAddress target = (GroupAddress) connection.tValueByName("target");
 			TLObject address = target == null ? null : WrapperHistoryUtils.getCurrent(target);
 			if (address == null || !address.tValid()) {
 				throw new TopLogicException(I18NConstants.ERROR_ADDRESS_GONE__ADDRESS_OBJECT.fill(
-					target == null ? "?" : Objects.toString(target.tValueByName("address")),
+					target == null ? "?" : Objects.toString(target.getAddress()),
 					GroupAddressConnections.objectLabel(placed)));
 			}
 			TLClassifier kind = kind(((TLClassifier) connection.tValueByName("kind")).getName());
@@ -774,14 +776,14 @@ public class DeviceChanges {
 	 */
 	public static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					addDevice(result, device);
 				}
 			}
 		}
-		Object unassigned = project.tValueByName("unassignedDevices");
+		Object unassigned = ((Project) project).getUnassignedDevices();
 		if (unassigned instanceof Collection<?> devices) {
 			for (Object device : devices) {
 				addDevice(result, device);

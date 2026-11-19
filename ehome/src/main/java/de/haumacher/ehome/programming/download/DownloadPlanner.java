@@ -21,6 +21,7 @@ import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.catalog.Manufacturer;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
@@ -1655,8 +1656,9 @@ public class DownloadPlanner {
 	 * The KNX number of the program's manufacturer.
 	 */
 	private static int manufacturer(Program program) {
-		TLObject manufacturer = program.getManufacturer();
-		if (manufacturer != null && manufacturer.tValueByName("id") instanceof Integer id) {
+		Manufacturer manufacturer = program.getManufacturer();
+		Integer id = manufacturer == null ? null : manufacturer.getId();
+		if (id != null) {
 			return id;
 		}
 		String extId = program.getExtId();

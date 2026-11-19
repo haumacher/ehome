@@ -38,6 +38,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
@@ -345,7 +346,7 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 	private static void setGateway(TLObject project) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			// A valid address: the opener of the test connects each device to its own virtual interface.
-			project.tUpdateByName("gateway", "127.0.0.1:3671");
+			((Project) project).setGateway("127.0.0.1:3671");
 			tx.commit();
 		}
 	}

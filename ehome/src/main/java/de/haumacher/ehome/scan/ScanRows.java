@@ -13,6 +13,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 
@@ -171,10 +174,10 @@ public class ScanRows {
 		List<Map<String, Object>> result = new ArrayList<>();
 		for (CatalogMatch.Candidate candidate : match.candidates()) {
 			Map<String, Object> row = new LinkedHashMap<>();
-			TLObject product = candidate.variant().tContainer();
+			Product product = (Product) candidate.variant().tContainer();
 			row.put("label", candidate.label());
-			row.put("product", product == null ? null : product.tValueByName("name"));
-			row.put("order", candidate.variant().tValueByName("orderNumber"));
+			row.put("product", product == null ? null : product.getName());
+			row.put("order", ((Variant) candidate.variant()).getOrderNumber());
 			row.put("program", candidate.program().getExtId());
 			row.put("candidate", candidate);
 			result.add(row);
@@ -189,9 +192,9 @@ public class ScanRows {
 		if (found.manufacturerId() == null) {
 			return null;
 		}
-		TLObject manufacturer = CatalogMatch.manufacturer(found.manufacturerId().intValue());
+		Manufacturer manufacturer = (Manufacturer) CatalogMatch.manufacturer(found.manufacturerId().intValue());
 		String id = String.format("M-%04X", found.manufacturerId());
-		return manufacturer == null ? id : manufacturer.tValueByName("name") + " (" + id + ")";
+		return manufacturer == null ? id : manufacturer.getName() + " (" + id + ")";
 	}
 
 	private static String text(CatalogMatch.Match match) {

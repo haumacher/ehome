@@ -19,6 +19,7 @@ import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.PageOrder;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
@@ -443,8 +444,8 @@ public class DeviceConfiguration {
 			return null;
 		}
 		Object assignment = device.tValueByName("program");
-		if (assignment instanceof TLObject programAssignment
-			&& programAssignment.tValueByName("program") instanceof Program program) {
+		if (assignment instanceof ProgramAssignment programAssignment
+			&& programAssignment.getProgram() instanceof Program program) {
 			return program;
 		}
 		return null;
@@ -523,11 +524,11 @@ public class DeviceConfiguration {
 		return view.getParameter();
 	}
 
-	private static boolean holdsValue(TLObject holder) {
-		return holder.tValueByName(ParameterValues.CHOICE) != null
-			|| holder.tValueByName(ParameterValues.NUMBER) != null
-			|| holder.tValueByName(ParameterValues.DECIMAL) != null
-			|| holder.tValueByName(ParameterValues.TEXT) != null;
+	private static boolean holdsValue(ParameterView holder) {
+		return holder.getChoice() != null
+			|| holder.getNumber() != null
+			|| holder.getDecimal() != null
+			|| holder.getText() != null;
 	}
 
 	/**

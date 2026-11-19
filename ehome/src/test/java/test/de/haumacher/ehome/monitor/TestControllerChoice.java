@@ -4,7 +4,6 @@
 package test.de.haumacher.ehome.monitor;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import junit.framework.Test;
@@ -25,6 +24,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.monitor.ControllerTarget;
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.I18NConstants;
@@ -48,12 +49,12 @@ public class TestControllerChoice extends BasicTestCase {
 	private static final String WRONG_TOKEN = "hct_ffffffffffffffffffffffffffffffff";
 
 	public void testChoice() throws Exception {
-		TLObject project = createProject("TestControllerChoice");
-		TLObject other = createProject("TestControllerChoice (other)");
+		Project project = createProject("TestControllerChoice");
+		Project other = createProject("TestControllerChoice (other)");
 		FakeController fake = new FakeController(TOKEN, 262144);
-		TLObject registered = createController(project, "Fake registered", fake.getPort(), TOKEN);
-		TLObject withoutToken = createController(project, "Fake without token", fake.getPort(), null);
-		TLObject foreign = createController(other, "Fake foreign", fake.getPort(), TOKEN);
+		Controller registered = createController(project, "Fake registered", fake.getPort(), TOKEN);
+		Controller withoutToken = createController(project, "Fake without token", fake.getPort(), null);
+		Controller foreign = createController(other, "Fake foreign", fake.getPort(), TOKEN);
 		GroupMonitor monitor = new GroupMonitor(ProjectIndex.of(project));
 		String address = "127.0.0.1:" + fake.getPort();
 		try {
@@ -73,7 +74,7 @@ public class TestControllerChoice extends BasicTestCase {
 			assertTrue(monitor.isConnected());
 			assertEquals("Fake registered (" + address + ")", target.description());
 			assertEquals(status(target.description()), monitor.snapshot().get("status"));
-			assertNull(project.tValueByName("controller"));
+			assertNull(project.getController());
 
 			// A controller entered ad hoc, with the right token.
 			ControllerTarget adHoc = ControllerTarget.of(project, registered, " 127.0.0.1 ", String.valueOf(fake.getPort()),
@@ -113,11 +114,11 @@ public class TestControllerChoice extends BasicTestCase {
 			assertTrue(entered.entered());
 			entered.attach(monitor);
 			assertTrue(monitor.isConnectedTo("Fake without token (" + address + ")"));
-			assertNull(withoutToken.tValueByName("token"));
+			assertNull(withoutToken.getToken());
 
 			// Without a choice, the project's controller.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("controller", registered);
+				project.setController(registered);
 				tx.commit();
 			}
 			ControllerTarget own = ControllerTarget.of(project, null, null, null, null);
@@ -152,27 +153,27 @@ public class TestControllerChoice extends BasicTestCase {
 	/**
 	 * Creates an empty project (<code>ehome.project:Project</code>) with the given name.
 	 */
-	static TLObject createProject(String name) {
+	static Project createProject(String name) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
+			project.setName(name);
 			tx.commit();
 			return project;
 		}
 	}
 
-	private static TLObject createController(TLObject project, String name, int port, String token) {
+	private static Controller createController(Project project, String name, int port, String token) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject controller = ModelService.getInstance().getFactory()
+			Controller controller = (Controller) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", name);
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(port));
-			controller.tUpdateByName("token", token);
-			List<Object> controllers = new ArrayList<>((Collection<?>) project.tValueByName("controllers"));
+			controller.setName(name);
+			controller.setHost("127.0.0.1");
+			controller.setPort(port);
+			controller.setToken(token);
+			List<Controller> controllers = new ArrayList<>(project.getControllers());
 			controllers.add(controller);
-			project.tUpdateByName("controllers", controllers);
+			project.setControllers(controllers);
 			tx.commit();
 			return controller;
 		}

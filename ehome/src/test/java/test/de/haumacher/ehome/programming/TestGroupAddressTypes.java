@@ -38,6 +38,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.ProjectIndex;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -73,7 +74,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 			assertEquals(1, projects.size());
 			TLObject project = projects.get(0);
 			TLObject temperature = address(project, "0/0/28");
-			assertEquals("Raumtemperatur", temperature.tValueByName("name"));
+			assertEquals("Raumtemperatur", ((GroupAddress) temperature).getName());
 
 			// Reported as untyped.
 			assertFalse(GroupAddressTypes.hasType(temperature));
@@ -125,7 +126,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 				TestDeviceChanges.asRoot(Locale.ENGLISH, () -> set.execute(temperature, celsius));
 				tx.commit();
 			}
-			assertEquals(List.of(celsius), temperature.tValueByName("datapointTypes"));
+			assertEquals(List.of(celsius), ((GroupAddress) temperature).getDatapointTypes());
 			assertTrue(GroupAddressTypes.hasType(temperature));
 			assertEquals(new Dpt(9, 1), GroupAddressTypes.effective(temperature));
 			assertEquals(celsius, derived(temperature, "effectiveDatapointType"));
@@ -144,7 +145,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 			projects.addAll(reimported);
 			assertEquals(1, reimported.size());
 			assertTrue(temperature.tValid());
-			assertEquals(List.of(celsius), temperature.tValueByName("datapointTypes"));
+			assertEquals(List.of(celsius), ((GroupAddress) temperature).getDatapointTypes());
 			assertTrue(GroupAddressTypes.hasType(temperature));
 			assertTrue(celsius.tValid());
 			// The new project has the type the file gives: none.
@@ -160,7 +161,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 	}
 
 	private static int value(TLObject address) {
-		return ((GA) address.tValueByName("address")).getValue();
+		return ((GroupAddress) address).getAddress().getValue();
 	}
 
 	/**
@@ -179,7 +180,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 		for (Object child : (Collection<?>) TestDeviceChanges.asRoot(Locale.ENGLISH,
 			() -> children.execute(project, Boolean.TRUE, node))) {
 			TLObject part = (TLObject) child;
-			if (part.tValueByName("address") instanceof GA) {
+			if (part instanceof GroupAddress address && address.getAddress() instanceof GA) {
 				assertFalse(GroupAddressTypes.hasType(part));
 				result.add(part);
 			} else {
@@ -190,7 +191,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 
 	private static TLObject address(TLObject project, String text) {
 		return SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
-			.filter(a -> a.tValueByName("address") instanceof GA ga && ga.toString().equals(text))
+			.filter(a -> ((GroupAddress) a).getAddress() instanceof GA ga && ga.toString().equals(text))
 			.findFirst().orElseThrow();
 	}
 

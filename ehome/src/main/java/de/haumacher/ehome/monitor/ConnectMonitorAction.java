@@ -25,6 +25,7 @@ import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.Gateways;
 import de.haumacher.ehome.settings.OperatorSettings;
@@ -128,7 +129,7 @@ public class ConnectMonitorAction implements ViewAction {
 		}
 		// A stored gateway address stays with the project; using it is refused (haumacher/ehome #150).
 		OperatorSettings.checkLocalNetwork();
-		Object gatewayText = project.tValueByName("gateway");
+		Object gatewayText = ((Project) project).getGateway();
 		if (gatewayText == null || gatewayText.toString().isBlank()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_GATEWAY);
 		}

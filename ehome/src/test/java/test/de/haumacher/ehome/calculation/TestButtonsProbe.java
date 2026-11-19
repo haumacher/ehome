@@ -89,9 +89,9 @@ public class TestButtonsProbe extends BasicTestCase {
 
 	private static Button button(String extId) {
 		Program program = (Program) instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(p -> PROGRAM.equals(((Program) p).getExtId())).findFirst().orElseThrow();
 		return DeviceButtons.all(program).stream()
-			.filter(b -> extId.equals(b.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(b -> extId.equals(b.getExtId())).findFirst().orElseThrow();
 	}
 
 	private static Object value(TLObject device, String id) {

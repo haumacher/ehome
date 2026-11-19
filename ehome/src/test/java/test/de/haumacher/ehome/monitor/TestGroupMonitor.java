@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -27,6 +26,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.MonitorRow;
@@ -91,7 +93,7 @@ public class TestGroupMonitor extends BasicTestCase {
 		assertEquals("Raumtemperatur", index.address(temperature).name());
 		assertNull(index.address(temperature).dpt());
 		try (Transaction tx = kb().beginTransaction()) {
-			index.address(temperature).groupAddress().tUpdateByName("datapointTypes", List.of(subtype(9, 1)));
+			((GroupAddress) index.address(temperature).groupAddress()).setDatapointTypes(List.of(subtype(9, 1)));
 			tx.commit();
 		}
 		index = ProjectIndex.of(project);
@@ -247,8 +249,8 @@ public class TestGroupMonitor extends BasicTestCase {
 
 		// A recording stores the telegrams in batches.
 		monitor.setSending(false);
-		TLObject recording = monitor.startRecording("Test");
-		assertTrue(((Collection<?>) project.tValueByName("recordings")).contains(recording));
+		Recording recording = (Recording) monitor.startRecording("Test");
+		assertTrue(((Project) project).getRecordings().contains(recording));
 		// A snapshot on a thread without a context of the application while the recording runs (the
 		// timer that ends the freshness of a row, the state callbacks of a link): its status names the
 		// recording without reading the knowledge base.
@@ -267,23 +269,23 @@ public class TestGroupMonitor extends BasicTestCase {
 		// The thread of a real link has no context of the application.
 		link.writeFromLinkThread(TASTSENSOR, temperature, 0x0C, 0x33);
 		link.write(UNKNOWN_DEVICE, UNKNOWN_ADDRESS, 0xAB);
-		assertEquals(0, ((Collection<?>) recording.tValueByName("telegrams")).size());
+		assertEquals(0, recording.getTelegrams().size());
 		monitor.flushRecording();
-		assertEquals(3, ((Collection<?>) recording.tValueByName("telegrams")).size());
-		assertEquals(3, recording.tValueByName("count"));
+		assertEquals(3, recording.getTelegrams().size());
+		assertEquals(Integer.valueOf(3), recording.getCount());
 		link.write(ACTUATOR, SWITCH, 0x00);
 		link.write(TASTSENSOR, percent, 0xBA);
-		assertEquals(3, ((Collection<?>) recording.tValueByName("telegrams")).size());
+		assertEquals(3, recording.getTelegrams().size());
 		monitor.stopRecording();
 		assertNull(monitor.getRecording());
-		assertEquals(5, ((Collection<?>) recording.tValueByName("telegrams")).size());
-		assertEquals(5, recording.tValueByName("count"));
-		assertNotNull(recording.tValueByName("end"));
-		assertEquals("mock:3671", recording.tValueByName("gateway"));
+		assertEquals(5, recording.getTelegrams().size());
+		assertEquals(Integer.valueOf(5), recording.getCount());
+		assertNotNull(recording.getEnd());
+		assertEquals("mock:3671", recording.getGateway());
 
 		// Telegrams after the end are not recorded.
 		link.write(ACTUATOR, SWITCH, 0x01);
-		assertEquals(5, ((Collection<?>) recording.tValueByName("telegrams")).size());
+		assertEquals(5, recording.getTelegrams().size());
 
 		// The CSV export.
 		List<String> lines = RecordingCsv.lines(recording, TimeZone.getTimeZone("UTC"));

@@ -28,8 +28,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -138,7 +139,7 @@ public class TestGroupAddressConnectionsProbe extends BasicTestCase {
 
 	private static TLObject groupAddress(TLObject device, int number) {
 		return DeviceSettings.groupAddresses(device).stream()
-			.filter(a -> ((GA) a.tValueByName("address")).getValue() == number)
+			.filter(a -> ((GroupAddress) a).getAddress().getValue() == number)
 			.findFirst().orElseThrow();
 	}
 
@@ -168,7 +169,7 @@ public class TestGroupAddressConnectionsProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

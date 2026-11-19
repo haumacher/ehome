@@ -38,6 +38,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
@@ -304,11 +305,11 @@ public class TestScanJobsCancelled extends BasicTestCase {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		assertEquals(1, SharedData.newProjects(_before).size());
 		try (Transaction tx = kb.beginTransaction()) {
-			_project.tUpdateByName("gateway", "localhost:3671");
+			((Project) _project).setGateway("localhost:3671");
 			tx.commit();
 		}
 		try (Transaction tx = kb.beginTransaction()) {
-			_project.tUpdateByName("gateway", "localhost");
+			((Project) _project).setGateway("localhost");
 			tx.commit();
 		}
 	}
@@ -327,7 +328,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 					assertEquals(1, projects.size());
 					_project = projects.get(0);
 					try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-						_project.tUpdateByName("gateway", "localhost");
+						((Project) _project).setGateway("localhost");
 						tx.commit();
 					}
 					return null;

@@ -12,4 +12,9 @@ public interface Controller extends de.haumacher.ehome.model.runtime.internal.Co
 
 	// Wrapper functionality.
 
+	/** The value of {@link #PORT_ATTR}, <code>null</code> when unset. */
+	default Integer getPortOrNull() {
+		return (Integer) tValueByName(PORT_ATTR);
+	}
+
 }

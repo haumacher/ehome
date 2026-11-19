@@ -28,6 +28,7 @@ import com.top_logic.model.TLType;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.virtual.server.Endpoint;
 import de.haumacher.ehome.virtual.tooling.device.MappedLoadStateRule;
 import de.haumacher.ehome.virtual.tooling.device.ProjectDevices;
@@ -231,7 +232,7 @@ public class VirtualFunctions extends GenericMethod {
 		while (project.tContainer() != null) {
 			project = project.tContainer();
 		}
-		header.put("project", String.valueOf(project.tValueByName("name")));
+		header.put("project", String.valueOf(((Project) project).getName()));
 		manager.start(simulated, new Endpoint(address, port, discovery), header);
 	}
 

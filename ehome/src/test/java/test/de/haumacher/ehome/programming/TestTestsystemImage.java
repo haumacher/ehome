@@ -28,6 +28,7 @@ import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -156,7 +157,7 @@ public class TestTestsystemImage extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new java.util.HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

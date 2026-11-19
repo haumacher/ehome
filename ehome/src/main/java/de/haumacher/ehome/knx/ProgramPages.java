@@ -418,8 +418,8 @@ public class ProgramPages {
 			return true;
 		}
 		return contains(parameter.getName(), term)
-			|| contains(parameter.tValueByName("description"), term)
-			|| view != null && (contains(view.getName(), term) || contains(view.tValueByName("description"), term))
+			|| contains(parameter.getDescription(), term)
+			|| view != null && (contains(view.getName(), term) || contains(view.getDescription(), term))
 			|| parameter.getType() != null && (contains(parameter.getType().getName(), term)
 				|| contains(MetaLabelProvider.INSTANCE.getLabel(parameter.getType()), term));
 	}
@@ -429,11 +429,11 @@ public class ProgramPages {
 			return true;
 		}
 		return contains(port.getName(), term)
-			|| contains(port.tValueByName("text"), term)
-			|| contains(port.tValueByName("function"), term)
+			|| contains(port.getText(), term)
+			|| contains(port.getFunction(), term)
 			|| contains(port.getDescription(), term)
 			|| placed != null && (contains(placed.tValueByName("name"), term)
-				|| contains(placed.tValueByName("function"), term)
+				|| contains(placed.getFunction(), term)
 				|| contains(placed.getDescription(), term));
 	}
 

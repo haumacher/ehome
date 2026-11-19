@@ -37,6 +37,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
@@ -44,6 +45,7 @@ import de.haumacher.ehome.model.operational.FloatingPointType;
 import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.VoidType;
 
 /**
@@ -89,7 +91,7 @@ public class TestParameterValuesProbe extends BasicTestCase {
 	/** The types of the typed fixture belong to its program, so the types tab lists them. */
 	private void checkProgramTypes() {
 		TLObject program = byExtId("ehome.operational:Program", TYPED_PROGRAM.substring(0, TYPED_PROGRAM.length() - 1));
-		Collection<?> types = (Collection<?>) program.tValueByName("parameterTypes");
+		Collection<?> types = ((Program) program).getParameterTypes();
 		Map<String, String> ids = Map.of(
 			"PT-Test.5FFloat", "ehome.operational:FloatingPointType",
 			"PT-Test.5FTime", "ehome.operational:TimeType",
@@ -272,7 +274,7 @@ public class TestParameterValuesProbe extends BasicTestCase {
 
 	private static TLObject byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals("Objects " + typeName + " with ID " + extId, 1, result.size());
 		return result.get(0);

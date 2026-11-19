@@ -18,6 +18,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -258,7 +261,7 @@ public class DeviceInfo {
 	public List<Row> identity() {
 		List<Row> result = new ArrayList<>();
 		Program program = _device.tValid() ? DeviceConfiguration.program(_device) : null;
-		TLObject variant = _device.tValid() && _device.tValueByName("type") instanceof TLObject type ? type : null;
+		Variant variant = _device.tValid() && _device.tValueByName("type") instanceof Variant type ? type : null;
 
 		MaskVersion mask = program == null ? null : program.getMask();
 		result.add(row("mask", I18NConstants.INFO_MASK, mask == null ? null : String.format("%04X", mask.getNumber()),
@@ -273,7 +276,7 @@ public class DeviceInfo {
 		result.add(row("serialNumber", I18NConstants.READ_SERIAL_NUMBER, serial == null ? null : serialText(serial),
 			_found.serialText(), () -> Arrays.equals(serial, _found.serialNumber())));
 
-		Object orderNumber = variant == null ? null : variant.tValueByName("orderNumber");
+		Object orderNumber = variant == null ? null : variant.getOrderNumber();
 		String order = orderNumber instanceof String text && !text.isBlank() ? text : null;
 		result.add(row("orderInfo", I18NConstants.READ_ORDER_INFO, order, _found.orderInfo(),
 			() -> _found.orderNumber() == null ? null
@@ -464,19 +467,20 @@ public class DeviceInfo {
 	 * The manufacturer of the device as the project has it: that of its product, else that of its
 	 * program; <code>null</code> if unknown.
 	 */
-	private static Integer manufacturerId(TLObject variant, Program program) {
-		TLObject manufacturer = variant == null ? null : ExtIds.ancestor(variant, "ehome.catalog:Manufacturer");
-		if (manufacturer == null && variant != null && variant.tValueByName("product") instanceof TLObject product) {
-			manufacturer = ExtIds.ancestor(product, "ehome.catalog:Manufacturer");
+	private static Integer manufacturerId(Variant variant, Program program) {
+		Manufacturer manufacturer = variant == null ? null
+			: (Manufacturer) ExtIds.ancestor(variant, "ehome.catalog:Manufacturer");
+		if (manufacturer == null && variant != null && variant.getProduct() instanceof Product product) {
+			manufacturer = (Manufacturer) ExtIds.ancestor(product, "ehome.catalog:Manufacturer");
 		}
 		if (manufacturer == null && program != null) {
 			manufacturer = program.getManufacturer();
 		}
 		if (manufacturer != null) {
-			if (manufacturer.tValueByName("id") instanceof Integer id) {
+			if (manufacturer.getId() instanceof Integer id) {
 				return id;
 			}
-			if (manufacturer.tValueByName("extId") instanceof String extId) {
+			if (manufacturer.getExtId() instanceof String extId) {
 				Integer id = manufacturerOfExtId(extId);
 				if (id != null) {
 					return id;
@@ -504,9 +508,9 @@ public class DeviceInfo {
 		if (id == null) {
 			return null;
 		}
-		TLObject manufacturer = CatalogMatch.manufacturer(id.intValue());
+		Manufacturer manufacturer = (Manufacturer) CatalogMatch.manufacturer(id.intValue());
 		String text = String.format("M-%04X", id);
-		return manufacturer == null ? text : manufacturer.tValueByName("name") + " (" + text + ")";
+		return manufacturer == null ? text : manufacturer.getName() + " (" + text + ")";
 	}
 
 	/**

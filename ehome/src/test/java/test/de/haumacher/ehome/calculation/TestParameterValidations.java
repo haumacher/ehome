@@ -292,7 +292,7 @@ public class TestParameterValidations extends BasicTestCase {
 
 	private static Program program(String id) {
 		return (Program) instances("ehome.operational:Program").stream()
-			.filter(p -> id.equals(p.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(p -> id.equals(((Program) p).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static TLObject device(List<TLObject> before, int address) {

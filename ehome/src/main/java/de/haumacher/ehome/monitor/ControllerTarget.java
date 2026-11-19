@@ -9,6 +9,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.ProjectControllers;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Deployer;
@@ -95,7 +96,7 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 		if (foreign != null) {
 			throw new TopLogicException(foreign);
 		}
-		String name = String.valueOf(registered.tValueByName("name"));
+		String name = String.valueOf(((Controller) registered).getName());
 		ControllerClient client = Deployer.client(registered);
 		if (client.connection() != null && enteredToken == null) {
 			return new ControllerTarget(name, client, false);
@@ -108,12 +109,12 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 			OperatorSettings.checkLocalNetwork();
 		}
 		if (enteredToken != null) {
-			Object registeredHost = registered.tValueByName("host");
+			Object registeredHost = ((Controller) registered).getHost();
 			if (blank(registeredHost)) {
 				throw new TopLogicException(
 					de.haumacher.ehome.runtime.I18NConstants.ERROR_NO_HOST__CONTROLLER.fill(name));
 			}
-			Object registeredPort = registered.tValueByName("port");
+			Object registeredPort = ((Controller) registered).getPortOrNull();
 			return new ControllerTarget(name, new ControllerClient(registeredHost.toString().trim(),
 				registeredPort instanceof Number number ? number.intValue() : DEFAULT_PORT, enteredToken,
 				client.timeout()), true);

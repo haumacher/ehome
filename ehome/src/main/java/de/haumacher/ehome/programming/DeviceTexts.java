@@ -44,16 +44,16 @@ public final class DeviceTexts {
 		if (part instanceof Channel channel) {
 			String title = renamed(device, channel);
 			String label = title != null ? fill(device, numbered(channel, title), channel.getTextParameter())
-				: fill(device, (String) channel.tValueByName("displayName"), channel.getTextParameter());
+				: fill(device, channel.getDisplayName(), channel.getTextParameter());
 			return withInstance(device, channel, label);
 		}
 		if (part instanceof ParameterGroup group) {
 			String title = renamed(device, group);
-			return fill(device, title != null ? title : (String) group.tValueByName("displayName"),
+			return fill(device, title != null ? title : group.getDisplayName(),
 				group.getTextParameter());
 		}
 		if (part instanceof Interface placed) {
-			return fill(device, (String) placed.tValueByName("displayName"), placed.getTextParameter());
+			return fill(device, placed.getDisplayName(), placed.getTextParameter());
 		}
 		if (part instanceof ParameterView view) {
 			return fill(device, view.getTitle(), null);

@@ -38,6 +38,7 @@ import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.I18NConstants;
 import de.haumacher.ehome.knx.transport.Tpdu;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -276,7 +277,7 @@ public class TestBusSessionLink extends BasicTestCase {
 		ControllerConnections.awaitKnowledgeBase();
 		assertNull(ControllerConnections.get(_fake.controller()));
 		assertEquals(BusSessionLink.offline(_fake.controller()), BusSessionLink.veto(_fake.controller()));
-		assertNotNull("the last contact is known", _fake.controller().tValueByName("lastContact"));
+		assertNotNull("the last contact is known", ((Controller) _fake.controller()).getLastContact());
 	}
 
 	/**

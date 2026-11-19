@@ -12,4 +12,14 @@ public interface Telegram extends de.haumacher.ehome.model.monitor.internal.Tele
 
 	// Wrapper functionality.
 
+	/** The value of {@link #OWN_ATTR}, <code>null</code> when unset. */
+	default Boolean getOwnOrNull() {
+		return (Boolean) tValueByName(OWN_ATTR);
+	}
+
+	/** The value of {@link #REPEATED_ATTR}, <code>null</code> when unset. */
+	default Boolean getRepeatedOrNull() {
+		return (Boolean) tValueByName(REPEATED_ATTR);
+	}
+
 }

@@ -26,6 +26,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.runtime.Controller;
+
 import tuwien.auto.calimero.CloseEvent;
 import tuwien.auto.calimero.FrameEvent;
 import tuwien.auto.calimero.IndividualAddress;
@@ -193,7 +195,7 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 	 * already.
 	 */
 	public static ResKey veto(TLObject controller) {
-		String name = String.valueOf(controller.tValueByName("name"));
+		String name = String.valueOf(((Controller) controller).getName());
 		String id = ControllerConnections.controllerId(controller);
 		if (id == null) {
 			return I18NConstants.ERROR_BUS_NOT_ENROLLED__CONTROLLER.fill(name);
@@ -227,8 +229,8 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 	 * or that it never connected.
 	 */
 	public static ResKey offline(TLObject controller) {
-		Object name = controller.tValueByName("name");
-		if (controller.tValueByName("lastContact") instanceof Date date) {
+		Object name = ((Controller) controller).getName();
+		if (((Controller) controller).getLastContact() instanceof Date date) {
 			return I18NConstants.ERROR_BUS_OFFLINE__CONTROLLER_LAST_CONTACT.fill(name,
 				DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Resources.getInstance().getLocale())
 					.format(date));

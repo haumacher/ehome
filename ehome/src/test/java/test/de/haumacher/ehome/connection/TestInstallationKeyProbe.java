@@ -23,7 +23,6 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
@@ -32,6 +31,9 @@ import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Enrollment;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures.Keys;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.runtime.Deployer;
 
 /**
@@ -73,16 +75,16 @@ public class TestInstallationKeyProbe extends BasicTestCase {
 	}
 
 	public void testRotationWithSeveralControllers() throws Exception {
-		TLObject project = ControllerEndpoint.project("Key probe");
+		Project project = ControllerEndpoint.project("Key probe");
 		try {
 			Map<String, Object> a = enroll(project, "one");
 			Map<String, Object> b = enroll(project, "two");
 			Keys old = InstallationKeys.key(project);
 			_one.setKey((String) a.get("public_key"));
 			_two.setKey((String) b.get("public_key"));
-			List<?> controllers = (List<?>) project.tValueByName("controllers");
-			TLObject one = (TLObject) controllers.get(0);
-			TLObject two = (TLObject) controllers.get(1);
+			List<?> controllers = project.getControllers();
+			Controller one = (Controller) controllers.get(0);
+			Controller two = (Controller) controllers.get(1);
 			FakeControllerLink linkOne = connect(_one, a);
 			FakeControllerLink linkTwo = connect(_two, b);
 			ControllerConnection connectionOne = ControllerConnections.get((String) a.get("controller"));
@@ -112,16 +114,16 @@ public class TestInstallationKeyProbe extends BasicTestCase {
 			}
 
 			// Each deployment is signed with the key its controller holds, and accepted.
-			TLObject toOne = Deployer.deploy(project, NOW);
-			assertEquals(toOne.tValueByName("message").toString(), Boolean.TRUE, toOne.tValueByName("accepted"));
-			assertEquals(fresh.fingerprint(), toOne.tValueByName("keyFingerprint"));
+			Deployment toOne = (Deployment) Deployer.deploy(project, NOW);
+			assertEquals(toOne.getMessage().toString(), Boolean.TRUE, Boolean.valueOf(toOne.getAccepted()));
+			assertEquals(fresh.fingerprint(), toOne.getKeyFingerprint());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("controller", two);
+				project.setController(two);
 				tx.commit();
 			}
-			TLObject toTwo = Deployer.deploy(project, NOW);
-			assertEquals(toTwo.tValueByName("message").toString(), Boolean.TRUE, toTwo.tValueByName("accepted"));
-			assertEquals(old.fingerprint(), toTwo.tValueByName("keyFingerprint"));
+			Deployment toTwo = (Deployment) Deployer.deploy(project, NOW);
+			assertEquals(toTwo.getMessage().toString(), Boolean.TRUE, Boolean.valueOf(toTwo.getAccepted()));
+			assertEquals(old.fingerprint(), toTwo.getKeyFingerprint());
 
 			// A device refusing the offered key: shown with its reason.
 			linkTwo.sendText("{\"type\": \"error\", \"code\": \"ehome.bad_key\", \"error\": \"no room for the key\"}");
@@ -150,10 +152,10 @@ public class TestInstallationKeyProbe extends BasicTestCase {
 		return link;
 	}
 
-	private Map<String, Object> enroll(TLObject project, String name) {
+	private Map<String, Object> enroll(Project project, String name) {
 		Enrollment.createCode(project, null, Instant.now());
 		Map<String, Object> request = new LinkedHashMap<>();
-		request.put("code", project.tValueByName("enrollmentCode"));
+		request.put("code", project.getEnrollmentCode());
 		request.put("name", name);
 		Enrollment.Answer answer = Enrollment.enroll(request, _endpoint.base(), Instant.now());
 		assertEquals(answer.body().toString(), 200, answer.status());

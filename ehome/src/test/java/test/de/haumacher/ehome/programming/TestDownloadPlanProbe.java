@@ -25,6 +25,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.DeviceComparison;
@@ -135,7 +136,7 @@ public class TestDownloadPlanProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

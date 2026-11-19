@@ -21,6 +21,12 @@ import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.operational.Case;
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.Location;
+import de.haumacher.ehome.model.operational.Option;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.query.Queries;
 
 /**
@@ -159,11 +165,10 @@ public final class ProgramStructure {
 		}
 		switch (position) {
 			case INSIDE: {
-				String reference = isA(anchor, "ehome.operational:Switch") ? ALTERNATIVES : CONTENTS;
-				List<Object> elements = new ArrayList<>((Collection<?>) anchor.tValueByName(reference));
+				List<Object> elements = new ArrayList<>(children(anchor));
 				elements.remove(node);
 				elements.add(node);
-				anchor.tUpdateByName(reference, elements);
+				setChildren(anchor, elements);
 				break;
 			}
 			case AFTER: {
@@ -243,8 +248,7 @@ public final class ProgramStructure {
 				moved.add((TLObject) node);
 			}
 		}
-		String reference = isA(container, "ehome.operational:Switch") ? ALTERNATIVES : CONTENTS;
-		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
+		List<Object> elements = new ArrayList<>(children(container));
 		int index = before == null ? -1 : elements.indexOf(before);
 		if (index < 0) {
 			index = elements.size();
@@ -268,7 +272,27 @@ public final class ProgramStructure {
 		}
 		elements.removeAll(moved);
 		elements.addAll(target, moved);
-		container.tUpdateByName(reference, elements);
+		setChildren(container, elements);
+	}
+
+	/**
+	 * The elements inside the given structure element: the cases of a switch, else its contents.
+	 */
+	private static List<? extends TLObject> children(TLObject container) {
+		return container instanceof Switch choice ? choice.getAlternatives()
+			: ((ConfigFragment) container).getContents();
+	}
+
+	/**
+	 * Sets the elements inside the given structure element (see {@link #children(TLObject)}).
+	 */
+	@SuppressWarnings("unchecked")
+	private static void setChildren(TLObject container, List<?> elements) {
+		if (container instanceof Switch choice) {
+			choice.setAlternatives((List<Case>) elements);
+		} else {
+			((ConfigFragment) container).setContents((List<Option>) elements);
+		}
 	}
 
 	/**
@@ -368,9 +392,9 @@ public final class ProgramStructure {
 				placement.tDelete();
 			}
 		}
-		TLObject location = isA(obj, "ehome.operational:Parameter") ? (TLObject) obj.tValueByName("address") : null;
+		Location location = obj instanceof Parameter parameter ? parameter.getAddress() : null;
 		obj.tDelete();
-		if (location != null && location.tValid() && ((Collection<?>) location.tValueByName("usage")).isEmpty()) {
+		if (location != null && location.tValid() && location.getUsage().isEmpty()) {
 			location.tDelete();
 		}
 	}

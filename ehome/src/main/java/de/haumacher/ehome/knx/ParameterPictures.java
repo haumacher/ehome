@@ -11,7 +11,6 @@ import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
 import com.top_logic.model.search.expr.GenericMethod;
@@ -19,6 +18,7 @@ import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 
+import de.haumacher.ehome.model.catalog.Baggage;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.PictureType;
@@ -119,7 +119,7 @@ public class ParameterPictures extends GenericMethod {
 	 * How the given picture is shown.
 	 */
 	public static Display display(PictureType type) {
-		TLObject file = type.getPicture();
+		Baggage file = type.getPicture();
 		if (file == null || content(file) == null) {
 			return Display.MISSING;
 		}
@@ -154,17 +154,17 @@ public class ParameterPictures extends GenericMethod {
 		if (display(type) != Display.MISSING) {
 			return null;
 		}
-		TLObject file = type.getPicture();
+		Baggage file = type.getPicture();
 		return file == null ? I18NConstants.PICTURE_UNKNOWN
 			: I18NConstants.PICTURE_MISSING__NAME.fill(fileName(file));
 	}
 
-	private static BinaryData content(TLObject file) {
-		return (BinaryData) file.tValueByName("content");
+	private static BinaryData content(Baggage file) {
+		return (BinaryData) file.getContent();
 	}
 
-	private static String fileName(TLObject file) {
-		Object name = file.tValueByName("name");
+	private static String fileName(Baggage file) {
+		Object name = file.getName();
 		return name == null ? "" : name.toString();
 	}
 

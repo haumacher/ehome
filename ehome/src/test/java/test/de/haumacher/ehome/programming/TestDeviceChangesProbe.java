@@ -31,12 +31,13 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -109,7 +110,7 @@ public class TestDeviceChangesProbe extends BasicTestCase {
 			}
 			assertNotNull("No switch of the actuator to flip", choice);
 			TLObject address = DeviceSettings.groupAddresses(actuator).stream()
-				.filter(a -> ((GA) a.tValueByName("address")).getValue() == 1)
+				.filter(a -> ((GroupAddress) a).getAddress().getValue() == 1)
 				.findFirst().orElseThrow();
 			Interface channelA = DeviceSettings.interfaces(actuator).stream()
 				.filter(i -> i.getPort().getIndex() == 0)
@@ -182,7 +183,7 @@ public class TestDeviceChangesProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

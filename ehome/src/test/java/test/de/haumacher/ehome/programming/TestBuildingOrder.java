@@ -13,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -46,6 +45,8 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
@@ -87,12 +88,12 @@ public class TestBuildingOrder extends BasicTestCase {
 
 	private void check(TLObject project, List<TLObject> projects) throws Exception {
 		// The import takes the order of the file.
-		TLObject house = single(list(project, "buildings"));
-		TLObject floor = single(list(house, "parts"));
-		assertEquals(List.of("Wohnzimmer", "Küche", "Verteiler"), names(list(floor, "parts")));
-		TLObject living = list(floor, "parts").get(0);
-		TLObject kitchen = list(floor, "parts").get(1);
-		TLObject board = list(floor, "parts").get(2);
+		TLObject house = single(buildings(project));
+		TLObject floor = single(parts(house));
+		assertEquals(List.of("Wohnzimmer", "Küche", "Verteiler"), names(parts(floor)));
+		TLObject living = parts(floor).get(0);
+		TLObject kitchen = parts(floor).get(1);
+		TLObject board = parts(floor).get(2);
 		assertEquals(List.of("Haus", "Erdgeschoss", "Wohnzimmer", "Küche", "Verteiler"), locations(project));
 		assertEquals(List.of("Haus", "Erdgeschoss", "Wohnzimmer", "Küche", "Verteiler"), exported(project));
 
@@ -102,19 +103,19 @@ public class TestBuildingOrder extends BasicTestCase {
 		// Move the distribution board up before the living room: the image follows the new order.
 		assertNull(asRoot(() -> veto.execute(List.of(board), floor, living)));
 		drop(move, List.of(board), floor, living);
-		assertEquals(List.of(board, living, kitchen), list(floor, "parts"));
+		assertEquals(List.of(board, living, kitchen), parts(floor));
 		assertEquals(List.of("Haus", "Erdgeschoss", "Verteiler", "Wohnzimmer", "Küche"), locations(project));
 
 		// Down again, to the end (no part to insert before): the kitchen now comes first, and the two
 		// keep their order in the tree, not that of the selection.
 		drop(move, List.of(living, board), floor, null);
-		assertEquals(List.of(kitchen, board, living), list(floor, "parts"));
+		assertEquals(List.of(kitchen, board, living), parts(floor));
 		drop(move, List.of(living), floor, board);
-		assertEquals(List.of(kitchen, living, board), list(floor, "parts"));
+		assertEquals(List.of(kitchen, living, board), parts(floor));
 		// A place among the devices of the floor (after its parts) is the end as well.
 		TLObject device = BuildingDevices.devices(kitchen).get(0);
 		drop(move, List.of(kitchen), floor, device);
-		assertEquals(List.of(living, board, kitchen), list(floor, "parts"));
+		assertEquals(List.of(living, board, kitchen), parts(floor));
 		assertEquals(List.of("Haus", "Erdgeschoss", "Wohnzimmer", "Verteiler", "Küche"), locations(project));
 
 		// Places that cannot hold the part are refused with a reason, and the move does not happen.
@@ -130,33 +131,33 @@ public class TestBuildingOrder extends BasicTestCase {
 		} catch (TopLogicException ex) {
 			assertNotNull(ex.getErrorKey());
 		}
-		assertEquals(List.of(living, board, kitchen), list(floor, "parts"));
+		assertEquals(List.of(living, board, kitchen), parts(floor));
 
 		// Into another part: a second floor created by the user comes last, and takes the kitchen.
-		TLObject upper;
+		BuildingDefinition upper;
 		try (Transaction tx = kb().beginTransaction()) {
-			upper = ModelService.getInstance().getFactory()
+			upper = (BuildingDefinition) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.building:Floor"));
-			upper.tUpdateByName("name", "Obergeschoss");
-			house.tAdd(house.tType().getPart("parts"), upper);
+			upper.setName("Obergeschoss");
+			((BuildingDefinition) house).addPart(upper);
 			tx.commit();
 		}
-		assertEquals(List.of(floor, upper), list(house, "parts"));
+		assertEquals(List.of(floor, upper), parts(house));
 		drop(move, List.of(kitchen), upper, null);
-		assertEquals(List.of(living, board), list(floor, "parts"));
-		assertEquals(List.of(kitchen), list(upper, "parts"));
+		assertEquals(List.of(living, board), parts(floor));
+		assertEquals(List.of(kitchen), parts(upper));
 		assertSame(upper, kitchen.tContainer());
 		assertSame(kitchen, device.tValueByName("location"));
 		// The floor of the user before the imported one.
 		drop(move, List.of(upper), house, floor);
-		assertEquals(List.of(upper, floor), list(house, "parts"));
+		assertEquals(List.of(upper, floor), parts(house));
 		// Parts of different floors, selected against the tree's order, keep the tree's order.
 		drop(move, List.of(board, kitchen), floor, living);
-		assertEquals(List.of(kitchen, board, living), list(floor, "parts"));
-		assertEquals(List.of(), list(upper, "parts"));
+		assertEquals(List.of(kitchen, board, living), parts(floor));
+		assertEquals(List.of(), parts(upper));
 		drop(move, List.of(kitchen), upper, null);
 		drop(move, List.of(board), floor, null);
-		assertEquals(List.of(living, board), list(floor, "parts"));
+		assertEquals(List.of(living, board), parts(floor));
 		List<String> order = List.of("Haus", "Obergeschoss", "Küche", "Erdgeschoss", "Wohnzimmer", "Verteiler");
 		assertEquals(order, locations(project));
 
@@ -219,7 +220,7 @@ public class TestBuildingOrder extends BasicTestCase {
 	}
 
 	static List<String> names(List<TLObject> parts) {
-		return parts.stream().map(p -> (String) p.tValueByName("name")).toList();
+		return parts.stream().map(p -> ((BuildingDefinition) p).getName()).toList();
 	}
 
 	private static TLObject single(List<TLObject> values) {
@@ -227,12 +228,14 @@ public class TestBuildingOrder extends BasicTestCase {
 		return values.get(0);
 	}
 
-	static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object value : (Collection<?>) obj.tValueByName(attribute)) {
-			result.add((TLObject) value);
-		}
-		return result;
+	/** The buildings of the given project. */
+	static List<TLObject> buildings(TLObject project) {
+		return new ArrayList<>(((Project) project).getBuildings());
+	}
+
+	/** The parts of the given part of a building. */
+	static List<TLObject> parts(TLObject part) {
+		return new ArrayList<>(((BuildingDefinition) part).getParts());
 	}
 
 	/**

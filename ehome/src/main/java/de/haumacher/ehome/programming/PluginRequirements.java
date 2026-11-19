@@ -114,7 +114,7 @@ public class PluginRequirements extends GenericMethod {
 		if (program == null) {
 			return result;
 		}
-		Collection<?> stored = (Collection<?>) program.tValueByName(REQUIREMENTS);
+		Collection<?> stored = program.getRequirements();
 		if (stored == null || stored.isEmpty()) {
 			return result;
 		}

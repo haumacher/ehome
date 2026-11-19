@@ -41,8 +41,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -112,7 +113,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		assertTrue(GroupAddressConnections.problems(ga1).toString(), GroupAddressConnections.problems(ga1).isEmpty());
 		// A range or an address is labelled by its name (its address has a column of its own), the device
 		// is no node any more.
-		String name = (String) ga1.tValueByName("name");
+		String name = ((GroupAddress) ga1).getName();
 		assertEquals(name == null || name.isEmpty() ? null : name, asRoot(Locale.GERMAN, () -> label.execute(ga1)));
 		assertTrue(children(children, project, sender).isEmpty());
 
@@ -201,7 +202,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 
 	private static TLObject groupAddress(TLObject device, int number) {
 		return DeviceSettings.groupAddresses(device).stream()
-			.filter(a -> ((GA) a.tValueByName("address")).getValue() == number)
+			.filter(a -> ((GroupAddress) a).getAddress().getValue() == number)
 			.findFirst().orElseThrow(() -> new AssertionError("No group address " + number));
 	}
 
@@ -242,7 +243,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);

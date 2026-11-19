@@ -21,6 +21,10 @@ import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -220,7 +224,7 @@ public class InstallationBuilder {
 	 * is none.
 	 */
 	public static TLObject device(TLObject project, int address) {
-		for (TLObject area : ExtIds.list(project, "areas")) {
+		for (TLObject area : ((Project) project).getAreas()) {
 			if (!number(area, address >>> 12 & 0x0F)) {
 				continue;
 			}
@@ -244,7 +248,7 @@ public class InstallationBuilder {
 	 */
 	public static Set<Integer> addresses(TLObject project) {
 		Set<Integer> result = new TreeSet<>();
-		for (TLObject area : ExtIds.list(project, "areas")) {
+		for (TLObject area : ((Project) project).getAreas()) {
 			if (!(area.tValueByName("address") instanceof Integer areaNumber) || areaNumber.intValue() >>> 4 != 0) {
 				continue;
 			}
@@ -268,7 +272,7 @@ public class InstallationBuilder {
 	 */
 	public static TLObject line(TLObject project, int areaNumber, int lineNumber) {
 		TLObject area = null;
-		for (TLObject candidate : ExtIds.list(project, "areas")) {
+		for (TLObject candidate : ((Project) project).getAreas()) {
 			if (number(candidate, areaNumber)) {
 				area = candidate;
 				break;
@@ -278,7 +282,7 @@ public class InstallationBuilder {
 			area = create("ehome.physical:Area");
 			area.tUpdateByName("address", Integer.valueOf(areaNumber));
 			area.tUpdateByName("name", Integer.toString(areaNumber));
-			add(project, "areas", area);
+			((Project) project).addArea(area);
 			ExtIds.assign(area);
 		}
 		for (TLObject candidate : ExtIds.list(area, "lines")) {
@@ -301,11 +305,11 @@ public class InstallationBuilder {
 	 */
 	public static TLObject groupAddress(TLObject project, int value) {
 		for (TLObject address : DeviceSettings.groupAddresses(project)) {
-			if (address.tValueByName("address") instanceof GA ga && ga.getValue() == value) {
+			if (((GroupAddress) address).getAddress() instanceof GA ga && ga.getValue() == value) {
 				return address;
 			}
 		}
-		GroupAddressStyle style = GroupAddressStyle.fromModel(project.tValueByName("groupAddressStyle"));
+		GroupAddressStyle style = GroupAddressStyle.fromModel(((Project) project).getGroupAddressStyle());
 		if (style == null) {
 			style = GroupAddressStyle.ThreeLevel;
 		}
@@ -316,10 +320,10 @@ public class InstallationBuilder {
 			}
 		}
 		if (style == GroupAddressStyle.Free) {
-			TLObject result = create("ehome.logical:GroupAddress");
-			result.tUpdateByName("address", ga);
-			result.tUpdateByName("name", ga.toString());
-			add(project, "groupAddresses", result);
+			GroupAddress result = (GroupAddress) create("ehome.logical:GroupAddress");
+			result.setAddress(ga);
+			result.setName(ga.toString());
+			((Project) project).addGroupAddresse(result);
 			ExtIds.assign(result);
 			return result;
 		}
@@ -338,20 +342,25 @@ public class InstallationBuilder {
 	 * created if there is none.
 	 */
 	private static TLObject range(TLObject project, TLObject container, int start, int end, GroupAddressStyle style) {
-		String reference = container == project ? "groupAddresses" : "parts";
-		for (TLObject part : ExtIds.list(container, reference)) {
-			if (ExtIds.isA(part, "ehome.logical:GroupRange") && part.tValueByName("rangeStart") instanceof GA from
-				&& part.tValueByName("rangeEnd") instanceof GA to && from.getValue() == start && to.getValue() == end) {
+		Collection<? extends GroupAddressDefinition> parts = container == project
+			? ((Project) project).getGroupAddresses() : ((GroupRange) container).getParts();
+		for (GroupAddressDefinition part : parts) {
+			if (part instanceof GroupRange existing && existing.getRangeStart() instanceof GA from
+				&& existing.getRangeEnd() instanceof GA to && from.getValue() == start && to.getValue() == end) {
 				return part;
 			}
 		}
-		TLObject range = create("ehome.logical:GroupRange");
+		GroupRange range = (GroupRange) create("ehome.logical:GroupRange");
 		GA from = new GA(start, style);
 		GA to = new GA(end, style);
-		range.tUpdateByName("rangeStart", from);
-		range.tUpdateByName("rangeEnd", to);
-		range.tUpdateByName("name", from.rangePrefix(to));
-		add(container, reference, range);
+		range.setRangeStart(from);
+		range.setRangeEnd(to);
+		range.setName(from.rangePrefix(to));
+		if (container == project) {
+			((Project) project).addGroupAddresse(range);
+		} else {
+			((GroupRange) container).addPart(range);
+		}
 		ExtIds.assign(range);
 		return range;
 	}

@@ -34,6 +34,8 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ExtIds.Kind;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
@@ -41,6 +43,7 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -230,7 +233,7 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 		TLObject another = newGroupAddress(_device, 101);
 		assertEquals(12, DeviceSettings.groupAddresses(_device).size());
 		assertTrue(DeviceSettings.groupAddresses(_device).contains(unused));
-		int unusedNumber = ((GA) unused.tValueByName("address")).getValue();
+		int unusedNumber = ((GroupAddress) unused).getAddress().getValue();
 
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
@@ -276,21 +279,19 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 			.filter(r -> within(r, number))
 			.findFirst().orElseThrow(() -> new AssertionError("No group range takes the address " + number));
 		try (Transaction tx = kb().beginTransaction()) {
-			TLObject address = ModelService.getInstance().getFactory()
+			GroupAddress address = (GroupAddress) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
-			address.tUpdateByName("address", new GA(number, GroupAddressStyle.ThreeLevel));
-			address.tUpdateByName("name", "Probe " + Integer.toHexString(number));
-			List<Object> parts = new ArrayList<>((Collection<?>) range.tValueByName("parts"));
-			parts.add(address);
-			range.tUpdateByName("parts", parts);
+			address.setAddress(new GA(number, GroupAddressStyle.ThreeLevel));
+			address.setName("Probe " + Integer.toHexString(number));
+			((GroupRange) range).addPart(address);
 			tx.commit();
 			return address;
 		}
 	}
 
 	private static boolean within(TLObject range, int number) {
-		Object start = range.tValueByName("rangeStart");
-		Object end = range.tValueByName("rangeEnd");
+		Object start = ((GroupRange) range).getRangeStart();
+		Object end = ((GroupRange) range).getRangeEnd();
 		return start instanceof GA s && end instanceof GA e && s.getValue() <= number && number <= e.getValue();
 	}
 
@@ -368,7 +369,7 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 
 	private static TLObject device(TLObject project) {
 		List<TLObject> devices = new ArrayList<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					devices.add((TLObject) device);

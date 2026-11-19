@@ -104,12 +104,13 @@ public class TestEditVetoProbe extends BasicTestCase {
 				}
 			}
 			assertNotNull("No editable parameter in a block.", inBlock);
-			TLObject block = inBlock.tContainer();
+			de.haumacher.ehome.model.operational.ParameterGroup block =
+				(de.haumacher.ehome.model.operational.ParameterGroup) inBlock.tContainer();
 			try (com.top_logic.knowledge.service.Transaction tx =
 				com.top_logic.knowledge.service.PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				block.tUpdateByName("access", accessKind("Read"));
+				block.setAccess(accessKind("Read"));
 				assertTrue("A block's access Read made its parameter read-only.", DeviceConfiguration.isEditable(inBlock));
-				block.tUpdateByName("access", accessKind("None"));
+				block.setAccess(accessKind("None"));
 				assertFalse("A parameter of a hidden block is editable.", DeviceConfiguration.isEditable(inBlock));
 				tx.rollback();
 			}
@@ -147,7 +148,7 @@ public class TestEditVetoProbe extends BasicTestCase {
 	}
 
 
-	private static Object accessKind(String name) {
+	private static com.top_logic.model.TLClassifier accessKind(String name) {
 		return ((com.top_logic.model.TLEnumeration) com.top_logic.model.util.TLModelUtil
 			.findType("ehome.operational:AccessKind")).getClassifier(name);
 	}
