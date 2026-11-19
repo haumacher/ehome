@@ -23,6 +23,8 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.rules.RuleText;
 
@@ -81,7 +83,7 @@ public final class GroupAddressIds {
 	 * The identifier of the group address, <code>null</code> for none.
 	 */
 	public static String identifier(TLObject address) {
-		Object id = address.tValueByName("identifier");
+		Object id = Identifiers.of(address);
 		return id == null || id.toString().isBlank() ? null : id.toString().trim();
 	}
 
@@ -102,7 +104,8 @@ public final class GroupAddressIds {
 	 * image; <code>null</code> for an address without one.
 	 */
 	public static String address(TLObject address) {
-		return address.tValueByName("address") instanceof GA ga ? RuntimeImage.threeLevel(ga.getValue()) : null;
+		return address instanceof GroupAddress ga && ga.getAddress() instanceof GA value
+			? RuntimeImage.threeLevel(value.getValue()) : null;
 	}
 
 	/**
@@ -313,7 +316,7 @@ public final class GroupAddressIds {
 
 	/** The address in the notation of its project, <code>null</code> for none. */
 	private static String notation(TLObject address) {
-		return address.tValueByName("address") instanceof GA ga ? ga.toString() : null;
+		return ((GroupAddress) address).getAddress() instanceof GA ga ? ga.toString() : null;
 	}
 
 	/**
@@ -372,7 +375,7 @@ public final class GroupAddressIds {
 	private static Map<TLObject, List<String>> uses(TLObject project) {
 		Map<TLObject, List<String>> result = new LinkedHashMap<>();
 		for (TLObject function : FunctionProposal.functions(project)) {
-			String kind = function.tValueByName("kind") instanceof TLClassifier classifier ? classifier.getName() : null;
+			String kind = ((Function) function).getKind() instanceof TLClassifier classifier ? classifier.getName() : null;
 			String main = FunctionKinds.boundMainRole(kind, function::tValueByName);
 			List<String> base = functionParts(function);
 			if (base == null) {
@@ -397,7 +400,7 @@ public final class GroupAddressIds {
 		if (name == null) {
 			return null;
 		}
-		String room = function.tValueByName("room") instanceof TLObject part ? segment(DatapointNames.label(part)) : null;
+		String room = ((Function) function).getRoom() instanceof TLObject part ? segment(DatapointNames.label(part)) : null;
 		if (room == null) {
 			return new ArrayList<>(List.of(name));
 		}
@@ -408,9 +411,9 @@ public final class GroupAddressIds {
 	}
 
 	private static List<String> nameParts(TLObject address) {
-		String name = segment(text(address.tValueByName("name")));
+		String name = segment(text(((GroupAddress) address).getName()));
 		if (name == null) {
-			String description = text(address.tValueByName("description"));
+			String description = text(((GroupAddress) address).getDescription());
 			name = description == null ? null : segment(description.lines().findFirst().orElse(null));
 		}
 		if (name == null) {
@@ -451,7 +454,8 @@ public final class GroupAddressIds {
 	 * named by the refusal already.
 	 */
 	private static String holder(TLObject address) {
-		return DatapointNames.format(DatapointNames.label(address), String.valueOf(address.tValueByName("address")));
+		return DatapointNames.format(DatapointNames.label(address), String.valueOf(((GroupAddress) address).getAddress()));
+
 	}
 
 	private static String text(Object value) {

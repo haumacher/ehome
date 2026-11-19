@@ -21,7 +21,6 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -32,7 +31,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.runtime.ExportRuntimeImageAction;
@@ -93,17 +94,17 @@ public class TestFunctionLinks extends BasicTestCase {
 			assertEquals(10, added.size());
 
 			// The kitchen light is the actuator's channel, the two lights of the corridor the first actuator's.
-			assertSame(device(project, "1.0.1"), function(project, "Licht Küche").tValueByName("device"));
-			assertSame(device(project, "1.0.1"), function(project, "Licht Flur").tValueByName("device"));
+			assertSame(device(project, "1.0.1"), function(project, "Licht Küche").getDevice());
+			assertSame(device(project, "1.0.1"), function(project, "Licht Flur").getDevice());
 			// Named after the address in every language, the identifier after the name.
-			TLObject kitchen = function(project, "Licht Küche");
+			Function kitchen = function(project, "Licht Küche");
 			assertEquals("Licht Küche", text(kitchen, Locale.GERMAN));
 			assertEquals("Licht Küche", text(kitchen, Locale.ENGLISH));
-			assertEquals("licht-kueche", kitchen.tValueByName("identifier"));
-			TLObject corridorA = function(project, "TEST Aktor Flur: Kanal A");
-			assertSame(device(project, "1.0.2"), corridorA.tValueByName("device"));
-			assertNotNull(corridorA.tValueByName("channel"));
-			assertNull(corridorA.tValueByName("room"));
+			assertEquals("licht-kueche", kitchen.getIdentifier());
+			Function corridorA = function(project, "TEST Aktor Flur: Kanal A");
+			assertSame(device(project, "1.0.2"), corridorA.getDevice());
+			assertNotNull(corridorA.getChannel());
+			assertNull(corridorA.getRoom());
 
 			// "Unused" follows from the content; the model's derived attribute says the same as the code.
 			for (TLObject function : FunctionProposal.functions(project)) {
@@ -126,11 +127,12 @@ public class TestFunctionLinks extends BasicTestCase {
 
 			// The user renames an unused blind and links it, links the other actuator's channel A, and
 			// gives the kitchen light the name earlier proposals gave it, its channel's.
-			TLObject blind = function(project, "TEST Aktor Küche: Kanal C");
-			String blindIdentifier = (String) blind.tValueByName("identifier");
+			Function blind = function(project, "TEST Aktor Küche: Kanal C");
+			String blindIdentifier = blind.getIdentifier();
+
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				blind.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Markise", "en", "Awning")));
-				kitchen.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Kanal A")));
+				blind.setNameKey(FunctionProposal.text(Map.of("de", "Markise", "en", "Awning")));
+				kitchen.setNameKey(FunctionProposal.text(Map.of("de", "Kanal A")));
 				connect(device(project, "1.0.1"), 6, address(project, "4/2/1"));
 				connect(device(project, "1.0.2"), 0, address(project, "4/0/4"));
 				tx.commit();
@@ -152,21 +154,21 @@ public class TestFunctionLinks extends BasicTestCase {
 				"TEST Taster Küche: Wippe 3: button unused"), summary(project));
 			// The edited name stays (in both languages), and so does the identifier of the renamed blind.
 			assertEquals("Markise", text(blind, Locale.GERMAN));
-			assertEquals(blindIdentifier, blind.tValueByName("identifier"));
+			assertEquals(blindIdentifier, blind.getIdentifier());
 			// The unused function renamed after its address gets the identifier of the name; the kitchen
 			// light, which the controller may have had, keeps its own.
-			assertEquals("licht-bad", corridorA.tValueByName("identifier"));
+			assertEquals("licht-bad", corridorA.getIdentifier());
 			assertEquals("Licht Küche", text(kitchen, Locale.GERMAN));
-			assertEquals("licht-kueche", kitchen.tValueByName("identifier"));
+			assertEquals("licht-kueche", kitchen.getIdentifier());
 			assertEquals(Boolean.FALSE, derived(corridorA, "unused"));
 
 			// A role the user bound stays; the next run changes nothing.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				kitchen.tUpdateByName("state", null);
+				kitchen.setState(null);
 				tx.commit();
 			}
 			assertEquals(new FunctionProposal.Run(List.of(), List.of()), run(project));
-			assertNull(kitchen.tValueByName("state"));
+			assertNull(kitchen.getState());
 
 			// The same project imported again: the same functions, and a second run adds none.
 			List<TLObject> before2 = instances("ehome.project:Project");
@@ -202,8 +204,8 @@ public class TestFunctionLinks extends BasicTestCase {
 			((TLEnumeration) TLModelUtil.findType("ehome.physical:ConnectionType")).getClassifier("send"));
 	}
 
-	private static TLObject function(TLObject project, String name) {
-		return FunctionProposal.functions(project).stream().filter(f -> name.equals(name(f))).findFirst()
+	private static Function function(TLObject project, String name) {
+		return (Function) FunctionProposal.functions(project).stream().filter(f -> name.equals(name(f))).findFirst()
 			.orElseThrow(() -> new AssertionError("No function " + name));
 	}
 
@@ -212,7 +214,7 @@ public class TestFunctionLinks extends BasicTestCase {
 	}
 
 	private static String text(TLObject function, Locale locale) {
-		return Resources.getInstance(locale).getString((ResKey) function.tValueByName("name"));
+		return Resources.getInstance(locale).getString(((Function) function).getNameKey());
 	}
 
 	/**
@@ -248,9 +250,9 @@ public class TestFunctionLinks extends BasicTestCase {
 					roles.add(role + "=" + TestFunctionProposal.text(address));
 				}
 			}
-			Object room = function.tValueByName("room");
+			BuildingDefinition room = ((Function) function).getRoom();
 			result.add(name(function) + " | " + FunctionProposal.kind(function) + " | " + String.join(", ", roles) + " | "
-				+ (room == null ? "-" : ((TLObject) room).tValueByName("name")) + " | "
+				+ (room == null ? "-" : room.getName()) + " | "
 				+ (FunctionProposal.unused(function) ? "unused" : "used"));
 		}
 		result.sort(null);

@@ -24,6 +24,8 @@ import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+
 /**
  * Gives every group address its identifier (haumacher/ehome #178): an address created without one
  * gets the one {@link GroupAddressIds#proposal(TLObject, java.util.Collection, Set)} gives it, in the
@@ -117,7 +119,8 @@ public class GroupAddressIdentifiers extends ConfiguredManagedClass<GroupAddress
 		for (Map.Entry<TLObject, String> entry : identifiers.entrySet()) {
 			TLObject address = entry.getKey();
 			String before = GroupAddressIds.address(address);
-			address.tUpdateByName("identifier", entry.getValue());
+			((GroupAddress) address).setIdentifier(entry.getValue());
+
 			if (before != null) {
 				renames.datapoint(before, entry.getValue());
 			}

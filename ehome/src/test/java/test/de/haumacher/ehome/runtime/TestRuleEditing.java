@@ -27,6 +27,17 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.ProjectDatapoint;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.RestartTimerAction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.runtime.ScheduleTrigger;
+import de.haumacher.ehome.model.runtime.TimerTrigger;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.ExportRuntimeImageAction;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
@@ -76,38 +87,38 @@ public class TestRuleEditing extends BasicTestCase {
 			TLObject writableObject = RuleReferences.datapoints(project).get(writable);
 			TLObject readOnlyObject = RuleReferences.datapoints(project).get(readOnly);
 
-			TLObject rule;
-			TLObject reaction;
-			TLObject write;
-			TLObject restart;
-			TLObject entry;
+			Rule rule;
+			Reaction reaction;
+			WriteAction write;
+			RestartTimerAction restart;
+			WeeklySchedule entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				rule = RuleFunctions.create(project, "rules", type("Rule"));
-				TLObject timer = RuleFunctions.create(rule, "timers", type("RuleTimer"));
-				timer.tUpdateByName("duration", "5min");
-				reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
-				TLObject trigger = RuleFunctions.create(reaction, "triggers", type("DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", writableObject);
-				reaction.tUpdateByName("condition", "@\"" + writable + "\"");
-				write = RuleFunctions.create(reaction, "actions", type("WriteAction"));
-				write.tUpdateByName("datapoint", writableObject);
-				write.tUpdateByName("value", "not @\"" + writable + "\"");
-				restart = RuleFunctions.create(reaction, "actions", type("RestartTimerAction"));
-				restart.tUpdateByName("timer", timer);
-				TLObject log = RuleFunctions.create(reaction, "elseActions", type("LogAction"));
-				log.tUpdateByName("message", "off at {time()}, {{braces}}");
+				rule = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
+				RuleTimer timer = (RuleTimer) RuleFunctions.create(rule, "timers", type("RuleTimer"));
+				timer.setDuration("5min");
+				reaction = (Reaction) RuleFunctions.create(rule, "reactions", type("Reaction"));
+				DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("DatapointTrigger"));
+				trigger.setDatapoint((ProjectDatapoint) writableObject);
+				reaction.setCondition("@\"" + writable + "\"");
+				write = (WriteAction) RuleFunctions.create(reaction, "actions", type("WriteAction"));
+				write.setDatapoint((ProjectDatapoint) writableObject);
+				write.setValue("not @\"" + writable + "\"");
+				restart = (RestartTimerAction) RuleFunctions.create(reaction, "actions", type("RestartTimerAction"));
+				restart.setTimer(timer);
+				LogAction log = (LogAction) RuleFunctions.create(reaction, "elseActions", type("LogAction"));
+				log.setMessage("off at {time()}, {{braces}}");
 
-				entry = RuleFunctions.create(project, "schedules", type("WeeklySchedule"));
+				entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", type("WeeklySchedule"));
 				TLObject expiry = RuleFunctions.create(rule, "reactions", type("Reaction"));
-				RuleFunctions.create(expiry, "triggers", type("TimerTrigger")).tUpdateByName("timer", timer);
-				RuleFunctions.create(expiry, "triggers", type("ScheduleTrigger")).tUpdateByName("schedule", entry);
-				TLObject off = RuleFunctions.create(expiry, "actions", type("WriteAction"));
-				off.tUpdateByName("datapoint", writableObject);
-				off.tUpdateByName("value", "false");
+				((TimerTrigger) RuleFunctions.create(expiry, "triggers", type("TimerTrigger"))).setTimer(timer);
+				((ScheduleTrigger) RuleFunctions.create(expiry, "triggers", type("ScheduleTrigger"))).setSchedule(entry);
+				WriteAction off = (WriteAction) RuleFunctions.create(expiry, "actions", type("WriteAction"));
+				off.setDatapoint((ProjectDatapoint) writableObject);
+				off.setValue("false");
 				tx.commit();
 			}
-			assertEquals("rule-1", rule.tValueByName("identifier"));
-			assertEquals("entry-1", entry.tValueByName("identifier"));
+			assertEquals("rule-1", rule.getIdentifier());
+			assertEquals("entry-1", entry.getIdentifier());
 
 			// The image carries the rule and the entry, and the controller's checks accept it.
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
@@ -153,7 +164,7 @@ public class TestRuleEditing extends BasicTestCase {
 			RuleForm restartForm = new RuleForm(restart);
 			restartForm.set("timer", null);
 			assertEquals(1, restartForm.warnings("timer").size());
-			restartForm.set("timer", restart.tValueByName("timer"));
+			restartForm.set("timer", restart.getTimer());
 			assertEquals(List.of(), restartForm.warnings("timer"));
 			restartForm.set("duration", "5");
 			assertTrue(restartForm.warnings("duration").toString(), restartForm.warnings("duration").get(0).contains("must be a duration"));
@@ -168,7 +179,7 @@ public class TestRuleEditing extends BasicTestCase {
 
 			// A stored refused value: the image is refused at the action it stems from.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				write.tUpdateByName("value", "1.5");
+				write.setValue("1.5");
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -183,7 +194,8 @@ public class TestRuleEditing extends BasicTestCase {
 			// A text that does not parse is not stored at all: the knowledge base checks the model's
 			// constraints on commit.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				write.tUpdateByName("value", "1 +");
+				write.setValue("1 +");
+
 				tx.commit();
 				fail("A text that does not parse is refused.");
 			} catch (TopLogicException ex) {

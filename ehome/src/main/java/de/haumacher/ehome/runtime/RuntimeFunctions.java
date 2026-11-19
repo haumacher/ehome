@@ -25,6 +25,10 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 
@@ -283,7 +287,7 @@ public class RuntimeFunctions extends GenericMethod {
 		Resources resources = Resources.getInstance();
 		switch (_function) {
 			case controllerTokenHint: {
-				Object token = obj.tValueByName("token");
+				Object token = ((Controller) obj).getToken();
 				return resources.getString(token == null || token.toString().isBlank() ? I18NConstants.TOKEN_NOT_SET
 					: I18NConstants.TOKEN_SET);
 			}
@@ -310,7 +314,7 @@ public class RuntimeFunctions extends GenericMethod {
 			case unloadConfirmation:
 				return Deployer.veto(obj) != null ? resources.getString(Deployer.veto(obj))
 					: resources.getString(I18NConstants.CONFIRM_UNLOAD__CONTROLLER
-						.fill(Deployer.controller(obj).tValueByName("name"))) + "\n\n" + ControllerStatus.drift(obj);
+						.fill(((Controller) Deployer.controller(obj)).getName())) + "\n\n" + ControllerStatus.drift(obj);
 			case runtimeGroupAddresses:
 				return groupAddresses(project(obj));
 			case runtimeDatapoints:
@@ -468,6 +472,7 @@ public class RuntimeFunctions extends GenericMethod {
 	public static List<TLObject> groupAddresses(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
 		if (project != null) {
+			// The project may be the form's overlay of it (the time master's options): read by name.
 			collect(project.tValueByName("groupAddresses"), "ehome.logical:GroupAddress", result);
 		}
 		result.sort(BY_ADDRESS);
@@ -476,7 +481,8 @@ public class RuntimeFunctions extends GenericMethod {
 
 	/** The order of group addresses by their address, those without one last. */
 	public static final Comparator<TLObject> BY_ADDRESS = Comparator.comparingInt(
-		(TLObject a) -> a.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE);
+		(TLObject a) -> a instanceof GroupAddress address && address.getAddress() instanceof GA ga ? ga.getValue()
+			: Integer.MAX_VALUE);
 
 	/**
 	 * The datapoints of the project a role of a function can refer to: its group addresses by their
@@ -506,7 +512,9 @@ public class RuntimeFunctions extends GenericMethod {
 	public static List<TLObject> buildingParts(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
 		if (project != null) {
+			// The project may be the form's overlay of it (the options of a form's object): read by name.
 			collect(project.tValueByName("buildings"), null, result);
+
 		}
 		return result;
 	}
@@ -523,7 +531,9 @@ public class RuntimeFunctions extends GenericMethod {
 				node.tType())) {
 				result.add(node);
 			}
-			collect(node.tValueByName("parts"), typeName, result);
+			collect(node instanceof GroupRange range ? range.getParts()
+				: node instanceof BuildingDefinition part ? part.getParts() : null, typeName, result);
+
 		}
 	}
 

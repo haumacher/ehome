@@ -14,6 +14,9 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
 
 /**
@@ -70,14 +73,14 @@ public final class ApplicationDatapoints {
 	 * The application datapoints of the project, in their order.
 	 */
 	public static List<TLObject> of(TLObject project) {
-		return RuleExport.objects(project.tValueByName(REFERENCE));
+		return RuleExport.objects(((Project) project).getApplicationDatapoints());
 	}
 
 	/**
 	 * The id of the application datapoint, <code>null</code> for none.
 	 */
 	public static String id(TLObject datapoint) {
-		Object id = datapoint.tValueByName("identifier");
+		Object id = Identifiers.of(datapoint);
 		return id == null || id.toString().isBlank() ? null : id.toString().trim();
 	}
 
@@ -95,7 +98,7 @@ public final class ApplicationDatapoints {
 	 * user must not change, is not writable.
 	 */
 	public static boolean writable(TLObject datapoint) {
-		return Boolean.TRUE.equals(datapoint.tValueByName("writable"));
+		return datapoint instanceof ApplicationDatapoint application && application.getWritable();
 	}
 
 	/**
@@ -108,12 +111,13 @@ public final class ApplicationDatapoints {
 		Map<String, Object> result = new LinkedHashMap<>();
 		String id = id(datapoint);
 		result.put("id", id == null ? "" : id);
-		Object label = RuntimeImage.labels(datapoint.tValueByName("label"));
+		ApplicationDatapoint application = (ApplicationDatapoint) datapoint;
+		Object label = RuntimeImage.labels(application.getLabel());
 		if (label != null) {
 			result.put("label", label);
 		}
 		result.put("type", valueType(datapoint));
-		Object unit = datapoint.tValueByName("unit");
+		Object unit = application.getUnit();
 		if (unit != null && !unit.toString().isBlank()) {
 			result.put("unit", unit.toString().trim());
 		}
@@ -128,7 +132,7 @@ public final class ApplicationDatapoints {
 		if (function != null && ZigbeeBindings.readOnStart(function)) {
 			result.put("readOnStart", Boolean.TRUE);
 		}
-		if (Boolean.TRUE.equals(datapoint.tValueByName("persist"))) {
+		if (application.getPersist()) {
 			result.put("persist", Boolean.TRUE);
 		}
 		Map<String, Object> history = HistoryConfig.json(datapoint, derived);
@@ -137,7 +141,8 @@ public final class ApplicationDatapoints {
 		}
 		if (function != null) {
 			Map<String, Object> zigbee = ZigbeeBindings.json(function);
-			if (writable(datapoint) && Boolean.TRUE.equals(function.tValueByName("writable"))) {
+			if (writable(datapoint) && ((ZigbeeFunction) function).getWritable()) {
+
 				zigbee.put("command", zigbee.get("cluster"));
 			}
 			result.put("zigbee", zigbee);

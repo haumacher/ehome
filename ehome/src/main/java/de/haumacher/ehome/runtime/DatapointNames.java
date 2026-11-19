@@ -12,6 +12,8 @@ import com.top_logic.basic.util.ResKeyN;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
@@ -302,8 +304,9 @@ public final class DatapointNames {
 		if (rule == null) {
 			return null;
 		}
-		for (TLObject parameter : RuleExport.objects(rule.tValueByName("parameters"))) {
-			Object identifier = parameter.tValueByName("identifier");
+		for (TLObject parameter : RuleExport.objects(((Rule) rule).getParameters())) {
+			Object identifier = ((RuleParameter) parameter).getIdentifier();
+
 			if (identifier != null && id.equals(identifier.toString().trim())) {
 				return parameter;
 			}

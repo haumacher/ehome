@@ -8,9 +8,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -32,6 +34,10 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
 import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.Schedule;
@@ -77,10 +83,10 @@ public class TestScheduleAdjustable extends BasicTestCase {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject entry = workdayMorning(project);
-				entry.tUpdateByName("timeMin", "05:00");
-				entry.tUpdateByName("timeMax", "09:00");
-				entry.tUpdateByName("timeStep", "5min");
+				WeeklySchedule entry = workdayMorning(project);
+				entry.setTimeMin("05:00");
+				entry.setTimeMax("09:00");
+				entry.setTimeStep("5min");
 				tx.commit();
 			}
 			List<Object> exported = new RuleExport().schedules(project);
@@ -126,10 +132,10 @@ public class TestScheduleAdjustable extends BasicTestCase {
 	public void testRefusals() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject entry;
+			WeeklySchedule entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				entry = workdayMorning(project);
-				entry.tUpdateByName("timeMin", "07:00");
+				entry.setTimeMin("07:00");
 				tx.commit();
 			}
 			List<String> warnings = new RuleForm(entry).warnings("time");
@@ -170,15 +176,15 @@ public class TestScheduleAdjustable extends BasicTestCase {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject entry = workdayMorning(project);
-				entry.tUpdateByName("timeMin", "05:00");
-				entry.tUpdateByName("timeMax", "09:00");
+				WeeklySchedule entry = workdayMorning(project);
+				entry.setTimeMin("05:00");
+				entry.setTimeMax("09:00");
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-				RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"))
-					.tUpdateByName("datapoint", entry);
-				reaction.tUpdateByName("condition", "@\"schedule/workdayMorning/time\" > 07:00");
-				RuleFunctions.create(reaction, "actions", runtime("LogAction")).tUpdateByName("message", "late riser");
+				Reaction reaction = (Reaction) RuleFunctions.create(rule, "reactions", runtime("Reaction"));
+				((DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")))
+					.setDatapoint(entry);
+				reaction.setCondition("@\"schedule/workdayMorning/time\" > 07:00");
+				((LogAction) RuleFunctions.create(reaction, "actions", runtime("LogAction"))).setMessage("late riser");
 				tx.commit();
 			}
 			assertTrue(RuleFunctions.datapoints(project).stream()
@@ -248,7 +254,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 	public void testProbeTimeOnControlPage() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject entry;
+			WeeklySchedule entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				entry = workdayMorning(project);
 				TLObject page = Pages.insert(project, null, Pages.PAGE, null);
@@ -264,7 +270,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			assertEquals(Map.of("datapoint", "schedule/workdayMorning/time"), ((List<?>) section.get("elements")).get(0));
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				entry.tUpdateByName("timeAdjustable", Boolean.FALSE);
+				entry.setTimeAdjustable(false);
 				tx.commit();
 			}
 			RuntimeImage fixed = RuntimeImage.build(project, 2, NOW);
@@ -276,19 +282,19 @@ public class TestScheduleAdjustable extends BasicTestCase {
 	}
 
 	/** The entry <code>workdayMorning</code> of the device's case, without its bounds. */
-	private static TLObject workdayMorning(TLObject project) {
-		TLObject entry = RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
-		entry.tUpdateByName("identifier", "workdayMorning");
-		entry.tUpdateByName("label", ResKey.text("Workday morning"));
-		entry.tUpdateByName("time", "06:30");
+	private static WeeklySchedule workdayMorning(TLObject project) {
+		WeeklySchedule entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
+		entry.setIdentifier("workdayMorning");
+		entry.setLabel(ResKey.text("Workday morning"));
+		entry.setTime("06:30");
 		TLEnumeration weekday = (TLEnumeration) TLModelUtil.findType("ehome.runtime:Weekday");
-		List<TLClassifier> days = new ArrayList<>();
+		Set<TLClassifier> days = new LinkedHashSet<>();
 		for (String day : List.of("monday", "tuesday", "wednesday", "thursday", "friday")) {
 			days.add(weekday.getClassifier(day));
 		}
-		entry.tUpdateByName("days", days);
-		entry.tUpdateByName("timeAdjustable", Boolean.TRUE);
-		entry.tUpdateByName("daysAdjustable", Boolean.TRUE);
+		entry.setDays(days);
+		entry.setTimeAdjustable(true);
+		entry.setDaysAdjustable(true);
 		return entry;
 	}
 

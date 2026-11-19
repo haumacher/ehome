@@ -14,6 +14,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
@@ -27,7 +29,46 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.HistoryArchive;
+import de.haumacher.ehome.model.logical.ProjectDatapoint;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Action;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.AstroSchedule;
+import de.haumacher.ehome.model.runtime.CancelTimerAction;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.DatesSchedule;
+import de.haumacher.ehome.model.runtime.IntervalSchedule;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.MatchTrigger;
+import de.haumacher.ehome.model.runtime.ParameterTrigger;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.ReadAction;
+import de.haumacher.ehome.model.runtime.RestartTimerAction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleChoice;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimeline;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
+import de.haumacher.ehome.model.runtime.ScheduleTrigger;
+import de.haumacher.ehome.model.runtime.SetParameterAction;
+import de.haumacher.ehome.model.runtime.SilenceTrigger;
+import de.haumacher.ehome.model.runtime.StartTimerAction;
+import de.haumacher.ehome.model.runtime.StartTrigger;
+import de.haumacher.ehome.model.runtime.TimelineAssignment;
+import de.haumacher.ehome.model.runtime.TimelinePlan;
+import de.haumacher.ehome.model.runtime.TimelinePoint;
+import de.haumacher.ehome.model.runtime.TimerTrigger;
+import de.haumacher.ehome.model.runtime.Trigger;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
+import de.haumacher.ehome.model.runtime.YearlySchedule;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.rules.RuleLoader;
+
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.Type;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
@@ -62,7 +103,7 @@ public final class RuleImport {
 	private boolean _deferred;
 
 	/** A reference read by its id, not yet resolved. */
-	private record Pending(TLObject obj, String attribute, String id, TLObject rule) {
+	private record Pending(Consumer<TLObject> setter, String attribute, String id, TLObject rule) {
 		// Value only.
 	}
 
@@ -78,21 +119,22 @@ public final class RuleImport {
 	 * project, in their order.
 	 */
 	public List<TLObject> importRules(TLObject project, List<?> rules) {
-		List<TLObject> all = RuleExport.objects(project.tValueByName("rules"));
+		Project owner = (Project) project;
+		List<Rule> all = typed(RuleExport.objects(owner.getRules()));
 		long order = 0;
-		for (TLObject rule : all) {
-			if (rule.tValueByName("order") instanceof Number number) {
+		for (Rule rule : all) {
+			if (rule.getOrder() instanceof Number number) {
 				order = Math.max(order, number.longValue());
 			}
 		}
 		List<TLObject> result = new ArrayList<>();
 		for (Object item : rules) {
-			TLObject rule = rule((Map<?, ?>) item);
-			rule.tUpdateByName("order", Integer.valueOf((int) ++order));
+			Rule rule = rule((Map<?, ?>) item);
+			rule.setOrder(Integer.valueOf((int) ++order));
+			all.add(rule);
 			result.add(rule);
 		}
-		all.addAll(result);
-		project.tUpdateByName("rules", all);
+		owner.setRules(all);
 		resolveUnlessDeferred(project);
 		return result;
 	}
@@ -102,13 +144,15 @@ public final class RuleImport {
 	 * entries of the project.
 	 */
 	public List<TLObject> importSchedules(TLObject project, List<?> schedules) {
-		List<TLObject> all = RuleExport.objects(project.tValueByName("schedules"));
+		Project owner = (Project) project;
+		List<ScheduleEntry> all = typed(RuleExport.objects(owner.getSchedules()));
 		List<TLObject> result = new ArrayList<>();
 		for (Object item : schedules) {
-			result.add(schedule((Map<?, ?>) item));
+			ScheduleEntry entry = schedule((Map<?, ?>) item);
+			all.add(entry);
+			result.add(entry);
 		}
-		all.addAll(result);
-		project.tUpdateByName("schedules", all);
+		owner.setSchedules(all);
 		resolveUnlessDeferred(project);
 		return result;
 	}
@@ -150,10 +194,14 @@ public final class RuleImport {
 			List<TLObject> rules;
 			List<TLObject> schedules;
 			try {
+				Project owner = (Project) project;
 				rules = image.get("rules") instanceof List<?> list
-					? importRules(project, unknown(project, "rules", list, I18NConstants.IMPORT_RULE_KEPT__ID)) : List.of();
+					? importRules(project, unknown(ids(owner.getRules(), Rule::getIdentifier), list,
+						I18NConstants.IMPORT_RULE_KEPT__ID))
+					: List.of();
 				schedules = image.get("schedules") instanceof List<?> list
-					? importSchedules(project, unknown(project, "schedules", list, I18NConstants.IMPORT_SCHEDULE_KEPT__ID))
+					? importSchedules(project, unknown(ids(owner.getSchedules(), ScheduleEntry::getIdentifier), list,
+						I18NConstants.IMPORT_SCHEDULE_KEPT__ID))
 					: List.of();
 			} finally {
 				_deferred = false;
@@ -238,7 +286,7 @@ public final class RuleImport {
 			sources.add(json);
 		}
 		all.addAll(created);
-		project.tUpdateByName(ApplicationDatapoints.REFERENCE, all);
+		((Project) project).setApplicationDatapoints(typed(all));
 		for (int n = 0; n < created.size(); n++) {
 			TLObject datapoint = created.get(n);
 			String id = ApplicationDatapoints.id(datapoint);
@@ -256,49 +304,49 @@ public final class RuleImport {
 		return created;
 	}
 
-	private TLObject datapoint(String id, Map<?, ?> json) {
-		TLObject result = create(ApplicationDatapoints.TYPE);
-		result.tUpdateByName("identifier", id);
+	private ApplicationDatapoint datapoint(String id, Map<?, ?> json) {
+		ApplicationDatapoint result = create(ApplicationDatapoints.TYPE);
+		result.setIdentifier(id);
 		if (json.get("label") != null) {
-			result.tUpdateByName("label", label(json.get("label"), "datapoint " + id));
+			result.setLabel(label(json.get("label"), "datapoint " + id));
 		}
 		Object typeName = json.get("type") == null ? ValueTypes.BOOLEAN : json.get("type");
 		TLClassifier type = classifier("DatapointValueType", typeName);
 		if (type == null) {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_DATAPOINT_TYPE__ID_TYPE.fill(id, typeName));
 		}
-		result.tUpdateByName("type", type);
+		result.setType(type);
 		if (json.get("unit") instanceof String unit && !unit.isBlank()) {
-			result.tUpdateByName("unit", unit);
+			result.setUnit(unit);
 		}
 		if (Boolean.TRUE.equals(json.get("writable"))) {
-			result.tUpdateByName("writable", Boolean.TRUE);
+			result.setWritable(true);
 		}
 		if (Boolean.TRUE.equals(json.get("persist"))) {
-			result.tUpdateByName("persist", Boolean.TRUE);
+			result.setPersist(true);
 		}
 		if (json.get("history") instanceof Map<?, ?> history) {
 			// The image states the history: it becomes the datapoint's own, set by hand (haumacher/ehome #73).
-			result.tUpdateByName("historyManual", Boolean.TRUE);
+			result.setHistoryManual(true);
 			if (history.get("retention") instanceof Number retention) {
-				result.tUpdateByName("historyRetention", Integer.valueOf(retention.intValue()));
+				result.setHistoryRetention(Integer.valueOf(retention.intValue()));
 			}
 			if (history.get("spacing") instanceof Number spacing) {
-				result.tUpdateByName("historySpacing", Integer.valueOf(spacing.intValue()));
+				result.setHistorySpacing(Integer.valueOf(spacing.intValue()));
 			}
 			if (history.get("archives") instanceof List<?> archives) {
-				List<TLObject> parts = new ArrayList<>();
+				List<HistoryArchive> parts = new ArrayList<>();
 				for (Object entry : archives) {
 					if (entry instanceof Map<?, ?> archive && archive.get("resolution") instanceof Number resolution
 						&& archive.get("retention") instanceof Number archiveRetention) {
-						TLObject part = ModelService.getInstance().getFactory()
+						HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory()
 							.createObject((TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive"));
-						part.tUpdateByName("resolution", Integer.valueOf(resolution.intValue()));
-						part.tUpdateByName("retention", Integer.valueOf(archiveRetention.intValue()));
+						part.setResolution(resolution.intValue());
+						part.setRetention(archiveRetention.intValue());
 						parts.add(part);
 					}
 				}
-				result.tUpdateByName("historyArchives", parts);
+				result.setHistoryArchives(parts);
 			}
 		}
 		notes(json, "datapoint " + id);
@@ -307,10 +355,10 @@ public final class RuleImport {
 
 	private void bind(TLObject project, TLObject datapoint, String id, Map<?, ?> zigbee) {
 		String ieee = String.valueOf(zigbee.get("ieee"));
-		TLObject device = null;
+		ZigbeeDevice device = null;
 		for (TLObject candidate : ZigbeeImport.devices(project)) {
-			if (ieee.equalsIgnoreCase(String.valueOf(candidate.tValueByName("ieee")))) {
-				device = candidate;
+			if (ieee.equalsIgnoreCase(String.valueOf(((ZigbeeDevice) candidate).getIeee()))) {
+				device = (ZigbeeDevice) candidate;
 				break;
 			}
 		}
@@ -319,12 +367,13 @@ public final class RuleImport {
 			return;
 		}
 		Object attribute = zigbee.get("attribute");
-		TLObject function = null;
-		for (TLObject candidate : RuleExport.objects(device.tValueByName("functions"))) {
-			if (same(candidate.tValueByName("endpoint"), zigbee.get("endpoint"))
-				&& same(candidate.tValueByName("cluster"), zigbee.get("cluster"))
-				&& (attribute == null ? candidate.tValueByName("attribute") == null
-					: same(candidate.tValueByName("attribute"), attribute))) {
+		ZigbeeFunction function = null;
+		for (TLObject object : RuleExport.objects(device.getFunctions())) {
+			ZigbeeFunction candidate = (ZigbeeFunction) object;
+			if (same(Integer.valueOf(candidate.getEndpoint()), zigbee.get("endpoint"))
+				&& same(candidate.getCluster(), zigbee.get("cluster"))
+				&& (attribute == null ? candidate.getAttribute() == null
+					: same(candidate.getAttribute(), attribute))) {
 				function = candidate;
 				break;
 			}
@@ -345,13 +394,13 @@ public final class RuleImport {
 			Map<String, Object> current = ZigbeeReporting.json(function);
 			if (current == null) {
 				if (reporting.get("min") instanceof Number min) {
-					function.tUpdateByName(ZigbeeReporting.MIN, Integer.valueOf(min.intValue()));
+					function.setReportingMin(Integer.valueOf(min.intValue()));
 				}
 				if (reporting.get("max") instanceof Number max) {
-					function.tUpdateByName(ZigbeeReporting.MAX, Integer.valueOf(max.intValue()));
+					function.setReportingMax(Integer.valueOf(max.intValue()));
 				}
 				if (reporting.get("change") instanceof Number change) {
-					function.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(change.doubleValue()));
+					function.setReportingChange(Double.valueOf(change.doubleValue()));
 				}
 			} else if (!sameJson(current, reporting)) {
 				note(I18NConstants.IMPORT_REPORTING_KEPT__ID_PROJECT_FILE.fill(DatapointNames.name(datapoint), Json.write(current).trim(),
@@ -376,19 +425,20 @@ public final class RuleImport {
 	 * where the project has none; a project's own location or time zone that differs is kept. Both are
 	 * named in the {@link #getNotes() notes}.
 	 */
-	public void importSettings(TLObject project, Object settings) {
+	public void importSettings(TLObject projectObject, Object settings) {
 		if (!(settings instanceof Map<?, ?> map)) {
 			return;
 		}
+		Project project = (Project) projectObject;
 		if (map.get("location") instanceof Map<?, ?> location && location.get("lat") instanceof Number lat
 			&& location.get("lon") instanceof Number lon) {
-			Object projectLat = project.tValueByName("latitude");
-			Object projectLon = project.tValueByName("longitude");
+			Object projectLat = project.getLatitude();
+			Object projectLon = project.getLongitude();
 			if (projectLat == null && projectLon == null) {
-				project.tUpdateByName("latitude", Double.valueOf(lat.doubleValue()));
-				project.tUpdateByName("longitude", Double.valueOf(lon.doubleValue()));
-				if (location.get("elev") instanceof Number elev && project.tValueByName("elevation") == null) {
-					project.tUpdateByName("elevation", Integer.valueOf(elev.intValue()));
+				project.setLatitude(Double.valueOf(lat.doubleValue()));
+				project.setLongitude(Double.valueOf(lon.doubleValue()));
+				if (location.get("elev") instanceof Number elev && project.getElevation() == null) {
+					project.setElevation(Integer.valueOf(elev.intValue()));
 				}
 				note(I18NConstants.IMPORT_LOCATION_SET__LAT_LON.fill(lat, lon));
 			} else if (!same(projectLat, lat) || !same(projectLon, lon)) {
@@ -397,9 +447,10 @@ public final class RuleImport {
 			}
 		}
 		if (map.get("tz") instanceof String tz && !tz.isBlank()) {
-			Object own = project.tValueByName("timeZone");
+			Object own = project.getTimeZone();
 			if (own == null || own.toString().isBlank()) {
-				project.tUpdateByName("timeZone", tz);
+				project.setTimeZone(tz);
+
 				note(I18NConstants.IMPORT_TIME_ZONE_SET__TZ.fill(tz));
 			} else if (!own.toString().trim().equals(tz.trim())) {
 				note(I18NConstants.IMPORT_TIME_ZONE_KEPT__TZ_FILE_TZ.fill(own, tz));
@@ -411,19 +462,26 @@ public final class RuleImport {
 	 * The elements of the list whose id the project has none of in the given reference yet; the others
 	 * are named in the notes, so that importing an image again adds nothing twice.
 	 */
-	private List<Object> unknown(TLObject project, String reference, List<?> list, ResKey1 kept) {
-		Set<String> known = new HashSet<>();
-		for (TLObject obj : RuleExport.objects(project.tValueByName(reference))) {
-			if (obj.tValueByName("identifier") instanceof String id) {
-				known.add(id);
-			}
-		}
+	private List<Object> unknown(Set<String> known, List<?> list, ResKey1 kept) {
 		List<Object> result = new ArrayList<>();
 		for (Object item : list) {
 			if (item instanceof Map<?, ?> map && map.get("id") instanceof String id && known.contains(id)) {
 				note(kept.fill(id));
 			} else {
 				result.add(item);
+			}
+		}
+		return result;
+	}
+
+	/** The ids of the given objects of a project (its rules, its schedule entries). */
+	private static <T extends TLObject> Set<String> ids(Collection<? extends T> objects, Function<T, String> id) {
+		Set<String> result = new HashSet<>();
+		for (TLObject obj : RuleExport.objects(objects)) {
+			@SuppressWarnings("unchecked")
+			String value = id.apply((T) obj);
+			if (value != null) {
+				result.add(value);
 			}
 		}
 		return result;
@@ -452,118 +510,120 @@ public final class RuleImport {
 
 	// ---- rules -------------------------------------------------------------------------------
 
-	private TLObject rule(Map<?, ?> json) {
-		TLObject rule = create("Rule");
+	private Rule rule(Map<?, ?> json) {
+		Rule rule = create("Rule");
 		_rule = rule;
 		// Its state datapoint at once: the references of the image may name it (rule/<id>/state).
 		StateDatapoints.ensure(rule);
-		rule.tUpdateByName("identifier", json.get("id"));
-		rule.tUpdateByName("name", label(json.get("name"), "rule " + json.get("id")));
-		rule.tUpdateByName("description", json.get("description"));
-		rule.tUpdateByName("enabled", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabled"))));
-		rule.tUpdateByName("enabledAdjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabledAdjustable"))));
+		rule.setIdentifier((String) json.get("id"));
+		rule.setNameKey(label(json.get("name"), "rule " + json.get("id")));
+		rule.setDescription((String) json.get("description"));
+		rule.setEnabled(!Boolean.FALSE.equals(json.get("enabled")));
+		rule.setEnabledAdjustable(!Boolean.FALSE.equals(json.get("enabledAdjustable")));
 		notes(json, "rule " + json.get("id"), "description");
 
-		List<TLObject> parameters = new ArrayList<>();
+		List<RuleParameter> parameters = new ArrayList<>();
 		for (Object item : list(json.get("parameters"))) {
 			parameters.add(parameter((Map<?, ?>) item));
 		}
-		rule.tUpdateByName("parameters", parameters);
+		rule.setParameters(parameters);
 
-		List<TLObject> timers = new ArrayList<>();
+		List<RuleTimer> timers = new ArrayList<>();
 		for (Object item : list(json.get("timers"))) {
 			Map<?, ?> timer = (Map<?, ?>) item;
-			TLObject result = create("RuleTimer");
-			result.tUpdateByName("identifier", timer.get("id"));
-			result.tUpdateByName("duration", text(timer.get("duration")));
+			RuleTimer result = create("RuleTimer");
+			result.setIdentifier((String) timer.get("id"));
+			result.setDuration(text(timer.get("duration")));
 			notes(timer, "timer " + timer.get("id"));
 			timers.add(result);
 		}
-		rule.tUpdateByName("timers", timers);
+		rule.setTimers(timers);
 
-		List<TLObject> states = new ArrayList<>();
+		List<RuleState> states = new ArrayList<>();
 		for (Object item : list(json.get("states"))) {
 			Map<?, ?> state = (Map<?, ?>) item;
-			TLObject result = create("RuleState");
-			result.tUpdateByName("identifier", state.get("id"));
+			RuleState result = create("RuleState");
+			result.setIdentifier((String) state.get("id"));
 			if (state.get("label") != null) {
-				result.tUpdateByName("label", label(state.get("label"), "state " + state.get("id")));
+				result.setLabel(label(state.get("label"), "state " + state.get("id")));
 			}
-			result.tUpdateByName("entry", actions(state.get("entry")));
-			result.tUpdateByName("exit", actions(state.get("exit")));
+			result.setEntry(actions(state.get("entry")));
+			result.setExit(actions(state.get("exit")));
 			notes(state, "state " + state.get("id"));
 			states.add(result);
 		}
-		rule.tUpdateByName("states", states);
-		rule.tUpdateByName("initialState", state(states, json.get("initialState")));
+		rule.setStates(states);
+		rule.setInitialState(state(states, json.get("initialState")));
 		if (json.get("timeline") instanceof Map<?, ?> timeline) {
-			rule.tUpdateByName("timeline", timeline(timeline, states));
+			rule.setTimeline(timeline(timeline, states));
 		}
 
-		List<TLObject> reactions = new ArrayList<>();
+		List<Reaction> reactions = new ArrayList<>();
 		for (Object item : list(json.get("reactions"))) {
 			reactions.add(reaction((Map<?, ?>) item, states));
 		}
-		rule.tUpdateByName("reactions", reactions);
+		rule.setReactions(reactions);
 		return rule;
 	}
+
 
 	/**
 	 * The timeline of a rule with states (homecontrol <code>spec/rules.md</code> 2.8, haumacher/ehome
 	 * #140): its plans with their points and its assignments, the states and plans by their ids.
 	 */
-	private TLObject timeline(Map<?, ?> json, List<TLObject> states) {
-		TLObject result = create("RuleTimeline");
-		result.tUpdateByName("adjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("adjustable"))));
-		List<TLObject> plans = new ArrayList<>();
+	private RuleTimeline timeline(Map<?, ?> json, List<RuleState> states) {
+		RuleTimeline result = create("RuleTimeline");
+		result.setAdjustable(!Boolean.FALSE.equals(json.get("adjustable")));
+		List<TimelinePlan> plans = new ArrayList<>();
 		for (Object item : list(json.get("plans"))) {
 			Map<?, ?> plan = (Map<?, ?>) item;
-			TLObject created = create("TimelinePlan");
-			created.tUpdateByName("identifier", plan.get("id"));
-			created.tUpdateByName("label", label(plan.get("label"), "plan " + plan.get("id")));
-			List<TLObject> points = new ArrayList<>();
+			TimelinePlan created = create("TimelinePlan");
+			created.setIdentifier((String) plan.get("id"));
+			created.setLabel(label(plan.get("label"), "plan " + plan.get("id")));
+			List<TimelinePoint> points = new ArrayList<>();
 			for (Object element : list(plan.get("points"))) {
 				Map<?, ?> point = (Map<?, ?>) element;
-				TLObject p = create("TimelinePoint");
+				TimelinePoint p = create("TimelinePoint");
 				if (point.get("time") != null) {
-					p.tUpdateByName("time", RuleText.printValue(point.get("time"), Type.TIME_OF_DAY));
+					p.setTime(RuleText.printValue(point.get("time"), Type.TIME_OF_DAY));
 				}
 				if (point.get("sun") != null) {
-					p.tUpdateByName("sun", classifier("SunEvent", point.get("sun")));
+					p.setSun(classifier("SunEvent", point.get("sun")));
 				}
 				if (point.get("offset") != null) {
-					p.tUpdateByName("offset", RuleText.printValue(point.get("offset"), Type.DURATION));
+					p.setOffset(RuleText.printValue(point.get("offset"), Type.DURATION));
 				}
-				for (String clamp : new String[] { "notBefore", "notAfter" }) {
-					if (point.get(clamp) != null) {
-						p.tUpdateByName(clamp, RuleText.printValue(point.get(clamp), Type.TIME_OF_DAY));
-					}
+				if (point.get("notBefore") != null) {
+					p.setNotBefore(RuleText.printValue(point.get("notBefore"), Type.TIME_OF_DAY));
 				}
-				TLObject state = state(states, point.get("state"));
+				if (point.get("notAfter") != null) {
+					p.setNotAfter(RuleText.printValue(point.get("notAfter"), Type.TIME_OF_DAY));
+				}
+				RuleState state = state(states, point.get("state"));
 				if (state == null) {
 					_notes.add("unknown state " + point.get("state") + " in a point of plan " + plan.get("id"));
 				}
-				p.tUpdateByName("state", state);
+				p.setState(state);
 				points.add(p);
 			}
-			created.tUpdateByName("points", points);
+			created.setPoints(points);
 			plans.add(created);
 		}
-		result.tUpdateByName("plans", plans);
-		List<TLObject> assignments = new ArrayList<>();
+		result.setPlans(plans);
+		List<TimelineAssignment> assignments = new ArrayList<>();
 		for (Object item : list(json.get("assignments"))) {
 			Map<?, ?> assignment = (Map<?, ?>) item;
-			TLObject created = create("TimelineAssignment");
-			TLObject plan = null;
-			for (TLObject candidate : plans) {
-				if (java.util.Objects.equals(candidate.tValueByName("identifier"), assignment.get("plan"))) {
+			TimelineAssignment created = create("TimelineAssignment");
+			TimelinePlan plan = null;
+			for (TimelinePlan candidate : plans) {
+				if (java.util.Objects.equals(candidate.getIdentifier(), assignment.get("plan"))) {
 					plan = candidate;
 				}
 			}
 			if (plan == null) {
 				_notes.add("unknown plan " + assignment.get("plan") + " in an assignment");
 			}
-			created.tUpdateByName("plan", plan);
+			created.setPlan(plan);
 			List<TLClassifier> days = new ArrayList<>();
 			for (Object day : list(assignment.get("days"))) {
 				if (!(day instanceof Number n) || n.doubleValue() != n.intValue() || n.intValue() < 1 || n.intValue() > 7) {
@@ -573,111 +633,132 @@ public final class RuleImport {
 				}
 				days.add(classifier("Weekday", RuleExport.weekday(n.intValue())));
 			}
-			created.tUpdateByName("days", days);
+			created.setDays(new LinkedHashSet<>(days));
 			assignments.add(created);
 		}
-		result.tUpdateByName("assignments", assignments);
+		result.setAssignments(assignments);
 		return result;
 	}
 
-	private TLObject parameter(Map<?, ?> json) {
-		TLObject result = create("RuleParameter");
-		result.tUpdateByName("identifier", json.get("id"));
-		result.tUpdateByName("title", label(json.get("label"), "parameter " + json.get("id")));
+	private RuleParameter parameter(Map<?, ?> json) {
+		RuleParameter result = create("RuleParameter");
+		result.setIdentifier((String) json.get("id"));
+		result.setTitle(label(json.get("label"), "parameter " + json.get("id")));
 		String typeName = String.valueOf(json.get("type"));
 		Type type = Type.fromName(typeName);
-		result.tUpdateByName("type", classifier("RuleParameterType", typeName));
+		result.setType(classifier("RuleParameterType", typeName));
 		if (type != null) {
-			for (String member : new String[] { "default", "min", "max" }) {
-				if (json.containsKey(member)) {
-					result.tUpdateByName(member, RuleText.printValue(json.get(member), type));
-				}
+			if (json.containsKey("default")) {
+				result.setDefault(RuleText.printValue(json.get("default"), type));
+			}
+			if (json.containsKey("min")) {
+				result.setMin(RuleText.printValue(json.get("min"), type));
+			}
+			if (json.containsKey("max")) {
+				result.setMax(RuleText.printValue(json.get("max"), type));
 			}
 			if (json.get("step") instanceof Number step) {
 				Type stepType = type == Type.DURATION ? Type.DURATION
 					: step.doubleValue() == Math.rint(step.doubleValue()) && !(step instanceof Double) ? Type.INTEGER
 						: Type.REAL;
-				result.tUpdateByName("step", RuleText.printValue(step, stepType));
+				result.setStep(RuleText.printValue(step, stepType));
 			}
-			List<TLObject> choices = new ArrayList<>();
+			List<RuleChoice> choices = new ArrayList<>();
 			for (Object item : list(json.get("choices"))) {
 				Map<?, ?> choice = (Map<?, ?>) item;
-				TLObject created = create("RuleChoice");
-				created.tUpdateByName("value", RuleText.printValue(choice.get("value"), type));
-				created.tUpdateByName("title", label(choice.get("label"), "choice of parameter " + json.get("id")));
+				RuleChoice created = create("RuleChoice");
+				created.setValue(RuleText.printValue(choice.get("value"), type));
+				created.setTitle(label(choice.get("label"), "choice of parameter " + json.get("id")));
 				choices.add(created);
 			}
-			result.tUpdateByName("choices", choices);
+			result.setChoices(choices);
 		}
-		result.tUpdateByName("unit", json.get("unit"));
-		result.tUpdateByName("adjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("adjustable"))));
+		result.setUnit((String) json.get("unit"));
+		result.setAdjustable(!Boolean.FALSE.equals(json.get("adjustable")));
 		notes(json, "parameter " + json.get("id"));
 		return result;
 	}
 
-	private TLObject reaction(Map<?, ?> json, List<TLObject> states) {
-		TLObject result = create("Reaction");
-		List<TLObject> triggers = new ArrayList<>();
+	private Reaction reaction(Map<?, ?> json, List<RuleState> states) {
+		Reaction result = create("Reaction");
+		List<Trigger> triggers = new ArrayList<>();
 		for (Object item : list(json.get("triggers"))) {
 			triggers.add(trigger((Map<?, ?>) item));
 		}
-		result.tUpdateByName("triggers", triggers);
-		result.tUpdateByName("condition", text(json.get("condition")));
-		result.tUpdateByName("actions", actions(json.get("actions")));
-		result.tUpdateByName("elseActions", actions(json.get("elseActions")));
-		List<TLObject> from = new ArrayList<>();
+		result.setTriggers(triggers);
+		result.setCondition(text(json.get("condition")));
+		result.setActions(actions(json.get("actions")));
+		result.setElseActions(actions(json.get("elseActions")));
+		Set<RuleState> from = new LinkedHashSet<>();
 		for (Object id : list(json.get("from"))) {
-			TLObject state = state(states, id);
+			RuleState state = state(states, id);
 			if (state != null) {
 				from.add(state);
 			} else {
 				_notes.add("unknown state " + id + " in from");
 			}
 		}
-		result.tUpdateByName("from", from);
-		result.tUpdateByName("to", state(states, json.get("to")));
+		result.setFrom(from);
+		result.setTo(state(states, json.get("to")));
 		notes(json, "reaction");
 		return result;
 	}
 
-	private TLObject trigger(Map<?, ?> json) {
+	private Trigger trigger(Map<?, ?> json) {
 		String kind = String.valueOf(json.get("kind"));
-		TLObject result;
+		Trigger result;
 		switch (kind) {
-			case "datapoint":
-				result = create("DatapointTrigger");
-				reference(result, "datapoint", json.get("datapoint"));
-				result.tUpdateByName("on", classifier("UpdateKind", json.get("on") == null ? "change" : json.get("on")));
-				result.tUpdateByName("origin", classifier("UpdateOrigin", json.get("origin") == null ? "any" : json.get("origin")));
+			case "datapoint": {
+				DatapointTrigger trigger = create("DatapointTrigger");
+				reference(trigger, "datapoint", json.get("datapoint"),
+					target -> trigger.setDatapoint((ProjectDatapoint) target));
+				trigger.setOn(classifier("UpdateKind", json.get("on") == null ? "change" : json.get("on")));
+				trigger.setOrigin(classifier("UpdateOrigin", json.get("origin") == null ? "any" : json.get("origin")));
+				result = trigger;
 				break;
-			case "match":
-				result = create("MatchTrigger");
-				result.tUpdateByName("condition", text(json.get("condition")));
+			}
+			case "match": {
+				MatchTrigger trigger = create("MatchTrigger");
+				trigger.setCondition(text(json.get("condition")));
+				result = trigger;
 				break;
-			case "schedule":
-				result = create("ScheduleTrigger");
-				reference(result, "schedule", json.get("schedule"));
+			}
+			case "schedule": {
+				ScheduleTrigger trigger = create("ScheduleTrigger");
+				reference(trigger, "schedule", json.get("schedule"),
+					target -> trigger.setSchedule((ScheduleEntry) target));
+				result = trigger;
 				break;
-			case "timer":
-				result = create("TimerTrigger");
-				reference(result, "timer", json.get("timer"));
+			}
+			case "timer": {
+				TimerTrigger trigger = create("TimerTrigger");
+				reference(trigger, "timer", json.get("timer"), target -> trigger.setTimer((RuleTimer) target));
+				result = trigger;
 				break;
-			case "parameter":
-				result = create("ParameterTrigger");
-				reference(result, "parameter", json.get("parameter"));
+			}
+			case "parameter": {
+				ParameterTrigger trigger = create("ParameterTrigger");
+				reference(trigger, "parameter", json.get("parameter"),
+					target -> trigger.setParameter((RuleParameter) target));
+				result = trigger;
 				break;
-			case "silence":
-				result = create("SilenceTrigger");
-				reference(result, "datapoint", json.get("datapoint"));
-				result.tUpdateByName("after", text(json.get("after")));
+			}
+			case "silence": {
+				SilenceTrigger trigger = create("SilenceTrigger");
+				reference(trigger, "datapoint", json.get("datapoint"),
+					target -> trigger.setDatapoint((ProjectDatapoint) target));
+				trigger.setAfter(text(json.get("after")));
+				result = trigger;
 				break;
+			}
 			case "start": {
-				result = create("StartTrigger");
+				StartTrigger trigger = create("StartTrigger");
 				Object reasons = json.get("reasons");
 				Collection<?> given = reasons instanceof Collection<?> c ? c : List.of("boot", "image", "enable");
-				result.tUpdateByName("onBoot", Boolean.valueOf(given.contains("boot")));
-				result.tUpdateByName("onImage", Boolean.valueOf(given.contains("image")));
-				result.tUpdateByName("onEnable", Boolean.valueOf(given.contains("enable")));
+				trigger.setOnBoot(given.contains("boot"));
+				trigger.setOnImage(given.contains("image"));
+				trigger.setOnEnable(given.contains("enable"));
+				result = trigger;
 				break;
 			}
 			default:
@@ -687,52 +768,74 @@ public final class RuleImport {
 		return result;
 	}
 
-	private List<TLObject> actions(Object json) {
-		List<TLObject> result = new ArrayList<>();
+	private List<Action> actions(Object json) {
+		List<Action> result = new ArrayList<>();
 		for (Object item : list(json)) {
 			result.add(action((Map<?, ?>) item));
 		}
 		return result;
 	}
 
-	private TLObject action(Map<?, ?> json) {
+	private Action action(Map<?, ?> json) {
 		String kind = String.valueOf(json.get("kind"));
-		TLObject result;
+		Action result;
 		switch (kind) {
-			case "write":
-				result = create("WriteAction");
-				reference(result, "datapoint", json.get("datapoint"));
-				result.tUpdateByName("value", text(json.get("value")));
-				result.tUpdateByName("onlyOnChange", Boolean.valueOf(Boolean.TRUE.equals(json.get("onlyOnChange"))));
+			case "write": {
+				WriteAction action = create("WriteAction");
+				reference(action, "datapoint", json.get("datapoint"),
+					target -> action.setDatapoint((ProjectDatapoint) target));
+				action.setValue(text(json.get("value")));
+				action.setOnlyOnChange(Boolean.TRUE.equals(json.get("onlyOnChange")));
+				result = action;
 				break;
-			case "startTimer":
-			case "restartTimer":
-				result = create(kind.equals("startTimer") ? "StartTimerAction" : "RestartTimerAction");
-				reference(result, "timer", json.get("timer"));
-				result.tUpdateByName("duration", text(json.get("duration")));
+			}
+			case "startTimer": {
+				StartTimerAction action = create("StartTimerAction");
+				reference(action, "timer", json.get("timer"), target -> action.setTimer((RuleTimer) target));
+				action.setDuration(text(json.get("duration")));
+				result = action;
 				break;
-			case "cancelTimer":
-				result = create("CancelTimerAction");
-				reference(result, "timer", json.get("timer"));
+			}
+			case "restartTimer": {
+				RestartTimerAction action = create("RestartTimerAction");
+				reference(action, "timer", json.get("timer"), target -> action.setTimer((RuleTimer) target));
+				action.setDuration(text(json.get("duration")));
+				result = action;
 				break;
-			case "read":
-				result = create("ReadAction");
-				reference(result, "datapoint", json.get("datapoint"));
+			}
+			case "cancelTimer": {
+				CancelTimerAction action = create("CancelTimerAction");
+				reference(action, "timer", json.get("timer"), target -> action.setTimer((RuleTimer) target));
+				result = action;
 				break;
-			case "setParameter":
-				result = create("SetParameterAction");
-				reference(result, "parameter", json.get("parameter"));
-				result.tUpdateByName("value", text(json.get("value")));
+			}
+			case "read": {
+				ReadAction action = create("ReadAction");
+				reference(action, "datapoint", json.get("datapoint"),
+					target -> action.setDatapoint((ProjectDatapoint) target));
+				result = action;
 				break;
-			case "log":
-				result = create("LogAction");
-				result.tUpdateByName("level", classifier("LogLevel", json.get("level")));
+			}
+			case "setParameter": {
+				SetParameterAction action = create("SetParameterAction");
+				reference(action, "parameter", json.get("parameter"),
+					target -> action.setParameter((RuleParameter) target));
+				action.setValue(text(json.get("value")));
+				result = action;
+				break;
+			}
+			case "log": {
+				LogAction action = create("LogAction");
+				action.setLevel(classifier("LogLevel", json.get("level")));
 				List<Object> message = new ArrayList<>();
 				for (Object part : list(json.get("message"))) {
 					message.add(RuleText.normalize(part));
 				}
-				result.tUpdateByName("message", RuleText.printMessage(message));
+				action.setMessage(RuleText.printMessage(message));
+				result = action;
 				break;
+			}
+
 			default:
 				throw new IllegalArgumentException("Unknown action kind '" + kind + "'.");
 		}
@@ -742,7 +845,7 @@ public final class RuleImport {
 
 	// ---- schedules ---------------------------------------------------------------------------
 
-	private TLObject schedule(Map<?, ?> json) {
+	private ScheduleEntry schedule(Map<?, ?> json) {
 		String kind = String.valueOf(json.get("kind"));
 		String type = switch (kind) {
 			case "weekly" -> "WeeklySchedule";
@@ -753,20 +856,31 @@ public final class RuleImport {
 			case "once" -> "OnceSchedule";
 			default -> throw new IllegalArgumentException("Unknown schedule kind '" + kind + "'.");
 		};
-		TLObject result = create(type);
-		result.tUpdateByName("identifier", json.get("id"));
-		result.tUpdateByName("label", allLanguages(String.valueOf(json.get("label"))));
-		result.tUpdateByName("enabled", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabled"))));
-		result.tUpdateByName("enabledAdjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabledAdjustable"))));
-		result.tUpdateByName("missed", classifier("MissedFiring", json.get("missed") == null ? "skip" : json.get("missed")));
+		ScheduleEntry result = create(type);
+		result.setIdentifier((String) json.get("id"));
+		result.setLabel(allLanguages(String.valueOf(json.get("label"))));
+		result.setEnabled(!Boolean.FALSE.equals(json.get("enabled")));
+		result.setEnabledAdjustable(!Boolean.FALSE.equals(json.get("enabledAdjustable")));
+		result.setMissed(classifier("MissedFiring", json.get("missed") == null ? "skip" : json.get("missed")));
 		_rule = null;
-		reference(result, "output", json.get("output"));
+		reference(result, "output", json.get("output"), target -> result.setOutput((ApplicationDatapoint) target));
 		if (json.containsKey("days")) {
+			// The schedules with weekdays (weekly, astro, interval); the generic reading of the
+			// time members follows.
 			List<TLClassifier> days = new ArrayList<>();
 			for (Object day : list(json.get("days"))) {
 				days.add(classifier("Weekday", RuleExport.weekday(((Number) day).intValue())));
 			}
-			result.tUpdateByName("days", days);
+			Set<TLClassifier> daySet = new LinkedHashSet<>(days);
+			if (result instanceof WeeklySchedule weekly) {
+				weekly.setDays(daySet);
+			} else if (result instanceof AstroSchedule astro) {
+				astro.setDays(daySet);
+			} else if (result instanceof IntervalSchedule interval) {
+				interval.setDays(daySet);
+			} else {
+				throw new IllegalArgumentException("No weekdays in a schedule of kind '" + kind + "'.");
+			}
 		}
 		String[][] values = { { "time", "timeOfDay" }, { "notBefore", "timeOfDay" }, { "notAfter", "timeOfDay" },
 			{ "from", "timeOfDay" }, { "until", "timeOfDay" }, { "every", "duration" }, { "offset", "duration" },
@@ -777,20 +891,20 @@ public final class RuleImport {
 			}
 		}
 		if (json.get("month") instanceof Number month) {
-			result.tUpdateByName("month", Integer.valueOf(month.intValue()));
+			((YearlySchedule) result).setMonth(Integer.valueOf(month.intValue()));
 		}
 		if (json.get("day") instanceof Number day) {
-			result.tUpdateByName("day", Integer.valueOf(day.intValue()));
+			((YearlySchedule) result).setDay(Integer.valueOf(day.intValue()));
 		}
 		if (json.containsKey("sun")) {
-			result.tUpdateByName("sun", classifier("SunEvent", json.get("sun")));
+			((AstroSchedule) result).setSun(classifier("SunEvent", json.get("sun")));
 		}
 		if (json.containsKey("dates")) {
 			List<String> dates = new ArrayList<>();
 			for (Object date : list(json.get("dates"))) {
 				dates.add(RuleText.printValue(date, Type.DATE));
 			}
-			result.tUpdateByName("dates", String.join(", ", dates));
+			((DatesSchedule) result).setDates(String.join(", ", dates));
 		}
 		// The adjustable members and their bounds (homecontrol #58).
 		for (Object member : list(json.get("adjustable"))) {
@@ -825,9 +939,9 @@ public final class RuleImport {
 	// ---- references --------------------------------------------------------------------------
 
 	/** Reads a reference of a part of the current rule by the id of the image. */
-	private void reference(TLObject obj, String attribute, Object id) {
+	private void reference(TLObject obj, String attribute, Object id, Consumer<TLObject> setter) {
 		if (id != null && !id.toString().isBlank()) {
-			_pending.add(new Pending(obj, attribute, id.toString(), _rule));
+			_pending.add(new Pending(setter, attribute, id.toString(), _rule));
 		}
 	}
 
@@ -853,7 +967,7 @@ public final class RuleImport {
 			if (target == null) {
 				unresolved.add(pending.id());
 			} else {
-				pending.obj().tUpdateByName(pending.attribute(), target);
+				pending.setter().accept(target);
 			}
 		}
 		_pending.clear();
@@ -914,9 +1028,9 @@ public final class RuleImport {
 		return json instanceof List<?> list ? list : List.of();
 	}
 
-	private static TLObject state(List<TLObject> states, Object id) {
-		for (TLObject state : states) {
-			if (state.tValueByName("identifier").equals(id)) {
+	private static RuleState state(List<RuleState> states, Object id) {
+		for (RuleState state : states) {
+			if (state.getIdentifier().equals(id)) {
 				return state;
 			}
 		}
@@ -938,8 +1052,21 @@ public final class RuleImport {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:" + enumeration)).getClassifier(String.valueOf(name));
 	}
 
-	static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType("ehome.runtime:" + type));
+	/**
+	 * A new object of the given type of the module <code>ehome.runtime</code>, as the interface of that
+	 * type.
+	 */
+	@SuppressWarnings("unchecked")
+	static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory()
+			.createObject((TLClass) TLModelUtil.findType("ehome.runtime:" + type));
 	}
+
+	/** The objects as the model type the caller knows they have. */
+	@SuppressWarnings("unchecked")
+	static <T extends TLObject> List<T> typed(List<? extends TLObject> objects) {
+		return (List<T>) new ArrayList<>(objects);
+	}
+
 
 }

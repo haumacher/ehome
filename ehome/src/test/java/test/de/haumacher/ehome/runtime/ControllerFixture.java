@@ -11,6 +11,8 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.connection.ProjectControllers;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
 
 /**
  * Makes a controller a test created one of a project's (haumacher/ehome #151: every controller is a
@@ -27,12 +29,16 @@ public final class ControllerFixture {
 	 * inside the caller's transaction.
 	 */
 	public static void own(TLObject project, TLObject controller) {
+		Project owner = (Project) project;
 		if (controller.tContainer() != project) {
-			List<Object> controllers = new ArrayList<>(ProjectControllers.controllers(project));
-			controllers.add(controller);
-			project.tUpdateByName(ProjectControllers.CONTROLLERS, controllers);
+			List<Controller> controllers = new ArrayList<>();
+			for (TLObject other : ProjectControllers.controllers(project)) {
+				controllers.add((Controller) other);
+			}
+			controllers.add((Controller) controller);
+			owner.setControllers(controllers);
 		}
-		project.tUpdateByName(ProjectControllers.TARGET, controller);
+		owner.setController((Controller) controller);
 	}
 
 	/**

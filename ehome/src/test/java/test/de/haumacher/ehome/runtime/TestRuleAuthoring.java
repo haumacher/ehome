@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,6 +39,15 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.MatchTrigger;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.runtime.Json;
@@ -133,27 +143,28 @@ public class TestRuleAuthoring extends BasicTestCase {
 			return;
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			List<Object> addresses = new ArrayList<>((java.util.Collection<?>) project.tValueByName("groupAddresses"));
+			Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(((Project) project).getGroupAddresses());
 			for (Object item : list) {
 				Map<?, ?> datapoint = (Map<?, ?>) item;
 				String name = String.valueOf(datapoint.get("name") != null ? datapoint.get("name") : datapoint.get("id"));
 				if (name.matches("\\d+/\\d+/\\d+")) {
-					TLObject address = ModelService.getInstance().getFactory()
+					GroupAddress address = (GroupAddress) ModelService.getInstance().getFactory()
 						.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
-					address.tUpdateByName("name", name);
-					address.tUpdateByName("address", GA.parse(name, GroupAddressStyle.ThreeLevel));
+					address.setName(name);
+					address.setAddress(GA.parse(name, GroupAddressStyle.ThreeLevel));
 					addresses.add(address);
 				} else if (!name.startsWith("rule/") && !name.startsWith("schedule/")) {
-					TLObject created = RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"));
-					created.tUpdateByName("identifier", name);
+					ApplicationDatapoint created =
+						(ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"));
+					created.setIdentifier(name);
 					if (datapoint.get("type") != null) {
-						created.tUpdateByName("type", ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType"))
+						created.setType(((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType"))
 							.getClassifier(String.valueOf(datapoint.get("type"))));
 					}
-					created.tUpdateByName("writable", Boolean.TRUE);
+					created.setWritable(true);
 				}
 			}
-			project.tUpdateByName("groupAddresses", addresses);
+			((Project) project).setGroupAddresses(addresses);
 			tx.commit();
 		}
 	}
@@ -183,8 +194,8 @@ public class TestRuleAuthoring extends BasicTestCase {
 				]""", 100);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				// The output the first entry names (haumacher/ehome #90).
-				RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"))
-					.tUpdateByName("identifier", "schedule.morning");
+				((ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint")))
+					.setIdentifier("schedule.morning");
 				new RuleImport().importSchedules(project, original);
 				tx.commit();
 			}
@@ -232,31 +243,31 @@ public class TestRuleAuthoring extends BasicTestCase {
 		TLObject project = createProject();
 		try {
 			TLObject first;
-			TLObject second;
+			Rule second;
 			TLObject reaction;
 			TLObject target;
 			TLObject timer;
-			TLObject parameter;
-			TLObject match;
+			RuleParameter parameter;
+			MatchTrigger match;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				first = RuleFunctions.create(project, "rules", type("Rule"));
 				RuleFunctions.create(first, "reactions", type("Reaction"));
 				RuleFunctions.create(RuleFunctions.objects(first, "reactions").get(0), "triggers", type("StartTrigger"));
-				second = RuleFunctions.create(project, "rules", type("Rule"));
+				second = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
 				RuleFunctions.create(second, "states", type("RuleState"));
 				target = RuleFunctions.create(second, "states", type("RuleState"));
-				second.tUpdateByName("initialState", RuleFunctions.objects(second, "states").get(0));
+				second.setInitialState(second.getStates().get(0));
 				timer = RuleFunctions.create(second, "timers", type("RuleTimer"));
-				parameter = RuleFunctions.create(second, "parameters", type("RuleParameter"));
-				parameter.tUpdateByName("min", "0.0");
-				parameter.tUpdateByName("max", "10.0");
+				parameter = (RuleParameter) RuleFunctions.create(second, "parameters", type("RuleParameter"));
+				parameter.setMin("0.0");
+				parameter.setMax("10.0");
 				reaction = RuleFunctions.create(second, "reactions", type("Reaction"));
-				match = RuleFunctions.create(reaction, "triggers", type("MatchTrigger"));
-				match.tUpdateByName("condition", "$p1 > 5");
-				RuleFunctions.create(reaction, "elseActions", type("LogAction")).tUpdateByName("message", "else");
+				match = (MatchTrigger) RuleFunctions.create(reaction, "triggers", type("MatchTrigger"));
+				match.setCondition("$p1 > 5");
+				((LogAction) RuleFunctions.create(reaction, "elseActions", type("LogAction"))).setMessage("else");
 				tx.commit();
 			}
-			assertEquals("rule-2", second.tValueByName("identifier"));
+			assertEquals("rule-2", second.getIdentifier());
 
 			RuleForm rule = new RuleForm(second);
 			assertEquals(List.of(), rule.warnings("identifier"));
@@ -316,7 +327,7 @@ public class TestRuleAuthoring extends BasicTestCase {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				for (Object item : list) {
 					if (item instanceof String id) {
-						RuleFunctions.create(project, "schedules", type("WeeklySchedule")).tUpdateByName("identifier", id);
+						((WeeklySchedule) RuleFunctions.create(project, "schedules", type("WeeklySchedule"))).setIdentifier(id);
 					} else {
 						entries.add(item);
 					}
@@ -408,9 +419,10 @@ public class TestRuleAuthoring extends BasicTestCase {
 
 	static TLObject createProject() {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", "Rule authoring test");
+			project.setName("Rule authoring test");
+
 			tx.commit();
 			return project;
 		}

@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.runtime.TestFunctionProposal.apply;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -19,7 +18,6 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -28,6 +26,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.DismissedProposal;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.FunctionProposal.Proposal;
@@ -104,13 +106,13 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 			// Applied: the button once; proposed again, nothing is created twice.
 			List<TLObject> added = apply(project);
 			assertEquals(2, added.size());
-			TLObject remote = added.get(0);
+			Function remote = (Function) added.get(0);
 			assertEquals("button", FunctionProposal.kind(remote));
-			assertSame(action, remote.tValueByName("press"));
-			assertNull(remote.tValueByName("state"));
-			assertNull(remote.tValueByName("device"));
-			assertEquals(REMOTE_CHANNEL, remote.tValueByName("channel"));
-			assertEquals("Fernbedienung Flur", Resources.getInstance(Locale.GERMAN).getString((ResKey) remote.tValueByName("name")));
+			assertSame(action, remote.getPress());
+			assertNull(remote.getState());
+			assertNull(remote.getDevice());
+			assertEquals(REMOTE_CHANNEL, remote.getChannel());
+			assertEquals("Fernbedienung Flur", Resources.getInstance(Locale.GERMAN).getString(remote.getNameKey()));
 			assertEquals(List.of(), apply(project));
 			assertEquals(List.of(), apply(project));
 			assertEquals(2, FunctionProposal.functions(project).size());
@@ -151,7 +153,7 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 				tx.commit();
 			}
 			assertNotNull(dismissal);
-			assertEquals(REMOTE_CHANNEL, dismissal.tValueByName("channel"));
+			assertEquals(REMOTE_CHANNEL, ((DismissedProposal) dismissal).getChannel());
 			assertEquals(List.of(), apply(project));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.parse(EXPORT));
@@ -183,8 +185,8 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 			types.addAll(ZigbeeCatalogJson.importText(ZigbeeCatalog.root(), CATALOG, ZigbeeCatalogJson.Mode.UPDATE).types());
 			ZigbeeImport.importExport(project, ZigbeeExport.parse(EXPORT));
 			for (TLObject device : ZigbeeImport.devices(project)) {
-				for (Object function : (Collection<?>) device.tValueByName("functions")) {
-					ZigbeeBindings.createDatapoint((TLObject) function);
+				for (ZigbeeFunction function : ((ZigbeeDevice) device).getFunctions()) {
+					ZigbeeBindings.createDatapoint(function);
 				}
 			}
 			tx.commit();
@@ -195,8 +197,8 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 	/** The datapoint bound to the action of the device. */
 	private static TLObject datapoint(TLObject project, String ieee) {
 		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
-			TLObject function = ZigbeeBindings.function(datapoint);
-			if ("action".equals(function.tValueByName("function")) && ieee.equals(function.tContainer().tValueByName("ieee"))) {
+			ZigbeeFunction function = (ZigbeeFunction) ZigbeeBindings.function(datapoint);
+			if ("action".equals(function.getFunction()) && ieee.equals(((ZigbeeDevice) function.tContainer()).getIeee())) {
 				return datapoint;
 			}
 		}

@@ -20,6 +20,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.rules.I18NConstants;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.runtime.RuleDrafts;
@@ -72,9 +74,9 @@ public class TestParameterIds extends BasicTestCase {
 			TLObject first = part(rule, "parameters", "RuleParameter");
 			TLObject second = part(rule, "parameters", "RuleParameter");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				rule.tUpdateByName("identifier", "dimmer");
-				first.tUpdateByName("identifier", "level");
-				second.tUpdateByName("identifier", "other");
+				((Rule) rule).setIdentifier("dimmer");
+				((RuleParameter) first).setIdentifier("level");
+				((RuleParameter) second).setIdentifier("other");
 				tx.commit();
 			}
 
@@ -114,8 +116,8 @@ public class TestParameterIds extends BasicTestCase {
 			TLObject rule = part(project, "rules", "Rule");
 			TLObject stored = part(rule, "parameters", "RuleParameter");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				rule.tUpdateByName("identifier", "dimmer");
-				stored.tUpdateByName("identifier", "max-helligkeit");
+				((Rule) rule).setIdentifier("dimmer");
+				((RuleParameter) stored).setIdentifier("max-helligkeit");
 				tx.commit();
 			}
 			TLObject draft = RuleDrafts.draft(rule, "parameters", runtime("RuleParameter"));

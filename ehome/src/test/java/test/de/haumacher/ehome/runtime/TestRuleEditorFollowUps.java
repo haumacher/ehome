@@ -38,6 +38,17 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.DatesSchedule;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.RuleChoice;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.runtime.StartTimerAction;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
@@ -71,23 +82,23 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 	public void testEachFieldOnItsOwn() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject write;
-			TLObject start;
-			TLObject light;
+			WriteAction write;
+			StartTimerAction start;
+			ApplicationDatapoint light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				light.tUpdateByName("identifier", "light");
-				light.tUpdateByName("writable", Boolean.TRUE);
-				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-				RuleFunctions.create(rule, "timers", runtime("RuleTimer"));
-				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
-				write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+				light = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				light.setIdentifier("light");
+				light.setWritable(true);
+				TLObject rule = add(project, "rules", runtime("Rule"));
+				add(rule, "timers", runtime("RuleTimer"));
+				TLObject reaction = add(rule, "reactions", runtime("Reaction"));
+				add(reaction, "triggers", runtime("StartTrigger"));
+				write = add(reaction, "actions", runtime("WriteAction"));
 				// No datapoint: the reference is empty (haumacher/ehome #90).
-				write.tUpdateByName("value", "$missing");
-				start = RuleFunctions.create(reaction, "actions", runtime("StartTimerAction"));
+				write.setValue("$missing");
+				start = add(reaction, "actions", runtime("StartTimerAction"));
 				// No timer.
-				start.tUpdateByName("duration", "true");
+				start.setDuration("true");
 				tx.commit();
 			}
 
@@ -123,23 +134,23 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 	public void testLabels() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject reaction;
-			TLObject trigger;
-			TLObject action;
+			Reaction reaction;
+			DatapointTrigger trigger;
+			WriteAction action;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				light.tUpdateByName("identifier", "light");
-				TLObject lamp = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				lamp.tUpdateByName("identifier", "lamp");
-				lamp.tUpdateByName("writable", Boolean.TRUE);
-				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-				reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-				trigger = RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", light);
-				reaction.tUpdateByName("condition", "@light");
-				action = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-				action.tUpdateByName("datapoint", lamp);
-				action.tUpdateByName("value", "true");
+				ApplicationDatapoint light = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				light.setIdentifier("light");
+				ApplicationDatapoint lamp = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				lamp.setIdentifier("lamp");
+				lamp.setWritable(true);
+				TLObject rule = add(project, "rules", runtime("Rule"));
+				reaction = add(rule, "reactions", runtime("Reaction"));
+				trigger = add(reaction, "triggers", runtime("DatapointTrigger"));
+				trigger.setDatapoint(light);
+				reaction.setCondition("@light");
+				action = add(reaction, "actions", runtime("WriteAction"));
+				action.setDatapoint(lamp);
+				action.setValue("true");
 				tx.commit();
 			}
 			// The datapoints by their labels, in the language of the reader (haumacher/ehome #113).
@@ -187,56 +198,56 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 	public void testNormalizeOnEntry() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject reaction;
-			TLObject parameter;
-			TLObject timer;
-			TLObject log;
-			TLObject entry;
+			Reaction reaction;
+			RuleParameter parameter;
+			RuleTimer timer;
+			LogAction log;
+			DatesSchedule entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-				parameter = RuleFunctions.create(rule, "parameters", runtime("RuleParameter"));
-				parameter.tUpdateByName("type", parameterType("duration"));
-				parameter.tUpdateByName("default", "180000ms");
-				parameter.tUpdateByName("step", "60s");
-				timer = RuleFunctions.create(rule, "timers", runtime("RuleTimer"));
-				timer.tUpdateByName("duration", "$p1+(2 * 1min)");
-				reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-				reaction.tUpdateByName("condition", "@\"light\"==true  and not(@door)");
-				log = RuleFunctions.create(reaction, "actions", runtime("LogAction"));
-				log.tUpdateByName("message", "on: {  @light }");
-				entry = RuleFunctions.create(project, "schedules", runtime("DatesSchedule"));
-				entry.tUpdateByName("dates", "2027-01-08;2027-01-22");
-				entry.tUpdateByName("time", "6:15");
+				TLObject rule = add(project, "rules", runtime("Rule"));
+				parameter = add(rule, "parameters", runtime("RuleParameter"));
+				parameter.setType(parameterType("duration"));
+				parameter.setDefault("180000ms");
+				parameter.setStep("60s");
+				timer = add(rule, "timers", runtime("RuleTimer"));
+				timer.setDuration("$p1+(2 * 1min)");
+				reaction = add(rule, "reactions", runtime("Reaction"));
+				reaction.setCondition("@\"light\"==true  and not(@door)");
+				log = add(reaction, "actions", runtime("LogAction"));
+				log.setMessage("on: {  @light }");
+				entry = add(project, "schedules", runtime("DatesSchedule"));
+				entry.setDates("2027-01-08;2027-01-22");
+				entry.setTime("6:15");
 				tx.commit();
 			}
-			String condition = (String) reaction.tValueByName("condition");
-			String duration = (String) timer.tValueByName("duration");
-			String message = (String) log.tValueByName("message");
+			String condition = reaction.getCondition();
+			String duration = timer.getDuration();
+			String message = log.getMessage();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				for (TLObject obj : List.of(reaction, parameter, timer, log, entry)) {
 					enter(obj);
 				}
 				tx.commit();
 			}
-			assertEquals(RuleText.print(RuleText.parse(condition)), reaction.tValueByName("condition"));
-			assertFalse(condition.equals(reaction.tValueByName("condition")));
-			assertEquals(RuleText.print(RuleText.parse(duration)), timer.tValueByName("duration"));
-			assertFalse(duration.equals(timer.tValueByName("duration")));
-			assertEquals(RuleText.printMessage(RuleText.parseMessage(message)), log.tValueByName("message"));
-			assertEquals("3min", parameter.tValueByName("default"));
-			assertEquals("1min", parameter.tValueByName("step"));
-			assertEquals("2027-01-08, 2027-01-22", entry.tValueByName("dates"));
-			assertEquals("06:15", entry.tValueByName("time"));
+			assertEquals(RuleText.print(RuleText.parse(condition)), reaction.getCondition());
+			assertFalse(condition.equals(reaction.getCondition()));
+			assertEquals(RuleText.print(RuleText.parse(duration)), timer.getDuration());
+			assertFalse(duration.equals(timer.getDuration()));
+			assertEquals(RuleText.printMessage(RuleText.parseMessage(message)), log.getMessage());
+			assertEquals("3min", parameter.getDefault());
+			assertEquals("1min", parameter.getStep());
+			assertEquals("2027-01-08, 2027-01-22", entry.getDates());
+			assertEquals("06:15", entry.getTime());
 
 			// Canonical texts stay as they are.
-			String canonical = (String) reaction.tValueByName("condition");
+			String canonical = (String) reaction.getCondition();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				enter(reaction);
 				enter(timer);
 				tx.commit();
 			}
-			assertEquals(canonical, reaction.tValueByName("condition"));
-			assertEquals(RuleText.print(RuleText.parse(duration)), timer.tValueByName("duration"));
+			assertEquals(canonical, reaction.getCondition());
+			assertEquals(RuleText.print(RuleText.parse(duration)), timer.getDuration());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -245,23 +256,23 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 	public void testChoices() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
-			TLObject parameter;
-			TLObject eco;
-			TLObject comfort;
+			RuleParameter parameter;
+			RuleChoice eco;
+			RuleChoice comfort;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-				parameter = RuleFunctions.create(rule, "parameters", runtime("RuleParameter"));
-				parameter.tUpdateByName("type", parameterType("integer"));
-				parameter.tUpdateByName("default", "1");
-				eco = RuleFunctions.create(parameter, "choices", runtime("RuleChoice"));
-				eco.tUpdateByName("value", "1");
-				eco.tUpdateByName("title", FunctionProposal.text(Map.of("de", "Eco", "en", "Eco")));
-				comfort = RuleFunctions.create(parameter, "choices", runtime("RuleChoice"));
-				assertEquals("0", comfort.tValueByName("value"));
-				comfort.tUpdateByName("value", "2");
-				comfort.tUpdateByName("title", FunctionProposal.text(Map.of("de", "Comfort", "en", "Comfort")));
-				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
+				TLObject rule = add(project, "rules", runtime("Rule"));
+				parameter = add(rule, "parameters", runtime("RuleParameter"));
+				parameter.setType(parameterType("integer"));
+				parameter.setDefault("1");
+				eco = add(parameter, "choices", runtime("RuleChoice"));
+				eco.setValue("1");
+				eco.setTitle(FunctionProposal.text(Map.of("de", "Eco", "en", "Eco")));
+				comfort = add(parameter, "choices", runtime("RuleChoice"));
+				assertEquals("0", comfort.getValue());
+				comfort.setValue("2");
+				comfort.setTitle(FunctionProposal.text(Map.of("de", "Comfort", "en", "Comfort")));
+				TLObject reaction = add(rule, "reactions", runtime("Reaction"));
+				add(reaction, "triggers", runtime("StartTrigger"));
 				tx.commit();
 			}
 			List<Object> rules = new RuleExport().rules(project);
@@ -342,7 +353,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 					// Expected.
 				}
 			}
-			assertEquals(2, ((java.util.Collection<?>) viaFile.tValueByName("rules")).size());
+			assertEquals(2, ((Project) viaFile).getRules().size());
 		} finally {
 			SharedData.deleteProjects(List.of(viaFile, viaImport));
 		}
@@ -366,6 +377,12 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			new RuleImport().importDatapoints(project, datapoints);
 			tx.commit();
 		}
+	}
+
+	/** A new part at the end of the reference of the owner ({@link RuleFunctions#create}), as its type. */
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T add(TLObject owner, String reference, TLClass type) {
+		return (T) RuleFunctions.create(owner, reference, type);
 	}
 
 	private static TLClassifier parameterType(String name) {

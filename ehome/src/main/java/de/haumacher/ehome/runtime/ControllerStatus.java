@@ -11,6 +11,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 
 /**
@@ -130,8 +131,9 @@ public final class ControllerStatus {
 			return text(veto);
 		}
 		Loaded loaded = read(Deployer.client(Deployer.controller(project)));
-		String projectId = Objects.toString(project.tValueByName("extId"), "");
-		Long deployed = project.tValueByName("imageRevision") instanceof Number number ? Long.valueOf(number.longValue())
+		String projectId = Objects.toString(((Project) project).getExtId(), "");
+		Long deployed = ((Project) project).getImageRevision() instanceof Number number ? Long.valueOf(number.longValue())
+
 			: null;
 		ResKey verdict;
 		if (!loaded.answered() || (loaded.loaded() && loaded.revision() == null)) {

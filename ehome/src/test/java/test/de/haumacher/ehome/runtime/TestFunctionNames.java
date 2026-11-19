@@ -24,6 +24,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 
 /**
@@ -75,11 +77,11 @@ public class TestFunctionNames extends BasicTestCase {
 			assertEquals(EXPECTED, TestFunctionLinks.table(project));
 
 			// An earlier proposal named the function after its address; the user named another one.
-			TLObject flurC = function(project, "Flur: Kanal C");
-			TLObject flurD = function(project, "Flur: Kanal D");
+			Function flurC = function(project, "Flur: Kanal C");
+			Function flurD = function(project, "Flur: Kanal D");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				flurC.tUpdateByName("name", FunctionProposal.text(ResKey.text("Schalten EIN/AUS")));
-				flurD.tUpdateByName("name", FunctionProposal.text(ResKey.text("Licht Garderobe")));
+				flurC.setNameKey(FunctionProposal.text(ResKey.text("Schalten EIN/AUS")));
+				flurD.setNameKey(FunctionProposal.text(ResKey.text("Licht Garderobe")));
 				tx.commit();
 			}
 			FunctionProposal.Run again = run(project);
@@ -107,9 +109,9 @@ public class TestFunctionNames extends BasicTestCase {
 		}
 	}
 
-	private static TLObject function(TLObject project, String name) {
-		for (TLObject function : FunctionProposal.functions(project)) {
-			if (name.equals(Resources.getInstance(Locale.GERMAN).getString((ResKey) function.tValueByName("name")))) {
+	private static Function function(TLObject project, String name) {
+		for (Function function : ((Project) project).getFunctions()) {
+			if (name.equals(Resources.getInstance(Locale.GERMAN).getString(function.getNameKey()))) {
 				return function;
 			}
 		}

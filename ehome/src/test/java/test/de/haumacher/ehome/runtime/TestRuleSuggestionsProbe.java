@@ -22,6 +22,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleTimer;
 import de.haumacher.ehome.runtime.RuleFunctions;
 
 /**
@@ -43,11 +46,11 @@ public class TestRuleSuggestionsProbe extends BasicTestCase {
 		super.setUp();
 		_project = TestRuleAuthoring.createProject();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject rule = RuleFunctions.create(_project, "rules", type("Rule"));
-			rule.tUpdateByName("identifier", "probe");
-			RuleFunctions.create(rule, "parameters", type("RuleParameter")).tUpdateByName("identifier", "darkBelow");
-			RuleFunctions.create(rule, "parameters", type("RuleParameter")).tUpdateByName("identifier", "max-helligkeit");
-			RuleFunctions.create(rule, "timers", type("RuleTimer")).tUpdateByName("identifier", "off");
+			Rule rule = (Rule) RuleFunctions.create(_project, "rules", type("Rule"));
+			rule.setIdentifier("probe");
+			((RuleParameter) RuleFunctions.create(rule, "parameters", type("RuleParameter"))).setIdentifier("darkBelow");
+			((RuleParameter) RuleFunctions.create(rule, "parameters", type("RuleParameter"))).setIdentifier("max-helligkeit");
+			((RuleTimer) RuleFunctions.create(rule, "timers", type("RuleTimer"))).setIdentifier("off");
 			_reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
 			_log = RuleFunctions.create(_reaction, "actions", type("LogAction"));
 			tx.commit();

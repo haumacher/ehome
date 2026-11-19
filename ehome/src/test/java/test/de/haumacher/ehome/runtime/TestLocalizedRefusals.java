@@ -30,12 +30,16 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
@@ -71,25 +75,27 @@ public class TestLocalizedRefusals extends BasicTestCase {
 	 * ({@link #testMissingRole()}).
 	 */
 	public void testFunctionRoles() throws Exception {
-		TLObject project;
+		Project project;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Localized refusals");
-			project.tUpdateByName("extId", "P-TEST-95");
-			TLObject level = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			level.tUpdateByName("identifier", "virtual.level");
-			level.tUpdateByName("type", valueType("unsigned"));
+			project.setName("Localized refusals");
+			project.setExtId("P-TEST-95");
+			ApplicationDatapoint level =
+				(ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			level.setIdentifier("virtual.level");
+			level.setType(valueType("unsigned"));
 
-			TLObject sensor = create("ehome.runtime:Function");
-			sensor.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Temperatur").build());
-			sensor.tUpdateByName("identifier", "temperature");
-			sensor.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-			TLObject dimmer = create("ehome.runtime:Function");
-			dimmer.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Dimmer").build());
-			dimmer.tUpdateByName("identifier", "dimmer");
-			dimmer.tUpdateByName("kind", FunctionProposal.classifier("dimmer"));
-			dimmer.tUpdateByName("levelCommand", level);
-			project.tUpdateByName("functions", List.of(sensor, dimmer));
+			Function sensor = create("ehome.runtime:Function");
+			sensor.setNameKey(ResKey.builder().add(Locale.GERMAN, "Temperatur").build());
+			sensor.setIdentifier("temperature");
+			sensor.setKind(FunctionProposal.classifier("sensor"));
+			Function dimmer = create("ehome.runtime:Function");
+			dimmer.setNameKey(ResKey.builder().add(Locale.GERMAN, "Dimmer").build());
+			dimmer.setIdentifier("dimmer");
+			dimmer.setKind(FunctionProposal.classifier("dimmer"));
+			dimmer.setLevelCommand(level);
+			project.setFunctions(List.of(sensor, dimmer));
+
 			tx.commit();
 		}
 		try {
@@ -343,15 +349,16 @@ public class TestLocalizedRefusals extends BasicTestCase {
 		return Resources.getInstance(locale).getString(refusal.message());
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {
 		return (TLClass) TLModelUtil.findType("ehome.runtime:" + name);
 	}
 
-	private static Object valueType(String name) {
+	private static TLClassifier valueType(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(name);
 	}
 

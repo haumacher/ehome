@@ -3,6 +3,8 @@
  */
 package de.haumacher.ehome.model.runtime;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * Interface for {@link #RULE_TYPE} business objects.
  * 
@@ -11,5 +13,20 @@ package de.haumacher.ehome.model.runtime;
 public interface Rule extends de.haumacher.ehome.model.runtime.internal.RuleBase {
 
 	// Wrapper functionality.
+
+	/**
+	 * The name in every application language (an <code>I18NString</code>; {@link #getName()} gives it
+	 * in the user's language).
+	 */
+	default ResKey getNameKey() {
+		return (ResKey) tValueByName(NAME_ATTRIBUTE);
+	}
+
+	/**
+	 * Sets the {@link #getNameKey() name in every application language}.
+	 */
+	default void setNameKey(ResKey value) {
+		tUpdateByName(NAME_ATTRIBUTE, value);
+	}
 
 }

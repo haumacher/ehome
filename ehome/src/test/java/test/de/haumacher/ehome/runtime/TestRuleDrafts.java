@@ -22,6 +22,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.AstroSchedule;
+import de.haumacher.ehome.model.runtime.PageSection;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleTimer;
 import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuleDrafts;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -72,10 +76,11 @@ public class TestRuleDrafts extends BasicTestCase {
 			}
 			assertFalse(created.tTransient());
 			assertEquals(List.of(existing, created), RuleFunctions.objects(project, "schedules"));
-			assertEquals("entry-2", created.tValueByName("identifier"));
-			assertEquals("-30min", created.tValueByName("offset"));
-			assertEquals(2, ((Collection<?>) created.tValueByName("days")).size());
-			assertEquals("sunset", ((com.top_logic.model.TLClassifier) created.tValueByName("sun")).getName());
+			AstroSchedule astro = (AstroSchedule) created;
+			assertEquals("entry-2", astro.getIdentifier());
+			assertEquals("-30min", astro.getOffset());
+			assertEquals(2, ((Collection<?>) astro.getDays()).size());
+			assertEquals("sunset", ((com.top_logic.model.TLClassifier) astro.getSun()).getName());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -115,11 +120,11 @@ public class TestRuleDrafts extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(List.of(stored), RuleFunctions.objects(rule, "timers"));
-			assertEquals("off", stored.tValueByName("identifier"));
-			assertEquals("5min", stored.tValueByName("duration"));
+			assertEquals("off", ((RuleTimer) stored).getIdentifier());
+			assertEquals("5min", ((RuleTimer) stored).getDuration());
 			assertEquals(List.of(rule, secondRule), RuleFunctions.objects(project, "rules"));
-			assertTrue(((Number) secondRule.tValueByName("order")).intValue()
-				> ((Number) rule.tValueByName("order")).intValue());
+			assertTrue(((Number) ((Rule) secondRule).getOrder()).intValue()
+				> ((Number) ((Rule) rule).getOrder()).intValue());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -149,7 +154,8 @@ public class TestRuleDrafts extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(List.of(added), RuleFunctions.objects(first, "sections"));
-			assertNotNull(added.tValueByName("title"));
+			assertNotNull(((PageSection) added).getTitle());
+
 			List<TLObject> pages = RuleFunctions.objects(project, "pages");
 			assertEquals(3, pages.size());
 			assertSame("A page goes after the selected one.", addedPage, pages.get(1));

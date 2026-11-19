@@ -25,6 +25,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimer;
 import de.haumacher.ehome.runtime.RuleDrafts;
 import de.haumacher.ehome.runtime.RuleFunctions;
 
@@ -45,7 +49,7 @@ public class TestRuleSuggestions extends BasicTestCase {
 
 	private TLObject _project;
 
-	private TLObject _rule;
+	private Rule _rule;
 
 	private TLObject _reaction;
 
@@ -64,26 +68,27 @@ public class TestRuleSuggestions extends BasicTestCase {
 		super.setUp();
 		_project = TestRuleAuthoring.createProject();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_rule = RuleFunctions.create(_project, "rules", type("Rule"));
-			_rule.tUpdateByName("identifier", "light");
-			_rule.tUpdateByName("name", text("Light"));
-			TLObject dark = RuleFunctions.create(_rule, "parameters", type("RuleParameter"));
-			dark.tUpdateByName("identifier", "darkBelow");
-			dark.tUpdateByName("title", text("Dark below"));
-			TLObject max = RuleFunctions.create(_rule, "parameters", type("RuleParameter"));
-			max.tUpdateByName("identifier", "max-helligkeit");
-			max.tUpdateByName("title", text("Maximale Helligkeit"));
-			RuleFunctions.create(_rule, "timers", type("RuleTimer")).tUpdateByName("identifier", "off");
-			RuleFunctions.create(_rule, "timers", type("RuleTimer")).tUpdateByName("identifier", "pause");
-			RuleFunctions.create(_rule, "states", type("RuleState")).tUpdateByName("identifier", "day");
-			RuleFunctions.create(_rule, "states", type("RuleState")).tUpdateByName("identifier", "night");
+			_rule = (Rule) RuleFunctions.create(_project, "rules", type("Rule"));
+			_rule.setIdentifier("light");
+			_rule.setNameKey(text("Light"));
+			RuleParameter dark = (RuleParameter) RuleFunctions.create(_rule, "parameters", type("RuleParameter"));
+			dark.setIdentifier("darkBelow");
+			dark.setTitle(text("Dark below"));
+			RuleParameter max = (RuleParameter) RuleFunctions.create(_rule, "parameters", type("RuleParameter"));
+			max.setIdentifier("max-helligkeit");
+			max.setTitle(text("Maximale Helligkeit"));
+			((RuleTimer) RuleFunctions.create(_rule, "timers", type("RuleTimer"))).setIdentifier("off");
+			((RuleTimer) RuleFunctions.create(_rule, "timers", type("RuleTimer"))).setIdentifier("pause");
+			((RuleState) RuleFunctions.create(_rule, "states", type("RuleState"))).setIdentifier("day");
+			((RuleState) RuleFunctions.create(_rule, "states", type("RuleState"))).setIdentifier("night");
 			_reaction = RuleFunctions.create(_rule, "reactions", type("Reaction"));
 			_match = RuleFunctions.create(_reaction, "triggers", type("MatchTrigger"));
 			_silence = RuleFunctions.create(_reaction, "triggers", type("SilenceTrigger"));
 			_log = RuleFunctions.create(_reaction, "actions", type("LogAction"));
 
-			TLObject plain = RuleFunctions.create(_project, "rules", type("Rule"));
-			plain.tUpdateByName("identifier", "plain");
+			Rule plain = (Rule) RuleFunctions.create(_project, "rules", type("Rule"));
+			plain.setIdentifier("plain");
+
 			_plainReaction = RuleFunctions.create(plain, "reactions", type("Reaction"));
 
 			_schedule = RuleFunctions.create(_project, "schedules", type("WeeklySchedule"));

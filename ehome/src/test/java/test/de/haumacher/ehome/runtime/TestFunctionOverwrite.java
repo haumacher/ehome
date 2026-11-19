@@ -8,10 +8,8 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.address;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.create;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.name;
-import static test.de.haumacher.ehome.runtime.TestFunctionProposal.update;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +30,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.FunctionElement;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -68,45 +70,45 @@ public class TestFunctionOverwrite extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		try {
 			assertEquals(1, projects.size());
-			TLObject project = projects.get(0);
+			Project project = (Project) projects.get(0);
 			run(project, false);
-			Map<String, TLObject> byName = byName(project);
-			TLObject kanalA = byName.get("KanalA");
-			TLObject kanalB = byName.get("KanalB");
-			TLObject kanalC = byName.get("KanalC");
-			TLObject taste2 = byName.get("Taste2");
-			TLObject taste6 = byName.get("Taste6");
+			Map<String, Function> byName = byName(project);
+			Function kanalA = byName.get("KanalA");
+			Function kanalB = byName.get("KanalB");
+			Function kanalC = byName.get("KanalC");
+			Function taste2 = byName.get("Taste2");
+			Function taste6 = byName.get("Taste6");
 			List<TLObject> scenes = FunctionProposal.functions(project).stream()
 				.filter(f -> "scene".equals(FunctionProposal.kind(f))).toList();
 			assertEquals(2, scenes.size());
-			Object stateC = kanalC.tValueByName("state");
+			Object stateC = kanalC.getState();
 			assertNotNull(stateC);
-			Object identifierC = kanalC.tValueByName("identifier");
+			Object identifierC = kanalC.getIdentifier();
 
 			// The user's part.
-			TLObject own;
-			TLObject element;
+			Function own;
+			FunctionElement element;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				own = create("ehome.runtime:Function");
-				own.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Klingel", "en", "Klingel")));
-				own.tUpdateByName("identifier", "klingel");
-				own.tUpdateByName("kind", FunctionProposal.classifier("button"));
-				own.tUpdateByName("press", address(project, "0/0/6"));
-				List<TLObject> functions = FunctionProposal.functions(project);
+				own = (Function) create("ehome.runtime:Function");
+				own.setNameKey(FunctionProposal.text(Map.of("de", "Klingel", "en", "Klingel")));
+				own.setIdentifier("klingel");
+				own.setKind(FunctionProposal.classifier("button"));
+				own.setPress((GroupAddress) address(project, "0/0/6"));
+				List<Function> functions = new ArrayList<>(project.getFunctions());
 				functions.add(own);
-				project.tUpdateByName("functions", functions);
+				project.setFunctions(functions);
 
-				element = create("ehome.runtime:FunctionElement");
-				element.tUpdateByName("function", kanalA);
+				element = (FunctionElement) create("ehome.runtime:FunctionElement");
+				element.setFunction(kanalA);
 
 				FunctionProposal.dismiss(taste6);
 
-				taste2.tUpdateByName("name", FunctionProposal.text(ResKey.text("Mein Taster")));
-				kanalC.tUpdateByName("state", null);
+				taste2.setNameKey(FunctionProposal.text(ResKey.text("Mein Taster")));
+				kanalC.setState(null);
 				tx.commit();
 			}
-			update(address(project, "0/0/34"), "name", "Licht Esstisch");
-			update(address(project, "0/0/40"), "name", "Licht Flur");
+			rename((GroupAddress) address(project, "0/0/34"), "Licht Esstisch");
+			rename((GroupAddress) address(project, "0/0/40"), "Licht Flur");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				for (TLObject connection : GroupAddressConnections.connections(address(project, "0/0/36"))) {
 					DeviceSettings.disconnect(connection);
@@ -121,7 +123,7 @@ public class TestFunctionOverwrite extends BasicTestCase {
 			assertEquals(List.of(), plain.renamed());
 			assertEquals(List.of(), plain.stale());
 			assertEquals(names, names(project));
-			assertNull(kanalC.tValueByName("state"));
+			assertNull(kanalC.getState());
 
 			// The confirmation counts what the option overwrites, without changing anything.
 			Set<TLObject> overwritten = Set.of(kanalA, kanalB, kanalC, taste2);
@@ -141,24 +143,24 @@ public class TestFunctionOverwrite extends BasicTestCase {
 			}
 			assertEquals(Map.of("KanalA", "Licht Esstisch", "KanalB", "Licht Flur", "Mein Taster", "Taste2"), renames);
 			assertEquals("Licht Esstisch", name(kanalA));
-			assertEquals("licht-esstisch", kanalA.tValueByName("identifier"));
+			assertEquals("licht-esstisch", kanalA.getIdentifier());
 			assertEquals("Licht Flur", name(kanalB));
-			assertEquals("licht-flur", kanalB.tValueByName("identifier"));
+			assertEquals("licht-flur", kanalB.getIdentifier());
 			assertEquals("Taste2", name(taste2));
-			assertEquals("taste2", taste2.tValueByName("identifier"));
+			assertEquals("taste2", taste2.getIdentifier());
 			// Not renamed: the identifier stays; the state is bound again.
-			assertEquals(identifierC, kanalC.tValueByName("identifier"));
-			assertSame(stateC, kanalC.tValueByName("state"));
+			assertEquals(identifierC, kanalC.getIdentifier());
+			assertSame(stateC, kanalC.getState());
 			// The same objects: the page still shows the light.
 			assertTrue(kanalA.tValid());
-			assertSame(kanalA, element.tValueByName("function"));
+			assertSame(kanalA, element.getFunction());
 			// Made by hand: untouched.
 			assertEquals("Klingel", name(own));
-			assertEquals("klingel", own.tValueByName("identifier"));
-			assertSame(address(project, "0/0/6"), own.tValueByName("press"));
+			assertEquals("klingel", own.getIdentifier());
+			assertSame(address(project, "0/0/6"), own.getPress());
 			// Dismissed: not back, the dismissal stays.
 			assertFalse(names(project).contains("Taste6"));
-			assertEquals(1, ((Collection<?>) project.tValueByName(FunctionProposal.DISMISSED)).size());
+			assertEquals(1, project.getDismissedProposals().size());
 			// No longer proposed: listed, kept.
 			assertEquals(scenes, run.stale());
 			for (TLObject scene : scenes) {
@@ -189,21 +191,28 @@ public class TestFunctionOverwrite extends BasicTestCase {
 		}
 	}
 
-	private static Map<String, TLObject> byName(TLObject project) {
-		Map<String, TLObject> result = new HashMap<>();
-		for (TLObject function : FunctionProposal.functions(project)) {
+	private static Map<String, Function> byName(Project project) {
+		Map<String, Function> result = new HashMap<>();
+		for (Function function : project.getFunctions()) {
 			result.put(name(function), function);
 		}
 		return result;
 	}
 
-	private static List<String> names(TLObject project) {
+	private static List<String> names(Project project) {
 		List<String> result = new ArrayList<>();
-		for (TLObject function : FunctionProposal.functions(project)) {
-			result.add(name(function) + " " + function.tValueByName("identifier"));
+		for (Function function : project.getFunctions()) {
+			result.add(name(function) + " " + function.getIdentifier());
 		}
 		result.sort(null);
 		return result;
+	}
+
+	private static void rename(GroupAddress address, String name) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			address.setName(name);
+			tx.commit();
+		}
 	}
 
 	private static String text(ResKey key) {

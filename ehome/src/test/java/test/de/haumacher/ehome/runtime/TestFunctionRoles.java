@@ -28,6 +28,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionKinds;
@@ -121,41 +124,41 @@ public class TestFunctionRoles extends BasicTestCase {
 		assertTrue(image.compile(null).length > 0);
 
 		// A percentage as the end position: refused with the role named.
-		TLObject awningFunction = function(project, "Markise Terrasse");
-		TestFunctionProposal.update(awningFunction, "atTop", address(project, "6/2/2"));
+		Function awningFunction = (Function) function(project, "Markise Terrasse");
+		update(() -> awningFunction.setAtTop((GroupAddress) address(project, "6/2/2")));
 		assertRefused(project, ".datapoints.atTop",
 			I18NConstants.IMAGE_ROLE_TYPE__NAME_TYPE_ROLE_KIND_TYPES.fill(DatapointId.of(id(project, "6/2/2")), "real",
 				"atTop", "blind", "boolean"));
-		TestFunctionProposal.update(awningFunction, "atTop", address(project, "6/1/3"));
+		update(() -> awningFunction.setAtTop((GroupAddress) address(project, "6/1/3")));
 
 		// A truth value as the heating level: refused; a percentage as heating: taken.
-		TLObject childFunction = function(project, "Temperatur Kind");
-		TestFunctionProposal.update(childFunction, "heatingLevel", address(project, "6/4/6"));
+		Function childFunction = (Function) function(project, "Temperatur Kind");
+		update(() -> childFunction.setHeatingLevel((GroupAddress) address(project, "6/4/6")));
 		assertRefused(project, ".datapoints.heatingLevel",
 			I18NConstants.IMAGE_ROLE_TYPE__NAME_TYPE_ROLE_KIND_TYPES.fill(DatapointId.of(id(project, "6/4/6")),
 				"boolean", "heatingLevel", "climate", "unsigned, signed, real, enumeration"));
-		TestFunctionProposal.update(childFunction, "heatingLevel", address(project, "6/5/5"));
-		TestFunctionProposal.update(childFunction, "heating", address(project, "6/5/5"));
+		update(() -> childFunction.setHeatingLevel((GroupAddress) address(project, "6/5/5")));
+		update(() -> childFunction.setHeating((GroupAddress) address(project, "6/5/5")));
 		image = RuntimeImage.build(project, 1, NOW);
 		assertTrue(image.validate().toString(), image.validate().isValid());
 		assertEquals(roles(image, "Temperatur Kind").get("heatingLevel"), roles(image, "Temperatur Kind").get("heating"));
-		String functionId = String.valueOf(childFunction.tValueByName("identifier"));
-		TestFunctionProposal.update(childFunction, "heating", null);
+		String functionId = String.valueOf(childFunction.getIdentifier());
+		update(() -> childFunction.setHeating(null));
 
 		// Running the proposal again changes nothing.
 		assertEquals(List.of(), run(project).added());
 	}
 
 	private void dimmer(TLObject project) {
-		TLObject dimmer;
+		Function dimmer;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			dimmer = TestFunctionProposal.create("ehome.runtime:Function");
-			dimmer.tUpdateByName("name", ResKey.text("Dimmer Flur"));
-			dimmer.tUpdateByName("identifier", "dimmer_flur");
-			dimmer.tUpdateByName("kind", FunctionProposal.classifier("dimmer"));
-			List<TLObject> functions = new ArrayList<>(FunctionProposal.functions(project));
+			dimmer = (Function) TestFunctionProposal.create("ehome.runtime:Function");
+			dimmer.setNameKey(ResKey.text("Dimmer Flur"));
+			dimmer.setIdentifier("dimmer_flur");
+			dimmer.setKind(FunctionProposal.classifier("dimmer"));
+			List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 			functions.add(dimmer);
-			project.tUpdateByName("functions", functions);
+			((Project) project).setFunctions(functions);
 			tx.commit();
 		}
 		// Neither its switching nor its level command: unused, also as the derived attribute.
@@ -163,7 +166,7 @@ public class TestFunctionRoles extends BasicTestCase {
 		assertEquals(Boolean.TRUE, derived(dimmer, "unused"));
 
 		// Its switching command alone: in use, in the image.
-		TestFunctionProposal.update(dimmer, "command", address(project, "6/1/1"));
+		update(() -> dimmer.setCommand((GroupAddress) address(project, "6/1/1")));
 		assertFalse(FunctionProposal.unused(dimmer));
 		assertEquals(Boolean.FALSE, derived(dimmer, "unused"));
 		RuntimeImage image = RuntimeImage.build(project, 1, NOW);
@@ -171,8 +174,8 @@ public class TestFunctionRoles extends BasicTestCase {
 		assertEquals(Map.of("command", id(project, "6/1/1")), roles(image, "Dimmer Flur"));
 
 		// Its level command alone, as an image of 1.5 had it: in use.
-		TestFunctionProposal.update(dimmer, "command", null);
-		TestFunctionProposal.update(dimmer, "levelCommand", address(project, "6/2/2"));
+		update(() -> dimmer.setCommand(null));
+		update(() -> dimmer.setLevelCommand((GroupAddress) address(project, "6/2/2")));
 		assertFalse(FunctionProposal.unused(dimmer));
 		assertEquals(Boolean.FALSE, derived(dimmer, "unused"));
 		image = RuntimeImage.build(project, 1, NOW);
@@ -226,6 +229,13 @@ public class TestFunctionRoles extends BasicTestCase {
 	/** The id of the group address in the image. */
 	private static String id(TLObject project, String threeLevel) {
 		return Pages.imageId(address(project, threeLevel));
+	}
+
+	private static void update(Runnable change) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			change.run();
+			tx.commit();
+		}
 	}
 
 	private static FunctionProposal.Run run(TLObject project) {

@@ -10,9 +10,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -26,6 +28,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -34,6 +37,21 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.ProjectDatapoint;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.DatapointElement;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Page;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimeline;
+import de.haumacher.ehome.model.runtime.TimelineAssignment;
+import de.haumacher.ehome.model.runtime.TimelinePlan;
+import de.haumacher.ehome.model.runtime.TimelinePoint;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ImageComparison;
@@ -66,27 +84,27 @@ public class TestTimelines extends BasicTestCase {
 
 	private static final File FIXTURE = new File("src/test/fixtures/homecontrol/images/heating-timeline.json");
 
-	private TLObject _project;
+	private Project _project;
 
 	private TLObject _main;
 
-	private TLObject _rule;
+	private Rule _rule;
 
-	private TLObject _comfort;
+	private RuleState _comfort;
 
-	private TLObject _standby;
+	private RuleState _standby;
 
-	private TLObject _night;
+	private RuleState _night;
 
-	private TLObject _timeline;
+	private RuleTimeline _timeline;
 
-	private TLObject _workday;
+	private TimelinePlan _workday;
 
-	private TLObject _weekend;
+	private TimelinePlan _weekend;
 
-	private TLObject _living;
+	private GroupAddress _living;
 
-	private TLObject _bedroom;
+	private GroupAddress _bedroom;
 
 	@Override
 	protected void setUp() throws Exception {
@@ -100,54 +118,55 @@ public class TestTimelines extends BasicTestCase {
 			hvac.tUpdateByName("extId", "TEST-TIMELINES-20-102");
 			_main.tUpdateByName("subtypes", List.of(hvac));
 
-			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Heating program");
-			_project.tUpdateByName("extId", "heating-timeline");
-			_project.tUpdateByName("timeZone", "CET-1CEST,M3.5.0,M10.5.0/3");
-			_project.tUpdateByName("latitude", Double.valueOf(48.137));
-			_project.tUpdateByName("longitude", Double.valueOf(11.576));
+			_project = (Project) create("ehome.project:Project");
+			_project.setName("Heating program");
+			_project.setExtId("heating-timeline");
+			_project.setTimeZone("CET-1CEST,M3.5.0,M10.5.0/3");
+			_project.setLatitude(Double.valueOf(48.137));
+			_project.setLongitude(Double.valueOf(11.576));
 			_living = address("Living room HVAC mode", 1, hvac);
 			_bedroom = address("Bedroom HVAC mode", 2, hvac);
-			_project.tUpdateByName("groupAddresses", List.of(_living, _bedroom));
+			_project.setGroupAddresses(Set.of(_living, _bedroom));
 
-			_rule = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_rule.tUpdateByName("identifier", "heating");
-			_rule.tUpdateByName("name", text("Heating program", "Heizprogramm"));
+			_rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_rule.setIdentifier("heating");
+			_rule.setNameKey(text("Heating program", "Heizprogramm"));
 			_comfort = state("comfort", text("Comfort", "Komfort"), "1");
 			_standby = state("standby", text("Standby", "Standby"), "2");
 			_night = state("night", text("Night", "Nacht"), "3");
-			_rule.tUpdateByName("initialState", _comfort);
+			_rule.setInitialState(_comfort);
 
-			_timeline = RuleFunctions.create(_rule, "timeline", runtime("RuleTimeline"));
+			_timeline = (RuleTimeline) RuleFunctions.create(_rule, "timeline", runtime("RuleTimeline"));
 			// The new timeline's plan becomes the workday.
-			_workday = RuleFunctions.objects(_timeline, "plans").get(0);
-			_workday.tUpdateByName("identifier", "workday");
-			_workday.tUpdateByName("label", text("Workday", "Werktag"));
+			_workday = (TimelinePlan) RuleFunctions.objects(_timeline, "plans").get(0);
+			_workday.setIdentifier("workday");
+			_workday.setLabel(text("Workday", "Werktag"));
 			point(_workday, "06:00", _comfort);
 			point(_workday, "08:00", _standby);
 			point(_workday, "16:00", _comfort);
 			point(_workday, "22:00", _night);
-			_weekend = RuleFunctions.create(_timeline, "plans", runtime("TimelinePlan"));
-			_weekend.tUpdateByName("identifier", "weekend");
-			_weekend.tUpdateByName("label", text("Weekend", "Wochenende"));
+			_weekend = (TimelinePlan) RuleFunctions.create(_timeline, "plans", runtime("TimelinePlan"));
+			_weekend.setIdentifier("weekend");
+			_weekend.setLabel(text("Weekend", "Wochenende"));
 			point(_weekend, "07:30", _comfort);
 			point(_weekend, "23:00", _night);
-			TLObject weekend = RuleFunctions.create(_timeline, "assignments", runtime("TimelineAssignment"));
+			TimelineAssignment weekend =
+				(TimelineAssignment) RuleFunctions.create(_timeline, "assignments", runtime("TimelineAssignment"));
 			assertEquals("The second assignment is proposed for the days no other names.", 7,
 				RuleFunctions.objects(weekend, "days").size());
-			weekend.tUpdateByName("plan", _weekend);
-			weekend.tUpdateByName("days", List.of(weekday("saturday"), weekday("sunday")));
+			weekend.setPlan(_weekend);
+			weekend.setDays(new LinkedHashSet<>(List.of(weekday("saturday"), weekday("sunday"))));
 			tx.commit();
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject page = Pages.insert(_project, null, Pages.PAGE, null);
-			page.tUpdateByName("name", text("Heating", "Heizung"));
-			page.tUpdateByName("identifier", "heating");
+			Page page = (Page) Pages.insert(_project, null, Pages.PAGE, null);
+			page.setNameKey(text("Heating", "Heizung"));
+			page.setIdentifier("heating");
 			TLObject section = Pages.insert(_project, page, Pages.SECTION, null);
 			Pages.insert(_project, section, Pages.DATAPOINT, List.of(StateDatapoints.of(_rule), _living, _bedroom));
 			List<TLObject> elements = RuleFunctions.objects(section, "elements");
-			elements.get(1).tUpdateByName("readOnly", Boolean.TRUE);
-			elements.get(2).tUpdateByName("readOnly", Boolean.TRUE);
+			((DatapointElement) elements.get(1)).setReadOnly(true);
+			((DatapointElement) elements.get(2)).setReadOnly(true);
 			tx.commit();
 		}
 	}
@@ -257,7 +276,7 @@ public class TestTimelines extends BasicTestCase {
 
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			List<TLObject> points = RuleFunctions.objects(_weekend, "points");
-			_weekend.tUpdateByName("points", points.subList(0, 2));
+			_weekend.setPoints(List.of((TimelinePoint) points.get(0), (TimelinePoint) points.get(1)));
 			for (TLObject extra : points.subList(2, points.size())) {
 				extra.tDelete();
 			}
@@ -299,15 +318,19 @@ public class TestTimelines extends BasicTestCase {
 		TLObject follow;
 		TLObject lamp;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			lamp = RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			lamp.tUpdateByName("identifier", "comfort.lamp");
-			follow = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			follow.tUpdateByName("identifier", "follow");
+			ApplicationDatapoint created =
+				(ApplicationDatapoint) RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			created.setIdentifier("comfort.lamp");
+			lamp = created;
+			Rule rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			rule.setIdentifier("follow");
+			follow = rule;
 			TLObject reaction = RuleFunctions.create(follow, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", state);
-			TLObject write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", lamp);
-			write.tUpdateByName("value", "@\"rule/heating/state\" == 0");
+			((DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")))
+				.setDatapoint((ProjectDatapoint) state);
+			WriteAction write = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+			write.setDatapoint(created);
+			write.setValue("@\"rule/heating/state\" == 0");
 			tx.commit();
 		}
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
@@ -362,7 +385,7 @@ public class TestTimelines extends BasicTestCase {
 	/** Review probe: the id of the state datapoint follows the rule's id, also on a page. */
 	public void testProbeRenamedRule() throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_rule.tUpdateByName("identifier", "heat2");
+			_rule.setIdentifier("heat2");
 			tx.commit();
 		}
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
@@ -379,7 +402,7 @@ public class TestTimelines extends BasicTestCase {
 	public void testProbeStatesRemovedWhilePageShowsState() throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			_timeline.tDelete();
-			_rule.tUpdateByName("initialState", null);
+			_rule.setInitialState(null);
 			for (TLObject state : List.of(_comfort, _standby, _night)) {
 				state.tDelete();
 			}
@@ -397,7 +420,7 @@ public class TestTimelines extends BasicTestCase {
 	 */
 	public void testWriteIntegerToBooleanWarns() throws Exception {
 		TLObject main;
-		TLObject write;
+		WriteAction write;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			main = create("ehome.datapoint:DatapointMainType");
 			main.tUpdateByName("number", Integer.valueOf(1));
@@ -406,13 +429,13 @@ public class TestTimelines extends BasicTestCase {
 			sw.tUpdateByName("number", Integer.valueOf(1));
 			sw.tUpdateByName("extId", "TEST-TIMELINES-1-001");
 			main.tUpdateByName("subtypes", List.of(sw));
-			TLObject light = address("Light", 3, sw);
-			List<TLObject> addresses = new ArrayList<>(RuleFunctions.objects(_project, "groupAddresses"));
+			GroupAddress light = address("Light", 3, sw);
+			Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(_project.getGroupAddresses());
 			addresses.add(light);
-			_project.tUpdateByName("groupAddresses", addresses);
-			write = RuleFunctions.create(_comfort, "entry", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", light);
-			write.tUpdateByName("value", "true");
+			_project.setGroupAddresses(addresses);
+			write = (WriteAction) RuleFunctions.create(_comfort, "entry", runtime("WriteAction"));
+			write.setDatapoint(light);
+			write.setValue("true");
 			tx.commit();
 		}
 		try {
@@ -427,7 +450,7 @@ public class TestTimelines extends BasicTestCase {
 			// The same in the create dialog: a draft of a new entry action.
 			TLObject draft = de.haumacher.ehome.runtime.RuleDrafts.draft(_standby, "entry", runtime("WriteAction"));
 			RuleForm dialog = new RuleForm(draft);
-			dialog.set("datapoint", write.tValueByName("datapoint"));
+			dialog.set("datapoint", write.getDatapoint());
 			dialog.set("value", "1");
 			assertEquals(1, dialog.warnings("value").size());
 		} finally {
@@ -450,8 +473,8 @@ public class TestTimelines extends BasicTestCase {
 		Map<String, Object> stored = RuntimeImage.build(_project, 1, NOW).getJson();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			for (TLObject point : RuleFunctions.objects(_workday, "points")) {
-				if (point.tValueByName("state") == _standby) {
-					point.tUpdateByName("state", _comfort);
+				if (((TimelinePoint) point).getState() == _standby) {
+					((TimelinePoint) point).setState(_comfort);
 				}
 			}
 			_standby.tDelete();
@@ -487,31 +510,31 @@ public class TestTimelines extends BasicTestCase {
 		assertTrue(warnings.get(0), warnings.get(0).contains(text));
 	}
 
-	private TLObject state(String id, ResKey label, String mode) {
-		TLObject result = RuleFunctions.create(_rule, "states", runtime("RuleState"));
-		result.tUpdateByName("identifier", id);
-		result.tUpdateByName("label", label);
-		for (TLObject address : List.of(_living, _bedroom)) {
-			TLObject write = RuleFunctions.create(result, "entry", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", address);
-			write.tUpdateByName("value", mode);
+	private RuleState state(String id, ResKey label, String mode) {
+		RuleState result = (RuleState) RuleFunctions.create(_rule, "states", runtime("RuleState"));
+		result.setIdentifier(id);
+		result.setLabel(label);
+		for (GroupAddress address : List.of(_living, _bedroom)) {
+			WriteAction write = (WriteAction) RuleFunctions.create(result, "entry", runtime("WriteAction"));
+			write.setDatapoint(address);
+			write.setValue(mode);
 		}
 		return result;
 	}
 
-	private static TLObject point(TLObject plan, String time, TLObject state) {
-		TLObject result = RuleFunctions.create(plan, "points", runtime("TimelinePoint"));
-		result.tUpdateByName("time", time);
-		result.tUpdateByName("state", state);
+	private static TimelinePoint point(TLObject plan, String time, RuleState state) {
+		TimelinePoint result = (TimelinePoint) RuleFunctions.create(plan, "points", runtime("TimelinePoint"));
+		result.setTime(time);
+		result.setState(state);
 		return result;
 	}
 
-	private static TLObject address(String name, int sub, TLObject type) {
-		TLObject address = create("ehome.logical:GroupAddress");
-		address.tUpdateByName("name", name);
-		address.tUpdateByName("address", new GA((1 << 11) | (4 << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.tUpdateByName("datapointTypes", List.of(type));
-		address.tUpdateByName("runtimeWritable", Boolean.TRUE);
+	private static GroupAddress address(String name, int sub, TLObject type) {
+		GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
+		address.setName(name);
+		address.setAddress(new GA((1 << 11) | (4 << 8) | sub, GroupAddressStyle.ThreeLevel));
+		address.setDatapointTypes(List.of(type));
+		address.setRuntimeWritable(Boolean.TRUE);
 		return address;
 	}
 
@@ -556,7 +579,7 @@ public class TestTimelines extends BasicTestCase {
 		return ResKey.builder().add(Locale.ENGLISH, en).add(Locale.GERMAN, de).build();
 	}
 
-	private static Object weekday(String name) {
+	private static TLClassifier weekday(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:Weekday")).getClassifier(name);
 	}
 

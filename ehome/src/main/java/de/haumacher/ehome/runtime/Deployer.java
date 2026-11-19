@@ -33,6 +33,9 @@ import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.connection.Signatures.Keys;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.binary.CompileException;
@@ -125,7 +128,7 @@ public final class Deployer {
 	 * Why the project cannot be deployed now, <code>null</code> if it can.
 	 */
 	public static ResKey veto(TLObject project) {
-		if (project.tValueByName("controller") instanceof TLObject target && target.tValid()) {
+		if (((Project) project).getController() instanceof TLObject target && target.tValid()) {
 			// A project deploys to its own controllers only (haumacher/ehome #151).
 			ResKey foreign = ProjectControllers.foreignVeto(project, target);
 			if (foreign != null) {
@@ -149,9 +152,9 @@ public final class Deployer {
 		if (ControllerConnections.get(controller) != null) {
 			return null;
 		}
-		Object name = controller.tValueByName("name");
-		boolean host = !blank(controller.tValueByName("host"));
-		boolean token = !blank(controller.tValueByName("token"));
+		Object name = ((Controller) controller).getName();
+		boolean host = !blank(((Controller) controller).getHost());
+		boolean token = !blank(((Controller) controller).getToken());
 		if (ControllerConnections.controllerId(controller) != null && !(host && token)) {
 			return offline(controller);
 		}
@@ -169,8 +172,8 @@ public final class Deployer {
 	 * contact.
 	 */
 	public static ResKey offline(TLObject controller) {
-		Object name = controller.tValueByName("name");
-		Object contact = controller.tValueByName("lastContact");
+		Object name = ((Controller) controller).getName();
+		Object contact = ((Controller) controller).getLastContact();
 		if (contact instanceof Date date) {
 			return I18NConstants.ERROR_OFFLINE__CONTROLLER_LAST_CONTACT.fill(name,
 				DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Resources.getInstance().getLocale())
@@ -188,7 +191,7 @@ public final class Deployer {
 	 * is not one of the project's own (haumacher/ehome #151, {@link #veto(TLObject)} names it).
 	 */
 	public static TLObject controller(TLObject project) {
-		return project.tValueByName("controller") instanceof TLObject controller
+		return ((Project) project).getController() instanceof TLObject controller
 			&& ProjectControllers.isOwn(project, controller) ? controller : null;
 	}
 
@@ -206,12 +209,13 @@ public final class Deployer {
 			ResKey reason = ControllerConnections.controllerId(controller) != null ? offline(controller) : localNetwork;
 			return ControllerClient.offline(text(I18NConstants.ADDRESS_OFFLINE), text(reason), TIMEOUT);
 		}
-		Object host = controller.tValueByName("host");
-		Object port = controller.tValueByName("port");
-		Object token = controller.tValueByName("token");
+		Controller target = (Controller) controller;
+		Object host = target.getHost();
+		Object port = Integer.valueOf(target.getPort());
+		Object token = target.getToken();
 		if (blank(host) || (ControllerConnections.controllerId(controller) != null && blank(token))) {
 			ResKey reason = ControllerConnections.controllerId(controller) != null ? offline(controller)
-				: I18NConstants.ERROR_NO_HOST__CONTROLLER.fill(controller.tValueByName("name"));
+				: I18NConstants.ERROR_NO_HOST__CONTROLLER.fill(target.getName());
 			return ControllerClient.offline(text(I18NConstants.ADDRESS_OFFLINE), text(reason), TIMEOUT);
 		}
 		return new ControllerClient(host.toString().trim(),
@@ -222,7 +226,7 @@ public final class Deployer {
 	 * The revision the next deployment of the project carries.
 	 */
 	public static long nextRevision(TLObject project) {
-		return project.tValueByName("imageRevision") instanceof Number last ? last.longValue() + 1 : 1;
+		return ((Project) project).getImageRevision() instanceof Number last ? last.longValue() + 1 : 1;
 	}
 
 	/**
@@ -286,25 +290,25 @@ public final class Deployer {
 	 * the history no longer reaches back to its state.
 	 */
 	public static ResKey redeployVeto(TLObject project, TLObject earlier) {
-		if (earlier == null || !earlier.tValid() || !(project.tValueByName("deployments") instanceof Collection<?> all)
-			|| !all.contains(earlier)) {
+		if (earlier == null || !earlier.tValid() || !((Project) project).getDeployments().contains(earlier)) {
 			return I18NConstants.ERROR_REDEPLOY_NO_DEPLOYMENT;
 		}
 		ResKey veto = veto(project);
 		if (veto != null) {
 			return veto;
 		}
-		if (Boolean.TRUE.equals(earlier.tValueByName("unload"))) {
+		Deployment entry = (Deployment) earlier;
+		if (entry.getUnload()) {
 			return I18NConstants.ERROR_REDEPLOY_UNLOAD;
 		}
-		if (!Boolean.TRUE.equals(earlier.tValueByName("accepted"))) {
+		if (!entry.getAccepted()) {
 			// No controller ever ran this image (E-Home did not send it, or the controller refused it):
 			// there is no working state to go back to.
-			return I18NConstants.ERROR_REDEPLOY_NOT_ACCEPTED__REVISION.fill(earlier.tValueByName("revision"));
+			return I18NConstants.ERROR_REDEPLOY_NOT_ACCEPTED__REVISION.fill(entry.getRevision());
 		}
 		State state = state(earlier);
 		if (state == null) {
-			return I18NConstants.ERROR_REDEPLOY_RESENT__REVISION.fill(earlier.tValueByName("revision"));
+			return I18NConstants.ERROR_REDEPLOY_RESENT__REVISION.fill(entry.getRevision());
 		}
 		if (state.commit() < HistoryUtils.getHistoryManager().getFirstRevision()) {
 			return I18NConstants.ERROR_REDEPLOY_HISTORY_GONE__COMMIT.fill(Long.valueOf(state.commit()));
@@ -347,17 +351,17 @@ public final class Deployer {
 	/** The longest chain of deployments going back to earlier ones that is followed. */
 	private static final int MAX_CHAIN = 1000;
 
-	private static State state(TLObject deployment, int depth) {
-		if (deployment == null || !deployment.tValid() || depth > MAX_CHAIN
-			|| Boolean.TRUE.equals(deployment.tValueByName("unload"))) {
+	private static State state(TLObject object, int depth) {
+		if (object == null || !object.tValid() || depth > MAX_CHAIN || ((Deployment) object).getUnload()) {
 			return null;
 		}
-		Instant time = deployment.tValueByName("time") instanceof Date date ? date.toInstant() : null;
+		Deployment deployment = (Deployment) object;
+		Instant time = deployment.getTime() instanceof Date date ? date.toInstant() : null;
 		if (time == null) {
 			return null;
 		}
-		if (deployment.tValueByName(SOURCE_REVISION) instanceof Number commit) {
-			if (deployment.tValueByName(REDEPLOYED_FROM) instanceof TLObject earlier) {
+		if (deployment.getSourceRevision() instanceof Number commit) {
+			if (deployment.getRedeployedFrom() instanceof TLObject earlier) {
 				State origin = state(earlier, depth + 1);
 				return new State(commit.longValue(), origin != null ? origin.generatedAt() : time);
 			}
@@ -366,7 +370,7 @@ public final class Deployer {
 		// Recorded before haumacher/ehome #192: compiled right before its record, unless it sent an earlier
 		// image again, which reads no status of the controller (an image E-Home refused itself is recorded
 		// before the status is read).
-		boolean compiled = deployment.tValueByName("before") != null || CODE_INVALID.equals(deployment.tValueByName("code"));
+		boolean compiled = deployment.getBefore() != null || CODE_INVALID.equals(deployment.getCode());
 		long created = deployment.tHandle().getCreateCommitNumber();
 		if (!compiled || created <= 0 || created > HistoryUtils.getSessionRevision().getCommitNumber()) {
 			return null;
@@ -419,7 +423,7 @@ public final class Deployer {
 		}
 		ControllerStatus.Loaded before = ControllerStatus.read(client);
 		outcome._before = before.text();
-		ResKey formatRefusal = formatRefusal(reportedFormat(client, before), controller.tValueByName("name"),
+		ResKey formatRefusal = formatRefusal(reportedFormat(client, before), ((Controller) controller).getName(),
 			ImageCompiler.formatMinor(image.getJson()));
 		if (before.answered() && formatRefusal != null) {
 			// A firmware reading JSON images (or another major format) cannot load the binary image: nothing is sent.
@@ -661,7 +665,7 @@ public final class Deployer {
 		outcome._status = Integer.valueOf(answer.status());
 		if (answer.status() == 200) {
 			outcome._accepted = true;
-			outcome._message = text(I18NConstants.UNLOAD_DONE__CONTROLLER.fill(controller.tValueByName("name")));
+			outcome._message = text(I18NConstants.UNLOAD_DONE__CONTROLLER.fill(((Controller) controller).getName()));
 		} else {
 			String code = answer.string("code");
 			String error = answer.string("error");
@@ -739,49 +743,49 @@ public final class Deployer {
 			Long revision, Instant now, Outcome outcome) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(commitMessage(project, controller, revision, outcome))) {
-			TLObject deployment = create("ehome.runtime:Deployment");
-			deployment.tUpdateByName("unload", Boolean.valueOf(outcome._unload));
-			deployment.tUpdateByName("revision", revision);
-			deployment.tUpdateByName("time", Date.from(now));
-			deployment.tUpdateByName("controller", controller);
-			deployment.tUpdateByName("target", controller.tValueByName("name") + " (" + client.address() + ")");
-			deployment.tUpdateByName("accepted", Boolean.valueOf(outcome._accepted));
-			deployment.tUpdateByName("status", outcome._status);
-			deployment.tUpdateByName("code", outcome._code);
+			Deployment deployment = (Deployment) create("ehome.runtime:Deployment");
+			Deployment earlier = (Deployment) outcome._earlier;
+			deployment.setUnload(outcome._unload);
+			deployment.setRevision(revision);
+			deployment.setTime(Date.from(now));
+			deployment.setController((Controller) controller);
+			deployment.setTarget(((Controller) controller).getName() + " (" + client.address() + ")");
+			deployment.setAccepted(outcome._accepted);
+			deployment.setStatus(outcome._status);
+			deployment.setCode(outcome._code);
 			// A deployment that goes back to an earlier one names it first (haumacher/ehome #192).
-			deployment.tUpdateByName("message", outcome._earlier == null ? outcome._message
-				: text(I18NConstants.REDEPLOY_FROM__REVISION_TIME.fill(outcome._earlier.tValueByName("revision"),
-					time(outcome._earlier.tValueByName("time")))) + " " + outcome._message);
-			deployment.tUpdateByName("before", outcome._before);
-			deployment.tUpdateByName("bytes", outcome._bytes);
-			deployment.tUpdateByName("total", Integer.valueOf(outcome._total));
-			deployment.tUpdateByName("signature", outcome._signature);
-			deployment.tUpdateByName("keyFingerprint", outcome._fingerprint);
-			deployment.tUpdateByName(SOURCE_REVISION, outcome._state == null ? null : Long.valueOf(outcome._state.commit()));
-			deployment.tUpdateByName(REDEPLOYED_FROM, outcome._earlier);
-			List<TLObject> refusals = new ArrayList<>();
+			deployment.setMessage(earlier == null ? outcome._message
+				: text(I18NConstants.REDEPLOY_FROM__REVISION_TIME.fill(earlier.getRevision(), time(earlier.getTime())))
+					+ " " + outcome._message);
+			deployment.setBefore(outcome._before);
+			deployment.setBytes(outcome._bytes);
+			deployment.setTotal(Integer.valueOf(outcome._total));
+			deployment.setSignature(outcome._signature);
+			deployment.setKeyFingerprint(outcome._fingerprint);
+			deployment.setSourceRevision(outcome._state == null ? null : Long.valueOf(outcome._state.commit()));
+			deployment.setRedeployedFrom(earlier);
+			List<de.haumacher.ehome.model.runtime.Refusal> refusals = new ArrayList<>();
 			for (Refusal refusal : outcome._refusals) {
-				TLObject stored = create("ehome.runtime:Refusal");
-				stored.tUpdateByName("path", refusal.path());
-				stored.tUpdateByName("reason", refusal.reason());
-				stored.tUpdateByName("message", refusal.translations());
+				de.haumacher.ehome.model.runtime.Refusal stored =
+					(de.haumacher.ehome.model.runtime.Refusal) create("ehome.runtime:Refusal");
+				stored.setPath(refusal.path());
+				stored.setReason(refusal.reason());
+				stored.setMessage(refusal.translations());
 				// An image of an earlier state leads to the historic objects: the refusal names them as they are now.
-				stored.tUpdateByName("element", image == null ? null : current(image.elementAt(refusal.path())));
+				stored.setElement(image == null ? null : current(image.elementAt(refusal.path())));
 				refusals.add(stored);
 			}
-			deployment.tUpdateByName("refusals", refusals);
+			deployment.setRefusals(refusals);
 			if (outcome._accepted && !outcome._unload && outcome._image != null) {
 				// The last valid deployment of the controller from now on (haumacher/ehome #176).
 				LastValidImages.store(controller, deployment, outcome._image);
 			}
-			List<Object> deployments = new ArrayList<>();
+			List<Deployment> deployments = new ArrayList<>();
 			deployments.add(deployment);
-			if (project.tValueByName("deployments") instanceof Collection<?> before) {
-				deployments.addAll(before);
-			}
-			project.tUpdateByName("deployments", deployments);
+			deployments.addAll(((Project) project).getDeployments());
+			((Project) project).setDeployments(deployments);
 			if (outcome._accepted && !outcome._unload && !outcome._foreign && revision != null) {
-				project.tUpdateByName("imageRevision", revision);
+				((Project) project).setImageRevision(revision);
 			}
 			tx.commit();
 			return deployment;
@@ -794,7 +798,8 @@ public final class Deployer {
 	 */
 	private static ResKey commitMessage(TLObject project, TLObject controller, Long revision, Outcome outcome) {
 		String projectLabel = MetaLabelProvider.INSTANCE.getLabel(project);
-		String controllerName = String.valueOf(controller.tValueByName("name"));
+		String controllerName = String.valueOf(((Controller) controller).getName());
+
 		if (outcome._unload) {
 			return outcome._accepted ? I18NConstants.COMMIT_UNLOADED__PROJECT_CONTROLLER.fill(projectLabel, controllerName)
 				: I18NConstants.COMMIT_UNLOAD_FAILED__PROJECT_CONTROLLER.fill(projectLabel, controllerName);

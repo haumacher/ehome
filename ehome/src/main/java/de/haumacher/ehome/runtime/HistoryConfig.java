@@ -25,6 +25,13 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.HistoryArchive;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.ChartElement;
+import de.haumacher.ehome.model.runtime.ChartSeries;
+import de.haumacher.ehome.model.runtime.Function;
 
 /**
  * The history the controller keeps of a datapoint (haumacher/ehome #73, homecontrol #56): a raw ring
@@ -782,7 +789,8 @@ public final class HistoryConfig {
 			List<Need> needs = new ArrayList<>();
 			boolean bars = !ValueTypes.BOOLEAN.equals(Pages.valueType(datapoint));
 			for (Pages.ChartUse use : entry.getValue()) {
-				needs.addAll(needs(use, bars && "consumption".equals(Pages.name(use.series().tValueByName("consolidation")))));
+				needs.addAll(needs(use,
+					bars && "consumption".equals(Pages.name(((ChartSeries) use.series()).getConsolidation()))));
 			}
 			Derivation derivation = derivation(needs, shown.contains(datapoint));
 			if (derivation != null) {
@@ -801,7 +809,7 @@ public final class HistoryConfig {
 				}
 			}
 		}
-		Object budget = project.tValueByName("historyBudget");
+		Object budget = ((Project) project).getHistoryBudget();
 		long ramLimit = budget instanceof Number number ? number.longValue() : ImageValidator.HISTORY_CAP;
 
 		Map<TLObject, Derivation> fitted = new LinkedHashMap<>();
@@ -881,7 +889,7 @@ public final class HistoryConfig {
 	private static Set<TLObject> shownByFunctions(TLObject project) {
 		Set<TLObject> result = new HashSet<>();
 		for (TLObject function : FunctionProposal.functions(project)) {
-			for (String role : FunctionKinds.roles(Pages.name(function.tValueByName("kind")))) {
+			for (String role : FunctionKinds.roles(Pages.name(((Function) function).getKind()))) {
 				if (function.tValueByName(role) instanceof TLObject datapoint) {
 					result.add(datapoint);
 				}
@@ -1107,8 +1115,8 @@ public final class HistoryConfig {
 	private static long chartBytes(TLObject chart, ToLongFunction<TLObject> bytes) {
 		long result = 0;
 		Set<TLObject> seen = new HashSet<>();
-		for (TLObject series : RuleExport.objects(chart.tValueByName("series"))) {
-			if (series.tValueByName("datapoint") instanceof TLObject drawn
+		for (TLObject series : RuleExport.objects(((ChartElement) chart).getSeries())) {
+			if (((ChartSeries) series).getDatapoint() instanceof TLObject drawn
 				&& seen.add(BlockInstances.historyTarget(drawn))) {
 				TLObject datapoint = BlockInstances.historyTarget(drawn);
 				result += bytes.applyAsLong(datapoint);
@@ -1144,21 +1152,20 @@ public final class HistoryConfig {
 	public static void setManual(TLObject datapoint) {
 		History derived = derived(datapoint);
 		clearManual(datapoint);
-		datapoint.tUpdateByName("historyManual", Boolean.TRUE);
 		if (derived == null) {
+			setHistory(datapoint, true, null, null, List.of());
 			return;
 		}
-		datapoint.tUpdateByName("historyRetention", Integer.valueOf((int) derived.retention()));
-		datapoint.tUpdateByName("historySpacing", Integer.valueOf((int) derived.spacing()));
-		List<TLObject> archives = new ArrayList<>();
+		List<HistoryArchive> archives = new ArrayList<>();
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive");
 		for (Archive archive : derived.archives()) {
-			TLObject part = ModelService.getInstance().getFactory().createObject(type);
-			part.tUpdateByName("resolution", Integer.valueOf((int) archive.resolution()));
-			part.tUpdateByName("retention", Integer.valueOf((int) archive.retention()));
+			HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory().createObject(type);
+			part.setResolution((int) archive.resolution());
+			part.setRetention((int) archive.retention());
 			archives.add(part);
 		}
-		datapoint.tUpdateByName("historyArchives", archives);
+		setHistory(datapoint, true, Integer.valueOf((int) derived.retention()), Integer.valueOf((int) derived.spacing()),
+			archives);
 	}
 
 	/**
@@ -1167,14 +1174,34 @@ public final class HistoryConfig {
 	 */
 	public static void reset(TLObject datapoint) {
 		clearManual(datapoint);
-		datapoint.tUpdateByName("historyManual", null);
+		// Stored as false, the storage of a truth value has no empty value.
+		setHistory(datapoint, false, null, null, List.of());
+	}
+
+	/**
+	 * Sets the history attributes of a group address or an application datapoint, which declare them
+	 * each on its own.
+	 */
+	private static void setHistory(TLObject datapoint, boolean manual, Integer retention, Integer spacing,
+			List<HistoryArchive> archives) {
+		if (datapoint instanceof GroupAddress address) {
+			address.setHistoryManual(manual);
+			address.setHistoryRetention(retention);
+			address.setHistorySpacing(spacing);
+			address.setHistoryArchives(archives);
+		} else {
+			ApplicationDatapoint application = (ApplicationDatapoint) datapoint;
+			application.setHistoryManual(manual);
+			application.setHistoryRetention(retention);
+			application.setHistorySpacing(spacing);
+			application.setHistoryArchives(archives);
+		}
 	}
 
 	private static void clearManual(TLObject datapoint) {
-		datapoint.tUpdateByName("historyRetention", null);
-		datapoint.tUpdateByName("historySpacing", null);
 		List<TLObject> archives = manualArchives(datapoint);
-		datapoint.tUpdateByName("historyArchives", List.of());
+		setHistory(datapoint, isManual(datapoint), null, null, List.of());
+
 		for (TLObject archive : archives) {
 			if (archive.tValid()) {
 				archive.tDelete();
@@ -1263,7 +1290,7 @@ public final class HistoryConfig {
 			ram += history.ramBytes();
 			flash += history.flashBytes();
 		}
-		Object budget = project.tValueByName("historyBudget");
+		Object budget = ((Project) project).getHistoryBudget();
 		long limit = budget instanceof Number number ? number.longValue() : ImageValidator.HISTORY_CAP;
 		Integer cap = Integer.valueOf(ImageValidator.HISTORY_CAP);
 		ResKey ramText;

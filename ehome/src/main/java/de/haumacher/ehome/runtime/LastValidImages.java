@@ -5,7 +5,6 @@ package de.haumacher.ehome.runtime;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 
@@ -14,6 +13,9 @@ import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
@@ -66,13 +68,12 @@ public final class LastValidImages {
 	 */
 	public static Entry get(TLObject controller) {
 		TLObject project = controller == null ? null : controller.tContainer();
-		if (project == null || !(project.tValueByName("deployments") instanceof Collection<?> deployments)) {
+		if (!(project instanceof Project owner)) {
 			return null;
 		}
-		for (Object item : deployments) {
-			if (item instanceof TLObject deployment && deployment.tValueByName("controller") == controller
-				&& Boolean.TRUE.equals(deployment.tValueByName("accepted"))
-				&& deployment.tValueByName(IMAGE) instanceof BinaryData data) {
+		for (Deployment deployment : owner.getDeployments()) {
+			if (deployment.getController() == controller && deployment.getAccepted()
+				&& deployment.getImage() instanceof BinaryData data) {
 				try (InputStream in = data.getStream()) {
 					return entry(controller, in.readAllBytes());
 				} catch (IOException ex) {
@@ -90,15 +91,15 @@ public final class LastValidImages {
 	 */
 	public static void store(TLObject controller, TLObject deployment, byte[] image) {
 		TLObject project = controller.tContainer();
-		if (project != null && project.tValueByName("deployments") instanceof Collection<?> deployments) {
-			for (Object item : deployments) {
-				if (item instanceof TLObject other && other != deployment && other.tValueByName("controller") == controller
-					&& other.tValueByName(IMAGE) != null) {
-					other.tUpdateByName(IMAGE, null);
+		if (project instanceof Project owner) {
+			for (Deployment other : owner.getDeployments()) {
+				if (other != deployment && other.getController() == controller && other.getImage() != null) {
+					other.setImage(null);
 				}
 			}
 		}
-		deployment.tUpdateByName(IMAGE, BinaryDataFactory.createBinaryData(image, RuntimeImage.BINARY_CONTENT_TYPE, FILE_NAME));
+		((Deployment) deployment).setImage(
+			BinaryDataFactory.createBinaryData(image, RuntimeImage.BINARY_CONTENT_TYPE, FILE_NAME));
 	}
 
 	/**
@@ -113,7 +114,7 @@ public final class LastValidImages {
 				return entry(controller, answer.bytes());
 			}
 		} catch (IOException | DecodeException ex) {
-			Logger.info("The image controller " + controller.tValueByName("name") + " runs could not be read: "
+			Logger.info("The image controller " + ((Controller) controller).getName() + " runs could not be read: "
 				+ ex.getMessage(), LastValidImages.class);
 		}
 		return null;
@@ -127,7 +128,8 @@ public final class LastValidImages {
 			if (view.get("image") instanceof Map<?, ?> header) {
 				revision = header.get("revision") instanceof Number number ? Long.valueOf(number.longValue()) : null;
 				TLObject project = controller.tContainer();
-				own = project != null && Objects.equals(header.get("projectId"), project.tValueByName("extId"));
+				own = project instanceof Project owner && Objects.equals(header.get("projectId"), owner.getExtId());
+
 			}
 		} catch (DecodeException ex) {
 			// Kept as it is: the controller ran it.

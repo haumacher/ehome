@@ -28,6 +28,8 @@ import com.top_logic.model.TLStructuredType;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.runtime.ExpressionRenames.RenamedDatapoint;
 import de.haumacher.ehome.runtime.ExpressionRenames.RenamedParameter;
 
@@ -297,7 +299,8 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 		List<RenamedDatapoint> result = new ArrayList<>();
 		for (RenamedDatapoint datapoint : renamed) {
 			TLObject obj = datapoint.datapoint();
-			boolean persist = Boolean.TRUE.equals(obj.tValueByName(Pages.isGroupAddress(obj) ? "runtimePersist" : "persist"));
+			boolean persist = obj instanceof GroupAddress address ? address.getRuntimePersist()
+				: obj instanceof ApplicationDatapoint application && application.getPersist();
 			boolean history = HistoryConfig.isManual(obj) ? HistoryConfig.manual(obj) != null : derived.get(obj) != null;
 			if (persist || history) {
 				result.add(datapoint);
@@ -423,8 +426,9 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	}
 
 	static String identifier(TLObject obj) {
-		Object id = obj.tValueByName("identifier");
-		return id == null || id.toString().isBlank() ? null : id.toString().trim();
+		Object id = Identifiers.of(obj);
+		return id == null
+ || id.toString().isBlank() ? null : id.toString().trim();
 	}
 
 	/**

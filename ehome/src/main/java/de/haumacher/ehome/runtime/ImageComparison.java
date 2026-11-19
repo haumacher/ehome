@@ -22,12 +22,14 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.connection.InstallationKeys;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.binary.CompileException;
 import de.haumacher.ehome.runtime.binary.ImageCompiler;
-import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
+import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.binary.Layout;
 
 /**
@@ -370,7 +372,7 @@ public final class ImageComparison {
 		TLObject controller = Deployer.controller(project);
 		Long next = Long.valueOf(Deployer.nextRevision(project));
 		return confirmation(project, project, now, false,
-			I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, controller.tValueByName("name")));
+			I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, ((Controller) controller).getName()));
 	}
 
 	/**
@@ -387,8 +389,8 @@ public final class ImageComparison {
 		Long next = Long.valueOf(Deployer.nextRevision(project));
 		Deployer.State state = Deployer.state(earlier);
 		return confirmation(project, Deployer.source(project, state), state.generatedAt(), true,
-			I18NConstants.CONFIRM_REDEPLOY__REVISION_TIME_NEXT_CONTROLLER.fill(earlier.tValueByName("revision"),
-				Deployer.time(earlier.tValueByName("time")), next, controller.tValueByName("name")));
+			I18NConstants.CONFIRM_REDEPLOY__REVISION_TIME_NEXT_CONTROLLER.fill(((Deployment) earlier).getRevision(),
+				Deployer.time(((Deployment) earlier).getTime()), next, ((Controller) controller).getName()));
 	}
 
 	private static String confirmation(TLObject project, TLObject source, Instant generatedAt, boolean earlier,
@@ -413,7 +415,8 @@ public final class ImageComparison {
 		}
 		if (result.state() != State.UNKNOWN) {
 			String reported = reportedFormat(controller);
-			ResKey format = "".equals(reported) ? null : Deployer.formatRefusal(reported, controller.tValueByName("name"),
+			ResKey format = "".equals(reported) ? null : Deployer.formatRefusal(reported, ((Controller) controller).getName(),
+
 				ImageCompiler.formatMinor(image.getJson()));
 			if (format != null) {
 				text += "\n\n" + text(format);

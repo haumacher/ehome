@@ -7,6 +7,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.apply;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +24,11 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.DismissedProposal;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
+
 
 /**
  * A deleted proposed function stays dismissed (haumacher/ehome #49): on the demo project
@@ -43,22 +48,22 @@ public class TestFunctionDismissal extends BasicTestCase {
 		try {
 			TLObject project = projects.get(0);
 			assertEquals(3, apply(project).size());
-			TLObject socket = FunctionProposal.functions(project).stream()
+			Function socket = (Function) FunctionProposal.functions(project).stream()
 				.filter(f -> "switch".equals(FunctionProposal.kind(f))).findFirst().orElseThrow();
-			Object name = socket.tValueByName("name");
-			Object device = socket.tValueByName("device");
-			Object channel = socket.tValueByName("channel");
+			Object name = socket.getNameKey();
+			Object device = socket.getDevice();
+			Object channel = socket.getChannel();
 			assertNotNull(device);
 			assertNotNull(channel);
 
-			TLObject dismissal = dismiss(socket);
+			DismissedProposal dismissal = (DismissedProposal) dismiss(socket);
 			assertNotNull(dismissal);
 			assertFalse(socket.tValid());
 			assertEquals(List.of(dismissal), dismissals(project));
-			assertEquals(name, dismissal.tValueByName("name"));
+			assertEquals(name, dismissal.getNameKey());
 			assertEquals("switch", FunctionProposal.kind(dismissal));
-			assertSame(device, dismissal.tValueByName("device"));
-			assertEquals(channel, dismissal.tValueByName("channel"));
+			assertSame(device, dismissal.getDevice());
+			assertEquals(channel, dismissal.getChannel());
 			assertEquals(2, FunctionProposal.functions(project).size());
 
 			// Two more runs of the proposal: the socket stays away, the dismissal stays.
@@ -68,14 +73,14 @@ public class TestFunctionDismissal extends BasicTestCase {
 			assertEquals(List.of(dismissal), dismissals(project));
 
 			// A function the user made is deleted without a dismissal.
-			TLObject own;
+			Function own;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				own = TestFunctionProposal.create("ehome.runtime:Function");
-				own.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Klingel")));
-				own.tUpdateByName("kind", FunctionProposal.classifier("button"));
-				List<TLObject> functions = FunctionProposal.functions(project);
+				own = (Function) TestFunctionProposal.create("ehome.runtime:Function");
+				own.setNameKey(FunctionProposal.text(Map.of("de", "Klingel")));
+				own.setKind(FunctionProposal.classifier("button"));
+				List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 				functions.add(own);
-				project.tUpdateByName("functions", functions);
+				((Project) project).setFunctions(functions);
 				tx.commit();
 			}
 			assertNull(dismiss(own));
@@ -90,9 +95,9 @@ public class TestFunctionDismissal extends BasicTestCase {
 			List<TLObject> back = apply(project);
 			assertEquals(1, back.size());
 			assertEquals("switch", FunctionProposal.kind(back.get(0)));
-			assertSame(device, back.get(0).tValueByName("device"));
-			assertEquals(channel, back.get(0).tValueByName("channel"));
-			assertEquals(name, back.get(0).tValueByName("name"));
+			assertSame(device, ((Function) back.get(0)).getDevice());
+			assertEquals(channel, ((Function) back.get(0)).getChannel());
+			assertEquals(name, ((Function) back.get(0)).getNameKey());
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
@@ -107,7 +112,7 @@ public class TestFunctionDismissal extends BasicTestCase {
 	}
 
 	private static List<?> dismissals(TLObject project) {
-		return List.copyOf((java.util.Collection<?>) project.tValueByName(FunctionProposal.DISMISSED));
+		return List.copyOf(((Project) project).getDismissedProposals());
 	}
 
 	public static Test suite() {

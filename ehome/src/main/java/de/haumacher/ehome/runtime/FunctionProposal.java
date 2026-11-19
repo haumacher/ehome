@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.function.Function;
+
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +30,8 @@ import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
+import com.top_logic.model.TLNamed;
+
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
@@ -41,11 +43,22 @@ import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.Control;
+import de.haumacher.ehome.model.runtime.DismissedProposal;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -403,7 +416,8 @@ public final class FunctionProposal {
 		}
 
 		int addressValue() {
-			return address != null && address.tValueByName("address") instanceof GA ga ? ga.getValue()
+			return address != null && ((GroupAddress) address).getAddress() instanceof GA ga ? ga.getValue()
+
 				: Integer.MAX_VALUE;
 		}
 
@@ -646,8 +660,9 @@ public final class FunctionProposal {
 
 		List<TLObject> existing = functions(project);
 		Decision decision = new Decision();
-		for (TLObject function : existing) {
-			String identity = identity(function.tValueByName("device"), function.tValueByName("channel"));
+		for (TLObject object : existing) {
+			Function function = (Function) object;
+			String identity = identity(function.getDevice(), function.getChannel());
 			String kind = kind(function);
 			if (identity != null) {
 				decision._proposedChannels.add(identity);
@@ -655,7 +670,7 @@ public final class FunctionProposal {
 			}
 			String main = FunctionKinds.boundMainRole(kind, function::tValueByName);
 			if (main != null && function.tValueByName(main) instanceof TLObject address) {
-				String key = mainKey(kind, address, function.tValueByName("scene"));
+				String key = mainKey(kind, address, function.getScene());
 				decision._boundMainRoles.add(key);
 				decision._byMainRole.putIfAbsent(key, function);
 			}
@@ -666,16 +681,16 @@ public final class FunctionProposal {
 			}
 			for (String role : FunctionKinds.commandRoles(kind)) {
 				if (function.tValueByName(role) instanceof TLObject datapoint) {
-					decision.commands(datapoint, function.tValueByName("device"));
+					decision.commands(datapoint, function.getDevice());
 				}
 			}
-			if (function.tValueByName("identifier") != null) {
-				decision._identifiers.add(function.tValueByName("identifier").toString());
+			if (function.getIdentifier() != null) {
+				decision._identifiers.add(function.getIdentifier().toString());
 			}
 		}
 
-		for (TLObject dismissal : list(project, DISMISSED)) {
-			String identity = identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel"));
+		for (DismissedProposal dismissal : dismissals(project)) {
+			String identity = identity(dismissal.getDevice(), dismissal.getChannel());
 			if (identity != null) {
 				decision._dismissed.add(kind(dismissal) + " " + identity);
 			}
@@ -738,9 +753,11 @@ public final class FunctionProposal {
 			}
 		}
 		if (!added.isEmpty()) {
-			List<TLObject> all = new ArrayList<>(existing);
-			all.addAll(added);
-			project.tUpdateByName("functions", all);
+			List<Function> all = RuleImport.typed(existing);
+			for (TLObject function : added) {
+				all.add((Function) function);
+			}
+			((Project) project).setFunctions(all);
 		}
 		updated.removeAll(overwritten.changed());
 		return new Run(added, new ArrayList<>(updated), warnings, overwritten.changed(), overwritten.renamed(),
@@ -754,8 +771,8 @@ public final class FunctionProposal {
 	private static Set<TLObject> controlSources(List<TLObject> functions) {
 		Set<TLObject> result = new HashSet<>();
 		for (TLObject function : functions) {
-			for (TLObject control : list(function, "controls")) {
-				if (control.tValueByName("device") instanceof TLObject device) {
+			for (TLObject control : RuleExport.objects(((Function) function).getControls())) {
+				if (((Control) control).getDevice() instanceof TLObject device) {
 					result.add(device);
 				}
 			}
@@ -831,28 +848,28 @@ public final class FunctionProposal {
 			// ones give theirs up first, so that two functions may swap their names.
 			Set<String> identifiers = new HashSet<>();
 			for (TLObject function : functions(project)) {
-				if (!renaming.contains(function) && function.tValueByName("identifier") != null) {
-					identifiers.add(function.tValueByName("identifier").toString());
+				if (!renaming.contains(function) && ((Function) function).getIdentifier() != null) {
+					identifiers.add(((Function) function).getIdentifier().toString());
 				}
 			}
 			List<Rename> renames = new ArrayList<>();
-			for (TLObject function : differing) {
+			for (TLObject object : differing) {
+				Function function = (Function) object;
 				Proposal proposal = matches.get(function);
 				if (renaming.contains(function)) {
-					ResKey before = function.tValueByName("name") instanceof ResKey key ? key : null;
+					ResKey before = function.getNameKey();
 					ResKey name = proposal.name();
-					function.tUpdateByName("name", name);
-					function.tUpdateByName("identifier",
-						uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
+					function.setNameKey(name);
+					function.setIdentifier(uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 					renames.add(new Rename(function, before, name));
 				}
 				String kind = kind(function);
 				if (!proposal.kind().equals(kind)) {
-					function.tUpdateByName("kind", classifier(proposal.kind()));
+					function.setKind(classifier(proposal.kind()));
 				}
-				Object room = room(proposal);
-				if (function.tValueByName("room") != room) {
-					function.tUpdateByName("room", room);
+				BuildingDefinition room = room(proposal);
+				if (function.getRoom() != room) {
+					function.setRoom(room);
 				}
 				for (String role : roles(kind, proposal.kind())) {
 					TLObject datapoint = proposal.roles().get(role);
@@ -870,7 +887,7 @@ public final class FunctionProposal {
 		 */
 		private static boolean differs(TLObject function, Proposal proposal) {
 			if (renames(function, proposal) || !proposal.kind().equals(kind(function))
-				|| function.tValueByName("room") != room(proposal)) {
+				|| ((Function) function).getRoom() != room(proposal)) {
 				return true;
 			}
 			for (String role : roles(kind(function), proposal.kind())) {
@@ -883,7 +900,7 @@ public final class FunctionProposal {
 
 		private static boolean renames(TLObject function, Proposal proposal) {
 			ResKey name = proposal.name();
-			return name != null && !sameText(function.tValueByName("name"), name);
+			return name != null && !sameText(((Function) function).getNameKey(), name);
 		}
 
 		/** The roles of both kinds: those the function has, those the proposal gives. */
@@ -901,9 +918,9 @@ public final class FunctionProposal {
 	 * it; not a function the user made with "New function", and not one configured by intent
 	 * (<code>Function#preset</code>, haumacher/ehome #147), whose roles the derivation binds.
 	 */
-	public static boolean proposed(TLObject function) {
-		return identity(function.tValueByName("device"), function.tValueByName("channel")) != null
-			&& function.tValueByName("preset") == null;
+	public static boolean proposed(TLObject object) {
+		Function function = (Function) object;
+		return identity(function.getDevice(), function.getChannel()) != null && function.getPreset() == null;
 	}
 
 	/**
@@ -926,12 +943,12 @@ public final class FunctionProposal {
 		List<TLObject> candidates = functions(project).stream().filter(FunctionProposal::proposed).toList();
 		Map<String, List<TLObject>> byChannel = new HashMap<>();
 		for (TLObject function : candidates) {
-			byChannel.computeIfAbsent(identity(function.tValueByName("device"), function.tValueByName("channel")),
+			byChannel.computeIfAbsent(identity(((Function) function).getDevice(), ((Function) function).getChannel()),
 				i -> new ArrayList<>()).add(function);
 		}
 		Set<String> dismissed = new HashSet<>();
-		for (TLObject dismissal : list(project, DISMISSED)) {
-			String identity = identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel"));
+		for (DismissedProposal dismissal : dismissals(project)) {
+			String identity = identity(dismissal.getDevice(), dismissal.getChannel());
 			if (identity != null) {
 				dismissed.add(kind(dismissal) + " " + identity);
 			}
@@ -969,7 +986,7 @@ public final class FunctionProposal {
 				String main = FunctionKinds.boundMainRole(kind, function::tValueByName);
 				if (!taken.contains(function) && proposal.kind().equals(kind) && main != null
 					&& function.tValueByName(main) instanceof TLObject address
-					&& key.equals(mainKey(kind, address, function.tValueByName("scene")))) {
+					&& key.equals(mainKey(kind, address, ((Function) function).getScene()))) {
 					matched[n] = function;
 					taken.add(function);
 					break;
@@ -1015,11 +1032,12 @@ public final class FunctionProposal {
 	 *
 	 * @return Whether the function was changed.
 	 */
-	private static boolean update(TLObject function, Proposal proposal, Set<String> identifiers, Names names) {
+	private static boolean update(TLObject object, Proposal proposal, Set<String> identifiers, Names names) {
 		if (proposal.unused() || proposal.members().isEmpty()) {
 			return false;
 		}
-		if (function.tValueByName("preset") != null) {
+		Function function = (Function) object;
+		if (function.getPreset() != null) {
 			// Configured by intent (haumacher/ehome #147): the derivation binds its roles, its name is the
 			// installer's.
 			return false;
@@ -1039,17 +1057,16 @@ public final class FunctionProposal {
 			}
 		}
 		ResKey name = proposal.name();
-		Object current = function.tValueByName("name");
+		Object current = function.getNameKey();
 		if (name != null && !sameText(current, name)
 			&& (generatedName(function, proposal, names) || generatedName(current, names.generated(proposal)))) {
-			function.tUpdateByName("name", name);
+			function.setNameKey(name);
 			if (wasUnused) {
-				Object identifier = function.tValueByName("identifier");
+				Object identifier = function.getIdentifier();
 				if (identifier != null) {
 					identifiers.remove(identifier.toString());
 				}
-				function.tUpdateByName("identifier",
-					uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
+				function.setIdentifier(uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 			}
 			changed = true;
 		}
@@ -1061,14 +1078,14 @@ public final class FunctionProposal {
 	 * of the proposal the function was proposed for (its device and channel), compared in every
 	 * application language.
 	 */
-	private static boolean generatedName(TLObject function, Proposal proposal, Names names) {
-		Object device = function.tValueByName("device");
-		Object channel = function.tValueByName("channel");
+	private static boolean generatedName(Function function, Proposal proposal, Names names) {
+		Object device = function.getDevice();
+		Object channel = function.getChannel();
 		for (Member member : proposal.members()) {
 			if (member.device() == device && member.channel().equals(channel)) {
 				for (Map<String, String> generated : member.generated()) {
-					if (!generated.isEmpty() && (sameText(function.tValueByName("name"), text(generated))
-						|| numbered(function.tValueByName("name"), member, names))) {
+					if (!generated.isEmpty() && (sameText(function.getNameKey(), text(generated))
+						|| numbered(function.getNameKey(), member, names))) {
 						return true;
 					}
 				}
@@ -1267,13 +1284,13 @@ public final class FunctionProposal {
 	 * proposal would not have added. The text names the address, the role and the function.
 	 */
 	public static String redundancy(TLObject function) {
-		if (!"button".equals(kind(function)) || !(function.tValueByName("press") instanceof TLObject press)
+		if (!"button".equals(kind(function)) || !(((Function) function).getPress() instanceof TLObject press)
 			|| !(function.tContainer() instanceof TLObject project)) {
 			return null;
 		}
-		Object device = function.tValueByName("device");
+		Object device = ((Function) function).getDevice();
 		for (TLObject other : functions(project)) {
-			if (other == function || (device != null && other.tValueByName("device") == device)) {
+			if (other == function || (device != null && ((Function) other).getDevice() == device)) {
 				continue;
 			}
 			for (String role : FunctionKinds.commandRoles(kind(other))) {
@@ -1282,8 +1299,8 @@ public final class FunctionProposal {
 					return resources.getString(I18NConstants.BUTTON_REPEATS_COMMAND__ADDRESS_ROLE_FUNCTION.fill(
 						DatapointNames.name(press),
 						MetaLabelProvider.INSTANCE.getLabel(other.tType().getPart(role)),
-						other.tValueByName("name") instanceof ResKey name ? resources.getString(name)
-							: String.valueOf(other.tValueByName("identifier"))));
+						((Function) other).getNameKey() instanceof ResKey name ? resources.getString(name)
+							: String.valueOf(((Function) other).getIdentifier())));
 				}
 			}
 		}
@@ -1298,27 +1315,28 @@ public final class FunctionProposal {
 	 *
 	 * @return The dismissal recorded, <code>null</code> for none.
 	 */
-	public static TLObject dismiss(TLObject function) {
+	public static TLObject dismiss(TLObject object) {
+		Function function = (Function) object;
 		TLObject project = function.tContainer();
-		TLObject result = null;
-		Object device = function.tValueByName("device");
-		String identity = identity(device, function.tValueByName("channel"));
-		if (project != null && identity != null && function.tValueByName("kind") != null) {
+		DismissedProposal result = null;
+		TLObject device = function.getDevice();
+		String identity = identity(device, function.getChannel());
+		if (project != null && identity != null && function.getKind() != null) {
 			boolean known = false;
-			for (TLObject dismissal : list(project, DISMISSED)) {
-				known |= identity.equals(identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel")))
-					&& dismissal.tValueByName("kind") == function.tValueByName("kind");
+			for (DismissedProposal dismissal : dismissals(project)) {
+				known |= identity.equals(identity(dismissal.getDevice(), dismissal.getChannel()))
+					&& dismissal.getKind() == function.getKind();
 			}
 			if (!known) {
-				result = ModelService.getInstance().getFactory()
+				result = (DismissedProposal) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:DismissedProposal"));
-				result.tUpdateByName("name", function.tValueByName("name"));
-				result.tUpdateByName("kind", function.tValueByName("kind"));
-				result.tUpdateByName("device", device);
-				result.tUpdateByName("channel", function.tValueByName("channel"));
-				List<TLObject> dismissals = list(project, DISMISSED);
+				result.setNameKey(function.getNameKey());
+				result.setKind(function.getKind());
+				result.setDevice(device);
+				result.setChannel(function.getChannel());
+				List<DismissedProposal> dismissals = dismissals(project);
 				dismissals.add(result);
-				project.tUpdateByName(DISMISSED, dismissals);
+				((Project) project).setDismissedProposals(dismissals);
 			}
 		}
 		function.tDelete();
@@ -1334,20 +1352,22 @@ public final class FunctionProposal {
 	 * The functions of the project.
 	 */
 	public static List<TLObject> functions(TLObject project) {
-		List<TLObject> result = new ArrayList<>();
-		if (project.tValueByName("functions") instanceof Collection<?> list) {
-			for (Object element : list) {
-				result.add((TLObject) element);
-			}
-		}
-		return result;
+		return new ArrayList<>(((Project) project).getFunctions());
+	}
+
+	/** The dismissed proposals of the project ({@link #DISMISSED}), valid ones, a list of its own. */
+	private static List<DismissedProposal> dismissals(TLObject project) {
+		return RuleImport.typed(RuleExport.objects(((Project) project).getDismissedProposals()));
 	}
 
 	/**
-	 * The name of the kind of the given function, <code>null</code> for none.
+	 * The name of the kind of the given function (or dismissed proposal), <code>null</code> for none.
 	 */
 	public static String kind(TLObject function) {
-		return function.tValueByName("kind") instanceof TLClassifier kind ? kind.getName() : null;
+		TLClassifier kind = function instanceof DismissedProposal dismissal ? dismissal.getKind()
+			: function instanceof Function f ? f.getKind() : null;
+
+		return kind == null ? null : kind.getName();
 	}
 
 	/**
@@ -1380,19 +1400,19 @@ public final class FunctionProposal {
 	}
 
 	private static TLObject create(Proposal proposal, Set<String> identifiers) {
-		TLObject function = ModelService.getInstance().getFactory()
+		Function function = (Function) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
 		ResKey name = proposal.name();
-		function.tUpdateByName("name", name);
-		function.tUpdateByName("identifier", uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
-		function.tUpdateByName("kind", classifier(proposal.kind()));
-		function.tUpdateByName("room", room(proposal));
+		function.setNameKey(name);
+		function.setIdentifier(uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
+		function.setKind(classifier(proposal.kind()));
+		function.setRoom(room(proposal));
 		if (isA(proposal.device(), "ehome.physical:Device")) {
-			function.tUpdateByName("device", proposal.device());
+			function.setDevice(proposal.device());
 		}
-		function.tUpdateByName("channel", proposal.channel());
+		function.setChannel(proposal.channel());
 		if (proposal.scene() != null) {
-			function.tUpdateByName("scene", proposal.scene());
+			function.setScene(proposal.scene());
 		}
 		for (Map.Entry<String, TLObject> role : proposal.roles().entrySet()) {
 			function.tUpdateByName(role.getKey(), role.getValue());
@@ -1405,13 +1425,13 @@ public final class FunctionProposal {
 	 * class comment, haumacher/ehome #93, #133); for a Zigbee datapoint the location of its device, for
 	 * a virtual device the room of its instance.
 	 */
-	private static Object room(Proposal proposal) {
+	private static BuildingDefinition room(Proposal proposal) {
 		TLObject device = proposal.device();
 		if (BlockInstances.isInstance(device)) {
-			return device.tValueByName("room");
+			return ((BlockInstance) device).getRoom();
 		}
 		if (!isA(device, "ehome.physical:Device")) {
-			return device.tValueByName("location");
+			return ((ZigbeeDevice) device).getLocation();
 		}
 		List<String> roles = new ArrayList<>();
 		roles.add(FunctionKinds.mainRole(proposal.kind()));
@@ -1443,10 +1463,11 @@ public final class FunctionProposal {
 			List<TLObject> first = counts.entrySet().stream().filter(e -> e.getValue().intValue() == most)
 				.map(Map.Entry::getKey).toList();
 			// Between locations with as many senders, the room is left to the user.
-			return first.size() == 1 ? first.get(0) : null;
+			return first.size() == 1 ? (BuildingDefinition) first.get(0) : null;
 		}
 		Object location = device.tValueByName("location");
-		return location instanceof TLObject part && inDistributionBoard(part) ? null : location;
+		return location instanceof TLObject part && inDistributionBoard(part) ? null : (BuildingDefinition) location;
+
 	}
 
 	/**
@@ -1561,10 +1582,10 @@ public final class FunctionProposal {
 		result.addAll(unique(unused, result, names));
 		Set<TLObject> datapoints = new HashSet<>(ApplicationDatapoints.of(project));
 		for (TLObject device : ZigbeeImport.devices(project)) {
-			zigbee(device, datapoints, result);
+			zigbee((ZigbeeDevice) device, datapoints, result);
 		}
 		for (TLObject instance : BlockInstances.of(project)) {
-			block(instance, result);
+			block((BlockInstance) instance, result);
 		}
 		return result;
 	}
@@ -1584,12 +1605,12 @@ public final class FunctionProposal {
 	 * manual operation input of the shading bound to them holds the automatic off.</li>
 	 * </ul>
 	 */
-	private static void block(TLObject instance, List<Proposal> result) {
+	private static void block(BlockInstance instance, List<Proposal> result) {
 		String id = BlockInstances.identifier(instance);
 		if (id == null || BlockInstances.type(instance) == null) {
 			return;
 		}
-		Object type = instance.tValueByName("blockType");
+		Object type = instance.getBlockType();
 		String kind;
 		Map<String, TLObject> roles = new LinkedHashMap<>();
 		if (RoomController.TYPE.equals(type)) {
@@ -1614,7 +1635,7 @@ public final class FunctionProposal {
 			return;
 		}
 		Map<String, String> label = new TreeMap<>();
-		Object labels = RuntimeImage.labels(instance.tValueByName("name"));
+		Object labels = RuntimeImage.labels(instance.getNameKey());
 		if (labels instanceof Map<?, ?> map) {
 			map.forEach((language, text) -> label.put((String) language, (String) text));
 		} else if (labels instanceof String text) {
@@ -1639,13 +1660,13 @@ public final class FunctionProposal {
 	 * @param datapoints
 	 *        The application datapoints of the project, the only ones proposed.
 	 */
-	private static void zigbee(TLObject device, Set<TLObject> datapoints, List<Proposal> result) {
+	private static void zigbee(ZigbeeDevice device, Set<TLObject> datapoints, List<Proposal> result) {
 		Map<Integer, Map<String, TLObject>> endpoints = new LinkedHashMap<>();
 		Map<TLObject, TLObject> bound = new LinkedHashMap<>();
 		Map<String, Set<Integer>> endpointsByKey = new TreeMap<>();
-		for (TLObject function : list(device, "functions")) {
-			if (!(function.tValueByName("endpoint") instanceof Number endpoint)
-				|| !(function.tValueByName("function") instanceof String key)) {
+		for (ZigbeeFunction function : new ArrayList<>(device.getFunctions())) {
+			if (!(Integer.valueOf(function.getEndpoint()) instanceof Number endpoint)
+				|| !(function.getFunction() instanceof String key)) {
 				continue;
 			}
 			endpointsByKey.computeIfAbsent(key, k -> new HashSet<>()).add(Integer.valueOf(endpoint.intValue()));
@@ -1701,7 +1722,7 @@ public final class FunctionProposal {
 					continue;
 				}
 				result.add(new Proposal(kind, zigbeeLabel(device, named, shared ? endpoint.getKey() : null), roles, device,
-					ZIGBEE_CHANNEL + device.tValueByName("ieee") + ":" + endpoint.getKey() + ":" + key, null, List.of()));
+					ZIGBEE_CHANNEL + device.getIeee() + ":" + endpoint.getKey() + ":" + key, null, List.of()));
 			}
 		}
 	}
@@ -1740,13 +1761,13 @@ public final class FunctionProposal {
 	 * @param endpoint
 	 *        The endpoint to name, <code>null</code> for none.
 	 */
-	private static Map<String, String> zigbeeLabel(TLObject device, TLObject function, Integer endpoint) {
+	private static Map<String, String> zigbeeLabel(ZigbeeDevice device, TLObject function, Integer endpoint) {
 		Map<String, Resources> languages = new TreeMap<>();
 		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
 			languages.put(locale.getLanguage(), Resources.getInstance(locale));
 		}
-		Object deviceName = device.tValueByName("name");
-		String prefix = String.valueOf(deviceName == null ? device.tValueByName("ieee") : deviceName);
+		Object deviceName = device.getName();
+		String prefix = String.valueOf(deviceName == null ? device.getIeee() : deviceName);
 		return texts(languages, r -> {
 			String name = function == null ? prefix : prefix + ": " + ZigbeeStatus.functionLabel(function, r);
 			if (endpoint == null) {
@@ -1765,12 +1786,13 @@ public final class FunctionProposal {
 
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject area : list(project, "areas")) {
+		for (TLObject area : new ArrayList<>(((Project) project).getAreas())) {
 			for (TLObject line : list(area, "lines")) {
 				result.addAll(list(line, "devices"));
 			}
 		}
-		result.addAll(list(project, "unassignedDevices"));
+		result.addAll(((Project) project).getUnassignedDevices());
+
 		// The stubs of devices the catalog does not identify have no objects to propose for (haumacher/ehome #183).
 		result.removeIf(device -> !isA(device, "ehome.physical:Device"));
 		result.sort(Comparator.comparing((TLObject d) -> DownloadImage.individualAddress(d),
@@ -1830,7 +1852,7 @@ public final class FunctionProposal {
 			String own = (String.join(" ", objectName.values()) + " "
 				+ String.join(" ", texts(languages, r -> GroupAddressConnections.function(connection, r)).values()))
 				.toLowerCase(Locale.ROOT);
-			String text = (own + " " + address.tValueByName("name")).toLowerCase(Locale.ROOT);
+			String text = (own + " " + ((GroupAddress) address).getName()).toLowerCase(Locale.ROOT);
 			channels.computeIfAbsent(key, k -> new Channel(k, label, ownName(device, programChannel, placed), new ArrayList<>()))
 				.objects().add(new Obj(placed, connection, address, dpt, addressDpt, type, input, output, text, own,
 					languages, device));
@@ -1926,7 +1948,7 @@ public final class FunctionProposal {
 				+ String.join(" ", texts(languages, r -> connection != null
 					? GroupAddressConnections.function(connection, r) : objectFunction(connector, placed, r)).values()))
 				.toLowerCase(Locale.ROOT);
-			String text = (own + (address == null ? "" : " " + address.tValueByName("name"))).toLowerCase(Locale.ROOT);
+			String text = (own + (address == null ? "" : " " + ((GroupAddress) address).getName())).toLowerCase(Locale.ROOT);
 			channels.computeIfAbsent(key, k -> new Channel(k, label, ownName(device, programChannel(placed), placed), new ArrayList<>()))
 				.objects().add(new Obj(placed, address == null ? null : connection, address, dpt, addressDpt, type, input,
 					output, text, own, languages, device));
@@ -2022,12 +2044,13 @@ public final class FunctionProposal {
 					// A channel of a module instance (haumacher/ehome #119): one per instance.
 					return node;
 				}
-				if (!numbered(node.tValueByName("number"))) {
+				if (!numbered(((de.haumacher.ehome.model.operational.Channel) node).getNumber())) {
 					return null;
 				}
 				TLObject program = node.tContainer();
 				long channels = program == null ? 0
-					: list(program, "contents").stream().filter(c -> isA(c, "ehome.operational:Channel")).count();
+					: ((ConfigFragment) program).getContents().stream().filter(c -> isA(c, "ehome.operational:Channel"))
+						.count();
 				return channels > 1 ? node : null;
 			}
 		}
@@ -2060,7 +2083,8 @@ public final class FunctionProposal {
 	 * The texts the given function gives in the given languages, each without control characters and
 	 * cut to the longest label of the runtime image; empty texts left out.
 	 */
-	private static Map<String, String> texts(Map<String, Resources> languages, Function<Resources, String> text) {
+	private static Map<String, String> texts(Map<String, Resources> languages,
+			java.util.function.Function<Resources, String> text) {
 		Map<String, String> result = new TreeMap<>();
 		for (Map.Entry<String, Resources> language : languages.entrySet()) {
 			String value = text.apply(language.getValue());
@@ -2085,16 +2109,17 @@ public final class FunctionProposal {
 			: GroupAddressConnections.objectName(device, placed, resources);
 	}
 
-	private static String channelLabel(TLObject device, TLObject channel, Resources resources) {
-		String text = channel.tValueByName("description") instanceof ResKey description
+	private static String channelLabel(TLObject device, TLObject node, Resources resources) {
+		de.haumacher.ehome.model.operational.Channel channel = (de.haumacher.ehome.model.operational.Channel) node;
+		String text = channel.getDescription() instanceof ResKey description
 			? resources.getString(description, null) : null;
 		if (text == null || text.isBlank()) {
-			text = String.valueOf(channel.tValueByName("name"));
+			text = String.valueOf(channel.getName());
 		}
 		// The placeholder of the channel's text parameter filled with the device's value, or left out
 		// ("Kanal B: {{0}}" is "Kanal B: Jal Küche Garten", or "Kanal B"), as the device's editor shows it.
-		return channel instanceof de.haumacher.ehome.model.operational.Channel programChannel
-			? DeviceTexts.fill(device, text, programChannel.getTextParameter()) : text;
+		return DeviceTexts.fill(device, text, channel.getTextParameter());
+
 	}
 
 	/**
@@ -2548,11 +2573,11 @@ public final class FunctionProposal {
 			return title.toString().trim();
 		}
 		if (device.tValueByName("type") instanceof TLObject type) {
-			String name = type.tValueByName("name") instanceof ResKey key ? resources.getString(key, null) : null;
+			String name = ((Variant) type).getNameKey() instanceof ResKey key ? resources.getString(key, null) : null;
 			if (name != null && !name.isBlank()) {
 				return name.trim();
 			}
-			Object order = type.tValueByName("orderNumber");
+			Object order = ((Variant) type).getOrderNumber();
 			if (order != null && !order.toString().isBlank()) {
 				return order.toString().trim();
 			}
@@ -2702,7 +2727,7 @@ public final class FunctionProposal {
 	 * no language of its own); empty for an address without a name.
 	 */
 	private static Map<String, String> addressLabel(TLObject address) {
-		Object name = address == null ? null : address.tValueByName("name");
+		Object name = address == null ? null : ((TLNamed) address).getName();
 		if (name == null || name.toString().isBlank()) {
 			return Map.of();
 		}
@@ -2726,7 +2751,7 @@ public final class FunctionProposal {
 	private static List<Proposal> distinct(List<Proposal> linked, TLObject project, Names names) {
 		Map<String, Set<TLObject>> addressesByName = new HashMap<>();
 		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
-			Object name = address.tValueByName("name");
+			Object name = ((TLNamed) address).getName();
 			// An address no object is connected to names nothing (a leftover of the installer's).
 			if (name != null && !name.toString().isBlank() && !GroupAddressConnections.connections(address).isEmpty()) {
 				addressesByName.computeIfAbsent(name.toString().trim(), n -> new HashSet<>()).add(address);
@@ -2814,7 +2839,7 @@ public final class FunctionProposal {
 		if (!addressName.isEmpty()) {
 			Set<TLObject> own = new HashSet<>(proposal.roles().values());
 			own.addAll(proposal.sends());
-			Set<TLObject> named = addressesByName.getOrDefault(nameAddress.tValueByName("name").toString().trim(), Set.of());
+			Set<TLObject> named = addressesByName.getOrDefault(((TLNamed) nameAddress).getName().toString().trim(), Set.of());
 			if (own.containsAll(named)) {
 				result.add(addressName);
 			}
@@ -2846,7 +2871,7 @@ public final class FunctionProposal {
 	 * The name of a room in a function's name: its own name, else its label.
 	 */
 	private static String roomName(TLObject room) {
-		Object name = room.tValueByName("name");
+		Object name = ((TLNamed) room).getName();
 		return name == null || name.toString().isBlank() ? MetaLabelProvider.INSTANCE.getLabel(room) : name.toString().trim();
 	}
 
@@ -3016,7 +3041,7 @@ public final class FunctionProposal {
 	 */
 	private static Integer sceneNumber(Object value, Parameter parameter, Map<String, Resources> languages) {
 		Integer result = null;
-		if (value instanceof EnumerationValue choice && choice.tValueByName("name") instanceof ResKey name) {
+		if (value instanceof EnumerationValue choice && choice.getNameKey() instanceof ResKey name) {
 			for (String text : texts(languages, r -> r.getString(name, null)).values()) {
 				Matcher matcher = NUMBER.matcher(text);
 				if (matcher.matches()) {

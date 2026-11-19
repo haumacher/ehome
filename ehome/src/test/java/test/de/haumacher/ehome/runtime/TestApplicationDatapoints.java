@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -21,6 +22,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -30,6 +32,15 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
+
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
@@ -60,60 +71,63 @@ public class TestApplicationDatapoints extends BasicTestCase {
 	private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
 
 	public void testApplicationDatapoints() throws Exception {
-		TLObject project;
+		Project project;
 		TLObject dpt;
-		TLObject holiday;
-		TLObject morning;
-		TLObject counter;
-		TLObject entry;
-		TLObject write;
+		ApplicationDatapoint holiday;
+		ApplicationDatapoint morning;
+		ApplicationDatapoint counter;
+		WeeklySchedule entry;
+		WriteAction write;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			dpt = create("ehome.datapoint:DatapointMainType");
 			dpt.tUpdateByName("number", Integer.valueOf(1));
 			dpt.tUpdateByName("extId", "TEST-APPLICATION-DATAPOINTS-1");
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Application datapoints");
-			project.tUpdateByName("extId", "P-TEST-59");
-			TLObject address = create("ehome.logical:GroupAddress");
-			address.tUpdateByName("name", "Licht");
-			address.tUpdateByName("address", new GA(0x0801, GroupAddressStyle.ThreeLevel));
-			address.tUpdateByName("datapointTypes", List.of(dpt));
-			address.tUpdateByName("runtimeWritable", Boolean.TRUE);
-			project.tUpdateByName("groupAddresses", List.of(address));
+			project.setName("Application datapoints");
+			project.setExtId("P-TEST-59");
+			GroupAddress address = create("ehome.logical:GroupAddress");
+			address.setName("Licht");
+			address.setAddress(new GA(0x0801, GroupAddressStyle.ThreeLevel));
+			address.setDatapointTypes(List.of(dpt));
+			address.setRuntimeWritable(Boolean.TRUE);
+			project.setGroupAddresses(Set.of(address));
 
-			holiday = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			holiday.tUpdateByName("identifier", "holiday");
-			holiday.tUpdateByName("label",
-				ResKey.builder().add(Locale.GERMAN, "Urlaub").add(Locale.ENGLISH, "Holiday").build());
-			holiday.tUpdateByName("writable", Boolean.TRUE);
-			holiday.tUpdateByName("persist", Boolean.TRUE);
-			morning = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			morning.tUpdateByName("identifier", "schedule.morning");
-			counter = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			counter.tUpdateByName("type", valueType("unsigned"));
-			counter.tUpdateByName("writable", Boolean.TRUE);
-			counter.tUpdateByName("unit", "x");
+			holiday = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			holiday.setIdentifier("holiday");
+			holiday.setLabel(ResKey.builder().add(Locale.GERMAN, "Urlaub").add(Locale.ENGLISH, "Holiday").build());
+			holiday.setWritable(true);
+			holiday.setPersist(true);
+			morning = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			morning.setIdentifier("schedule.morning");
+			counter = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			counter.setType(valueType("unsigned"));
+			counter.setWritable(true);
+			counter.setUnit("x");
 			// A history set by hand (haumacher/ehome #73).
-			counter.tUpdateByName("historyManual", Boolean.TRUE);
-			counter.tUpdateByName("historyRetention", Integer.valueOf(3600));
-			counter.tUpdateByName("historySpacing", Integer.valueOf(60));
+			counter.setHistoryManual(true);
+			counter.setHistoryRetention(Integer.valueOf(3600));
+			counter.setHistorySpacing(Integer.valueOf(60));
 
-			entry = RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
-			entry.tUpdateByName("output", morning);
+			entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
+			entry.setOutput(morning);
 			TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-			TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", morning);
-			reaction.tUpdateByName("condition", "@schedule.morning and not @holiday");
-			write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", counter);
-			write.tUpdateByName("value", "1");
-			TLObject light = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			light.tUpdateByName("datapoint", address);
-			light.tUpdateByName("value", "true");
+			Reaction reaction = (Reaction) RuleFunctions.create(rule, "reactions", runtime("Reaction"));
+			((DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")))
+				.setDatapoint(morning);
+			reaction.setCondition("@schedule.morning and not @holiday");
+			write = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+			write.setDatapoint(counter);
+			write.setValue("1");
+			WriteAction light = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
+			light.setDatapoint(address);
+			light.setValue("true");
 			tx.commit();
 		}
 		try {
-			assertEquals("A new application datapoint gets an id of its own.", "value1", counter.tValueByName("identifier"));
+			assertEquals("A new application datapoint gets an id of its own.", "value1", counter.getIdentifier());
 
 			// The export: after the group address's datapoint, without a binding.
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
@@ -194,7 +208,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 
 			// On commit.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				counter.tUpdateByName("identifier", "1/0/1");
+				counter.setIdentifier("1/0/1");
 				tx.commit();
 				fail("The id of the group address's datapoint is refused.");
 			} catch (TopLogicException ex) {
@@ -216,42 +230,44 @@ public class TestApplicationDatapoints extends BasicTestCase {
 	 * group addresses and the application datapoints.
 	 */
 	public void testFunctionRoles() throws Exception {
-		TLObject project;
-		TLObject address;
-		TLObject virtualSwitch;
-		TLObject level;
-		TLObject light;
-		TLObject dimmer;
+		Project project;
+		GroupAddress address;
+		ApplicationDatapoint virtualSwitch;
+		ApplicationDatapoint level;
+		Function light;
+		Function dimmer;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Function roles");
-			project.tUpdateByName("extId", "P-TEST-61");
+			project.setName("Function roles");
+			project.setExtId("P-TEST-61");
 			address = create("ehome.logical:GroupAddress");
-			address.tUpdateByName("name", "Licht");
-			address.tUpdateByName("address", new GA(0x0801, GroupAddressStyle.ThreeLevel));
-			project.tUpdateByName("groupAddresses", List.of(address));
+			address.setName("Licht");
+			address.setAddress(new GA(0x0801, GroupAddressStyle.ThreeLevel));
+			project.setGroupAddresses(Set.of(address));
 
-			virtualSwitch = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			virtualSwitch.tUpdateByName("identifier", "virtual.switch");
-			virtualSwitch.tUpdateByName("writable", Boolean.TRUE);
-			level = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			level.tUpdateByName("identifier", "virtual.level");
-			level.tUpdateByName("type", valueType("unsigned"));
-			level.tUpdateByName("unit", "%");
+			virtualSwitch = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			virtualSwitch.setIdentifier("virtual.switch");
+			virtualSwitch.setWritable(true);
+			level = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			level.setIdentifier("virtual.level");
+			level.setType(valueType("unsigned"));
+			level.setUnit("%");
 
 			light = create("ehome.runtime:Function");
-			light.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Virtueller Schalter").build());
-			light.tUpdateByName("identifier", "virtual-light");
-			light.tUpdateByName("kind", FunctionProposal.classifier("switch"));
-			light.tUpdateByName("command", virtualSwitch);
-			light.tUpdateByName("state", virtualSwitch);
+			light.setNameKey(ResKey.builder().add(Locale.GERMAN, "Virtueller Schalter").build());
+			light.setIdentifier("virtual-light");
+			light.setKind(FunctionProposal.classifier("switch"));
+			light.setCommand(virtualSwitch);
+			light.setState(virtualSwitch);
 			dimmer = create("ehome.runtime:Function");
-			dimmer.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Virtueller Dimmer").build());
-			dimmer.tUpdateByName("identifier", "virtual-dimmer");
-			dimmer.tUpdateByName("kind", FunctionProposal.classifier("dimmer"));
-			dimmer.tUpdateByName("levelCommand", virtualSwitch);
-			dimmer.tUpdateByName("level", level);
-			project.tUpdateByName("functions", List.of(light, dimmer));
+			dimmer.setNameKey(ResKey.builder().add(Locale.GERMAN, "Virtueller Dimmer").build());
+			dimmer.setIdentifier("virtual-dimmer");
+			dimmer.setKind(FunctionProposal.classifier("dimmer"));
+			dimmer.setLevelCommand(virtualSwitch);
+			dimmer.setLevel(level);
+			project.setFunctions(List.of(light, dimmer));
 			tx.commit();
 		}
 		try {
@@ -277,7 +293,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertSame(dimmer, image.elementAt(refusal.path()));
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				dimmer.tUpdateByName("levelCommand", level);
+				dimmer.setLevelCommand(level);
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -289,7 +305,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertTrue(refusal.reason(), refusal.reason().contains("needs a writable datapoint"));
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				level.tUpdateByName("writable", Boolean.TRUE);
+				level.setWritable(true);
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -310,35 +326,37 @@ public class TestApplicationDatapoints extends BasicTestCase {
 	 * without refusing and counts it.
 	 */
 	public void testRolesFollowTheDatapoint() throws Exception {
-		TLObject project;
-		TLObject other;
-		TLObject virtualSwitch;
-		TLObject foreign;
-		TLObject light;
+		Project project;
+		Project other;
+		ApplicationDatapoint virtualSwitch;
+		ApplicationDatapoint foreign;
+		Function light;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Roles follow");
-			project.tUpdateByName("extId", "P-PROBE-61A");
+			project.setName("Roles follow");
+			project.setExtId("P-PROBE-61A");
 			other = create("ehome.project:Project");
-			other.tUpdateByName("name", "Other");
-			other.tUpdateByName("extId", "P-PROBE-61B");
-			virtualSwitch = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			virtualSwitch.tUpdateByName("identifier", "virtual.switch");
-			virtualSwitch.tUpdateByName("writable", Boolean.TRUE);
-			foreign = RuleFunctions.create(other, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			foreign.tUpdateByName("identifier", "foreign.switch");
-			foreign.tUpdateByName("writable", Boolean.TRUE);
+			other.setName("Other");
+			other.setExtId("P-PROBE-61B");
+			virtualSwitch = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			virtualSwitch.setIdentifier("virtual.switch");
+			virtualSwitch.setWritable(true);
+			foreign = (ApplicationDatapoint) RuleFunctions.create(other, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			foreign.setIdentifier("foreign.switch");
+			foreign.setWritable(true);
 			light = create("ehome.runtime:Function");
-			light.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Licht").build());
-			light.tUpdateByName("identifier", "light");
-			light.tUpdateByName("kind", FunctionProposal.classifier("switch"));
-			light.tUpdateByName("command", virtualSwitch);
-			project.tUpdateByName("functions", List.of(light));
+			light.setNameKey(ResKey.builder().add(Locale.GERMAN, "Licht").build());
+			light.setIdentifier("light");
+			light.setKind(FunctionProposal.classifier("switch"));
+			light.setCommand(virtualSwitch);
+			project.setFunctions(List.of(light));
 			tx.commit();
 		}
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				virtualSwitch.tUpdateByName("identifier", "virtual.renamed");
+				virtualSwitch.setIdentifier("virtual.renamed");
 				tx.commit();
 			}
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
@@ -347,7 +365,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(map("command", "virtual.renamed"), exported.get("datapoints"));
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				light.tUpdateByName("command", foreign);
+				light.setCommand(foreign);
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -355,14 +373,14 @@ public class TestApplicationDatapoints extends BasicTestCase {
 				image.validate().isValid());
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				light.tUpdateByName("command", virtualSwitch);
+				light.setCommand(virtualSwitch);
 				tx.commit();
 			}
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				virtualSwitch.tDelete();
 				tx.commit();
 			}
-			assertNull(light.tValueByName("command"));
+			assertNull(light.getCommand());
 			assertTrue(FunctionProposal.unused(light));
 			image = RuntimeImage.build(project, 1, NOW);
 			assertNull(Json.write(image.getJson()), image.getJson().get("functions"));
@@ -381,15 +399,16 @@ public class TestApplicationDatapoints extends BasicTestCase {
 		return result;
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {
 		return (TLClass) TLModelUtil.findType("ehome.runtime:" + name);
 	}
 
-	private static Object valueType(String name) {
+	private static TLClassifier valueType(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(name);
 	}
 

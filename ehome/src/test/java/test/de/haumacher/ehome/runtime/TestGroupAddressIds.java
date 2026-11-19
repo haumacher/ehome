@@ -42,6 +42,16 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.GroupAddressIdentifierMigration;
@@ -66,21 +76,21 @@ public class TestGroupAddressIds extends BasicTestCase {
 
 	private TLObject _dpt;
 
-	private TLObject _project;
+	private Project _project;
 
-	private TLObject _licht;
+	private GroupAddress _licht;
 
-	private TLObject _status;
+	private GroupAddress _status;
 
-	private TLObject _other;
+	private GroupAddress _other;
 
-	private TLObject _holiday;
+	private ApplicationDatapoint _holiday;
 
-	private TLObject _rule;
+	private Rule _rule;
 
-	private TLObject _reaction;
+	private Reaction _reaction;
 
-	private TLObject _write;
+	private WriteAction _write;
 
 	@Override
 	protected void setUp() throws Exception {
@@ -90,27 +100,29 @@ public class TestGroupAddressIds extends BasicTestCase {
 			_dpt.tUpdateByName("number", Integer.valueOf(1));
 			_dpt.tUpdateByName("extId", "TEST-GROUP-ADDRESS-IDS-1");
 			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Group address ids");
+			_project.setName("Group address ids");
 			_licht = address("Licht Küche", "1/2/3");
-			_licht.tUpdateByName("runtimeWritable", Boolean.TRUE);
-			_licht.tUpdateByName("runtimePersist", Boolean.TRUE);
+			_licht.setRuntimeWritable(Boolean.TRUE);
+			_licht.setRuntimePersist(true);
 			_status = address("Licht Küche Status", "1/2/4");
 			_other = address("", "1/2/5");
-			_project.tUpdateByName("groupAddresses", List.of(_licht, _status, _other));
+			_project.setGroupAddresses(new HashSet<>(List.of(_licht, _status, _other)));
 
-			_holiday = RuleFunctions.create(_project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			_holiday.tUpdateByName("identifier", "urlaub");
-			_holiday.tUpdateByName("writable", Boolean.TRUE);
+			_holiday = (ApplicationDatapoint) RuleFunctions.create(_project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			_holiday.setIdentifier("urlaub");
+			_holiday.setWritable(true);
 
-			_rule = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			_rule.tUpdateByName("identifier", "licht");
-			_reaction = RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
-			TLObject trigger = RuleFunctions.create(_reaction, "triggers", runtime("DatapointTrigger"));
-			trigger.tUpdateByName("datapoint", _status);
-			_reaction.tUpdateByName("condition", "@\"1/2/4\" and not @urlaub");
-			_write = RuleFunctions.create(_reaction, "actions", runtime("WriteAction"));
-			_write.tUpdateByName("datapoint", _licht);
-			_write.tUpdateByName("value", "not @\"1/2/3\"");
+			_rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_rule.setIdentifier("licht");
+			_reaction = (Reaction) RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
+			DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(_reaction, "triggers",
+				runtime("DatapointTrigger"));
+			trigger.setDatapoint(_status);
+			_reaction.setCondition("@\"1/2/4\" and not @urlaub");
+			_write = (WriteAction) RuleFunctions.create(_reaction, "actions", runtime("WriteAction"));
+			_write.setDatapoint(_licht);
+			_write.setValue("not @\"1/2/3\"");
 			tx.commit();
 		}
 		entries().clear();
@@ -132,11 +144,11 @@ public class TestGroupAddressIds extends BasicTestCase {
 	 */
 	public void testIdentifier() {
 		assertEquals("1/2/3", Pages.imageId(_licht));
-		update(_licht, "identifier", "kueche.licht");
+		update(() -> _licht.setIdentifier("kueche.licht"));
 
 		assertEquals("kueche.licht", Pages.imageId(_licht));
-		assertEquals("not @kueche.licht", _write.tValueByName("value"));
-		assertEquals("@\"1/2/4\" and not @urlaub", _reaction.tValueByName("condition"));
+		assertEquals("not @kueche.licht", _write.getValue());
+		assertEquals("@\"1/2/4\" and not @urlaub", _reaction.getCondition());
 		assertEquals("Licht Küche (kueche.licht)", DatapointNames.name(_licht));
 		Map<String, Object> datapoint = imageDatapoint("kueche.licht");
 		assertEquals(Map.of("dpt", "1.000", "send", "1/2/3"), datapoint.get("knx"));
@@ -148,16 +160,16 @@ public class TestGroupAddressIds extends BasicTestCase {
 			&& messages.get(1).contains("kueche.licht") && messages.get(1).contains("lost"));
 
 		// The address may change: the identifier keeps naming the datapoint, the binding follows.
-		update(_licht, "address", GA.parse("1/2/7", GroupAddressStyle.ThreeLevel));
-		assertEquals("not @kueche.licht", _write.tValueByName("value"));
+		update(() -> _licht.setAddress(GA.parse("1/2/7", GroupAddressStyle.ThreeLevel)));
+		assertEquals("not @kueche.licht", _write.getValue());
 		assertEquals(Map.of("dpt", "1.000", "send", "1/2/7"), imageDatapoint("kueche.licht").get("knx"));
 		assertEquals(List.of(), messages());
 
 		// Changed and removed.
-		update(_licht, "identifier", "kueche.decke");
-		assertEquals("not @kueche.decke", _write.tValueByName("value"));
-		update(_licht, "identifier", null);
-		assertEquals("not @\"1/2/7\"", _write.tValueByName("value"));
+		update(() -> _licht.setIdentifier("kueche.decke"));
+		assertEquals("not @kueche.decke", _write.getValue());
+		update(() -> _licht.setIdentifier(null));
+		assertEquals("not @\"1/2/7\"", _write.getValue());
 		assertEquals("1/2/7", Pages.imageId(_licht));
 		assertNotNull(imageDatapoint("1/2/7"));
 	}
@@ -167,19 +179,19 @@ public class TestGroupAddressIds extends BasicTestCase {
 	 * with the identifier; the address still resolves a reference given by it.
 	 */
 	public void testEnteredAddress() {
-		update(_status, "identifier", "kueche.licht_status");
-		assertEquals("@kueche.licht_status and not @urlaub", _reaction.tValueByName("condition"));
+		update(() -> _status.setIdentifier("kueche.licht_status"));
+		assertEquals("@kueche.licht_status and not @urlaub", _reaction.getCondition());
 		messages();
 
-		update(_reaction, "condition", "@\"1/2/4\" or @\"1/2/5\"");
-		assertEquals("@kueche.licht_status or @\"1/2/5\"", _reaction.tValueByName("condition"));
-		TLObject log;
+		update(() -> _reaction.setCondition("@\"1/2/4\" or @\"1/2/5\""));
+		assertEquals("@kueche.licht_status or @\"1/2/5\"", _reaction.getCondition());
+		LogAction log;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			log = RuleFunctions.create(_reaction, "actions", runtime("LogAction"));
-			log.tUpdateByName("message", "Status {@\"1/2/4\"}");
+			log = (LogAction) RuleFunctions.create(_reaction, "actions", runtime("LogAction"));
+			log.setMessage("Status {@\"1/2/4\"}");
 			tx.commit();
 		}
-		assertEquals("Status {@kueche.licht_status}", log.tValueByName("message"));
+		assertEquals("Status {@kueche.licht_status}", log.getMessage());
 		// Quietly, as the canonical form of an entered text.
 		assertEquals(List.of(), messages());
 	}
@@ -208,18 +220,18 @@ public class TestGroupAddressIds extends BasicTestCase {
 		assertEquals("The application datapoint New datapoint (urlaub) has the id urlaub already.",
 			resources.getString(GroupAddressIds.problem("urlaub", _licht)));
 
-		update(_status, "identifier", "kueche.status");
+		update(() -> _status.setIdentifier("kueche.status"));
 		assertEquals("The identifier kueche.status is taken by the group address Licht Küche Status (1/2/4).",
 			resources.getString(GroupAddressIds.problem("kueche.status", _licht)));
 		assertNull(GroupAddressIds.problem("kueche.status", _status));
 
 		// On commit, also from Java.
-		assertRefused(_licht, "identifier", "kueche.status", "identifier kueche.status is taken");
-		assertRefused(_licht, "identifier", "kueche licht", "no datapoint name");
-		assertRefused(_holiday, "identifier", "kueche.status", "group address");
+		assertRefused(() -> _licht.setIdentifier("kueche.status"), "identifier kueche.status is taken");
+		assertRefused(() -> _licht.setIdentifier("kueche licht"), "no datapoint name");
+		assertRefused(() -> _holiday.setIdentifier("kueche.status"), "group address");
 		assertNull(GroupAddressIds.identifier(_licht));
 		assertEquals("urlaub", ApplicationDatapoints.id(_holiday));
-		assertEquals("not @\"1/2/3\"", _write.tValueByName("value"));
+		assertEquals("not @\"1/2/3\"", _write.getValue());
 
 		// Several at once are checked against the state after the change: two may exchange theirs.
 		Map<TLObject, String> exchange = new LinkedHashMap<>();
@@ -238,28 +250,28 @@ public class TestGroupAddressIds extends BasicTestCase {
 	 * unique; those with an identifier stay as they are.
 	 */
 	public void testProposal() {
-		TLObject function;
+		Function function;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject building = create("ehome.building:Building");
-			building.tUpdateByName("name", "Haus");
-			TLObject room = create("ehome.building:Room");
-			room.tUpdateByName("name", "Küche");
-			building.tUpdateByName("parts", List.of(room));
-			_project.tUpdateByName("buildings", List.of(building));
+			BuildingDefinition building = create("ehome.building:Building");
+			building.setName("Haus");
+			BuildingDefinition room = create("ehome.building:Room");
+			room.setName("Küche");
+			building.setParts(List.of(room));
+			_project.setBuildings(List.of(building));
 			function = create("ehome.runtime:Function");
-			function.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Licht Küche")
+			function.setNameKey(ResKey.builder().add(Locale.GERMAN, "Licht Küche")
 				.add(Locale.ENGLISH, "Licht Küche").build());
-			function.tUpdateByName("kind",
+			function.setKind(
 				((TLEnumeration) TLModelUtil.findType("ehome.runtime:FunctionKind")).getClassifier("light"));
-			function.tUpdateByName("room", room);
-			function.tUpdateByName("command", _licht);
-			function.tUpdateByName("state", _status);
-			_project.tUpdateByName("functions", List.of(function));
-			TLObject same = address("Licht Küche", "1/2/6");
-			TLObject described = address(null, "1/2/8");
-			described.tUpdateByName("description", "1. OG Flur Präsenz\nmit Helligkeit");
-			TLObject nothing = address(null, "1/2/9");
-			_project.tUpdateByName("groupAddresses", List.of(_licht, _status, _other, same, described, nothing));
+			function.setRoom(room);
+			function.setCommand(_licht);
+			function.setState(_status);
+			_project.setFunctions(List.of(function));
+			GroupAddress same = address("Licht Küche", "1/2/6");
+			GroupAddress described = address(null, "1/2/8");
+			described.setDescription("1. OG Flur Präsenz\nmit Helligkeit");
+			GroupAddress nothing = address(null, "1/2/9");
+			_project.setGroupAddresses(new HashSet<>(List.of(_licht, _status, _other, same, described, nothing)));
 			tx.commit();
 		}
 		Map<TLObject, String> proposal = GroupAddressIds.propose(_project);
@@ -271,16 +283,16 @@ public class TestGroupAddressIds extends BasicTestCase {
 		}
 
 		// Unique among the identifiers the project has, the application datapoints included.
-		update(_other, "identifier", "licht_kueche");
+		update(() -> _other.setIdentifier("licht_kueche"));
 		assertEquals(List.of("kueche.licht", "kueche.licht.state", "licht_kueche_2", "_1_og_flur_praesenz", "ga_1_2_9"),
 			new ArrayList<>(GroupAddressIds.propose(_project).values()));
-		update(_holiday, "identifier", "kueche.licht");
+		update(() -> _holiday.setIdentifier("kueche.licht"));
 		assertEquals("kueche.licht_2", GroupAddressIds.propose(_project).get(_licht));
-		update(_holiday, "identifier", "urlaub");
+		update(() -> _holiday.setIdentifier("urlaub"));
 
 		// A long name is shortened to 63 bytes.
-		update(_other, "identifier", null);
-		update(_other, "name", "Ein sehr langer Name einer Gruppenadresse, der weit über das Limit hinausgeht");
+		update(() -> _other.setIdentifier(null));
+		update(() -> _other.setName("Ein sehr langer Name einer Gruppenadresse, der weit über das Limit hinausgeht"));
 		String long_ = GroupAddressIds.propose(_project).get(_other);
 		assertEquals(63, long_.length());
 		assertNull(GroupAddressIds.syntaxProblem(long_));
@@ -290,8 +302,8 @@ public class TestGroupAddressIds extends BasicTestCase {
 
 		assertEquals(6, ProposeIdentifiersAction.apply(_project));
 		assertEquals("kueche.licht", GroupAddressIds.identifier(_licht));
-		assertEquals("not @kueche.licht", _write.tValueByName("value"));
-		assertEquals("@kueche.licht.state and not @urlaub", _reaction.tValueByName("condition"));
+		assertEquals("not @kueche.licht", _write.getValue());
+		assertEquals("@kueche.licht.state and not @urlaub", _reaction.getCondition());
 		Set<String> unique = new HashSet<>();
 		for (TLObject address : de.haumacher.ehome.runtime.RuntimeFunctions.groupAddresses(_project)) {
 			String identifier = GroupAddressIds.identifier(address);
@@ -318,8 +330,8 @@ public class TestGroupAddressIds extends BasicTestCase {
 		assertEquals("licht_kueche", GroupAddressIds.identifier(_licht));
 		assertEquals("licht_kueche_status", GroupAddressIds.identifier(_status));
 		assertEquals("ga_1_2_5", GroupAddressIds.identifier(_other));
-		assertEquals("not @licht_kueche", _write.tValueByName("value"));
-		assertEquals("@licht_kueche_status and not @urlaub", _reaction.tValueByName("condition"));
+		assertEquals("not @licht_kueche", _write.getValue());
+		assertEquals("@licht_kueche_status and not @urlaub", _reaction.getCondition());
 		for (Object datapoint : (List<?>) RuntimeImage.build(_project, 1, NOW).getJson().get("datapoints")) {
 			String id = String.valueOf(((Map<?, ?>) datapoint).get("id"));
 			assertFalse(id, id.matches("\\d+/\\d+/\\d+"));
@@ -332,13 +344,13 @@ public class TestGroupAddressIds extends BasicTestCase {
 
 	// ---- helpers -----------------------------------------------------------------------------
 
-	private TLObject address(String name, String address) {
-		TLObject result = create("ehome.logical:GroupAddress");
+	private GroupAddress address(String name, String address) {
+		GroupAddress result = create("ehome.logical:GroupAddress");
 		if (name != null) {
-			result.tUpdateByName("name", name);
+			result.setName(name);
 		}
-		result.tUpdateByName("address", GA.parse(address, GroupAddressStyle.ThreeLevel));
-		result.tUpdateByName("datapointTypes", List.of(_dpt));
+		result.setAddress(GA.parse(address, GroupAddressStyle.ThreeLevel));
+		result.setDatapointTypes(List.of(_dpt));
 		return result;
 	}
 
@@ -352,18 +364,18 @@ public class TestGroupAddressIds extends BasicTestCase {
 		return null;
 	}
 
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
 
-	private static void assertRefused(TLObject obj, String attribute, Object value, String reason) {
+	private static void assertRefused(Runnable change, String reason) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
-			fail("The commit must be refused: " + value);
+			fail("The commit must be refused: " + reason);
 		} catch (TopLogicException ex) {
 			assertEquals(ex.toString(), com.top_logic.util.model.I18NConstants.CONSTRAINTS_VIOLATED, ex.getErrorKey());
 			String problems = CommandErrors.text(ex);
@@ -371,8 +383,9 @@ public class TestGroupAddressIds extends BasicTestCase {
 		}
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {

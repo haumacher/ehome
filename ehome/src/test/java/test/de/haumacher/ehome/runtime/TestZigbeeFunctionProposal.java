@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,6 +32,13 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.DismissedProposal;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
@@ -74,16 +80,20 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 		importSample("samples/KNX-Testsystem.knxproj");
 		List<TLObject> projects = SharedData.newProjects(before);
 		assertEquals(1, projects.size());
-		TLObject project = projects.get(0);
+		Project project = (Project) projects.get(0);
 		TLObject seeded = seedCatalog();
 		try {
 			List<String> knx = summary(FunctionProposal.propose(project));
 			assertFalse(knx.isEmpty());
 
-			TLObject hall = TestFunctionProposal.createLocation(project, null, "ehome.building:Room", "Flur");
+			BuildingDefinition hall =
+				(BuildingDefinition) TestFunctionProposal.createLocation(project, null, "ehome.building:Room", "Flur");
 			importExport(project);
-			TLObject sensor = ZigbeeImport.devices(project).get(0);
-			TestFunctionProposal.update(sensor, "location", hall);
+			ZigbeeDevice sensor = (ZigbeeDevice) ZigbeeImport.devices(project).get(0);
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				sensor.setLocation(hall);
+				tx.commit();
+			}
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				new RuleImport().importImage(project, Files.readString(
 					Path.of("src/test/fixtures/zigbee/flur-bewegung.datapoints.json"), StandardCharsets.UTF_8));
@@ -104,7 +114,7 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 
 			List<TLObject> added = apply(project);
 			List<TLObject> functions = added.stream()
-				.filter(f -> String.valueOf(f.tValueByName("channel")).startsWith(FunctionProposal.ZIGBEE_CHANNEL)).toList();
+				.filter(f -> String.valueOf(((Function) f).getChannel()).startsWith(FunctionProposal.ZIGBEE_CHANNEL)).toList();
 			assertEquals(knx.size() + 4, added.size());
 			Map<String, String[]> expected = Map.of(
 				"flur.temperature", new String[] { "Flur Bewegung: Temperatur", "Flur Bewegung: Temperature" },
@@ -112,35 +122,36 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 				"flur.presence", new String[] { "Flur Bewegung: Bewegung", "Flur Bewegung: Motion" },
 				"flur.battery", new String[] { "Flur Bewegung: Batterie", "Flur Bewegung: Battery" });
 			assertEquals(4, functions.size());
-			for (TLObject function : functions) {
+			for (TLObject object : functions) {
+				Function function = (Function) object;
 				assertEquals("sensor", FunctionProposal.kind(function));
-				TLObject value = (TLObject) function.tValueByName("value");
+				TLObject value = function.getValue();
 				String[] names = expected.get(ApplicationDatapoints.id(value));
 				assertNotNull(names);
-				ResKey name = (ResKey) function.tValueByName("name");
+				ResKey name = function.getNameKey();
 				assertEquals(names[0], Resources.getInstance(Locale.GERMAN).getString(name));
 				assertEquals(names[1], Resources.getInstance(Locale.ENGLISH).getString(name));
-				assertSame(hall, function.tValueByName("room"));
-				assertNull(function.tValueByName("device"));
-				assertEquals(SENSOR + ZigbeeBindings.function(value).tValueByName("function"), function.tValueByName("channel"));
+				assertSame(hall, function.getRoom());
+				assertNull(function.getDevice());
+				assertEquals(SENSOR + ((ZigbeeFunction) ZigbeeBindings.function(value)).getFunction(), function.getChannel());
 			}
 			assertEquals(List.of(), apply(project));
 
 			// Dismissed: it stays away, also after the export is imported again.
 			TLObject battery = functions.stream()
-				.filter(f -> f.tValueByName("value") == datapoints.get("flur.battery")).findFirst().orElseThrow();
+				.filter(f -> ((Function) f).getValue() == datapoints.get("flur.battery")).findFirst().orElseThrow();
 			TLObject dismissal;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				dismissal = FunctionProposal.dismiss(battery);
 				tx.commit();
 			}
 			assertNotNull(dismissal);
-			assertEquals(SENSOR + "battery", dismissal.tValueByName("channel"));
+			assertEquals(SENSOR + "battery", ((DismissedProposal) dismissal).getChannel());
 			assertEquals(List.of(), apply(project));
 			importExport(project);
 			assertSame(sensor, ZigbeeImport.devices(project).get(0));
 			assertEquals(List.of(), apply(project));
-			assertEquals(List.of(dismissal), List.copyOf((Collection<?>) project.tValueByName(FunctionProposal.DISMISSED)));
+			assertEquals(List.of(dismissal), List.copyOf(project.getDismissedProposals()));
 			assertEquals(knx.size() + 3, FunctionProposal.functions(project).size());
 
 			// Restored: back once, as before.
@@ -150,7 +161,7 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 			}
 			List<TLObject> back = apply(project);
 			assertEquals(1, back.size());
-			assertSame(datapoints.get("flur.battery"), back.get(0).tValueByName("value"));
+			assertSame(datapoints.get("flur.battery"), ((Function) back.get(0)).getValue());
 		} finally {
 			SharedData.deleteProjects(projects);
 			unseed(seeded);
@@ -184,8 +195,8 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 				for (TLObject device : ZigbeeImport.devices(project)) {
 					for (TLObject function : functions(device)) {
 						// The second endpoint of the socket stays unbound.
-						if (!("Steckdose".equals(device.tValueByName("name"))
-							&& ((Number) function.tValueByName("endpoint")).intValue() == 2)) {
+						if (!("Steckdose".equals(((ZigbeeDevice) device).getName())
+							&& ((ZigbeeFunction) function).getEndpoint() == 2)) {
 							ZigbeeBindings.createDatapoint(function);
 						}
 					}
@@ -217,7 +228,7 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 			List<TLObject> added = apply(project);
 			assertEquals(4, added.size());
 			for (TLObject function : added) {
-				assertNull(function.tValueByName("room"));
+				assertNull(((Function) function).getRoom());
 			}
 			// The controller takes them: the command roles are writable, the types fit.
 			ImageReport report = RuntimeImage.build(project, 1, Instant.parse("2026-11-03T12:00:00Z")).validate();
@@ -225,7 +236,7 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 			assertEquals(4, ((List<?>) RuntimeImage.build(project, 1, Instant.parse("2026-11-03T12:00:00Z"))
 				.getJson().get("functions")).size());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				added.get(1).tUpdateByName("channel", null);
+				((Function) added.get(1)).setChannel(null);
 				tx.commit();
 			}
 			assertEquals(List.of(), apply(project));
@@ -235,8 +246,8 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 				for (TLObject function : added) {
 					function.tDelete();
 				}
-				datapoint(project, "on_off", 1, "Steckdose").tUpdateByName("writable", Boolean.FALSE);
-				level.tUpdateByName("writable", Boolean.FALSE);
+				((ApplicationDatapoint) datapoint(project, "on_off", 1, "Steckdose")).setWritable(false);
+				((ApplicationDatapoint) level).setWritable(false);
 				tx.commit();
 			}
 			assertEquals(List.of("switch zigbee:00000000000000a1:11:on_off", "light zigbee:00000000000000a3:1:on_off",
@@ -258,10 +269,10 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 
 	private static TLObject datapoint(TLObject project, String key, int endpoint, String device) {
 		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
-			TLObject function = ZigbeeBindings.function(datapoint);
-			if (key.equals(function.tValueByName("function"))
-				&& ((Number) function.tValueByName("endpoint")).intValue() == endpoint
-				&& (device == null || device.equals(function.tContainer().tValueByName("name")))) {
+			ZigbeeFunction function = (ZigbeeFunction) ZigbeeBindings.function(datapoint);
+			if (key.equals(function.getFunction())
+				&& function.getEndpoint() == endpoint
+				&& (device == null || device.equals(((ZigbeeDevice) function.tContainer()).getName()))) {
 				return datapoint;
 			}
 		}
@@ -270,7 +281,7 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 
 	private static List<TLObject> functions(TLObject device) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object function : (Collection<?>) device.tValueByName("functions")) {
+		for (Object function : ((ZigbeeDevice) device).getFunctions()) {
 			result.add((TLObject) function);
 		}
 		return result;

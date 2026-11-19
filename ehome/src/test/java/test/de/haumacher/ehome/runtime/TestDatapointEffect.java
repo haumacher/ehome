@@ -33,10 +33,13 @@ import com.top_logic.model.search.expr.query.QueryExecutor;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.runtime.DatapointSettings;
@@ -112,7 +115,10 @@ public class TestDatapointEffect extends BasicTestCase {
 			assertDerived(address(project, "0/0/1"), false, false);
 
 			// The setting overrides the derivation.
-			TestFunctionProposal.update(channelA, "runtimeWritable", Boolean.TRUE);
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				((GroupAddress) channelA).setRuntimeWritable(Boolean.TRUE);
+				tx.commit();
+			}
 			assertTrue(DatapointSettings.writable(channelA));
 		} finally {
 			SharedData.deleteProjects(projects);
@@ -227,15 +233,15 @@ public class TestDatapointEffect extends BasicTestCase {
 
 	private static TLObject function(TLObject project, String kind, String name, Map<String, TLObject> roles) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject function = create("ehome.runtime:Function");
-			function.tUpdateByName("name", FunctionProposal.text(Map.of("de", name)));
-			function.tUpdateByName("kind", FunctionProposal.classifier(kind));
+			Function function = (Function) create("ehome.runtime:Function");
+			function.setNameKey(FunctionProposal.text(Map.of("de", name)));
+			function.setKind(FunctionProposal.classifier(kind));
 			for (Map.Entry<String, TLObject> role : roles.entrySet()) {
 				function.tUpdateByName(role.getKey(), role.getValue());
 			}
-			List<Object> functions = new ArrayList<>(FunctionProposal.functions(project));
+			List<Function> functions = new ArrayList<>(((Project) project).getFunctions());
 			functions.add(function);
-			project.tUpdateByName("functions", functions);
+			((Project) project).setFunctions(functions);
 			tx.commit();
 			return function;
 		}
@@ -261,7 +267,7 @@ public class TestDatapointEffect extends BasicTestCase {
 
 	private static ParameterView channelSwitch() {
 		for (TLObject view : instances("ehome.operational:ParameterView")) {
-			if ((PREFIX + "P-9010_R-9010").equals(view.tValueByName("extId"))) {
+			if ((PREFIX + "P-9010_R-9010").equals(((ParameterView) view).getExtId())) {
 				return (ParameterView) view;
 			}
 		}

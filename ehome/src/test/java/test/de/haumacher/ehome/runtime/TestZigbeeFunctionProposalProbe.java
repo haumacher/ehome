@@ -5,7 +5,6 @@ package test.de.haumacher.ehome.runtime;
 
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.apply;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -23,6 +22,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.FunctionProposal.Proposal;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
@@ -51,8 +53,8 @@ public class TestZigbeeFunctionProposalProbe extends BasicTestCase {
 							{"function": "temperature", "endpoint": 2, "cluster": 1026, "attribute": 0, "type": "real", "unit": "°C"}]}
 					 ]}"""));
 				for (TLObject device : ZigbeeImport.devices(project)) {
-					for (Object function : (Collection<?>) device.tValueByName("functions")) {
-						ZigbeeBindings.createDatapoint((TLObject) function);
+					for (ZigbeeFunction function : ((ZigbeeDevice) device).getFunctions()) {
+						ZigbeeBindings.createDatapoint(function);
 					}
 				}
 				tx.commit();
@@ -71,7 +73,7 @@ public class TestZigbeeFunctionProposalProbe extends BasicTestCase {
 			// Dismissing the first endpoint's switch keeps the second one's.
 			List<TLObject> added = apply(project);
 			assertEquals(4, added.size());
-			TLObject first = added.stream().filter(f -> f.tValueByName("channel").toString().endsWith(":1:on_off"))
+			TLObject first = added.stream().filter(f -> ((Function) f).getChannel().toString().endsWith(":1:on_off"))
 				.findFirst().orElseThrow();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				// Deletes the function, as the view's delete does.
@@ -81,7 +83,7 @@ public class TestZigbeeFunctionProposalProbe extends BasicTestCase {
 			assertEquals(List.of(), apply(project));
 			assertEquals(3, FunctionProposal.functions(project).size());
 			assertTrue(FunctionProposal.functions(project).stream()
-				.anyMatch(f -> f.tValueByName("channel").toString().endsWith(":2:on_off")));
+				.anyMatch(f -> ((Function) f).getChannel().toString().endsWith(":2:on_off")));
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}

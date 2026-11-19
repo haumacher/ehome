@@ -22,9 +22,13 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.model.TLNamed;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 
 /**
@@ -60,15 +64,15 @@ public class TestFunctionRooms extends BasicTestCase {
 				// The sensor is where its device is.
 				"sensor Temperatur", "Küche"), rooms(project));
 			// An unused function has no senders: it is where its device is.
-			assertEquals("Wohnzimmer", name(function(project, "TEST Taster Wohnzimmer: Taste 2").tValueByName("room")));
-			assertEquals("Küche", name(function(project, "TEST Taster Küche 1: Temperatur").tValueByName("room")));
+			assertEquals("Wohnzimmer", name(function(project, "TEST Taster Wohnzimmer: Taste 2").getRoom()));
+			assertEquals("Küche", name(function(project, "TEST Taster Küche 1: Temperatur").getRoom()));
 
 			// Running again changes no room, also one the user changed.
-			TLObject light = function(project, "Licht");
-			TLObject kitchen = (TLObject) function(project, "Dimmer").tValueByName("room");
-			update(light, "room", kitchen);
+			Function light = function(project, "Licht");
+			BuildingDefinition kitchen = function(project, "Dimmer").getRoom();
+			update(() -> light.setRoom(kitchen));
 			assertEquals(List.of(), apply(project));
-			assertSame(kitchen, light.tValueByName("room"));
+			assertSame(kitchen, light.getRoom());
 
 			// The key in "Wohnzimmer" not placed: the light has no placed sender, its actuator sits in
 			// the distribution board, so it has no room; the blind is in the room of the other key.
@@ -83,7 +87,7 @@ public class TestFunctionRooms extends BasicTestCase {
 			update(actuator, "location", living);
 			deleteFunctions(project);
 			apply(project);
-			assertEquals("Wohnzimmer", name(function(project, "Licht").tValueByName("room")));
+			assertEquals("Wohnzimmer", name(function(project, "Licht").getRoom()));
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
@@ -92,7 +96,7 @@ public class TestFunctionRooms extends BasicTestCase {
 	private static void deleteFunctions(TLObject project) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			List<TLObject> functions = FunctionProposal.functions(project);
-			project.tUpdateByName("functions", List.of());
+			((Project) project).setFunctions(List.of());
 			functions.forEach(TLObject::tDelete);
 			tx.commit();
 		}
@@ -102,8 +106,15 @@ public class TestFunctionRooms extends BasicTestCase {
 		TestFunctionProposal.update(obj, attribute, value);
 	}
 
-	private static TLObject function(TLObject project, String name) {
-		return FunctionProposal.functions(project).stream().filter(f -> name.equals(TestFunctionProposal.name(f)))
+	private static void update(Runnable change) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			change.run();
+			tx.commit();
+		}
+	}
+
+	private static Function function(TLObject project, String name) {
+		return (Function) FunctionProposal.functions(project).stream().filter(f -> name.equals(TestFunctionProposal.name(f)))
 			.findFirst().orElseThrow(() -> new AssertionError("No function " + name));
 	}
 
@@ -116,7 +127,7 @@ public class TestFunctionRooms extends BasicTestCase {
 			if (FunctionProposal.unused(function)) {
 				continue;
 			}
-			Object room = function.tValueByName("room");
+			Object room = ((Function) function).getRoom();
 			result.put(FunctionProposal.kind(function) + " " + TestFunctionProposal.name(function),
 				room == null ? "-" : name(room));
 		}
@@ -124,7 +135,8 @@ public class TestFunctionRooms extends BasicTestCase {
 	}
 
 	private static String name(Object part) {
-		return String.valueOf(((TLObject) part).tValueByName("name"));
+		return String.valueOf(((TLNamed) part).getName());
+
 	}
 
 	public static Test suite() {

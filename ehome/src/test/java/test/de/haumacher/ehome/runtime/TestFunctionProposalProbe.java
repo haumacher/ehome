@@ -24,7 +24,8 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.RuntimeImage;
@@ -86,10 +87,10 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 			for (TLObject function : added) {
 				if (FunctionProposal.unused(function)) {
 					// Without senders: where its device is.
-					assertSame(((TLObject) function.tValueByName("device")).tValueByName("location"),
-						function.tValueByName("room"));
+					assertSame(((Function) function).getDevice().tValueByName("location"),
+						((Function) function).getRoom());
 				} else {
-					assertEquals("Küche", ((TLObject) function.tValueByName("room")).tValueByName("name"));
+					assertEquals("Küche", ((Function) function).getRoom().getName());
 				}
 			}
 			Map<?, ?> image = valid(project);
@@ -144,7 +145,7 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 						roles.append(", ");
 					}
 					roles.append(role).append('=')
-						.append(RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
+						.append(RuntimeImage.threeLevel(((GroupAddress) address).getAddress().getValue()));
 				}
 			}
 			result.add(FunctionProposal.kind(function) + " " + (FunctionProposal.unused(function) ? "unused" : roles));

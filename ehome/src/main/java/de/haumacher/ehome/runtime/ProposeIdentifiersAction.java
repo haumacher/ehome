@@ -27,6 +27,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
 
 /**
  * {@link ViewAction} giving the group addresses of the input project (<code>ehome.project:Project</code>)
@@ -125,7 +126,7 @@ public class ProposeIdentifiersAction extends ArgumentsViewAction {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_IDENTIFIERS_PROPOSED__PROJECT_COUNT
 			.fill(MetaLabelProvider.INSTANCE.getLabel(project), Integer.valueOf(changes.size())))) {
 			for (Change change : changes) {
-				change.address().tUpdateByName("identifier", change.after());
+				((GroupAddress) change.address()).setIdentifier(change.after());
 			}
 			tx.commit();
 		}
@@ -201,7 +202,8 @@ public class ProposeIdentifiersAction extends ArgumentsViewAction {
 			TLObject address = change.address();
 			String label = DatapointNames.label(address);
 			// The address in the notation of the project.
-			String where = address.tValueByName("address") instanceof GA ga ? ga.toString() : null;
+			String where = ((GroupAddress) address).getAddress() instanceof GA ga ? ga.toString() : null;
+
 			boolean renamed = !change.before().equals(GroupAddressIds.address(address));
 			String head = (where == null ? "" : where) + (label == null ? "" : " " + label);
 			text.append("\n• ").append(head.trim());

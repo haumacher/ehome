@@ -12,6 +12,9 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+
 /**
  * The migration <code>Issue_178_Group_address_identifiers</code> (haumacher/ehome #178): every group
  * address of a database from before that has no identifier gets the one
@@ -48,10 +51,11 @@ public class GroupAddressIdentifierMigration implements StartupAction {
 	public static int migrate(TLObject project) {
 		Map<TLObject, String> proposal = GroupAddressIds.propose(project);
 		for (Map.Entry<TLObject, String> entry : proposal.entrySet()) {
-			entry.getKey().tUpdateByName("identifier", entry.getValue());
+			((GroupAddress) entry.getKey()).setIdentifier(entry.getValue());
 		}
 		if (!proposal.isEmpty()) {
-			Logger.info("Project '" + project.tValueByName("name") + "': " + proposal.size()
+			Logger.info("Project '" + ((Project) project).getName() + "': " + proposal.size()
+
 				+ " group addresses given an identifier (haumacher/ehome #178).", GroupAddressIdentifierMigration.class);
 		}
 		return proposal.size();

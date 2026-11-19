@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.address;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.createAddress;
-import static test.de.haumacher.ehome.runtime.TestFunctionProposal.update;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +30,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.DatapointSettings;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
@@ -56,10 +58,10 @@ public class TestRuntimeSettings extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		try {
 			assertEquals(1, projects.size());
-			TLObject project = projects.get(0);
-			TLObject channelA = address(project, "0/0/34");
-			TLObject key1 = address(project, "0/0/1");
-			TLObject scene2 = address(project, "0/0/20");
+			Project project = (Project) projects.get(0);
+			GroupAddress channelA = (GroupAddress) address(project, "0/0/34");
+			GroupAddress key1 = (GroupAddress) address(project, "0/0/1");
+			GroupAddress scene2 = (GroupAddress) address(project, "0/0/20");
 
 			// Derived: the actuator input is writable, the key is neither writable nor read on start.
 			assertEquals(Boolean.TRUE, derived(channelA, "effectiveWritable"));
@@ -72,10 +74,10 @@ public class TestRuntimeSettings extends BasicTestCase {
 
 			// Overridden: channel A is no longer commanded but read on start.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				channelA.tUpdateByName("runtimeWritable", Boolean.FALSE);
-				channelA.tUpdateByName("runtimeReadOnStart", Boolean.TRUE);
-				key1.tUpdateByName("runtimeReadable", Boolean.TRUE);
-				scene2.tUpdateByName("runtimeUnit", "Stufe");
+				channelA.setRuntimeWritable(Boolean.FALSE);
+				channelA.setRuntimeReadOnStart(Boolean.TRUE);
+				key1.setRuntimeReadable(true);
+				scene2.setRuntimeUnit("Stufe");
 				tx.commit();
 			}
 			assertEquals(Boolean.FALSE, derived(channelA, "effectiveWritable"));
@@ -95,25 +97,25 @@ public class TestRuntimeSettings extends BasicTestCase {
 			assertEquals("Stufe", datapoint(project, "0/0/20").get("unit"));
 
 			// Back to the derivation.
-			update(channelA, "runtimeWritable", null);
+			update(() -> channelA.setRuntimeWritable(null));
 			assertEquals(I18NConstants.FLAGS_READ_ON_START_SET, DatapointSettings.flagsSource(channelA));
 			assertEquals(Boolean.TRUE, datapoint(project, "0/0/34").get("writable"));
 
 			// A history without spacing is refused at saving; with both, it is in the image.
 			try {
-				update(scene2, "historyRetention", Integer.valueOf(3600));
+				update(() -> scene2.setHistoryRetention(Integer.valueOf(3600)));
 				fail("A history without spacing must not be stored.");
 			} catch (TopLogicException ex) {
 				// Expected: the constraint of the history.
 			}
-			assertNull(scene2.tValueByName("historyRetention"));
+			assertNull(scene2.getHistoryRetention());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				// A history set by hand (haumacher/ehome #73).
-				scene2.tUpdateByName("historyManual", Boolean.TRUE);
-				scene2.tUpdateByName("historyRetention", Integer.valueOf(3600));
-				scene2.tUpdateByName("historySpacing", Integer.valueOf(1));
+				scene2.setHistoryManual(true);
+				scene2.setHistoryRetention(Integer.valueOf(3600));
+				scene2.setHistorySpacing(Integer.valueOf(1));
 				assertNotNull(DatapointSettings.historyProblem(scene2));
-				scene2.tUpdateByName("historySpacing", Integer.valueOf(60));
+				scene2.setHistorySpacing(Integer.valueOf(60));
 				assertNull(DatapointSettings.historyProblem(scene2));
 				tx.commit();
 			}
@@ -121,14 +123,14 @@ public class TestRuntimeSettings extends BasicTestCase {
 				datapoint(project, "0/0/20").get("history"));
 
 			// A budget the rings do not fit in: refused by the controller, shown against the project.
-			update(project, "historyBudget", Integer.valueOf(100));
+			update(() -> project.setHistoryBudget(Integer.valueOf(100)));
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			ImageReport report = image.validate();
 			assertFalse(report.isValid());
 			assertEquals(1, report.getRefusals().size());
 			assertEquals("history", report.getRefusals().get(0).path());
 			assertSame(project, image.elementAt(report.getRefusals().get(0).path()));
-			update(project, "historyBudget", Integer.valueOf(4096));
+			update(() -> project.setHistoryBudget(Integer.valueOf(4096)));
 
 			// The project's settings, as in the specification's example.
 			assertNull(RuntimeFunctions.timeZoneProblem("CET-1CEST,M3.5.0,M10.5.0/3"));
@@ -138,11 +140,11 @@ public class TestRuntimeSettings extends BasicTestCase {
 			assertNull(RuntimeFunctions.identifierProblem("channel-a"));
 			assertNotNull(RuntimeFunctions.identifierProblem("Kanal A"));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("timeZone", "CET-1CEST,M3.5.0,M10.5.0/3");
-				project.tUpdateByName("latitude", Double.valueOf(48.137154));
-				project.tUpdateByName("longitude", Double.valueOf(11.576124));
-				project.tUpdateByName("elevation", Integer.valueOf(520));
-				project.tUpdateByName("ntpServer", "pool.ntp.org");
+				project.setTimeZone("CET-1CEST,M3.5.0,M10.5.0/3");
+				project.setLatitude(Double.valueOf(48.137154));
+				project.setLongitude(Double.valueOf(11.576124));
+				project.setElevation(Integer.valueOf(520));
+				project.setNtpServer("pool.ntp.org");
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -152,7 +154,7 @@ public class TestRuntimeSettings extends BasicTestCase {
 			assertEquals(example.get("settings"), image.getJson().get("settings"));
 			// The only note: the room temperature has no datapoint type.
 			assertEquals(1, image.getNotes().size());
-			update(project, "longitude", null);
+			update(() -> project.setLongitude(null));
 			image = RuntimeImage.build(project, 1, NOW);
 			assertNull(((Map<?, ?>) image.getJson().get("settings")).get("location"));
 			assertEquals(2, image.getNotes().size());
@@ -160,12 +162,12 @@ public class TestRuntimeSettings extends BasicTestCase {
 			// A time master on the address of an actuator input, set outside a form (the form refuses it,
 			// TestTimeMasterCheck): the address is the time master's, not a datapoint the controller
 			// would send on, and the type that does not fit is named in the notes.
-			TLObject date = createAddress(project, "0/0/61", "Datum", "DPST-11-1");
+			GroupAddress date = (GroupAddress) createAddress(project, "0/0/61", "Datum", "DPST-11-1");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("timeMasterTime", address(project, "0/0/40"));
-				project.tUpdateByName("timeMasterDate", date);
-				project.tUpdateByName("timeMasterAtMidnight", Boolean.FALSE);
-				project.tUpdateByName("timeMasterInterval", Integer.valueOf(3600));
+				project.setTimeMasterTime((GroupAddress) address(project, "0/0/40"));
+				project.setTimeMasterDate(date);
+				project.setTimeMasterAtMidnight(Boolean.FALSE);
+				project.setTimeMasterInterval(Integer.valueOf(3600));
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -183,15 +185,15 @@ public class TestRuntimeSettings extends BasicTestCase {
 			// A function binding the time address names the controller's datapoint of it; one whose
 			// role is bound to an untyped address is refused against the function.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject clock = TestFunctionProposal.create("ehome.runtime:Function");
-				clock.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Uhr")));
-				clock.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-				clock.tUpdateByName("value", date);
-				TLObject temperature = TestFunctionProposal.create("ehome.runtime:Function");
-				temperature.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Temperatur")));
-				temperature.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-				temperature.tUpdateByName("value", address(project, "0/0/28"));
-				project.tUpdateByName("functions", List.of(clock, temperature));
+				Function clock = (Function) TestFunctionProposal.create("ehome.runtime:Function");
+				clock.setNameKey(FunctionProposal.text(Map.of("de", "Uhr")));
+				clock.setKind(FunctionProposal.classifier("sensor"));
+				clock.setValue(date);
+				Function temperature = (Function) TestFunctionProposal.create("ehome.runtime:Function");
+				temperature.setNameKey(FunctionProposal.text(Map.of("de", "Temperatur")));
+				temperature.setKind(FunctionProposal.classifier("sensor"));
+				temperature.setValue((GroupAddress) address(project, "0/0/28"));
+				project.setFunctions(List.of(clock, temperature));
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -206,6 +208,13 @@ public class TestRuntimeSettings extends BasicTestCase {
 			assertSame(FunctionProposal.functions(project).get(1), image.elementAt(refusal.path()));
 		} finally {
 			SharedData.deleteProjects(projects);
+		}
+	}
+
+	private static void update(Runnable change) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			change.run();
+			tx.commit();
 		}
 	}
 

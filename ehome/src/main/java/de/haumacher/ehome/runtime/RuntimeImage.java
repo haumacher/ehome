@@ -28,6 +28,12 @@ import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.runtime.binary.CompileException;
@@ -474,8 +480,8 @@ public final class RuntimeImage {
 	 * <code>.json</code>, without characters a file system may refuse.
 	 */
 	public static String fileName(TLObject project) {
-		Object name = project.tValueByName("name");
-		String base = name == null || name.toString().isBlank() ? String.valueOf(project.tValueByName("extId"))
+		Object name = ((Project) project).getName();
+		String base = name == null || name.toString().isBlank() ? String.valueOf(((Project) project).getExtId())
 			: name.toString();
 		return base.replaceAll("[\\\\/:*?\"<>|]", "_").trim() + ".runtime.json";
 	}
@@ -494,11 +500,11 @@ public final class RuntimeImage {
 	private void image(TLObject project, long revision, Instant generatedAt) {
 		Map<String, Object> image = new LinkedHashMap<>();
 		image.put("schemaVersion", SCHEMA_VERSION);
-		image.put("projectId", text(project.tValueByName("extId"), "project"));
+		image.put("projectId", text(((Project) project).getExtId(), "project"));
 		image.put("revision", Long.valueOf(revision));
 		image.put("generatedAt", generatedAt.truncatedTo(ChronoUnit.SECONDS).toString());
 		image.put("generator", generator());
-		String name = label(project.tValueByName("name"));
+		String name = label(((Project) project).getName());
 		if (name != null) {
 			image.put("name", name);
 		}
@@ -518,9 +524,9 @@ public final class RuntimeImage {
 	private void datapoints(TLObject project) {
 		_derivedHistory = HistoryConfig.derivedHistories(project);
 		List<TLObject> addresses = new ArrayList<>();
-		collectAddresses(project.tValueByName("groupAddresses"), addresses);
+		collectAddresses(((Project) project).getGroupAddresses(), addresses);
 		addresses.sort(Comparator.comparingInt(RuntimeImage::addressValue)
-			.thenComparing(a -> String.valueOf(a.tValueByName("name"))));
+			.thenComparing(a -> String.valueOf(((GroupAddress) a).getName())));
 		List<Object> datapoints = new ArrayList<>();
 		for (TLObject address : addresses) {
 			if (_timeMaster.containsKey(address)) {
@@ -553,18 +559,18 @@ public final class RuntimeImage {
 			if (isA(definition, "ehome.logical:GroupAddress")) {
 				result.add(definition);
 			} else {
-				collectAddresses(definition.tValueByName("parts"), result);
+				collectAddresses(definition instanceof GroupRange range ? range.getParts() : null, result);
 			}
 		}
 	}
 
 	private static int addressValue(TLObject address) {
-		return address.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE;
+		return ((GroupAddress) address).getAddress() instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE;
 	}
 
 	private Map<String, Object> datapoint(TLObject address) {
-		if (!(address.tValueByName("address") instanceof GA ga)) {
-			_notes.add(message(I18NConstants.NOTE_NO_ADDRESS__NAME.fill(String.valueOf(address.tValueByName("name")))));
+		if (!(((GroupAddress) address).getAddress() instanceof GA ga)) {
+			_notes.add(message(I18NConstants.NOTE_NO_ADDRESS__NAME.fill(String.valueOf(((GroupAddress) address).getName()))));
 			return null;
 		}
 		// The datapoint is named by the address's identifier where it has one (haumacher/ehome #130); the
@@ -589,7 +595,7 @@ public final class RuntimeImage {
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", id);
-		String label = label(address.tValueByName("name"));
+		String label = label(((GroupAddress) address).getName());
 		if (label != null) {
 			result.put("label", label);
 		}
@@ -637,7 +643,7 @@ public final class RuntimeImage {
 
 	private void locations(TLObject project) {
 		List<Object> locations = new ArrayList<>();
-		addLocations(project.tValueByName("buildings"), null, locations);
+		addLocations(((Project) project).getBuildings(), null, locations);
 		_json.put("locations", locations);
 	}
 
@@ -652,7 +658,7 @@ public final class RuntimeImage {
 			String id = locationId(part, result.size());
 			Map<String, Object> location = new LinkedHashMap<>();
 			location.put("id", id);
-			String label = label(part.tValueByName("name"));
+			String label = label(((BuildingDefinition) part).getName());
 			location.put("label", label != null ? label : id);
 			location.put("kind", locationKind(part));
 			if (parent != null) {
@@ -661,7 +667,7 @@ public final class RuntimeImage {
 			result.add(location);
 			_locationSources.add(part);
 			_locationIds.put(part, id);
-			addLocations(part.tValueByName("parts"), id, result);
+			addLocations(((BuildingDefinition) part).getParts(), id, result);
 		}
 	}
 
@@ -670,7 +676,7 @@ public final class RuntimeImage {
 	 * <code>P-0563-0_BP-1</code>), reduced to the characters an id may have.
 	 */
 	private static String locationId(TLObject part, int index) {
-		Object extId = part.tValueByName("extId");
+		Object extId = ((BuildingDefinition) part).getExtId();
 		String id = extId == null ? "" : extId.toString().replaceAll("[^A-Za-z0-9_.\\-]", "_");
 		if (id.isEmpty()) {
 			id = "location-" + (index + 1);
@@ -696,26 +702,27 @@ public final class RuntimeImage {
 
 	// ---- settings ----------------------------------------------------------------------------
 
-	private void settings(TLObject project) {
+	private void settings(TLObject projectObject) {
+		Project project = (Project) projectObject;
 		Map<String, Object> settings = new LinkedHashMap<>();
-		String tz = text(project.tValueByName("timeZone"));
+		String tz = text(project.getTimeZone());
 		if (tz != null) {
 			settings.put("tz", tz);
 		}
-		Object lat = project.tValueByName("latitude");
-		Object lon = project.tValueByName("longitude");
+		Object lat = project.getLatitude();
+		Object lon = project.getLongitude();
 		if (lat instanceof Number latitude && lon instanceof Number longitude) {
 			Map<String, Object> location = new LinkedHashMap<>();
 			location.put("lat", Double.valueOf(latitude.doubleValue()));
 			location.put("lon", Double.valueOf(longitude.doubleValue()));
-			if (project.tValueByName("elevation") instanceof Number elevation) {
+			if (project.getElevation() instanceof Number elevation) {
 				location.put("elev", Long.valueOf(elevation.longValue()));
 			}
 			settings.put("location", location);
 		} else if (lat != null || lon != null) {
 			_notes.add(message(I18NConstants.NOTE_LOCATION_INCOMPLETE));
 		}
-		String ntp = text(project.tValueByName("ntpServer"));
+		String ntp = text(project.getNtpServer());
 		if (ntp != null) {
 			settings.put("ntp", Map.of("server", ntp));
 		}
@@ -726,11 +733,19 @@ public final class RuntimeImage {
 
 	// ---- time master -------------------------------------------------------------------------
 
-	private static final String[][] TIME_MASTER = {
-		{ "timeMasterTime", "time", "knx.time", "10" },
-		{ "timeMasterDate", "date", "knx.date", "11" },
-		{ "timeMasterDateTime", "dateTime", "knx.datetime", "19" },
-	};
+	/**
+	 * An address of the project's time master: the project's reference to it, its member in the
+	 * image, the id of its datapoint on the controller, its main datapoint type.
+	 */
+	private record TimeMaster(java.util.function.Function<Project, GroupAddress> address, String member, String id,
+			int mainType) {
+		// A record.
+	}
+
+	private static final List<TimeMaster> TIME_MASTER = List.of(
+		new TimeMaster(Project::getTimeMasterTime, "time", "knx.time", 10),
+		new TimeMaster(Project::getTimeMasterDate, "date", "knx.date", 11),
+		new TimeMaster(Project::getTimeMasterDateTime, "dateTime", "knx.datetime", 19));
 
 	/**
 	 * The id of the datapoint the controller adds for the given address of the project's time master
@@ -738,47 +753,47 @@ public final class RuntimeImage {
 	 * the address is none of them.
 	 */
 	public static String timeMasterId(TLObject project, TLObject address) {
-		for (String[] member : TIME_MASTER) {
-			if (project.tValueByName(member[0]) == address) {
-				return member[2];
+		for (TimeMaster member : TIME_MASTER) {
+			if (member.address().apply((Project) project) == address) {
+				return member.id();
 			}
 		}
 		return null;
 	}
 
 	private void timeMasterAddresses(TLObject project) {
-		for (String[] member : TIME_MASTER) {
-			if (project.tValueByName(member[0]) instanceof TLObject address) {
-				_timeMaster.putIfAbsent(address, member[2]);
+		for (TimeMaster member : TIME_MASTER) {
+			if (member.address().apply((Project) project) instanceof TLObject address) {
+				_timeMaster.putIfAbsent(address, member.id());
 			}
 		}
 	}
 
-	private void knx(TLObject project) {
+	private void knx(TLObject projectObject) {
+		Project project = (Project) projectObject;
 		Map<String, Object> timeMaster = new LinkedHashMap<>();
-		for (String[] member : TIME_MASTER) {
-			if (!(project.tValueByName(member[0]) instanceof TLObject address)) {
+		for (TimeMaster member : TIME_MASTER) {
+			if (!(member.address().apply(project) instanceof GroupAddress address)) {
 				continue;
 			}
-			if (!(address.tValueByName("address") instanceof GA ga)) {
-				_notes.add(message(I18NConstants.NOTE_NO_ADDRESS__NAME.fill(String.valueOf(address.tValueByName("name")))));
+			if (!(address.getAddress() instanceof GA ga)) {
+				_notes.add(message(I18NConstants.NOTE_NO_ADDRESS__NAME.fill(String.valueOf(address.getName()))));
 				continue;
 			}
 			Dpt dpt = GroupAddressTypes.effective(address);
-			if (dpt != null && dpt.main() != Integer.parseInt(member[3])) {
+			if (dpt != null && dpt.main() != member.mainType()) {
 				_notes.add(message(I18NConstants.NOTE_TIME_MASTER_TYPE__ADDRESS_TYPE_EXPECTED.fill(
-					DatapointNames.name(address), dpt.code(), member[3] + ".001")));
+					DatapointNames.name(address), dpt.code(), member.mainType() + ".001")));
 			}
-			timeMaster.put(member[1], threeLevel(ga.getValue()));
+			timeMaster.put(member.member(), threeLevel(ga.getValue()));
 		}
 		if (timeMaster.isEmpty()) {
 			return;
 		}
-		Object interval = project.tValueByName("timeMasterInterval");
+		Object interval = project.getTimeMasterInterval();
 		timeMaster.put("interval", Long.valueOf(interval instanceof Number number ? number.longValue() : 600));
-		timeMaster.put("atMidnight", Boolean.valueOf(!Boolean.FALSE.equals(project.tValueByName("timeMasterAtMidnight"))));
-		timeMaster.put("onSynchronized",
-			Boolean.valueOf(!Boolean.FALSE.equals(project.tValueByName("timeMasterOnSynchronized"))));
+		timeMaster.put("atMidnight", Boolean.valueOf(!Boolean.FALSE.equals(project.getTimeMasterAtMidnight())));
+		timeMaster.put("onSynchronized", Boolean.valueOf(!Boolean.FALSE.equals(project.getTimeMasterOnSynchronized())));
 		_json.put("knx", Map.of("timeMaster", timeMaster));
 	}
 
@@ -791,13 +806,14 @@ public final class RuntimeImage {
 		}
 		Set<String> ids = new HashSet<>();
 		for (TLObject function : functions) {
-			Object identifier = function.tValueByName("identifier");
+			Object identifier = ((Function) function).getIdentifier();
 			if (identifier != null && !identifier.toString().isBlank()) {
 				ids.add(identifier.toString());
 			}
 		}
 		List<Object> result = new ArrayList<>();
-		for (TLObject function : functions) {
+		for (TLObject object : functions) {
+			Function function = (Function) object;
 			if (FunctionProposal.unused(function)) {
 				// Not linked by a group address (haumacher/ehome #98): nothing to operate on the controller.
 				_unusedFunctions++;
@@ -805,15 +821,15 @@ public final class RuntimeImage {
 			}
 			String kind = FunctionProposal.kind(function);
 			Map<String, Object> entry = new LinkedHashMap<>();
-			Object identifier = function.tValueByName("identifier");
+			Object identifier = function.getIdentifier();
 			entry.put("id", identifier != null && !identifier.toString().isBlank() ? identifier.toString()
-				: FunctionProposal.uniqueIdentifier(String.valueOf(text(function.tValueByName("name"))), ids));
-			Object label = labels(function.tValueByName("name"));
+				: FunctionProposal.uniqueIdentifier(String.valueOf(text(function.getNameKey())), ids));
+			Object label = labels(function.getNameKey());
 			entry.put("label", label != null ? label : entry.get("id"));
 			if (kind != null) {
 				entry.put("kind", kind);
 			}
-			if (function.tValueByName("room") instanceof TLObject room && _locationIds.containsKey(room)) {
+			if (function.getRoom() instanceof TLObject room && _locationIds.containsKey(room)) {
 				entry.put("room", _locationIds.get(room));
 			}
 			Map<String, Object> roles = new LinkedHashMap<>();
@@ -825,7 +841,7 @@ public final class RuntimeImage {
 					}
 				}
 			}
-			String unit = text(function.tValueByName("unit"));
+			String unit = text(function.getUnit());
 			// The unit of the main role; of a dimmer the one of its level command (its switching command has none).
 			for (String role : FunctionKinds.requiredRoles(kind)) {
 				if (unit == null && roles.get(role) != null) {
@@ -835,7 +851,7 @@ public final class RuntimeImage {
 			if (unit != null) {
 				entry.put("unit", unit);
 			}
-			if ("scene".equals(kind) && function.tValueByName("scene") instanceof Number scene) {
+			if ("scene".equals(kind) && function.getScene() instanceof Number scene) {
 				entry.put("scene", Long.valueOf(scene.longValue()));
 			}
 			if ("button".equals(kind) && zigbeeAction(roles.get("press"))) {
@@ -985,7 +1001,7 @@ public final class RuntimeImage {
 			if (!(((Map<?, ?>) blocks.get(b)).get("outputs") instanceof Map<?, ?> outputs)) {
 				continue;
 			}
-			String blockName = text(instance.tValueByName("name")) + " (" + BlockInstances.identifier(instance) + ")";
+			String blockName = text(((BlockInstance) instance).getNameKey()) + " (" + BlockInstances.identifier(instance) + ")";
 			for (Map.Entry<?, ?> output : outputs.entrySet()) {
 				String port = (String) output.getKey();
 				String datapoint = (String) output.getValue();
@@ -1076,7 +1092,8 @@ public final class RuntimeImage {
 	// ---- history -----------------------------------------------------------------------------
 
 	private void history(TLObject project) {
-		if (project.tValueByName("historyBudget") instanceof Number budget) {
+		if (((Project) project).getHistoryBudget() instanceof Number budget) {
+
 			_json.put("history", Map.of("budget", Long.valueOf(budget.longValue())));
 		}
 	}

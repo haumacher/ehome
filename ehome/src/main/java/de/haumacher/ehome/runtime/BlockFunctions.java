@@ -24,6 +24,10 @@ import de.haumacher.ehome.blocks.BlockType;
 import de.haumacher.ehome.blocks.Manifest.Aggregation;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.model.runtime.BlockBinding;
+import de.haumacher.ehome.model.runtime.BlockInstance;
+import de.haumacher.ehome.model.runtime.BlockParameter;
+import de.haumacher.ehome.model.runtime.BlockPort;
 import de.haumacher.ehome.programming.BuildingDevices;
 
 /**
@@ -223,14 +227,14 @@ public class BlockFunctions extends GenericMethod {
 			case blockBindingOptions:
 				return BlockInstances.bindingOptions(obj);
 			case blockLabel: {
-				String type = obj.tContainer() == null ? null : String.valueOf(obj.tContainer().tValueByName("blockType"));
+				String type = blockType(obj);
 				if (BlockInstances.isPort(obj)) {
 					Port decl = BlockInstances.portDecl(obj);
-					return decl == null ? obj.tValueByName("port")
+					return decl == null ? ((BlockPort) obj).getPort()
 						: BlockTexts.label(type, decl.id(), decl.label(), language) + unit(decl.unit());
 				}
 				Param decl = BlockInstances.paramDecl(obj);
-				return decl == null ? obj.tValueByName("parameter")
+				return decl == null ? (obj instanceof BlockParameter parameter ? parameter.getParameter() : null)
 					: BlockTexts.label(type, decl.id(), decl.label(), language);
 			}
 			case blockHelp: {
@@ -246,12 +250,13 @@ public class BlockFunctions extends GenericMethod {
 				return portInfo(obj);
 			case blockPortBindings: {
 				List<String> result = new ArrayList<>();
-				for (TLObject binding : RuleExport.objects(obj.tValueByName("bindings"))) {
-					if (binding.tValueByName("datapoint") instanceof TLObject datapoint && datapoint.tValid()) {
+				for (TLObject object : RuleExport.objects(obj instanceof BlockPort port ? port.getBindings() : null)) {
+					BlockBinding binding = (BlockBinding) object;
+					if (binding.getDatapoint() instanceof TLObject datapoint && datapoint.tValid()) {
 						result.add(DatapointNames.format(DatapointNames.label(datapoint), BlockInstances.datapointImageId(datapoint)));
 					} else {
 						result.add(Resources.getInstance().getString(
-							I18NConstants.BLOCK_BINDING_GONE__ID.fill(String.valueOf(binding.tValueByName("boundId")))));
+							I18NConstants.BLOCK_BINDING_GONE__ID.fill(String.valueOf(binding.getBoundId()))));
 					}
 				}
 				return String.join(", ", result);
@@ -270,7 +275,7 @@ public class BlockFunctions extends GenericMethod {
 			}
 			case blockValue: {
 				Param decl = BlockInstances.paramDecl(obj);
-				return decl == null || !(obj.tValueByName("value") instanceof Number value) ? null
+				return decl == null || !(((BlockParameter) obj).getValue() instanceof Number value) ? null
 					: BlockValues.display(blockType(obj), decl, value.doubleValue());
 			}
 			case blockParameterKind: {
@@ -311,7 +316,7 @@ public class BlockFunctions extends GenericMethod {
 				if (decl == null || !decl.isInput() || decl.multiple() < 2) {
 					return null;
 				}
-				Aggregation set = obj.tValueByName("aggregation") instanceof String name ? Aggregation.of(name.trim())
+				Aggregation set = ((BlockPort) obj).getAggregation() instanceof String name ? Aggregation.of(name.trim())
 					: Aggregation.NONE;
 				return BlockValues.aggregationLabel(set != Aggregation.NONE ? set : decl.defaultAggregation());
 			}
@@ -326,7 +331,8 @@ public class BlockFunctions extends GenericMethod {
 			case blockInputPorts:
 			case blockOutputPorts: {
 				List<TLObject> result = new ArrayList<>();
-				for (TLObject port : RuleExport.objects(obj.tValueByName("ports"))) {
+				for (TLObject port : RuleExport.objects(obj instanceof BlockInstance instance ? instance.getPorts() : null)) {
+
 					Port decl = BlockInstances.portDecl(port);
 					if (decl != null && decl.isInput() == (_function == Function.blockInputPorts)) {
 						result.add(port);
@@ -337,7 +343,7 @@ public class BlockFunctions extends GenericMethod {
 			case blockRoomInstances: {
 				List<TLObject> result = new ArrayList<>();
 				for (TLObject instance : BlockInstances.of(RuntimeFunctions.project(obj))) {
-					if (instance.tValueByName("room") == obj) {
+					if (((BlockInstance) instance).getRoom() == obj) {
 						result.add(instance);
 					}
 				}
@@ -347,7 +353,7 @@ public class BlockFunctions extends GenericMethod {
 				Set<TLObject> parts = new HashSet<>(BuildingDevices.partsWithin(obj));
 				List<TLObject> result = new ArrayList<>();
 				for (TLObject instance : BlockInstances.of(RuntimeFunctions.project(obj))) {
-					if (parts.contains(instance.tValueByName("room"))) {
+					if (parts.contains(((BlockInstance) instance).getRoom())) {
 						result.add(instance);
 					}
 				}
@@ -365,11 +371,13 @@ public class BlockFunctions extends GenericMethod {
 	}
 
 	private static String blockType(TLObject parameter) {
-		return parameter.tContainer() == null ? null : String.valueOf(parameter.tContainer().tValueByName("blockType"));
+		return parameter.tContainer() == null ? null
+			: String.valueOf(parameter.tContainer() instanceof BlockInstance instance ? instance.getBlockType() : null);
 	}
 
 	private static double effective(TLObject parameter, Param decl) {
-		return parameter.tValueByName("value") instanceof Number value ? value.doubleValue() : decl.defaultValue();
+		return ((BlockParameter) parameter).getValue() instanceof Number value ? value.doubleValue() : decl.defaultValue();
+
 	}
 
 	private static String portInfo(TLObject port) {

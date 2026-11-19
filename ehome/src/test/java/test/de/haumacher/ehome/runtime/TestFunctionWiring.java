@@ -29,6 +29,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
@@ -175,8 +178,8 @@ public class TestFunctionWiring extends BasicTestCase {
 	private static String room(TLObject project, String name) {
 		for (TLObject function : FunctionProposal.functions(project)) {
 			if (name.equals(TestFunctionProposal.name(function))) {
-				Object room = function.tValueByName("room");
-				return room == null ? "-" : String.valueOf(((TLObject) room).tValueByName("name"));
+				BuildingDefinition room = ((Function) function).getRoom();
+				return room == null ? "-" : String.valueOf(room.getName());
 			}
 		}
 		throw new AssertionError("No function " + name);
@@ -212,7 +215,7 @@ public class TestFunctionWiring extends BasicTestCase {
 	private static void deleteFunctions(TLObject project) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			List<TLObject> functions = FunctionProposal.functions(project);
-			project.tUpdateByName("functions", List.of());
+			((Project) project).setFunctions(List.of());
 			functions.forEach(TLObject::tDelete);
 			tx.commit();
 		}

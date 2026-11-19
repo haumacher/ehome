@@ -26,6 +26,16 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.DatapointTrigger;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.ScheduleTrigger;
+import de.haumacher.ehome.model.runtime.WeeklySchedule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Referers;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -46,60 +56,62 @@ import de.haumacher.ehome.runtime.RuleFunctions;
 public class TestDeleteConfirmation extends BasicTestCase {
 
 	public void testReferers() throws Exception {
-		TLObject project;
-		TLObject range;
-		TLObject address;
-		TLObject temperature;
-		TLObject presence;
-		TLObject unused;
-		TLObject sensor;
-		TLObject light;
-		TLObject rule;
-		TLObject entry;
+		Project project;
+		GroupRange range;
+		GroupAddress address;
+		ApplicationDatapoint temperature;
+		ApplicationDatapoint presence;
+		ApplicationDatapoint unused;
+		Function sensor;
+		Function light;
+		Rule rule;
+		WeeklySchedule entry;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "Delete confirmation");
-			project.tUpdateByName("extId", "P-TEST-94");
+			project.setName("Delete confirmation");
+			project.setExtId("P-TEST-94");
 			address = create("ehome.logical:GroupAddress");
-			address.tUpdateByName("name", "Licht Flur");
-			address.tUpdateByName("address", new GA(0x0801, GroupAddressStyle.ThreeLevel));
+			address.setName("Licht Flur");
+			address.setAddress(new GA(0x0801, GroupAddressStyle.ThreeLevel));
 			range = create("ehome.logical:GroupRange");
-			range.tUpdateByName("name", "Licht");
-			range.tUpdateByName("parts", List.of(address));
-			project.tUpdateByName("groupAddresses", List.of(range));
+			range.setName("Licht");
+			range.setParts(Set.of(address));
+			project.setGroupAddresses(Set.of(range));
 
-			temperature = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			temperature.tUpdateByName("identifier", "flur.temperature");
-			presence = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			presence.tUpdateByName("identifier", "flur.presence");
-			unused = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-			unused.tUpdateByName("identifier", "unused");
+			temperature = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			temperature.setIdentifier("flur.temperature");
+			presence = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			presence.setIdentifier("flur.presence");
+			unused = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			unused.setIdentifier("unused");
 
 			sensor = create("ehome.runtime:Function");
-			sensor.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Flur Temperatur")
+			sensor.setNameKey(ResKey.builder().add(Locale.GERMAN, "Flur Temperatur")
 				.add(Locale.ENGLISH, "Hall temperature").build());
-			sensor.tUpdateByName("identifier", "flur-temperatur");
-			sensor.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
-			sensor.tUpdateByName("value", temperature);
+			sensor.setIdentifier("flur-temperatur");
+			sensor.setKind(FunctionProposal.classifier("sensor"));
+			sensor.setValue(temperature);
 			light = create("ehome.runtime:Function");
-			light.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Licht Flur")
+			light.setNameKey(ResKey.builder().add(Locale.GERMAN, "Licht Flur")
 				.add(Locale.ENGLISH, "Hall light").build());
-			light.tUpdateByName("identifier", "licht-flur");
-			light.tUpdateByName("kind", FunctionProposal.classifier("switch"));
-			light.tUpdateByName("command", address);
-			light.tUpdateByName("state", address);
-			project.tUpdateByName("functions", List.of(sensor, light));
+			light.setIdentifier("licht-flur");
+			light.setKind(FunctionProposal.classifier("switch"));
+			light.setCommand(address);
+			light.setState(address);
+			project.setFunctions(List.of(sensor, light));
 
-			entry = RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
-			entry.tUpdateByName("output", presence);
-			rule = RuleFunctions.create(project, "rules", runtime("Rule"));
-			rule.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Frostschutz").add(Locale.ENGLISH, "Frostschutz").build());
-			TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", temperature);
-			RuleFunctions.create(reaction, "triggers", runtime("ScheduleTrigger")).tUpdateByName("schedule", entry);
-			TLObject write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", temperature);
-			write.tUpdateByName("value", "1");
+			entry = add(project, "schedules", runtime("WeeklySchedule"));
+			entry.setOutput(presence);
+			rule = add(project, "rules", runtime("Rule"));
+			rule.setNameKey(ResKey.builder().add(Locale.GERMAN, "Frostschutz").add(Locale.ENGLISH, "Frostschutz").build());
+			TLObject reaction = add(rule, "reactions", runtime("Reaction"));
+			TestDeleteConfirmation.<DatapointTrigger> add(reaction, "triggers", runtime("DatapointTrigger"))
+				.setDatapoint(temperature);
+			TestDeleteConfirmation.<ScheduleTrigger> add(reaction, "triggers", runtime("ScheduleTrigger"))
+				.setSchedule(entry);
+			WriteAction write = add(reaction, "actions", runtime("WriteAction"));
+			write.setDatapoint(temperature);
+			write.setValue("1");
 			tx.commit();
 		}
 		try {
@@ -137,8 +149,15 @@ public class TestDeleteConfirmation extends BasicTestCase {
 		}
 	}
 
-	private static TLObject create(String type) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	/** A new part at the end of the reference of the owner ({@link RuleFunctions#create}), as its type. */
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T add(TLObject owner, String reference, TLClass type) {
+		return (T) RuleFunctions.create(owner, reference, type);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String type) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
 	private static TLClass runtime(String name) {

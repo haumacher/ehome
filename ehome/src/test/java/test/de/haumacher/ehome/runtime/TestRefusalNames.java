@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import junit.framework.Test;
@@ -30,6 +31,10 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.ValueType;
@@ -59,19 +64,19 @@ public class TestRefusalNames extends BasicTestCase {
 		super.setUp();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Refusal names");
+			((Project) _project).setName("Refusal names");
 			// A group address without a datapoint type is no datapoint of the image.
-			TLObject light = create("ehome.logical:GroupAddress");
-			light.tUpdateByName("name", "Licht Flur");
-			light.tUpdateByName("address", GA.parse("11/0/4", GroupAddressStyle.ThreeLevel));
-			_project.tUpdateByName("groupAddresses", List.of(light));
-			TLObject rule = RuleFunctions.create(_project, "rules", runtime("Rule"));
-			rule.tUpdateByName("identifier", "licht");
+			GroupAddress light = (GroupAddress) create("ehome.logical:GroupAddress");
+			light.setName("Licht Flur");
+			light.setAddress(GA.parse("11/0/4", GroupAddressStyle.ThreeLevel));
+			((Project) _project).setGroupAddresses(Set.of(light));
+			Rule rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			rule.setIdentifier("licht");
 			TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 			RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
 			_write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			_write.tUpdateByName("datapoint", light);
-			_write.tUpdateByName("value", "true");
+			((WriteAction) _write).setDatapoint(light);
+			((WriteAction) _write).setValue("true");
 			tx.commit();
 		}
 	}

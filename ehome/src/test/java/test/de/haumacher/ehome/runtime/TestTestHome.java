@@ -29,6 +29,11 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Values;
@@ -134,8 +139,8 @@ public class TestTestHome extends BasicTestCase {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("latitude", Double.valueOf(52.5));
-				project.tUpdateByName("longitude", Double.valueOf(13.4));
+				((Project) project).setLatitude(Double.valueOf(52.5));
+				((Project) project).setLongitude(Double.valueOf(13.4));
 				tx.commit();
 			}
 			RuleImport importer = new RuleImport();
@@ -154,14 +159,14 @@ public class TestTestHome extends BasicTestCase {
 			assertEquals(List.of("hall.temperature", "mode"),
 				imported.datapoints().stream().map(ApplicationDatapoints::id).toList());
 			assertNull(ZigbeeBindings.function(imported.datapoints().get(0)));
-			assertEquals(Boolean.TRUE, imported.datapoints().get(1).tValueByName("writable"));
-			assertEquals(Boolean.TRUE, imported.datapoints().get(1).tValueByName("persist"));
+			assertEquals(Boolean.TRUE, Boolean.valueOf(((ApplicationDatapoint) imported.datapoints().get(1)).getWritable()));
+			assertEquals(Boolean.TRUE, Boolean.valueOf(((ApplicationDatapoint) imported.datapoints().get(1)).getPersist()));
 			List<String> notes = importer.getNotes();
 			assertEquals(notes.toString(), 3, notes.size());
 			assertTrue(notes.get(0), notes.get(0).contains("0000000000000001"));
 			assertTrue(notes.get(1), notes.get(1).startsWith("1 "));
 			assertTrue(notes.get(2), notes.get(2).contains("52.5"));
-			assertEquals(Double.valueOf(52.5), project.tValueByName("latitude"));
+			assertEquals(Double.valueOf(52.5), ((Project) project).getLatitude());
 
 			for (String refused : List.of("{\"datapoints\": [{\"id\": \"x\", \"type\": \"wobble\"}]}",
 				"{\"datapoints\": [{\"id\": \"1/2/3\", \"type\": \"boolean\"}]}",
@@ -186,7 +191,7 @@ public class TestTestHome extends BasicTestCase {
 		assertTrue(notes.get(0), notes.get(0).contains("Raumtemperatur (0/0/28)"));
 
 		TLObject temperature = SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
-			.filter(a -> "Raumtemperatur".equals(a.tValueByName("name"))).findFirst().orElseThrow();
+			.filter(a -> "Raumtemperatur".equals(((GroupAddress) a).getName())).findFirst().orElseThrow();
 		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
 			.filter(t -> "DPST-9-1".equals(t.tValueByName("extId"))).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -194,8 +199,8 @@ public class TestTestHome extends BasicTestCase {
 			// The keys' switching objects transmit on their addresses, so the derivation does not make
 			// them writable; the rules feed the channels' and the plug's state back to them.
 			for (TLObject key : SharedData.within("ehome.logical:GroupAddress", List.of(project))) {
-				if (KEYS.contains(key.tValueByName("name"))) {
-					key.tUpdateByName("runtimeWritable", Boolean.TRUE);
+				if (KEYS.contains(((GroupAddress) key).getName())) {
+					((GroupAddress) key).setRuntimeWritable(Boolean.TRUE);
 				}
 			}
 			ZigbeeImport.importExport(project,
@@ -217,17 +222,17 @@ public class TestTestHome extends BasicTestCase {
 		assertEquals(1, imported.datapoints().size());
 		// The location and the time zone set; nothing else to say.
 		assertEquals(importer.getNotes().toString(), 2, importer.getNotes().size());
-		assertEquals(Double.valueOf(49.45), project.tValueByName("latitude"));
-		assertEquals(Double.valueOf(11.08), project.tValueByName("longitude"));
-		assertEquals("CET-1CEST,M3.5.0,M10.5.0/3", project.tValueByName("timeZone"));
+		assertEquals(Double.valueOf(49.45), ((Project) project).getLatitude());
+		assertEquals(Double.valueOf(11.08), ((Project) project).getLongitude());
+		assertEquals("CET-1CEST,M3.5.0,M10.5.0/3", ((Project) project).getTimeZone());
 
 		TLObject plug = imported.datapoints().get(0);
 		assertEquals(PLUG, ApplicationDatapoints.id(plug));
 		assertTrue(ApplicationDatapoints.writable(plug));
 		TLObject function = ZigbeeBindings.function(plug);
 		assertNotNull(function);
-		assertEquals("on_off", function.tValueByName("function"));
-		assertEquals("001788010f069c8e", ZigbeeBindings.device(function).tValueByName("ieee"));
+		assertEquals("on_off", ((ZigbeeFunction) function).getFunction());
+		assertEquals("001788010f069c8e", ((ZigbeeDevice) ZigbeeBindings.device(function)).getIeee());
 
 		// Imported again, nothing is added: the rules, entries and datapoints are kept and named, the
 		// location and time zone are the same.
@@ -239,7 +244,8 @@ public class TestTestHome extends BasicTestCase {
 		}
 		assertEquals(again.getNotes().toString(), 15, again.getNotes().size());
 		assertEquals(1, ApplicationDatapoints.of(project).size());
-		assertEquals(8, ((java.util.Collection<?>) project.tValueByName("rules")).size());
+		assertEquals(8, ((Project) project).getRules().size());
+
 	}
 
 	private static void roundTrip(Map<String, Object> image, Map<?, ?> sample) {

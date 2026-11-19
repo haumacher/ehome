@@ -12,4 +12,12 @@ public interface Variant extends de.haumacher.ehome.model.catalog.internal.Varia
 
 	// Wrapper functionality.
 
+	/**
+	 * The name in every application language (an <code>I18NString</code>; {@link #getName()} gives it
+	 * in the user's language).
+	 */
+	default com.top_logic.basic.util.ResKey getNameKey() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(NAME_ATTRIBUTE);
+	}
+
 }
