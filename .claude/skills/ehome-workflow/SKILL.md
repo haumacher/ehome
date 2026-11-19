@@ -402,9 +402,13 @@ app is the shared reference for bug reports.
   one filter each (`summary~=<keyword>`), in English and German, with the class or element name
   (`RowSourceObserver`, `adaptive-detail`), the symptom (`drag`, `Baum`, `NPE`) and the feature,
   without a status filter (a closed or approved ticket may already carry the fix); when a ticket
-  exists, reference it (and add the app's reproduction as a comment only if it adds something)
+  exists, reference it (and add a comment only if it adds something)
   instead of filing a duplicate; only then file a TL Trac ticket with a minimal reproduction
-  (`create_ticket`); (2) work around it in the app **only if
+  (`create_ticket`). **A TL ticket stands on its own, in the engine's terms**: it describes the
+  problem or feature abstractly (the engine's classes, elements and a generic model such as
+  `A`/`B` with a reference), never with E-Home's concrete case (no KNX devices, group addresses,
+  projects, ehome types, views or file paths) and never refers back to E-Home or its issues — the
+  E-Home context belongs in `doc/tl-todo.md` and the GitHub issue, not in Trac; (2) work around it in the app **only if
   the workaround is minimal** — a few lines, no copy of engine code, no second mechanism;
   otherwise **leave the problem visible** (the gap shows in the UI or the report, the issue stays
   open) rather than building around it; (3) record the ticket number and the workaround in
@@ -435,8 +439,8 @@ TopLogic engine it runs on, testing continuously. Their bug reports come as ETS 
 (`doc/*.png`), German label texts, XML fragments from a `.knxproj`, or a view that "shows the
 wrong thing" — embed them verbatim as regressions. Their feature sketches are usually complete
 designs — restate the design back crisply, adopt it, credit it in the commit message. When an
-engine defect blocks the app, they may fix it upstream: report it as a TL ticket with a minimal
-reproduction, keep the local workaround marked in `doc/tl-todo.md`, and move on. When they
+engine defect blocks the app, they may fix it upstream: report it as a TL ticket with a minimal,
+abstract reproduction (no E-Home example, no reference to E-Home, §8), keep the local workaround marked in `doc/tl-todo.md`, and move on. When they
 overrule a recorded decision, the reversal is documented in the issue, not litigated. Answer their
 questions with the mechanism, then the plan, then queue position. Run notices always include the
 commit hash and what to try.

@@ -7,8 +7,8 @@ description: A specification round for E-Home and its HomeControl controller —
 
 A round turns the user's feature ideas into tickets an implementing agent can work through
 without coming back. The session **discusses and files; it does not implement**: no code edits,
-no builds, no tests. It does keep the records: an engine gap found on the way gets its TL ticket and
-its `doc/tl-todo.md` entry, committed and pushed like any record (the user: "you may change to fill
+no builds, no tests. It does keep the records: an engine gap found on the way gets its TL ticket (abstract, in the engine's terms, without
+E-Home's example or any reference to E-Home: `ehome-workflow` §8) and its `doc/tl-todo.md` entry, committed and pushed like any record (the user: "you may change to fill
 the records - just no impl"), and this skill or memory when asked. Read the skill
 `ehome-workflow` for the product context: E-Home (`haumacher/ehome`, `~/devel/ehome`) and the
 HomeControl firmware (`haumacher/homecontrol`, `~/devel/homecontrol`) are **one product**, and
