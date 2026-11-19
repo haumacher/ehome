@@ -410,6 +410,18 @@ a column rename of `EHDevice`) for names that are valid in the model.
 the generator, move the remaining name-based calls on their types to the wrappers, lower the
 inventories, and close haumacher/ehome #198.
 
+## Form overlays and drafts are no instances of the generated interfaces (TL #30447)
+
+The editing buffer of a form (`TLObjectOverlay`, `TLFormObject`, `ObjectEditing`) and a draft of a
+create dialog (`TransientTLObjectImpl` from `TransientObjectFactory`) do not implement the generated
+interface of their type, so a cast throws `ClassCastException`. Code reachable with such an object
+(model constraints, options functions, the rule and preset drafts: `RuleFunctions.initialize`,
+`RuleDrafts`, `PresetDrafts`, the constraints of `HistoryConfig` and `Pages`, `DatapointSettings`)
+keeps its name-based access (haumacher/ehome #198); the calls stay in the `[migrate]` section of
+`name-access-inventory.txt`. No workaround.
+
+**When fixed:** move those calls to the generated accessors, lower the inventory.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
