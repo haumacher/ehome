@@ -12,4 +12,19 @@ public interface Function extends de.haumacher.ehome.model.runtime.internal.Func
 
 	// Wrapper functionality.
 
+	/**
+	 * The name in every application language (an <code>I18NString</code>; {@link #getName()} gives it
+	 * in the user's language).
+	 */
+	default com.top_logic.basic.util.ResKey getNameKey() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(NAME_ATTRIBUTE);
+	}
+
+	/**
+	 * Sets the {@link #getNameKey() name in every application language}.
+	 */
+	default void setNameKey(com.top_logic.basic.util.ResKey value) {
+		tUpdateByName(NAME_ATTRIBUTE, value);
+	}
+
 }

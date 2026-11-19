@@ -36,6 +36,7 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.operational.MaskVersion;
 
 /**
  * Helpers for tests that share one database with the other tests of the suite (haumacher/ehome #36).
@@ -195,9 +196,10 @@ public final class SharedData {
 		Set<String> defined = maskIds(masterData);
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		try (Transaction tx = kb.beginTransaction()) {
-			for (TLObject mask : instances("ehome.operational:MaskVersion")) {
-				if (defined.contains(mask.tValueByName("extId"))) {
-					mask.tUpdateByName("masterDataVersion", null);
+			for (TLObject obj : instances("ehome.operational:MaskVersion")) {
+				MaskVersion mask = (MaskVersion) obj;
+				if (defined.contains(mask.getExtId())) {
+					mask.setMasterDataVersion(null);
 				}
 			}
 			tx.commit();
@@ -210,10 +212,11 @@ public final class SharedData {
 				tx.commit();
 			}
 		}
-		for (TLObject mask : instances("ehome.operational:MaskVersion")) {
-			if (defined.contains(mask.tValueByName("extId"))) {
-				Assert.assertNotNull("Mask version " + mask.tValueByName("extId") + " not reset.",
-					mask.tValueByName("masterDataVersion"));
+		for (TLObject obj : instances("ehome.operational:MaskVersion")) {
+			MaskVersion mask = (MaskVersion) obj;
+			if (defined.contains(mask.getExtId())) {
+				Assert.assertNotNull("Mask version " + mask.getExtId() + " not reset.",
+					mask.getMasterDataVersion());
 			}
 		}
 	}

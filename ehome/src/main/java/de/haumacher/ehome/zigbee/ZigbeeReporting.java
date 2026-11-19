@@ -12,6 +12,8 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+
 /**
  * The reporting of the functions of Zigbee devices (haumacher/ehome #64, homecontrol
  * <code>spec/zigbee.md</code> "Reporting overrides"): the installer's override of a function
@@ -290,9 +292,10 @@ public final class ZigbeeReporting {
 	 * members the installer set, <code>null</code> if none is set.
 	 */
 	public static Map<String, Object> json(TLObject function) {
-		Long min = integer(function.tValueByName(MIN));
-		Long max = integer(function.tValueByName(MAX));
-		Double change = decimal(function.tValueByName(CHANGE));
+		ZigbeeFunction typed = (ZigbeeFunction) function;
+		Long min = integer(typed.getReportingMin());
+		Long max = integer(typed.getReportingMax());
+		Double change = decimal(typed.getReportingChange());
 		if (min == null && max == null && change == null) {
 			return null;
 		}
@@ -315,7 +318,8 @@ public final class ZigbeeReporting {
 	 * them, else the defaults of the function table; <code>null</code> for an unknown key.
 	 */
 	public static String summary(TLObject function) {
-		Object key = function.tValueByName("function");
+		ZigbeeFunction typed = (ZigbeeFunction) function;
+		Object key = typed.getFunction();
 		ZigbeeFunctionTable.Info info = key == null ? null : ZigbeeFunctionTable.byKey(key.toString());
 		if (info == null) {
 			return null;
@@ -324,12 +328,12 @@ public final class ZigbeeReporting {
 		if (info.reporting() == null) {
 			return resources.getString(I18NConstants.REPORTING_NOT_CONFIGURED);
 		}
-		Long reportedMin = integer(function.tValueByName("reportedMin"));
-		Long reportedMax = integer(function.tValueByName("reportedMax"));
+		Long reportedMin = integer(typed.getReportedMin());
+		Long reportedMax = integer(typed.getReportedMax());
 		boolean reported = reportedMin != null || reportedMax != null;
 		long min = reportedMin != null ? reportedMin.longValue() : info.reporting().min();
 		long max = reportedMax != null ? reportedMax.longValue() : info.reporting().max();
-		Double change = reported ? decimal(function.tValueByName("reportedChange")) : info.reporting().change();
+		Double change = reported ? decimal(typed.getReportedChange()) : info.reporting().change();
 
 		ResKey reports;
 		if (max == NO_REPORTS) {
@@ -341,7 +345,7 @@ public final class ZigbeeReporting {
 			if (kind == ChangeKind.FIXED || (kind == ChangeKind.UNIT && change == null)) {
 				reports = I18NConstants.REPORTING_CHANGE_DEFAULT__REPORTS.fill(reports);
 			} else if (kind == ChangeKind.UNIT) {
-				Object unit = function.tValueByName("unit");
+				Object unit = typed.getUnit();
 				reports = I18NConstants.REPORTING_CHANGE__REPORTS_CHANGE_UNIT.fill(reports, format(change.doubleValue()),
 					unit == null ? "" : unit.toString());
 			}

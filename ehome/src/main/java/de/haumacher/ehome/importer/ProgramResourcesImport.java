@@ -39,6 +39,12 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ProgramResources;
+import de.haumacher.ehome.model.catalog.ArchiveEntry;
+import de.haumacher.ehome.model.catalog.Baggage;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.HelpFile;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Reads the icons and help texts of the application programs of a program file (haumacher/ehome
@@ -83,20 +89,6 @@ final class ProgramResourcesImport {
 	private static final String ENTRY_TYPE = "ehome.catalog:ArchiveEntry";
 
 	private static final String PROGRAM_TYPE = "ehome.operational:Program";
-
-	private static final String EXT_ID = "extId";
-
-	private static final String RESOURCES_READ = "resourcesRead";
-
-	private static final String ICON_FILE = "iconFile";
-
-	private static final String HELP_FILES = "helpFiles";
-
-	private static final String ENTRIES = "entries";
-
-	private static final String UNPACKED = "unpacked";
-
-	private static final String CONTENT = "content";
 
 	private static final String CONTEXT_HELP_FILE = "ContextHelpFile";
 
@@ -262,19 +254,19 @@ final class ProgramResourcesImport {
 		if (_scans.isEmpty()) {
 			return;
 		}
-		Map<String, TLObject> created = new HashMap<>();
+		Map<String, Program> created = new HashMap<>();
 		for (Object obj : binding.getCreated()) {
 			if (obj instanceof TLObject program && program.tValid() && binding.isInstanceOf(program, PROGRAM_TYPE)) {
-				created.put((String) program.tValueByName(EXT_ID), program);
+				created.put(((Program) program).getExtId(), (Program) program);
 			}
 		}
 		for (Scan scan : _scans.values()) {
-			TLObject program = created.get(scan._program);
+			Program program = created.get(scan._program);
 			boolean known = program == null;
 			if (known) {
 				program = existingProgram(scan._program);
 			}
-			if (program == null || known && Boolean.TRUE.equals(program.tValueByName(RESOURCES_READ))) {
+			if (program == null || known && Boolean.TRUE.equals(program.getResourcesReadOrNull())) {
 				continue;
 			}
 			apply(program, scan, messages);
@@ -285,7 +277,7 @@ final class ProgramResourcesImport {
 		_scans.clear();
 	}
 
-	private static void apply(TLObject program, Scan scan, BufferingI18NLog messages) {
+	private static void apply(Program program, Scan scan, BufferingI18NLog messages) {
 		Map<String, TLObject> parts = parts(program);
 		for (Map.Entry<String, String> icon : scan._icons.entrySet()) {
 			setName(parts.get(icon.getKey()), ProgramResources.ICON, icon.getValue());
@@ -295,13 +287,13 @@ final class ProgramResourcesImport {
 		}
 
 		// The archives.
-		Map<String, TLObject> baggage = baggage(program);
-		TLObject iconFile = archive(program, scan._program, scan._iconFile, baggage, messages);
-		program.tUpdateByName(ICON_FILE, iconFile);
-		for (Object old : list(program, HELP_FILES)) {
-			((TLObject) old).tDelete();
+		Map<String, Baggage> baggage = baggage(program);
+		Baggage iconFile = archive(program, scan._program, scan._iconFile, baggage, messages);
+		program.setIconFile(iconFile);
+		for (HelpFile old : new ArrayList<>(program.getHelpFiles())) {
+			old.tDelete();
 		}
-		List<TLObject> helpFiles = new ArrayList<>();
+		List<HelpFile> helpFiles = new ArrayList<>();
 		if (scan._helpFile != null) {
 			Locale language = scan._defaultLanguage == null ? Locale.ENGLISH : scan._defaultLanguage;
 			addHelpFile(helpFiles, language, true, archive(program, scan._program, scan._helpFile, baggage, messages));
@@ -310,14 +302,14 @@ final class ProgramResourcesImport {
 			Locale language = translation.getKey();
 			boolean fallback = scan._helpFile != null && language.equals(scan._defaultLanguage);
 			if (fallback || !ProgramLanguages.isApplicationLanguage(language)
-				|| helpFiles.stream().anyMatch(f -> language.getLanguage().equals(f.tValueByName("language")))) {
+				|| helpFiles.stream().anyMatch(f -> language.getLanguage().equals(f.getLanguage()))) {
 				// The default language is the attribute's own; languages the application does not offer are not modeled.
 				continue;
 			}
 			addHelpFile(helpFiles, language, false,
 				archive(program, scan._program, translation.getValue(), baggage, messages));
 		}
-		program.tUpdateByName(HELP_FILES, helpFiles);
+		program.setHelpFiles(helpFiles);
 
 		// What the program names but its archives lack.
 		Set<String> icons = new LinkedHashSet<>(scan._icons.values());
@@ -331,7 +323,7 @@ final class ProgramResourcesImport {
 			messages.log(Level.WARN, I18NConstants.WARN_PROGRAM_ICONS_MISSING__PROGRAM_COUNT_FIRST
 				.fill(scan._program, Integer.valueOf(missing.size()), missing.get(0)));
 		}
-		TLObject fallback = helpFiles.stream().filter(f -> Boolean.TRUE.equals(f.tValueByName("fallback")))
+		HelpFile fallback = helpFiles.stream().filter(f -> f.getFallback())
 			.findFirst().orElse(null);
 		int withoutText = 0;
 		for (String topic : new LinkedHashSet<>(scan._topics.values())) {
@@ -343,7 +335,7 @@ final class ProgramResourcesImport {
 			messages.log(Level.WARN,
 				I18NConstants.WARN_PROGRAM_HELP_MISSING__PROGRAM_COUNT.fill(scan._program, Integer.valueOf(withoutText)));
 		}
-		program.tUpdateByName(RESOURCES_READ, Boolean.TRUE);
+		program.setResourcesRead(true);
 	}
 
 	private static void setName(TLObject part, String attribute, String name) {
@@ -352,11 +344,11 @@ final class ProgramResourcesImport {
 		}
 	}
 
-	private static void addHelpFile(List<TLObject> helpFiles, Locale language, boolean fallback, TLObject file) {
-		TLObject helpFile = create(HELP_FILE_TYPE);
-		helpFile.tUpdateByName("language", language.getLanguage());
-		helpFile.tUpdateByName("fallback", Boolean.valueOf(fallback));
-		helpFile.tUpdateByName("file", file);
+	private static void addHelpFile(List<HelpFile> helpFiles, Locale language, boolean fallback, Baggage file) {
+		HelpFile helpFile = (HelpFile) create(HELP_FILE_TYPE);
+		helpFile.setLanguage(language.getLanguage());
+		helpFile.setFallback(fallback);
+		helpFile.setFile(file);
 		helpFiles.add(helpFile);
 	}
 
@@ -364,17 +356,17 @@ final class ProgramResourcesImport {
 	 * The file of the baggage with the given ID the given program names as an archive, unpacked;
 	 * <code>null</code> (and reported) if there is none.
 	 */
-	private static TLObject archive(TLObject program, String programId, String id, Map<String, TLObject> baggage,
+	private static Baggage archive(Program program, String programId, String id, Map<String, Baggage> baggage,
 			BufferingI18NLog messages) {
 		if (id == null) {
 			return null;
 		}
-		TLObject result = baggage.get(id);
+		Baggage result = baggage.get(id);
 		if (result == null) {
 			messages.log(Level.WARN, I18NConstants.WARN_PROGRAM_BAGGAGE_UNKNOWN__PROGRAM_FILE.fill(programId, id));
 			return null;
 		}
-		if (!Boolean.TRUE.equals(result.tValueByName(UNPACKED))) {
+		if (!Boolean.TRUE.equals(result.getUnpackedOrNull())) {
 			unpack(result, messages);
 		}
 		return result;
@@ -386,16 +378,16 @@ final class ProgramResourcesImport {
 	 * content has no entries until a later import completes it; a file that is no ZIP archive has
 	 * none (reported).
 	 */
-	static void unpack(TLObject baggage, BufferingI18NLog messages) {
-		for (Object old : list(baggage, ENTRIES)) {
-			((TLObject) old).tDelete();
+	static void unpack(Baggage baggage, BufferingI18NLog messages) {
+		for (ArchiveEntry old : new ArrayList<>(baggage.getEntries())) {
+			old.tDelete();
 		}
-		baggage.tUpdateByName(UNPACKED, Boolean.TRUE);
-		BinaryData content = (BinaryData) baggage.tValueByName(CONTENT);
+		baggage.setUnpacked(true);
+		BinaryData content = (BinaryData) baggage.getContent();
 		if (content == null) {
 			return;
 		}
-		String file = (String) baggage.tValueByName("name");
+		String file = baggage.getName();
 		List<Unpacked> files;
 		try {
 			try {
@@ -409,19 +401,19 @@ final class ProgramResourcesImport {
 			messages.log(Level.WARN, I18NConstants.WARN_ARCHIVE_UNREADABLE__FILE_REASON.fill(file, ex.getMessage()));
 			files = List.of();
 		}
-		List<TLObject> entries = new ArrayList<>();
+		List<ArchiveEntry> entries = new ArrayList<>();
 		for (Unpacked unpacked : files) {
 			String entryName = unpacked.name().substring(unpacked.name().lastIndexOf('/') + 1);
-			TLObject result = create(ENTRY_TYPE);
-			result.tUpdateByName("name", unpacked.name());
-			result.tUpdateByName(CONTENT,
+			ArchiveEntry result = (ArchiveEntry) create(ENTRY_TYPE);
+			result.setName(unpacked.name());
+			result.setContent(
 				BinaryDataFactory.createBinaryData(unpacked.content(), BaggageImport.contentType(entryName), entryName));
 			entries.add(result);
 		}
 		if (entries.isEmpty() && content.getSize() > 0 && !isZip(content)) {
 			messages.log(Level.WARN, I18NConstants.WARN_ARCHIVE_UNREADABLE__FILE_REASON.fill(file, "no ZIP archive"));
 		}
-		baggage.tUpdateByName(ENTRIES, entries);
+		baggage.setEntries(entries);
 	}
 
 	/** A file read from an archive. */
@@ -485,7 +477,7 @@ final class ProgramResourcesImport {
 			if (seen.put(obj, Boolean.TRUE) != null) {
 				continue;
 			}
-			if (obj.tType().getPart(EXT_ID) != null && obj.tValueByName(EXT_ID) instanceof String id) {
+			if (obj instanceof Externalized externalized && externalized.getExtId() instanceof String id) {
 				result.putIfAbsent(id, obj);
 			}
 			for (TLStructuredTypePart part : ((TLStructuredType) obj.tType()).getAllParts()) {
@@ -509,28 +501,28 @@ final class ProgramResourcesImport {
 	/**
 	 * The files of the baggage of the manufacturer of the given program, by their IDs.
 	 */
-	private static Map<String, TLObject> baggage(TLObject program) {
-		Map<String, TLObject> result = new HashMap<>();
-		Object manufacturer = program.tValueByName("manufacturer");
-		if (manufacturer instanceof TLObject owner) {
-			for (Object file : list(owner, "baggage")) {
-				result.put((String) ((TLObject) file).tValueByName(EXT_ID), (TLObject) file);
+	private static Map<String, Baggage> baggage(Program program) {
+		Map<String, Baggage> result = new HashMap<>();
+		Manufacturer manufacturer = program.getManufacturer();
+		if (manufacturer != null) {
+			for (Baggage file : manufacturer.getBaggage()) {
+				result.put(file.getExtId(), file);
 			}
 		}
 		if (result.isEmpty()) {
 			// A program whose manufacturer is not resolved (yet): the files of every manufacturer.
 			TLClass type = (TLClass) TLModelUtil.findType(BaggageImport.BAGGAGE_TYPE);
-			for (TLObject file : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-				result.put((String) file.tValueByName(EXT_ID), file);
+			for (Baggage file : MetaElementUtil.getAllDirectInstancesOf(type, Baggage.class)) {
+				result.put(file.getExtId(), file);
 			}
 		}
 		return result;
 	}
 
-	private static TLObject existingProgram(String id) {
+	private static Program existingProgram(String id) {
 		TLClass type = (TLClass) TLModelUtil.findType(PROGRAM_TYPE);
-		for (TLObject program : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			if (id.equals(program.tValueByName(EXT_ID))) {
+		for (Program program : MetaElementUtil.getAllDirectInstancesOf(type, Program.class)) {
+			if (id.equals(program.getExtId())) {
 				return program;
 			}
 		}
@@ -539,11 +531,6 @@ final class ProgramResourcesImport {
 
 	private static TLObject create(String typeName) {
 		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
-	}
-
-	private static List<?> list(TLObject obj, String reference) {
-		Object value = obj.tValueByName(reference);
-		return value == null ? List.of() : new ArrayList<>((Collection<?>) value);
 	}
 
 	private static String nonBlank(String value) {

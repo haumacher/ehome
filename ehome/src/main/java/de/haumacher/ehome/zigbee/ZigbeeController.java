@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -22,6 +23,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.ControllerConnections;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.EhomeRuntimeFactory;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.Deployer;
@@ -61,7 +64,7 @@ public final class ZigbeeController {
 	 */
 	public static String permit(TLObject obj, int seconds) {
 		TLObject controller = controller(obj);
-		String name = String.valueOf(controller.tValueByName("name"));
+		String name = String.valueOf(((Controller) controller).getName());
 		ControllerClient client = Deployer.client(controller);
 		Answer answer;
 		try {
@@ -91,7 +94,7 @@ public final class ZigbeeController {
 		ZigbeeExport.Export export = ZigbeeExport.read(fetch(controller));
 		String result;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_ZIGBEE_READ__PROJECT_CONTROLLER
-			.fill(MetaLabelProvider.INSTANCE.getLabel(project), String.valueOf(controller.tValueByName("name"))))) {
+			.fill(MetaLabelProvider.INSTANCE.getLabel(project), String.valueOf(((Controller) controller).getName())))) {
 			result = ZigbeeImport.importExport(project, export).summary();
 			storeNetwork(controller, export, false);
 			tx.commit();
@@ -108,23 +111,27 @@ public final class ZigbeeController {
 	 *        Whether the read followed the controller's events ({@link ZigbeeLive}), not a user's request.
 	 */
 	public static void storeNetwork(TLObject controller, ZigbeeExport.Export export, boolean live) {
+		Controller typed = (Controller) controller;
 		ZigbeeExport.Network network = export.network();
-		set(controller, "zigbeeNetworkUp", network == null ? null : network.up());
-		set(controller, "zigbeePanId", network == null ? null : network.panId());
-		set(controller, "zigbeeChannel", network == null ? null : network.channel());
-		set(controller, "zigbeeExtendedPanId", network == null ? null : network.extendedPanId());
-		set(controller, "zigbeePermitJoin", network == null ? null : network.permitJoinSeconds());
+		// The flag stays unset where the export does not tell (the generated setter takes no null).
+		set(typed.getZigbeeNetworkUpOrNull(), network == null ? null : network.up(),
+			value -> typed.tUpdate(EhomeRuntimeFactory.getZigbeeNetworkUpControllerAttr(), value));
+		set(typed.getZigbeePanId(), network == null ? null : network.panId(), typed::setZigbeePanId);
+		set(typed.getZigbeeChannel(), network == null ? null : network.channel(), typed::setZigbeeChannel);
+		set(typed.getZigbeeExtendedPanId(), network == null ? null : network.extendedPanId(),
+			typed::setZigbeeExtendedPanId);
+		set(typed.getZigbeePermitJoin(), network == null ? null : network.permitJoinSeconds(),
+			typed::setZigbeePermitJoin);
 		Date exported = export.exported() != null ? new Date(export.exported().longValue() * 1000) : new Date();
-		set(controller, "zigbeeExported", exported);
-		set(controller, "zigbeeReadLive", Boolean.valueOf(live));
+		set(typed.getZigbeeExported(), exported, typed::setZigbeeExported);
+		set(typed.getZigbeeReadLiveOrNull(), Boolean.valueOf(live), typed::setZigbeeReadLive);
 	}
 
-	private static void set(TLObject obj, String attribute, Object value) {
-		Object before = obj.tValueByName(attribute);
+	private static <T> void set(Object before, T value, Consumer<? super T> setter) {
 		Object a = before instanceof Number number ? Long.valueOf(number.longValue()) : before;
 		Object b = value instanceof Number number ? Long.valueOf(number.longValue()) : value;
 		if (!Objects.equals(a, b)) {
-			obj.tUpdateByName(attribute, value);
+			setter.accept(value);
 		}
 	}
 
@@ -156,7 +163,7 @@ public final class ZigbeeController {
 	 * downloads it, see {@link #fetch(String, ControllerClient)}.
 	 */
 	public static Map<String, Object> fetch(TLObject controller) {
-		return fetch(String.valueOf(controller.tValueByName("name")), Deployer.client(controller));
+		return fetch(String.valueOf(((Controller) controller).getName()), Deployer.client(controller));
 	}
 
 	/**

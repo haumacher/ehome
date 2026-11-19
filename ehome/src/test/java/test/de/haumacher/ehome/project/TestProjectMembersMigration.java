@@ -29,6 +29,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 import de.haumacher.ehome.project.ProjectMembersMigration;
@@ -132,7 +133,7 @@ public class TestProjectMembersMigration extends BasicTestCase {
 	private TLObject project(String name) {
 		TLObject result = ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType(ProjectMembers.PROJECT_TYPE));
-		result.tUpdateByName("name", name);
+		((Project) result).setName(name);
 		_projects.add(result);
 		return result;
 	}

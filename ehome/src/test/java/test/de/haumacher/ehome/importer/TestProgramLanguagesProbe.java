@@ -17,7 +17,6 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKeyUtil;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -29,6 +28,7 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Probe of the languages of a known program (haumacher/ehome #38) with cases the delivery's test
@@ -63,39 +63,39 @@ public class TestProgramLanguagesProbe extends BasicTestCase {
 	public void testOldProgramGainsNothing() throws Exception {
 		importProduct(A);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			program(GERMAN_FIRST).tUpdateByName("languages", null);
+			program(GERMAN_FIRST).setLanguages(null);
 			tx.commit();
 		}
 		String before = name(GERMAN_FIRST, Locale.ENGLISH);
 		for (TLObject program : importProduct(B).getAddedLanguages().keySet()) {
-			assertFalse(GERMAN_FIRST.equals(program.tValueByName("extId")));
+			assertFalse(GERMAN_FIRST.equals(((Program) program).getExtId()));
 		}
-		assertNull(program(GERMAN_FIRST).tValueByName("languages"));
+		assertNull(program(GERMAN_FIRST).getLanguages());
 		assertEquals(before, name(GERMAN_FIRST, Locale.ENGLISH));
 	}
 
 	public void testEnglishFileFirst() throws Exception {
 		importProduct(B);
-		assertEquals("de en", program(GERMAN_FIRST).tValueByName("languages"));
+		assertEquals("de en", program(GERMAN_FIRST).getLanguages());
 		String english = name(GERMAN_FIRST, Locale.ENGLISH);
 		String german = name(GERMAN_FIRST, Locale.GERMAN);
 		importProduct(A);
-		assertEquals("de en", program(GERMAN_FIRST).tValueByName("languages"));
+		assertEquals("de en", program(GERMAN_FIRST).getLanguages());
 		assertEquals(english, name(GERMAN_FIRST, Locale.ENGLISH));
 		assertEquals(german, name(GERMAN_FIRST, Locale.GERMAN));
-		assertEquals("de en", program(ENGLISH_FIRST).tValueByName("languages"));
+		assertEquals("de en", program(ENGLISH_FIRST).getLanguages());
 		assertEquals("TEST: languages 2 (artificial test data)", name(ENGLISH_FIRST, Locale.ENGLISH));
 		assertEquals("TEST: Sprachen 2 (künstliche Testdaten)", name(ENGLISH_FIRST, Locale.GERMAN));
 	}
 
 	private static String name(String program, Locale locale) {
-		return ResKeyUtil.getTranslation((ResKey) program(program).tValueByName("name"), locale);
+		return ResKeyUtil.getTranslation(program(program).getNameKey(), locale);
 	}
 
-	private static TLObject program(String id) {
-		List<TLObject> result = instances(PROGRAM).stream().filter(obj -> id.equals(obj.tValueByName("extId"))).toList();
+	private static Program program(String id) {
+		List<TLObject> result = instances(PROGRAM).stream().filter(obj -> id.equals(((Program) obj).getExtId())).toList();
 		assertEquals(id, 1, result.size());
-		return result.get(0);
+		return (Program) result.get(0);
 	}
 
 	private static Importer importProduct(String file) throws Exception {
@@ -113,7 +113,7 @@ public class TestProgramLanguagesProbe extends BasicTestCase {
 	private static void deletePrograms() throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			for (TLObject program : instances(PROGRAM)) {
-				if (Set.of(GERMAN_FIRST, ENGLISH_FIRST).contains(program.tValueByName("extId"))) {
+				if (Set.of(GERMAN_FIRST, ENGLISH_FIRST).contains(((Program) program).getExtId())) {
 					program.tDelete();
 				}
 			}

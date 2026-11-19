@@ -51,6 +51,7 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
@@ -445,7 +446,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	private static List<TLObject> devices(List<TLObject> projects) {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject project : projects) {
-			for (Object area : (Collection<?>) project.tValueByName("areas")) {
+			for (Object area : ((Project) project).getAreas()) {
 				for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 					for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 						result.add((TLObject) device);

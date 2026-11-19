@@ -42,8 +42,12 @@ import com.top_logic.util.error.TopLogicException;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -139,7 +143,7 @@ public class WiringTools {
 		List<TLObject> addresses = new ArrayList<>();
 		collect(root, ranges, addresses);
 		if (Boolean.TRUE.equals(unnamedOnly)) {
-			addresses.removeIf(address -> address.tValueByName("name") instanceof String name && !name.isBlank());
+			addresses.removeIf(address -> ((GroupAddress) address).getName() instanceof String name && !name.isBlank());
 		}
 		int first = offset == null || offset.intValue() < 0 ? 0 : offset.intValue();
 		int max = limit == null || limit.intValue() <= 0 ? PAGE : limit.intValue();
@@ -147,18 +151,19 @@ public class WiringTools {
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("project", ref(owner));
-		GroupAddressStyle style = GroupAddressStyle.fromModel(owner.tValueByName("groupAddressStyle"));
+		GroupAddressStyle style = GroupAddressStyle.fromModel(((Project) owner).getGroupAddressStyle());
 		result.put("notation", (style == null ? GroupAddressStyle.DEFAULT : style).name());
 		List<Object> rangeEntries = new ArrayList<>();
 		List<TLObject> leaves = GroupAddresses.ranges(owner);
 		for (TLObject part : ranges) {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("id", id(part));
-			Object start = part.tValueByName("rangeStart");
-			Object end = part.tValueByName("rangeEnd");
+			GroupRange groupRange = (GroupRange) part;
+			Object start = groupRange.getRangeStart();
+			Object end = groupRange.getRangeEnd();
 			entry.put("range", start instanceof GA begin && end instanceof GA finish ? begin.rangePrefix(finish) : null);
-			entry.put("name", part.tValueByName("name"));
-			putText(entry, "description", part.tValueByName("description"));
+			entry.put("name", groupRange.getName());
+			putText(entry, "description", groupRange.getDescription());
 			if (ExtIds.isA(part.tContainer(), GROUP_RANGE)) {
 				entry.put("parent", id(part.tContainer()));
 			}
@@ -177,7 +182,7 @@ public class WiringTools {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("id", id(address));
 			address(entry, address);
-			putText(entry, "description", address.tValueByName("description"));
+			putText(entry, "description", ((GroupAddress) address).getDescription());
 			if (ExtIds.isA(address.tContainer(), GROUP_RANGE)) {
 				entry.put("range", id(address.tContainer()));
 			}
@@ -271,7 +276,7 @@ public class WiringTools {
 	private static Map<TLObject, List<String>> functions(TLObject project) {
 		Map<TLObject, List<String>> result = new HashMap<>();
 		for (TLObject function : ExtIds.list(project, "functions")) {
-			TLObject room = function.tValueByName("room") instanceof TLObject part ? part : null;
+			TLObject room = ((Function) function).getRoom() instanceof TLObject part ? part : null;
 			for (TLStructuredTypePart part : function.tType().getAllParts()) {
 				if (!(part instanceof TLReference) || part.isMultiple()
 					|| !(function.tValue(part) instanceof TLObject target) || !ExtIds.isA(target, GROUP_ADDRESS)) {
@@ -292,9 +297,9 @@ public class WiringTools {
 	}
 
 	private static Map<String, Object> address(Map<String, Object> entry, TLObject address) {
-		Object ga = address.tValueByName("address");
+		Object ga = ((GroupAddress) address).getAddress();
 		entry.put("address", ga == null ? null : ga.toString());
-		entry.put("name", address.tValueByName("name"));
+		entry.put("name", ((GroupAddress) address).getName());
 		String identifier = GroupAddressIds.identifier(address);
 		if (identifier != null) {
 			entry.put("identifier", identifier);
@@ -386,7 +391,7 @@ public class WiringTools {
 				problems.add("'" + id(address) + "' is no group address.");
 				continue;
 			}
-			String where = address.tValueByName("address") + " (" + id(address) + ")";
+			String where = ((GroupAddress) address).getAddress() + " (" + id(address) + ")";
 			if (entry.name() == null && entry.description() == null && entry.identifier() == null) {
 				problems.add(where + ": neither a name, a description nor an identifier is given.");
 			}
@@ -417,7 +422,7 @@ public class WiringTools {
 			Resources resources = Resources.getInstance();
 			for (Map.Entry<TLObject, ResKey> problem : GroupAddressIds.problems(owner, identifiers).entrySet()) {
 				TLObject address = problem.getKey();
-				problems.add(address.tValueByName("address") + " (" + id(address) + "): "
+				problems.add(((GroupAddress) address).getAddress() + " (" + id(address) + "): "
 					+ resources.getString(problem.getValue()));
 			}
 		}
@@ -431,16 +436,16 @@ public class WiringTools {
 		}
 		List<Object> changes = new ArrayList<>();
 		for (GroupAddressName entry : names) {
-			TLObject address = entry.groupAddress();
+			GroupAddress address = (GroupAddress) entry.groupAddress();
 			Map<String, Object> change = new LinkedHashMap<>();
 			change.put("id", id(address));
-			change.put("address", String.valueOf(address.tValueByName("address")));
+			change.put("address", String.valueOf(address.getAddress()));
 			if (entry.name() != null) {
-				change.put("nameBefore", address.tValueByName("name"));
+				change.put("nameBefore", address.getName());
 				change.put("name", entry.name().trim());
 			}
 			if (entry.description() != null) {
-				change.put("descriptionBefore", address.tValueByName("description"));
+				change.put("descriptionBefore", address.getDescription());
 				change.put("description", blankToNull(entry.description()));
 			}
 			if (entry.identifier() != null) {
@@ -449,13 +454,13 @@ public class WiringTools {
 			}
 			if (!preview) {
 				if (entry.name() != null) {
-					address.tUpdateByName("name", entry.name().trim());
+					address.setName(entry.name().trim());
 				}
 				if (entry.description() != null) {
-					address.tUpdateByName("description", blankToNull(entry.description()));
+					address.setDescription(blankToNull(entry.description()));
 				}
 				if (entry.identifier() != null) {
-					address.tUpdateByName("identifier", blankToNull(entry.identifier()));
+					address.setIdentifier(blankToNull(entry.identifier()));
 				}
 			}
 			changes.add(change);
@@ -511,7 +516,7 @@ public class WiringTools {
 			TLObject owner = project(range);
 			try {
 				chosen = GA.parse(address.trim(),
-					GroupAddressStyle.fromModel(owner == null ? null : owner.tValueByName("groupAddressStyle")));
+					GroupAddressStyle.fromModel(owner == null ? null : ((Project) owner).getGroupAddressStyle()));
 			} catch (RuntimeException ex) {
 				return failure("'" + address + "' is no group address in the project's notation. Nothing was created.");
 			}

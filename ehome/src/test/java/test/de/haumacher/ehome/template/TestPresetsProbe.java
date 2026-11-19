@@ -45,6 +45,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -235,7 +236,7 @@ public class TestPresetsProbe extends BasicTestCase {
 
 	private TLObject presetNamed(TLObject device, String name) {
 		for (TLObject preset : _presets) {
-			if (name.equals(preset.tValueByName("name"))) {
+			if (name.equals(((Preset) preset).getName())) {
 				return preset;
 			}
 		}

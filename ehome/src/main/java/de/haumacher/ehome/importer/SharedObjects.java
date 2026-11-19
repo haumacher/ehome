@@ -25,6 +25,9 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.xio.importer.binding.IdLookup;
 
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Program;
+
 /**
  * Makes the parts of the existing application programs known to an import under their ETS IDs.
  *
@@ -73,8 +76,8 @@ final class SharedObjects implements IdLookup {
 	SharedObjects(JoiningModelBinding binding) {
 		_binding = binding;
 		TLClass program = (TLClass) TLModelUtil.findType(PROGRAM);
-		for (TLObject obj : MetaElementUtil.getAllDirectInstancesOf(program, TLObject.class)) {
-			String id = (String) obj.tValueByName(EXT_ID);
+		for (Program obj : MetaElementUtil.getAllDirectInstancesOf(program, Program.class)) {
+			String id = obj.getExtId();
 			if (id != null) {
 				_programs.put(id, obj.tId());
 			}
@@ -117,7 +120,7 @@ final class SharedObjects implements IdLookup {
 			TLObject obj = todo.removeFirst();
 			TLClass type = (TLClass) obj.tType();
 			if (obj != program && type.getPart(EXT_ID) != null) {
-				String id = (String) obj.tValueByName(EXT_ID);
+				String id = ((Externalized) obj).getExtId();
 				if (id != null) {
 					_binding.register(obj, id);
 				}

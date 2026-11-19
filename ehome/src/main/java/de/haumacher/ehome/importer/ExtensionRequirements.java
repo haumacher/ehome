@@ -19,10 +19,10 @@ import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClassifier;
-import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
 
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.PluginRequirements;
 
 /**
@@ -40,11 +40,6 @@ import de.haumacher.ehome.programming.PluginRequirements;
  * </p>
  */
 public class ExtensionRequirements<C extends ExtensionRequirements.Config<?>> extends ConfiguredImportHandler<C> {
-
-	/** The mark of a program whose requirements are read. */
-	static final String REQUIREMENTS_READ = "requirementsRead";
-
-	private static final String EXT_ID = "extId";
 
 	/**
 	 * Configuration of {@link ExtensionRequirements}.
@@ -65,12 +60,10 @@ public class ExtensionRequirements<C extends ExtensionRequirements.Config<?>> ex
 	@Override
 	public Object importXml(ImportContext context, XMLStreamReader in) throws XMLStreamException {
 		Set<String> names = PluginRequirements.fromExtension(name -> in.getAttributeValue(null, name));
-		if (names.isEmpty() || !(context.getVarOrNull(ImportContext.THIS_VAR) instanceof TLObject program)
-			|| program.tType().getPart(PluginRequirements.REQUIREMENTS) == null) {
+		if (names.isEmpty() || !(context.getVarOrNull(ImportContext.THIS_VAR) instanceof Program program)) {
 			return null;
 		}
-		Set<TLClassifier> requirements =
-			PluginRequirements.union((Collection<?>) program.tValueByName(PluginRequirements.REQUIREMENTS), names);
+		Set<TLClassifier> requirements = PluginRequirements.union(program.getRequirements(), names);
 		context.setProperty(this, program, PluginRequirements.REQUIREMENTS, requirements);
 		Location location = MasterDataUpdates.position(in.getLocation());
 		context.log(level(requirements), location, message(program, requirements), null);
@@ -85,26 +78,25 @@ public class ExtensionRequirements<C extends ExtensionRequirements.Config<?>> ex
 	 *        The names of the requirements of the program in its file (see
 	 *        {@link PluginRequirements#fromExtension(java.util.function.UnaryOperator)}).
 	 */
-	static void complete(TLObject program, Set<String> names, BufferingI18NLog messages) {
-		if (Boolean.TRUE.equals(program.tValueByName(REQUIREMENTS_READ))) {
+	static void complete(Program program, Set<String> names, BufferingI18NLog messages) {
+		if (Boolean.TRUE.equals(program.getRequirementsReadOrNull())) {
 			return;
 		}
 		if (!names.isEmpty()) {
-			Set<TLClassifier> requirements =
-				PluginRequirements.union((Collection<?>) program.tValueByName(PluginRequirements.REQUIREMENTS), names);
-			program.tUpdateByName(PluginRequirements.REQUIREMENTS, requirements);
+			Set<TLClassifier> requirements = PluginRequirements.union(program.getRequirements(), names);
+			program.setRequirements(requirements);
 			messages.log(level(requirements), message(program, requirements));
 		}
-		program.tUpdateByName(REQUIREMENTS_READ, Boolean.TRUE);
+		program.setRequirementsRead(true);
 	}
 
 	private static Level level(Collection<TLClassifier> requirements) {
 		return PluginRequirements.refusesDownload(requirements) ? Level.WARN : Level.INFO;
 	}
 
-	private static ResKey message(TLObject program, Collection<TLClassifier> requirements) {
+	private static ResKey message(Program program, Collection<TLClassifier> requirements) {
 		List<TLClassifier> ordered = new ArrayList<>(requirements);
-		Object id = program.tValueByName(EXT_ID);
+		Object id = program.getExtId();
 		String name = id == null ? "" : id.toString();
 		ResKey names = PluginRequirements.names(ordered);
 		return PluginRequirements.refusesDownload(ordered)

@@ -55,6 +55,7 @@ import com.top_logic.tl.ai.core.security.AiToolAccessService;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
@@ -126,9 +127,9 @@ public class TestAssistantNaming extends BasicTestCase {
 		assertEquals(10, addresses.size());
 		Map<TLObject, Object> descriptions = new HashMap<>();
 		for (TLObject address : addresses) {
-			assertTrue("Imported without a name.", blank(address.tValueByName("name")));
-			assertNotNull("Imported with a description.", address.tValueByName("description"));
-			descriptions.put(address, address.tValueByName("description"));
+			assertTrue("Imported without a name.", blank(((GroupAddress) address).getName()));
+			assertNotNull("Imported with a description.", ((GroupAddress) address).getDescription());
+			descriptions.put(address, ((GroupAddress) address).getDescription());
 		}
 
 		// The names the agent proposes: here, room and description.
@@ -136,7 +137,7 @@ public class TestAssistantNaming extends BasicTestCase {
 		for (TLObject address : addresses) {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("groupAddress", tid(address));
-			entry.put("name", "Küche " + address.tValueByName("description"));
+			entry.put("name", "Küche " + ((GroupAddress) address).getDescription());
 			// With the identifier derived from the name (haumacher/ehome #130).
 			entry.put("identifier", identifier(address));
 			names.add(entry);
@@ -183,7 +184,7 @@ public class TestAssistantNaming extends BasicTestCase {
 		assertTrue("The direction: " + listing, listing.contains("\"direction\": \"send\""));
 		assertTrue("Paged: " + listing, listing.contains("\"nextOffset\": 4"));
 		for (TLObject address : addresses) {
-			assertTrue(blank(address.tValueByName("name")));
+			assertTrue(blank(((GroupAddress) address).getName()));
 		}
 
 		// The user agrees: one call names all addresses, the descriptions stay.
@@ -193,8 +194,8 @@ public class TestAssistantNaming extends BasicTestCase {
 			"nameGroupAddresses");
 		assertTrue(written, written.contains("Named."));
 		for (TLObject address : addresses) {
-			assertEquals("Küche " + descriptions.get(address), address.tValueByName("name"));
-			assertEquals(descriptions.get(address), address.tValueByName("description"));
+			assertEquals("Küche " + descriptions.get(address), ((GroupAddress) address).getName());
+			assertEquals(descriptions.get(address), ((GroupAddress) address).getDescription());
 			assertEquals(identifier(address), GroupAddressIds.identifier(address));
 			assertEquals(identifier(address), Pages.imageId(address));
 		}
@@ -207,7 +208,7 @@ public class TestAssistantNaming extends BasicTestCase {
 		// In the language of the user: each refused entry by its address and the identifier.
 		assertTrue(twice, twice.contains("Refused, nothing was changed"));
 		for (TLObject address : addresses.subList(0, 3)) {
-			assertTrue(twice, twice.contains(address.tValueByName("address") + " (" + tid(address) + ")"));
+			assertTrue(twice, twice.contains(((GroupAddress) address).getAddress() + " (" + tid(address) + ")"));
 		}
 		assertTrue(twice, twice.contains("kueche.doppelt") && twice.contains("Küche Licht"));
 		assertEquals(identifier(addresses.get(0)), GroupAddressIds.identifier(addresses.get(0)));
@@ -218,11 +219,11 @@ public class TestAssistantNaming extends BasicTestCase {
 		String refused = answers(ScriptedProvider.requests().get(ScriptedProvider.requests().size() - 1),
 			"nameGroupAddresses");
 		assertTrue(refused, refused.contains("the name is empty"));
-		assertEquals("Küche " + descriptions.get(addresses.get(0)), addresses.get(0).tValueByName("name"));
+		assertEquals("Küche " + descriptions.get(addresses.get(0)), ((GroupAddress) addresses.get(0)).getName());
 	}
 
 	private static String identifier(TLObject address) {
-		return "kueche." + GroupAddressIds.segment(String.valueOf(address.tValueByName("description")));
+		return "kueche." + GroupAddressIds.segment(String.valueOf(((GroupAddress) address).getDescription()));
 	}
 
 	private static boolean blank(Object value) {

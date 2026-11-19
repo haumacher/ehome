@@ -18,6 +18,21 @@ public interface EnumerationValue extends de.haumacher.ehome.model.operational.i
 	}
 
 	/**
+	 * The name in every application language (an <code>I18NString</code>; {@link #getName()} gives it
+	 * in the user's language).
+	 */
+	default com.top_logic.basic.util.ResKey getNameKey() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(NAME_ATTRIBUTE);
+	}
+
+	/**
+	 * Sets the {@link #getNameKey() name in every application language}.
+	 */
+	default void setNameKey(com.top_logic.basic.util.ResKey value) {
+		tUpdateByName(NAME_ATTRIBUTE, value);
+	}
+
+	/**
 	 * The value as ETS writes it: an unsigned 32-bit number (<code>xs:unsignedInt</code>).
 	 *
 	 * <p>

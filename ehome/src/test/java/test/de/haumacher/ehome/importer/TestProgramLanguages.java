@@ -31,6 +31,8 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * The languages of a known application program (haumacher/ehome #38): a program imported again from
@@ -79,15 +81,15 @@ public class TestProgramLanguages extends BasicTestCase {
 	 */
 	public void testImportOrders() throws Exception {
 		assertEquals(Map.of(), importProduct(A).getAddedLanguages());
-		assertEquals("de", program(GERMAN_FIRST).tValueByName("languages"));
-		assertEquals("de en", program(ENGLISH_FIRST).tValueByName("languages"));
+		assertEquals("de", program(GERMAN_FIRST).getLanguages());
+		assertEquals("de en", program(ENGLISH_FIRST).getLanguages());
 		// A text of a language the program lacks is a stand-in, the text of the base language.
 		assertEquals("Verzögerung", text(GERMAN_FIRST, "ehome.operational:Parameter", "_P-2", "description",
 			Locale.ENGLISH));
 
 		assertEquals(Map.of(GERMAN_FIRST, Set.of(Locale.ENGLISH)), added(importProduct(B)));
 		for (String program : List.of(GERMAN_FIRST, ENGLISH_FIRST)) {
-			assertEquals("de en", program(program).tValueByName("languages"));
+			assertEquals("de en", program(program).getLanguages());
 			assertEquals(expected(program), texts(program));
 		}
 
@@ -188,17 +190,17 @@ public class TestProgramLanguages extends BasicTestCase {
 
 	private static Map<String, Set<Locale>> added(Importer importer) {
 		Map<String, Set<Locale>> result = new LinkedHashMap<>();
-		importer.getAddedLanguages().forEach((program, languages) -> result.put((String) program.tValueByName("extId"),
+		importer.getAddedLanguages().forEach((program, languages) -> result.put(((Program) program).getExtId(),
 			languages));
 		return result;
 	}
 
-	private static TLObject program(String id) {
-		return object(PROGRAM, id);
+	private static Program program(String id) {
+		return (Program) object(PROGRAM, id);
 	}
 
 	private static TLObject object(String type, String id) {
-		List<TLObject> result = instances(type).stream().filter(obj -> id.equals(obj.tValueByName("extId"))).toList();
+		List<TLObject> result = instances(type).stream().filter(obj -> id.equals(((Externalized) obj).getExtId())).toList();
 		assertEquals(id, 1, result.size());
 		return result.get(0);
 	}
@@ -221,7 +223,7 @@ public class TestProgramLanguages extends BasicTestCase {
 	private static void deletePrograms() throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			for (TLObject program : instances(PROGRAM)) {
-				if (Set.of(GERMAN_FIRST, ENGLISH_FIRST).contains(program.tValueByName("extId"))) {
+				if (Set.of(GERMAN_FIRST, ENGLISH_FIRST).contains(((Program) program).getExtId())) {
 					program.tDelete();
 				}
 			}

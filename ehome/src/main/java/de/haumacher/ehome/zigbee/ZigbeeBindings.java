@@ -22,6 +22,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -63,15 +66,15 @@ public final class ZigbeeBindings {
 	 * The datapoints bound to the function.
 	 */
 	public static List<TLObject> boundDatapoints(TLObject function) {
-		return ZigbeeImport.objects(function.tValueByName("datapoints"));
+		return new ArrayList<>(((ZigbeeFunction) function).getDatapoints());
 	}
 
 	/**
 	 * The function the application datapoint is bound to, <code>null</code> for none.
 	 */
 	public static TLObject function(TLObject datapoint) {
-		return datapoint.tValueByName("zigbeeFunction") instanceof TLObject function && function.tValid() ? function
-			: null;
+		return ((ApplicationDatapoint) datapoint).getZigbeeFunction() instanceof TLObject function && function.tValid()
+			? function : null;
 	}
 
 	/**
@@ -85,7 +88,7 @@ public final class ZigbeeBindings {
 	 * The value type a function carries (the image's names), <code>null</code> if unknown.
 	 */
 	public static String valueType(TLObject function) {
-		return function.tValueByName("valueType") instanceof TLClassifier type ? type.getName() : null;
+		return ((ZigbeeFunction) function).getValueType() instanceof TLClassifier type ? type.getName() : null;
 	}
 
 	/**
@@ -129,10 +132,11 @@ public final class ZigbeeBindings {
 	 * @return The new datapoint.
 	 */
 	public static TLObject createDatapoint(TLObject function) {
+		ZigbeeFunction typed = (ZigbeeFunction) function;
 		TLObject project = RuntimeFunctions.project(function);
-		TLObject device = device(function);
+		ZigbeeDevice device = (ZigbeeDevice) device(function);
 		TLObject entry = ZigbeeCatalog.entry(function);
-		String deviceName = String.valueOf(device.tValueByName("name"));
+		String deviceName = String.valueOf(device.getName());
 		ResKey friendly = entry != null && entry.tValueByName("name") instanceof ResKey key ? key : null;
 		String name;
 		ResKey label;
@@ -144,7 +148,7 @@ public final class ZigbeeBindings {
 			}
 			label = FunctionProposal.text(texts);
 		} else {
-			name = deviceName + " " + function.tValueByName("function");
+			name = deviceName + " " + typed.getFunction();
 			label = FunctionProposal.text(ResKey.text(name));
 		}
 		Set<String> ids = new HashSet<>();
@@ -154,30 +158,33 @@ public final class ZigbeeBindings {
 				ids.add(id);
 			}
 		}
-		TLObject datapoint = RuleFunctions.create(project, ApplicationDatapoints.REFERENCE,
-			(TLClass) TLModelUtil.findType("ehome.runtime:" + ApplicationDatapoints.TYPE));
-		datapoint.tUpdateByName("identifier", FunctionProposal.uniqueIdentifier(name, ids));
+		ApplicationDatapoint datapoint = (ApplicationDatapoint) RuleFunctions.create(project,
+			ApplicationDatapoints.REFERENCE, (TLClass) TLModelUtil.findType("ehome.runtime:" + ApplicationDatapoints.TYPE));
+		datapoint.setIdentifier(FunctionProposal.uniqueIdentifier(name, ids));
 		// The controller shows at most 63 bytes (haumacher/ehome #116).
-		datapoint.tUpdateByName("label", LabelLimit.fit(label));
+		datapoint.setLabel(LabelLimit.fit(label));
 		String type = ZigbeeCatalog.recommendedType(entry);
 		if (type == null) {
 			type = valueType(function);
 		}
 		if (type != null) {
-			datapoint.tUpdateByName("type", ZigbeeImport.valueType(type));
+			datapoint.setType(ZigbeeImport.valueType(type));
 		}
 		String unit = ZigbeeCatalog.recommendedUnit(entry);
-		datapoint.tUpdateByName("unit", unit != null ? unit : function.tValueByName("unit"));
-		datapoint.tUpdateByName("writable", Boolean.valueOf(Boolean.TRUE.equals(function.tValueByName("writable"))));
-		datapoint.tUpdateByName("zigbeeFunction", function);
-		if (entry != null && function.tValueByName(ZigbeeReporting.MIN) == null
-			&& function.tValueByName(ZigbeeReporting.MAX) == null
-			&& function.tValueByName(ZigbeeReporting.CHANGE) == null) {
-			for (String member : new String[] { ZigbeeReporting.MIN, ZigbeeReporting.MAX, ZigbeeReporting.CHANGE }) {
-				Object value = entry.tValueByName(member);
-				if (value != null) {
-					function.tUpdateByName(member, value);
-				}
+		datapoint.setUnit(unit != null ? unit : typed.getUnit());
+		datapoint.setWritable(Boolean.TRUE.equals(typed.getWritableOrNull()));
+		datapoint.setZigbeeFunction(typed);
+		if (entry != null && typed.getReportingMin() == null && typed.getReportingMax() == null
+			&& typed.getReportingChange() == null) {
+			// The catalog's entry (ehome.zigbee.catalog, no generated binding) is read by name.
+			if (entry.tValueByName(ZigbeeReporting.MIN) instanceof Integer min) {
+				typed.setReportingMin(min);
+			}
+			if (entry.tValueByName(ZigbeeReporting.MAX) instanceof Integer max) {
+				typed.setReportingMax(max);
+			}
+			if (entry.tValueByName(ZigbeeReporting.CHANGE) instanceof Double change) {
+				typed.setReportingChange(change);
 			}
 		}
 		return datapoint;
@@ -189,8 +196,8 @@ public final class ZigbeeBindings {
 	 */
 	public static List<TLObject> datapointCandidates(TLObject device) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject function : ZigbeeImport.objects(device.tValueByName("functions"))) {
-			if (!Boolean.TRUE.equals(function.tValueByName("absent")) && bindVeto(function) == null
+		for (ZigbeeFunction function : ((ZigbeeDevice) device).getFunctions()) {
+			if (!Boolean.TRUE.equals(function.getAbsentOrNull()) && bindVeto(function) == null
 				&& !ZigbeeCatalog.hidden(function)) {
 				result.add(function);
 			}
@@ -253,9 +260,9 @@ public final class ZigbeeBindings {
 		String type = ApplicationDatapoints.valueType(datapoint);
 		if (!fits(valueType(function), type)) {
 			throw new TopLogicException(I18NConstants.ERROR_BIND_TYPE__FUNCTION_TYPE_DATAPOINT_DATAPOINT_TYPE.fill(
-				function.tValueByName("function"), valueType(function), DatapointNames.name(datapoint), type));
+				((ZigbeeFunction) function).getFunction(), valueType(function), DatapointNames.name(datapoint), type));
 		}
-		datapoint.tUpdateByName("zigbeeFunction", function);
+		((ApplicationDatapoint) datapoint).setZigbeeFunction((ZigbeeFunction) function);
 		return datapoint;
 	}
 
@@ -265,7 +272,7 @@ public final class ZigbeeBindings {
 	 */
 	public static void unbind(TLObject function) {
 		for (TLObject datapoint : boundDatapoints(function)) {
-			datapoint.tUpdateByName("zigbeeFunction", null);
+			((ApplicationDatapoint) datapoint).setZigbeeFunction(null);
 		}
 	}
 
@@ -308,7 +315,7 @@ public final class ZigbeeBindings {
 		}
 		String type = form.tValueByName("type") instanceof TLClassifier classifier ? classifier.getName() : null;
 		for (TLObject device : ZigbeeImport.devices(project)) {
-			for (TLObject function : ZigbeeImport.objects(device.tValueByName("functions"))) {
+			for (ZigbeeFunction function : ((ZigbeeDevice) device).getFunctions()) {
 				List<TLObject> bound = boundDatapoints(function);
 				boolean free = bound.isEmpty() || (bound.size() == 1 && bound.get(0) == self);
 				if (free && (type == null || fits(valueType(function), type))) {
@@ -328,10 +335,11 @@ public final class ZigbeeBindings {
 	 */
 	public static Map<String, Object> json(TLObject function) {
 		Map<String, Object> result = new LinkedHashMap<>();
-		result.put("ieee", String.valueOf(device(function).tValueByName("ieee")));
-		result.put("endpoint", number(function.tValueByName("endpoint")));
-		result.put("cluster", number(function.tValueByName("cluster")));
-		Object attribute = function.tValueByName("attribute");
+		ZigbeeFunction typed = (ZigbeeFunction) function;
+		result.put("ieee", String.valueOf(((ZigbeeDevice) device(function)).getIeee()));
+		result.put("endpoint", number(typed.getEndpointOrNull()));
+		result.put("cluster", number(typed.getCluster()));
+		Object attribute = typed.getAttribute();
 		if (attribute instanceof Number) {
 			result.put("attribute", number(attribute));
 		} else {
@@ -349,8 +357,9 @@ public final class ZigbeeBindings {
 	 * except the multistate input (homecontrol <code>ZigbeePoint::flags()</code>).
 	 */
 	public static boolean readOnStart(TLObject function) {
-		Object attribute = function.tValueByName("attribute");
-		return attribute instanceof Number && !ZigbeeFunctionTable.MULTISTATE.equals(function.tValueByName("function"));
+		ZigbeeFunction typed = (ZigbeeFunction) function;
+		Object attribute = typed.getAttribute();
+		return attribute instanceof Number && !ZigbeeFunctionTable.MULTISTATE.equals(typed.getFunction());
 	}
 
 	private static Long number(Object value) {

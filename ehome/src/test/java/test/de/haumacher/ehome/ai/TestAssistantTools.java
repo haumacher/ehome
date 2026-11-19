@@ -12,7 +12,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -70,11 +69,15 @@ import de.haumacher.ehome.ai.logic.FunctionTools;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -130,11 +133,11 @@ public class TestAssistantTools extends BasicTestCase {
 		// In the chat the calls of a turn share its transaction (over MCP each call commits, TestMcpEndpoint).
 		assertTrue(created, created.contains("saved when this turn ends"));
 		TLObject house = named(ExtIds.list(_project, "buildings"), "Haus");
-		assertEquals("Haus", house.tValueByName("name"));
+		assertEquals("Haus", ((BuildingDefinition) house).getName());
 		TLObject groundFloor = single(ExtIds.list(house, "parts"));
 		assertEquals("ehome.building:Floor", TLModelUtil.qualifiedName(groundFloor.tType()));
 		List<TLObject> rooms = ExtIds.list(groundFloor, "parts");
-		assertEquals(List.of("Küche", "Wohnzimmer"), rooms.stream().map(r -> r.tValueByName("name")).toList());
+		assertEquals(List.of("Küche", "Wohnzimmer"), rooms.stream().map(r -> ((BuildingDefinition) r).getName()).toList());
 		TLObject kitchen = rooms.get(0);
 		assertEquals("ehome.building:Room", TLModelUtil.qualifiedName(kitchen.tType()));
 
@@ -177,9 +180,9 @@ public class TestAssistantTools extends BasicTestCase {
 		TLObject address = byAddress(expected);
 		assertNotNull("The address is created at the next free address of the range.", address);
 		assertSame(range, address.tContainer());
-		assertTrue("In the project's notation: " + address.tValueByName("address"),
-			address.tValueByName("address").toString().matches("\\d+/\\d+/\\d+"));
-		assertEquals("1.001", GroupAddressTypes.dpt((TLObject) single(list(address, "datapointTypes"))).code());
+		assertTrue("In the project's notation: " + ((GroupAddress) address).getAddress(),
+			((GroupAddress) address).getAddress().toString().matches("\\d+/\\d+/\\d+"));
+		assertEquals("1.001", GroupAddressTypes.dpt((TLObject) single(datapointTypes(address))).code());
 		assertEquals(sent.get(2).messages().toString(), 1, GroupAddressConnections.connections(address).size());
 		TLObject connection = single(GroupAddressConnections.connections(address));
 		assertSame(device, GroupAddressConnections.device(connection));
@@ -208,7 +211,7 @@ public class TestAssistantTools extends BasicTestCase {
 		int addresses = DeviceSettings.groupAddresses(_project).size();
 		int devices = ExtIds.list(line, "devices").size();
 		int connections = GroupAddressConnections.connections(address[0]).size();
-		String taken = address[0].tValueByName("address").toString();
+		String taken = ((GroupAddress) address[0]).getAddress().toString();
 
 		List<ProviderRequest> sent = installerRuns("Try what cannot work.",
 			call("createGroupAddress", "range", tid(range), "name", "Doppelt", "address", taken),
@@ -234,7 +237,7 @@ public class TestAssistantTools extends BasicTestCase {
 		assertTrue("A building part of another project: " + foreign, foreign.contains("not found"));
 
 		assertEquals(addresses, DeviceSettings.groupAddresses(_project).size());
-		assertTrue(list(address[0], "datapointTypes").isEmpty());
+		assertTrue(datapointTypes(address[0]).isEmpty());
 		assertEquals(connections, GroupAddressConnections.connections(address[0]).size());
 		assertEquals(devices, ExtIds.list(line, "devices").size());
 
@@ -316,7 +319,7 @@ public class TestAssistantTools extends BasicTestCase {
 		TLObject actuator = device(line, 5);
 		Interface channelA = switchingObject(actuator, "Channel A");
 		TLObject range = GroupAddresses.ranges(_project).get(0);
-		String projectName = (String) _project.tValueByName("name");
+		String projectName = ((Project) _project).getName();
 
 		String created = commitMessage(new BuildingTools(), "createBuildingParts",
 			Map.of("parent", tid(_project), "parts", List.of(part("Building", "Gartenhaus"), part("Building", "Garage"))));
@@ -377,7 +380,7 @@ public class TestAssistantTools extends BasicTestCase {
 	 */
 	public void testProbeTemplateToolsOfForeignProject() {
 		TLObject assignment = (TLObject) device(line(), 5).tValueByName("program");
-		TLObject program = (TLObject) assignment.tValueByName("program");
+		TLObject program = ((ProgramAssignment) assignment).getProgram();
 		List<ProviderRequest> sent = installerRuns("Which objects of the other project are untyped?",
 			call("objectKinds", "program", tid(program), "project", tid(_foreign), "untypedOnly", Boolean.TRUE));
 		String answer = toolAnswer(sent, "objectKinds");
@@ -395,16 +398,17 @@ public class TestAssistantTools extends BasicTestCase {
 		TLObject actuator = device(line, 5);
 		TLObject[] parts = new TLObject[3];
 		inTransaction(() -> {
-			parts[0] = create("ehome.building:Building");
-			parts[0].tUpdateByName("name", "Nebengebäude");
-			parts[1] = create("ehome.building:Room");
-			parts[1].tUpdateByName("name", "Werkstatt");
-			parts[2] = create("ehome.building:DistributionBoard");
-			parts[2].tUpdateByName("name", "UV Nebengebäude");
-			parts[0].tUpdateByName("parts", List.of(parts[1], parts[2]));
-			List<TLObject> buildings = ExtIds.list(_project, "buildings");
-			buildings.add(parts[0]);
-			_project.tUpdateByName("buildings", buildings);
+			BuildingDefinition building = (BuildingDefinition) create("ehome.building:Building");
+			building.setName("Nebengebäude");
+			BuildingDefinition room = (BuildingDefinition) create("ehome.building:Room");
+			room.setName("Werkstatt");
+			BuildingDefinition board = (BuildingDefinition) create("ehome.building:DistributionBoard");
+			board.setName("UV Nebengebäude");
+			building.setParts(List.of(room, board));
+			((Project) _project).addBuilding(building);
+			parts[0] = building;
+			parts[1] = room;
+			parts[2] = board;
 		});
 
 		// A choice the actuator's configuration shows at the top or on a page, which can be changed.
@@ -542,7 +546,7 @@ public class TestAssistantTools extends BasicTestCase {
 
 	private static TLObject byAddress(GA address) {
 		for (TLObject candidate : DeviceSettings.groupAddresses(_project)) {
-			if (address.equals(candidate.tValueByName("address"))) {
+			if (address.equals(((GroupAddress) candidate).getAddress())) {
 				return candidate;
 			}
 		}
@@ -609,8 +613,8 @@ public class TestAssistantTools extends BasicTestCase {
 		return null;
 	}
 
-	private static List<?> list(TLObject obj, String attribute) {
-		return new ArrayList<>((Collection<?>) obj.tValueByName(attribute));
+	private static List<?> datapointTypes(TLObject address) {
+		return new ArrayList<>(((GroupAddress) address).getDatapointTypes());
 	}
 
 	private static TLObject named(List<TLObject> objects, String name) {
@@ -619,7 +623,7 @@ public class TestAssistantTools extends BasicTestCase {
 
 	private static TLObject named(List<TLObject> objects, String name, boolean mandatory) {
 		for (TLObject obj : objects) {
-			if (name.equals(obj.tValueByName("name"))) {
+			if (name.equals(((BuildingDefinition) obj).getName())) {
 				return obj;
 			}
 		}
@@ -660,11 +664,12 @@ public class TestAssistantTools extends BasicTestCase {
 						ProjectMembers.add(_project, _installer, Role.editor);
 						ProjectMembers.add(_project, _viewer, Role.viewer);
 						ProjectMembers.add(_project, _viewingInstaller, Role.viewer);
-						_foreign = create("ehome.project:Project");
-						_foreign.tUpdateByName("name", "Fremdes Projekt");
-						TLObject building = create("ehome.building:Building");
-						building.tUpdateByName("name", "Fremdhaus");
-						_foreign.tUpdateByName("buildings", List.of(building));
+						Project foreign = (Project) create("ehome.project:Project");
+						_foreign = foreign;
+						foreign.setName("Fremdes Projekt");
+						BuildingDefinition building = (BuildingDefinition) create("ehome.building:Building");
+						building.setName("Fremdhaus");
+						foreign.addBuilding(building);
 					});
 					return null;
 				});

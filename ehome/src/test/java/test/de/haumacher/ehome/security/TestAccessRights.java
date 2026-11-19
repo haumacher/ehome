@@ -64,6 +64,29 @@ import com.top_logic.layout.view.ViewLoader;
 import com.top_logic.layout.view.security.AccessControl;
 import com.top_logic.layout.view.security.UnitAccess;
 
+import de.haumacher.ehome.model.catalog.Catalog;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Action;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.Deployment;
+import de.haumacher.ehome.model.runtime.DismissedProposal;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
+import de.haumacher.ehome.model.runtime.Trigger;
+import de.haumacher.ehome.model.template.DeviceTemplate;
+import de.haumacher.ehome.model.template.DeviceTemplates;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
@@ -128,48 +151,48 @@ public class TestAccessRights extends BasicTestCase {
 	/** Member of ehome.administrators without a role in the project. */
 	private Person _admin;
 
-	private TLObject _project;
+	private Project _project;
 
-	private TLObject _groupRange;
+	private GroupRange _groupRange;
 
-	private TLObject _groupAddress;
+	private GroupAddress _groupAddress;
 
 	private TLObject _device;
 
 	/** The stub of a device the catalog does not identify, in the line of {@link #_device} (haumacher/ehome #183). */
 	private TLObject _stub;
 
-	private TLObject _function;
+	private Function _function;
 
-	private TLObject _dismissal;
+	private DismissedProposal _dismissal;
 
-	private TLObject _deployment;
+	private Deployment _deployment;
 
-	private TLObject _controller;
+	private Controller _controller;
 
-	private TLObject _rule;
+	private Rule _rule;
 
-	private TLObject _reaction;
+	private Reaction _reaction;
 
-	private TLObject _trigger;
+	private Trigger _trigger;
 
-	private TLObject _action;
+	private Action _action;
 
-	private TLObject _parameter;
+	private RuleParameter _parameter;
 
-	private TLObject _schedule;
+	private ScheduleEntry _schedule;
 
-	private TLObject _applicationDatapoint;
+	private ApplicationDatapoint _applicationDatapoint;
 
-	private TLObject _manufacturer;
+	private Manufacturer _manufacturer;
 
-	private TLObject _catalog;
+	private Catalog _catalog;
 
-	private TLObject _program;
+	private Program _program;
 
-	private TLObject _variant;
+	private Variant _variant;
 
-	private TLObject _template;
+	private DeviceTemplate _template;
 
 	@Override
 	protected void setUp() throws Exception {
@@ -183,46 +206,42 @@ public class TestAccessRights extends BasicTestCase {
 			_admin = person("ehomeTestAdministrator", Administration.ADMINISTRATORS);
 
 			_controller = create("ehome.runtime:Controller");
-			_controller.tUpdateByName("name", "Access test");
-			_controller.tUpdateByName("host", "localhost");
-			_controller.tUpdateByName("token", "hct_0123456789abcdef0123456789abcdef");
+			_controller.setName("Access test");
+			_controller.setHost("localhost");
+			_controller.setToken("hct_0123456789abcdef0123456789abcdef");
 
 			_project = create("ehome.project:Project");
-			_project.tUpdateByName("name", "Access test");
+			_project.setName("Access test");
 			ControllerFixture.own(_project, _controller);
 			ProjectMembers.add(_project, _owner, Role.owner);
 			ProjectMembers.add(_project, _editor, Role.editor);
 			ProjectMembers.add(_project, _viewer, Role.viewer);
 
 			_groupAddress = create("ehome.logical:GroupAddress");
-			_groupAddress.tUpdateByName("name", "Light");
+			_groupAddress.setName("Light");
 			_groupRange = create("ehome.logical:GroupRange");
-			_groupRange.tUpdateByName("parts", List.of(_groupAddress));
-			_project.tUpdateByName("groupAddresses", List.of(_groupRange));
+			_groupRange.addPart(_groupAddress);
+			_project.addGroupAddresse(_groupRange);
 
 			_manufacturer = create("ehome.catalog:Manufacturer");
 			_catalog = create("ehome.catalog:Catalog");
-			_manufacturer.tUpdateByName("catalogs", List.of(_catalog));
+			_manufacturer.addCatalog(_catalog);
 			_program = create("ehome.operational:Program");
-			_manufacturer.tUpdateByName("programs", List.of(_program));
-			TLObject product = create("ehome.catalog:Product");
+			_manufacturer.addProgram(_program);
+			Product product = create("ehome.catalog:Product");
 			_variant = create("ehome.catalog:Variant");
-			product.tUpdateByName("variants", List.of(_variant));
-			TLObject assignment = create("ehome.catalog:ProgramAssignment");
-			assignment.tUpdateByName("program", _program);
-			product.tUpdateByName("programs", List.of(assignment));
-			_manufacturer.tUpdateByName("products", List.of(product));
-			_catalog.tUpdateByName("variants", List.of(_variant));
-			TLObject manufacturers = singleton("ehome.catalog:ManufacturerRoot");
-			List<Object> all = new ArrayList<>((Collection<?>) manufacturers.tValueByName("manufacturers"));
-			all.add(_manufacturer);
-			manufacturers.tUpdateByName("manufacturers", all);
+			product.addVariant(_variant);
+			ProgramAssignment assignment = create("ehome.catalog:ProgramAssignment");
+			assignment.setProgram(_program);
+			product.addProgram(assignment);
+			_manufacturer.addProduct(product);
+			_catalog.addVariant(_variant);
+			ManufacturerRoot manufacturers = (ManufacturerRoot) singleton("ehome.catalog:ManufacturerRoot");
+			manufacturers.addManufacturer(_manufacturer);
 			_template = create("ehome.template:DeviceTemplate");
-			_template.tUpdateByName("program", _program);
-			TLObject templates = singleton("ehome.template:DeviceTemplates");
-			List<Object> allTemplates = new ArrayList<>((Collection<?>) templates.tValueByName("templates"));
-			allTemplates.add(_template);
-			templates.tUpdateByName("templates", allTemplates);
+			_template.setProgram(_program);
+			DeviceTemplates templates = (DeviceTemplates) singleton("ehome.template:DeviceTemplates");
+			templates.addTemplate(_template);
 
 			_device = create("ehome.physical:Device");
 			_device.tUpdateByName("type", _variant);
@@ -233,51 +252,51 @@ public class TestAccessRights extends BasicTestCase {
 			line.tUpdateByName("devices", List.of(_device, _stub));
 			TLObject area = create("ehome.physical:Area");
 			area.tUpdateByName("lines", List.of(line));
-			_project.tUpdateByName("areas", List.of(area));
+			_project.addArea(area);
 
 			_function = create("ehome.runtime:Function");
-			_function.tUpdateByName("name", ResKey.builder().add(Locale.ENGLISH, "Light").build());
-			_function.tUpdateByName("kind",
+			_function.setNameKey(ResKey.builder().add(Locale.ENGLISH, "Light").build());
+			_function.setKind(
 				((TLEnumeration) TLModelUtil.findType("ehome.runtime:FunctionKind")).getClassifier("light"));
-			_project.tUpdateByName("functions", List.of(_function));
+			_project.addFunction(_function);
 
 			_dismissal = create("ehome.runtime:DismissedProposal");
-			_dismissal.tUpdateByName("kind",
+			_dismissal.setKind(
 				((TLEnumeration) TLModelUtil.findType("ehome.runtime:FunctionKind")).getClassifier("button"));
-			_dismissal.tUpdateByName("device", _device);
-			_dismissal.tUpdateByName("channel", "object:Taste 1");
-			_project.tUpdateByName("dismissedProposals", List.of(_dismissal));
+			_dismissal.setDevice(_device);
+			_dismissal.setChannel("object:Taste 1");
+			_project.addDismissedProposal(_dismissal);
 
 			_rule = create("ehome.runtime:Rule");
-			_rule.tUpdateByName("identifier", "access");
-			_rule.tUpdateByName("name", ResKey.builder().add(Locale.ENGLISH, "Access").build());
+			_rule.setIdentifier("access");
+			_rule.setNameKey(ResKey.builder().add(Locale.ENGLISH, "Access").build());
 			_parameter = create("ehome.runtime:RuleParameter");
-			_parameter.tUpdateByName("identifier", "p");
-			_parameter.tUpdateByName("label", "P");
-			_parameter.tUpdateByName("default", "1.0");
-			_parameter.tUpdateByName("type",
+			_parameter.setIdentifier("p");
+			_parameter.setLabel("P");
+			_parameter.setDefault("1.0");
+			_parameter.setType(
 				((TLEnumeration) TLModelUtil.findType("ehome.runtime:RuleParameterType")).getClassifier("real"));
-			_rule.tUpdateByName("parameters", List.of(_parameter));
+			_rule.addParameter(_parameter);
 			_reaction = create("ehome.runtime:Reaction");
 			_trigger = create("ehome.runtime:StartTrigger");
 			_action = create("ehome.runtime:LogAction");
-			_reaction.tUpdateByName("triggers", List.of(_trigger));
-			_reaction.tUpdateByName("actions", List.of(_action));
-			_rule.tUpdateByName("reactions", List.of(_reaction));
-			_project.tUpdateByName("rules", List.of(_rule));
+			_reaction.addTrigger(_trigger);
+			_reaction.addAction(_action);
+			_rule.addReaction(_reaction);
+			_project.addRule(_rule);
 			_schedule = create("ehome.runtime:OnceSchedule");
-			_schedule.tUpdateByName("identifier", "once");
-			_schedule.tUpdateByName("label", ResKey.builder().add(Locale.ENGLISH, "Once").build());
-			_project.tUpdateByName("schedules", List.of(_schedule));
+			_schedule.setIdentifier("once");
+			_schedule.setLabel(ResKey.builder().add(Locale.ENGLISH, "Once").build());
+			_project.addSchedule(_schedule);
 			_applicationDatapoint = create("ehome.runtime:ApplicationDatapoint");
-			_applicationDatapoint.tUpdateByName("identifier", "holiday");
-			_applicationDatapoint.tUpdateByName("type",
+			_applicationDatapoint.setIdentifier("holiday");
+			_applicationDatapoint.setType(
 				((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier("boolean"));
-			_project.tUpdateByName("applicationDatapoints", List.of(_applicationDatapoint));
+			_project.addApplicationDatapoint(_applicationDatapoint);
 
 			_deployment = create("ehome.runtime:Deployment");
-			_deployment.tUpdateByName("controller", _controller);
-			_project.tUpdateByName("deployments", List.of(_deployment));
+			_deployment.setController(_controller);
+			_project.addDeployment(_deployment);
 		});
 	}
 
@@ -378,8 +397,8 @@ public class TestAccessRights extends BasicTestCase {
 	public void testCreatorIsOwner() {
 		TLObject created = TLContextManager.inPersonContext(_installer, () -> {
 			try (Transaction tx = kb().beginTransaction()) {
-				TLObject result = create("ehome.project:Project");
-				result.tUpdateByName("name", "Created by the installer");
+				Project result = create("ehome.project:Project");
+				result.setName("Created by the installer");
 				tx.commit();
 				return result;
 			}
@@ -492,7 +511,7 @@ public class TestAccessRights extends BasicTestCase {
 		TLObject[] orphan = new TLObject[1];
 		inTransaction(() -> {
 			orphan[0] = create("ehome.project:Project");
-			orphan[0].tUpdateByName("name", "Access test without owner");
+			((Project) orphan[0]).setName("Access test without owner");
 		});
 		assertEquals(List.of(), new ArrayList<>(ProjectMembers.accounts(orphan[0], ProjectMembers.OWNERS)));
 		assertTrue(allowed(_admin, orphan[0], manageMembers()));
@@ -531,8 +550,8 @@ public class TestAccessRights extends BasicTestCase {
 		TLObject[] orphan = new TLObject[1];
 		inTransaction(() -> {
 			orphan[0] = create("ehome.runtime:Controller");
-			orphan[0].tUpdateByName("name", "Access test without project");
-			orphan[0].tUpdateByName("host", "192.0.2.9");
+			((Controller) orphan[0]).setName("Access test without project");
+			((Controller) orphan[0]).setHost("192.0.2.9");
 		});
 		for (Person person : List.of(_owner, _editor, _viewer, _installer, _stranger)) {
 			assertFalse(person.getName(), allowed(person, orphan[0], READ));
@@ -989,7 +1008,7 @@ public class TestAccessRights extends BasicTestCase {
 		TLObject[] second = new TLObject[1];
 		inTransaction(() -> {
 			second[0] = create("ehome.project:Project");
-			second[0].tUpdateByName("name", "Second access test");
+			((Project) second[0]).setName("Second access test");
 			ProjectMembers.add(second[0], _owner, Role.owner);
 		});
 		// The options of "Add member" (projects/member-add.view.xml, haumacher/ehome #167): the members of the user's projects.
@@ -1182,7 +1201,7 @@ public class TestAccessRights extends BasicTestCase {
 		for (Object project : SearchExpression.asCollection(eval("x -> all(`ehome.project:Project`)", null))) {
 			result.add((TLObject) project);
 		}
-		result.removeIf(p -> !"Access test".equals(p.tValueByName("name")));
+		result.removeIf(p -> !"Access test".equals(((Project) p).getName()));
 		return result;
 	}
 
@@ -1236,10 +1255,11 @@ public class TestAccessRights extends BasicTestCase {
 		return ModelAccessRights.getInstance();
 	}
 
-	private TLObject create(String typeName) {
+	@SuppressWarnings("unchecked")
+	private <T extends TLObject> T create(String typeName) {
 		TLObject result = ModelService.getInstance().getFactory().createObject(type(typeName));
 		_created.add(result);
-		return result;
+		return (T) result;
 	}
 
 	private static TLObject singleton(String typeName) {

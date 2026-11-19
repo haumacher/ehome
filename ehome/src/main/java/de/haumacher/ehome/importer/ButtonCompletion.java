@@ -23,8 +23,14 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.calculation.DeviceButtons;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Button;
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.ModuleDefinition;
+import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.SharedPlacement;
+import de.haumacher.ehome.model.operational.Switch;
 
 /**
  * Adds the buttons of the parameter dialog (ETS: <code>Button</code>, haumacher/ehome #158) to an
@@ -55,10 +61,6 @@ final class ButtonCompletion {
 
 	private static final String TYPE_PREFIX = "ehome.operational:";
 
-	private static final String CONTENTS = "contents";
-
-	private static final String EXT_ID = "extId";
-
 	private static final String BUTTON = "Button";
 
 	private static final String RENAME = "Rename";
@@ -81,17 +83,17 @@ final class ButtonCompletion {
 	private final List<Insertion> _insertions = new ArrayList<>();
 
 	private ButtonCompletion(Program program) {
-		_modules = !Boolean.TRUE.equals(program.tValueByName("usesModules"));
+		_modules = !Boolean.TRUE.equals(program.getUsesModulesOrNull());
 		for (Button button : DeviceButtons.all(program)) {
 			_known.add(button.getExtId());
 		}
-		collect(program);
+		collect(program.getModules());
 	}
 
-	private void collect(TLObject container) {
-		for (TLObject definition : list(container, "modules")) {
-			_definitions.put((String) definition.tValueByName(EXT_ID), definition);
-			collect(definition);
+	private void collect(List<? extends ModuleDefinition> definitions) {
+		for (ModuleDefinition definition : definitions) {
+			_definitions.put(definition.getExtId(), definition);
+			collect(definition.getModules());
 		}
 	}
 
@@ -133,7 +135,7 @@ final class ButtonCompletion {
 	}
 
 	private void walk(Element xml, TLObject fragment) throws ModuleCompletion.Mismatch {
-		List<TLObject> contents = list(fragment, CONTENTS);
+		List<TLObject> contents = fragment instanceof ConfigFragment container ? list(container.getContents()) : list(null);
 		int index = 0;
 		for (Element child : ModuleScan.childElements(xml)) {
 			String name = child.getLocalName();
@@ -142,7 +144,7 @@ final class ButtonCompletion {
 				if (_known.contains(id)) {
 					// Read already: it stays at its place.
 					if (index < contents.size() && is(contents.get(index), BUTTON)
-						&& id.equals(contents.get(index).tValueByName(EXT_ID))) {
+						&& id.equals(((Button) contents.get(index)).getExtId())) {
 						index++;
 					}
 				} else {
@@ -176,7 +178,7 @@ final class ButtonCompletion {
 				case "choose":
 					expect(option, type, null);
 					List<Element> cases = ModuleScan.children(child, "when");
-					List<TLObject> alternatives = list(option, "alternatives");
+					List<TLObject> alternatives = list(((Switch) option).getAlternatives());
 					if (cases.size() != alternatives.size()) {
 						throw new ModuleCompletion.Mismatch("Cases of a switch differ.");
 					}
@@ -268,9 +270,10 @@ final class ButtonCompletion {
 			}
 			TLObject fragment = insertion.fragment();
 			int offset = inserted.getOrDefault(fragment, Integer.valueOf(0)).intValue();
-			List<Object> contents = new ArrayList<>((Collection<?>) fragment.tValueByName(CONTENTS));
+			ConfigFragment container = (ConfigFragment) fragment;
+			List<Option> contents = new ArrayList<>(container.getContents());
 			contents.add(Math.min(insertion.index() + offset, contents.size()), button);
-			fragment.tUpdateByName(CONTENTS, contents);
+			container.setContents(contents);
 			inserted.put(fragment, Integer.valueOf(offset + 1));
 			result.add(button);
 		}
@@ -324,33 +327,23 @@ final class ButtonCompletion {
 			throw new ModuleCompletion.Mismatch(
 				"Expected " + type + ", found " + TLModelUtil.qualifiedName(option.tType()) + ".");
 		}
-		if (id != null && !id.isEmpty() && !id.equals(option.tValueByName(EXT_ID))) {
-			throw new ModuleCompletion.Mismatch("Expected " + id + ", found " + option.tValueByName(EXT_ID) + ".");
+		if (id != null && !id.isEmpty() && !id.equals(((Externalized) option).getExtId())) {
+			throw new ModuleCompletion.Mismatch("Expected " + id + ", found " + ((Externalized) option).getExtId() + ".");
 		}
 	}
 
 	private static void expectPlaced(TLObject option, String refId) throws ModuleCompletion.Mismatch {
 		TLObject placed = option;
 		if (is(option, "SharedPlacement")) {
-			placed = (TLObject) option.tValueByName("placed");
+			placed = ((SharedPlacement) option).getPlaced();
 		}
-		if (placed == null || !Objects.equals(refId, placed.tValueByName(EXT_ID))) {
+		if (placed == null || !Objects.equals(refId, ((Externalized) placed).getExtId())) {
 			throw new ModuleCompletion.Mismatch("Expected the placement of " + refId + ".");
 		}
 	}
 
-	private static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		if (obj.tType().getPart(attribute) == null) {
-			return result;
-		}
-		Object value = obj.tValueByName(attribute);
-		if (value instanceof Collection<?> collection) {
-			for (Object element : collection) {
-				result.add((TLObject) element);
-			}
-		}
-		return result;
+	private static List<TLObject> list(Collection<? extends TLObject> value) {
+		return value == null ? new ArrayList<>() : new ArrayList<>(value);
 	}
 
 }

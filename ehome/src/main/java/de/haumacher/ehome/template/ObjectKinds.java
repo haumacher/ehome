@@ -42,6 +42,8 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.template.DeviceTemplate;
+import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.template.ChannelShape.Condition;
@@ -278,31 +280,31 @@ public final class ObjectKinds {
 		if (template == null) {
 			throw new TopLogicException(I18NConstants.ERROR_KIND_NO_TEMPLATE);
 		}
-		Object program = template.tValueByName("program");
+		Object program = ((DeviceTemplate) template).getProgram();
 		for (Interface placed : placements(kind)) {
 			if (DeviceTemplates.program(placed) != program) {
 				throw new TopLogicException(I18NConstants.ERROR_KIND_OTHER_PROGRAM__PROGRAM.fill(program));
 			}
 		}
-		Map<Interface, TLObject> overlays = overlays(template);
-		List<Object> created = new ArrayList<>();
+		Map<Interface, ObjectOverlay> overlays = overlays(template);
+		List<ObjectOverlay> created = new ArrayList<>();
 		List<TLObject> types = type == null ? List.of() : List.of(type);
 		for (Interface placed : placements(kind)) {
-			TLObject overlay = overlays.get(placed);
+			ObjectOverlay overlay = overlays.get(placed);
 			if (overlay == null) {
-				overlay = ModelService.getInstance().getFactory()
+				overlay = (ObjectOverlay) ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.template:ObjectOverlay"));
-				overlay.tUpdateByName("placement", placed);
+				overlay.setPlacement(placed);
 				created.add(overlay);
 			}
-			if (!types.equals(overlay.tValueByName("datapointTypes"))) {
-				overlay.tUpdateByName("datapointTypes", types);
+			if (!types.equals(overlay.getDatapointTypes())) {
+				overlay.setDatapointTypes(types);
 			}
 		}
 		if (!created.isEmpty()) {
-			List<Object> all = new ArrayList<>((Collection<?>) template.tValueByName("overlays"));
+			List<ObjectOverlay> all = new ArrayList<>(((DeviceTemplate) template).getOverlays());
 			all.addAll(created);
-			template.tUpdateByName("overlays", all);
+			((DeviceTemplate) template).setOverlays(all);
 		}
 	}
 
@@ -311,20 +313,19 @@ public final class ObjectKinds {
 		if (template == null) {
 			return result;
 		}
-		Map<Interface, TLObject> overlays = overlays(template);
+		Map<Interface, ObjectOverlay> overlays = overlays(template);
 		for (Interface placed : placements(kind)) {
-			TLObject overlay = overlays.get(placed);
-			Object types = overlay == null ? null : overlay.tValueByName("datapointTypes");
+			ObjectOverlay overlay = overlays.get(placed);
+			Object types = overlay == null ? null : overlay.getDatapointTypes();
 			result.add(types instanceof List<?> list && !list.isEmpty() ? (TLObject) list.get(0) : null);
 		}
 		return result;
 	}
 
-	private static Map<Interface, TLObject> overlays(TLObject template) {
-		Map<Interface, TLObject> result = new HashMap<>();
-		for (Object element : (Collection<?>) template.tValueByName("overlays")) {
-			TLObject overlay = (TLObject) element;
-			if (overlay.tValueByName("placement") instanceof Interface placed) {
+	private static Map<Interface, ObjectOverlay> overlays(TLObject template) {
+		Map<Interface, ObjectOverlay> result = new HashMap<>();
+		for (ObjectOverlay overlay : ((DeviceTemplate) template).getOverlays()) {
+			if (overlay.getPlacement() instanceof Interface placed) {
 				result.putIfAbsent(placed, overlay);
 			}
 		}
@@ -463,10 +464,10 @@ public final class ObjectKinds {
 			result = localize(resources, parameter.getDescription());
 		}
 		if (result == null) {
-			result = (String) view.tValueByName("name");
+			result = view.getName();
 		}
 		if (result == null && parameter != null) {
-			result = (String) parameter.tValueByName("name");
+			result = parameter.getName();
 		}
 		return result == null ? "" : WHITE_SPACE.matcher(result.trim()).replaceAll(" ");
 	}
@@ -476,7 +477,7 @@ public final class ObjectKinds {
 		if (type instanceof EnumerationType enumeration) {
 			for (EnumerationValue value : enumeration.getValues()) {
 				if (Integer.toString(value.getValue()).equals(token)
-					&& value.tValueByName("name") instanceof ResKey name) {
+					&& value.getNameKey() instanceof ResKey name) {
 					String text = localize(resources, name);
 					if (text != null) {
 						return text;

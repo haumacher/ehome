@@ -51,6 +51,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.tool.boundsec.wrap.Group;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.project.ProjectMembers;
 
 /**
@@ -182,7 +183,7 @@ public final class Administration {
 				revisionArgs().setStopRow(SEARCH_LIMIT))) {
 				while (projects.hasNext()) {
 					TLObject project = projects.next();
-					Object value = project.tValueByName("name");
+					Object value = ((Project) project).getName();
 					if (value instanceof String projectName && projectName.regionMatches(true, 0, text, 0, text.length())) {
 						result.add(project);
 					}

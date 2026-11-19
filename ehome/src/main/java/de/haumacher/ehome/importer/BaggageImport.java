@@ -39,6 +39,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.xio.importer.binding.ImportContext;
 
+import de.haumacher.ehome.model.catalog.Baggage;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.operational.Program;
+
 /**
  * The files a manufacturer ships with its product data (ETS: baggage), read from a project file or
  * product file and kept with the manufacturer in the catalog (haumacher/ehome #154).
@@ -86,10 +90,6 @@ final class BaggageImport {
 	private static final String MANUFACTURER_TYPE = "ehome.catalog:Manufacturer";
 
 	private static final String PROGRAM_TYPE = "ehome.operational:Program";
-
-	private static final String EXT_ID = "extId";
-
-	private static final String BAGGAGE = "baggage";
 
 	/** The beginning of a reference to a file of the baggage in a program file. */
 	private static final byte[] BAGGAGE_MARKER = "<Baggage ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
@@ -274,14 +274,14 @@ final class BaggageImport {
 	void apply(ImportContext context, JoiningModelBinding binding, BufferingI18NLog messages) {
 		for (Entry<String, List<Listed>> entry : _listed.entrySet()) {
 			String manufacturerId = entry.getKey();
-			TLObject manufacturer = manufacturer(binding, manufacturerId);
+			Manufacturer manufacturer = manufacturer(binding, manufacturerId);
 			if (manufacturer == null) {
 				messages.log(Level.WARN, I18NConstants.WARN_BAGGAGE_NO_MANUFACTURER__MANUFACTURER.fill(manufacturerId));
 				continue;
 			}
-			Map<String, TLObject> known = new HashMap<>();
-			for (TLObject baggage : list(manufacturer, BAGGAGE)) {
-				known.put((String) baggage.tValueByName(EXT_ID), baggage);
+			Map<String, Baggage> known = new HashMap<>();
+			for (Baggage baggage : manufacturer.getBaggage()) {
+				known.put(baggage.getExtId(), baggage);
 			}
 			for (Listed listed : entry.getValue()) {
 				apply(context, binding, messages, manufacturer, known, manufacturerId, listed);
@@ -296,8 +296,8 @@ final class BaggageImport {
 	}
 
 	private void apply(ImportContext context, JoiningModelBinding binding, BufferingI18NLog messages,
-			TLObject manufacturer,
-			Map<String, TLObject> known, String manufacturerId, Listed listed) {
+			Manufacturer manufacturer,
+			Map<String, Baggage> known, String manufacturerId, Listed listed) {
 		String file = listed.file(manufacturerId);
 		byte[] content = takeContent(file);
 		boolean tooLarge = _tooLarge.remove(file) || removeIgnoringCase(_tooLarge, file);
@@ -305,21 +305,21 @@ final class BaggageImport {
 			messages.log(Level.WARN, I18NConstants.WARN_BAGGAGE_INVALID_TIME__FILE_TIME.fill(file, listed.timeText()));
 		}
 
-		TLObject baggage = known.get(listed.id());
+		Baggage baggage = known.get(listed.id());
 		if (baggage == null) {
-			baggage = (TLObject) binding.createObject(null, null, BAGGAGE_TYPE, null);
+			baggage = (Baggage) binding.createObject(null, null, BAGGAGE_TYPE, null);
 			// Known to the import under its ID: resolves the references read before.
 			context.assignId(baggage, listed.id());
-			baggage.tUpdateByName(EXT_ID, listed.id());
+			baggage.setExtId(listed.id());
 			describe(baggage, listed);
 			setContent(baggage, listed, content);
-			manufacturer.tAdd(manufacturer.tType().getPartOrFail(BAGGAGE), baggage);
+			manufacturer.addBaggage(baggage);
 			known.put(listed.id(), baggage);
 			reportMissing(messages, file, content, tooLarge);
 			return;
 		}
 
-		Date before = (Date) baggage.tValueByName("time");
+		Date before = baggage.getTime();
 		if (isNewer(listed.time(), before)) {
 			if (content == null) {
 				// The newer version is not there to replace the known one, which stays as it is.
@@ -332,7 +332,7 @@ final class BaggageImport {
 			_replaced.add(baggage);
 			messages.log(Level.INFO, I18NConstants.INFO_BAGGAGE_REPLACED__FILE_TIME_OLD.fill(file,
 				format(listed.time()), before == null ? "-" : format(before.toInstant())));
-		} else if (baggage.tValueByName("content") == null) {
+		} else if (baggage.getContent() == null) {
 			if (content != null) {
 				setContent(baggage, listed, content);
 				unpackAgain(baggage, messages);
@@ -348,8 +348,8 @@ final class BaggageImport {
 	 * Unpacks the given file again with its new content, if it is an archive a program takes its
 	 * icons or help texts from (haumacher/ehome #156, #157): its entries follow its content.
 	 */
-	private static void unpackAgain(TLObject baggage, BufferingI18NLog messages) {
-		if (Boolean.TRUE.equals(baggage.tValueByName("unpacked"))) {
+	private static void unpackAgain(Baggage baggage, BufferingI18NLog messages) {
+		if (Boolean.TRUE.equals(baggage.getUnpackedOrNull())) {
 			ProgramResourcesImport.unpack(baggage, messages);
 		}
 	}
@@ -378,21 +378,21 @@ final class BaggageImport {
 		return time.truncatedTo(ChronoUnit.MILLIS).isAfter(known.toInstant());
 	}
 
-	private static void describe(TLObject baggage, Listed listed) {
-		baggage.tUpdateByName("name", listed.name());
-		baggage.tUpdateByName("path", listed.path().isEmpty() ? null : listed.path());
-		baggage.tUpdateByName("time", listed.time() == null ? null : Date.from(listed.time()));
+	private static void describe(Baggage baggage, Listed listed) {
+		baggage.setName(listed.name());
+		baggage.setPath(listed.path().isEmpty() ? null : listed.path());
+		baggage.setTime(listed.time() == null ? null : Date.from(listed.time()));
 	}
 
-	private static void setContent(TLObject baggage, Listed listed, byte[] content) {
+	private static void setContent(Baggage baggage, Listed listed, byte[] content) {
 		if (content == null) {
-			baggage.tUpdateByName("content", null);
-			baggage.tUpdateByName("size", null);
+			baggage.setContent(null);
+			baggage.setSize(null);
 			return;
 		}
 		BinaryData data = BinaryDataFactory.createBinaryData(content, contentType(listed.name()), listed.name());
-		baggage.tUpdateByName("content", data);
-		baggage.tUpdateByName("size", Long.valueOf(content.length));
+		baggage.setContent(data);
+		baggage.setSize(Long.valueOf(content.length));
 	}
 
 	/**
@@ -441,28 +441,28 @@ final class BaggageImport {
 		if (_programReferences.isEmpty()) {
 			return;
 		}
-		Map<String, TLObject> baggageById = new HashMap<>();
-		for (TLObject baggage : MetaElementUtil.getAllDirectInstancesOf(type(BAGGAGE_TYPE), TLObject.class)) {
-			baggageById.put((String) baggage.tValueByName(EXT_ID), baggage);
+		Map<String, Baggage> baggageById = new HashMap<>();
+		for (Baggage baggage : MetaElementUtil.getAllDirectInstancesOf(type(BAGGAGE_TYPE), Baggage.class)) {
+			baggageById.put(baggage.getExtId(), baggage);
 		}
 		for (Object created : binding.getCreated()) {
 			if (created instanceof TLObject obj && obj.tValid() && binding.isInstanceOf(obj, BAGGAGE_TYPE)) {
-				baggageById.put((String) obj.tValueByName(EXT_ID), obj);
+				baggageById.put(((Baggage) obj).getExtId(), (Baggage) obj);
 			}
 		}
-		Map<String, TLObject> programs = new HashMap<>();
-		for (TLObject program : MetaElementUtil.getAllDirectInstancesOf(type(PROGRAM_TYPE), TLObject.class)) {
-			programs.put((String) program.tValueByName(EXT_ID), program);
+		Map<String, Program> programs = new HashMap<>();
+		for (Program program : MetaElementUtil.getAllDirectInstancesOf(type(PROGRAM_TYPE), Program.class)) {
+			programs.put(program.getExtId(), program);
 		}
 		for (Entry<String, List<String>> entry : _programReferences.entrySet()) {
-			TLObject program = programs.get(entry.getKey());
+			Program program = programs.get(entry.getKey());
 			// A program the import created reads its references itself (etsImporter.xml).
-			if (program == null || binding.isCreated(program) || !list(program, BAGGAGE).isEmpty()) {
+			if (program == null || binding.isCreated(program) || !program.getBaggage().isEmpty()) {
 				continue;
 			}
-			List<TLObject> named = new ArrayList<>();
+			List<Baggage> named = new ArrayList<>();
 			for (String id : entry.getValue()) {
-				TLObject baggage = baggageById.get(id);
+				Baggage baggage = baggageById.get(id);
 				if (baggage == null) {
 					messages.log(Level.WARN, I18NConstants.WARN_PROGRAM_BAGGAGE_UNKNOWN__PROGRAM_FILE.fill(entry.getKey(), id));
 				} else if (!named.contains(baggage)) {
@@ -470,7 +470,7 @@ final class BaggageImport {
 				}
 			}
 			if (!named.isEmpty()) {
-				program.tUpdateByName(BAGGAGE, named);
+				program.setBaggage(named);
 				messages.log(Level.INFO,
 					I18NConstants.INFO_PROGRAM_BAGGAGE_COMPLETED__PROGRAM_COUNT.fill(entry.getKey(), named.size()));
 			}
@@ -481,15 +481,15 @@ final class BaggageImport {
 	 * The manufacturer with the given ID, created by the import or existing; <code>null</code> if
 	 * there is none.
 	 */
-	private static TLObject manufacturer(JoiningModelBinding binding, String id) {
+	private static Manufacturer manufacturer(JoiningModelBinding binding, String id) {
 		for (Object created : binding.getCreated()) {
 			if (created instanceof TLObject obj && obj.tValid() && binding.isInstanceOf(obj, MANUFACTURER_TYPE)
-				&& id.equals(obj.tValueByName(EXT_ID))) {
-				return obj;
+				&& id.equals(((Manufacturer) obj).getExtId())) {
+				return (Manufacturer) obj;
 			}
 		}
-		for (TLObject obj : MetaElementUtil.getAllDirectInstancesOf(type(MANUFACTURER_TYPE), TLObject.class)) {
-			if (id.equals(obj.tValueByName(EXT_ID))) {
+		for (Manufacturer obj : MetaElementUtil.getAllDirectInstancesOf(type(MANUFACTURER_TYPE), Manufacturer.class)) {
+			if (id.equals(obj.getExtId())) {
 				return obj;
 			}
 		}
@@ -498,12 +498,6 @@ final class BaggageImport {
 
 	private static TLClass type(String name) {
 		return (TLClass) TLModelUtil.findType(name);
-	}
-
-	@SuppressWarnings("unchecked")
-	private static List<TLObject> list(TLObject obj, String reference) {
-		Object value = obj.tValueByName(reference);
-		return value == null ? List.of() : new ArrayList<>((java.util.Collection<TLObject>) value);
 	}
 
 	/**

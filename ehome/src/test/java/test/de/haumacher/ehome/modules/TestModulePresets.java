@@ -6,7 +6,6 @@ package test.de.haumacher.ehome.modules;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +26,11 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.operational.EnumerationType;
+import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -55,7 +58,7 @@ public class TestModulePresets extends BasicTestCase {
 		try {
 			TLObject device = actuator(SharedData.newProjects(before));
 			TLObject assignment = instances("ehome.catalog:ProgramAssignment").stream()
-				.filter(a -> "M-0083_H-3.2E13-2_HP-000C-23-216C".equals(a.tValueByName("extId"))).findFirst()
+				.filter(a -> "M-0083_H-3.2E13-2_HP-000C-23-216C".equals(((ProgramAssignment) a).getExtId())).findFirst()
 				.orElseThrow();
 			inTransaction(() -> device.tUpdateByName("program", assignment));
 			assertNull(DeviceTemplates.template(DeviceConfiguration.program(device)));
@@ -75,7 +78,7 @@ public class TestModulePresets extends BasicTestCase {
 				(TLObject) TLModelUtil.findPart("ehome.runtime:FunctionKind#switch"), List.of(), List.of(modeA), Map.of()));
 			template[0] = preset[0].tContainer();
 			assertSame(ModuleParts.template(modeA),
-				((Collection<?>) preset[0].tValueByName("values")).stream().map(v -> ((TLObject) v).tValueByName("parameter"))
+				((Preset) preset[0]).getValues().stream().map(v -> v.getParameter())
 					.findFirst().orElseThrow());
 
 			assertEquals(List.of(preset[0]), Presets.offered(device, b));
@@ -98,8 +101,8 @@ public class TestModulePresets extends BasicTestCase {
 	}
 
 	private static Object otherChoice(ParameterView view, String current) {
-		for (Object entry : (Collection<?>) ((TLObject) view.getParameter().getType()).tValueByName("values")) {
-			Object value = ((TLObject) entry).tValueByName("value");
+		for (EnumerationValue entry : ((EnumerationType) view.getParameter().getType()).getValues()) {
+			Object value = entry.getValue();
 			if (!String.valueOf(value).equals(current)) {
 				return value;
 			}

@@ -10,6 +10,7 @@ import java.util.Map;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
@@ -17,6 +18,9 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.runtime.Control;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.template.Presets;
@@ -119,14 +123,15 @@ public final class Controls {
 			|| !Presets.channels(device).contains(channel)) {
 			throw new TopLogicException(I18NConstants.ERROR_CONTROL_NO_SOURCE);
 		}
-		TLObject control = ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(CONTROL));
-		control.tUpdateByName("device", device);
-		control.tUpdateByName("channel", channel);
-		control.tUpdateByName("preset", preset);
-		control.tUpdateByName("operation", operation);
-		List<TLObject> controls = ExtIds.list(function, "controls");
+		Control control =
+			(Control) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(CONTROL));
+		control.setDevice(device);
+		control.setChannel(channel);
+		control.setPreset((Preset) preset);
+		control.setOperation((TLClassifier) operation);
+		List<Control> controls = new ArrayList<>(((Function) function).getControls());
 		controls.add(control);
-		function.tUpdateByName("controls", controls);
+		((Function) function).setControls(controls);
 		return control;
 	}
 

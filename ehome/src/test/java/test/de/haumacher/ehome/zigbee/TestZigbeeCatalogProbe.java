@@ -28,6 +28,10 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
@@ -84,16 +88,16 @@ public class TestZigbeeCatalogProbe extends BasicTestCase {
 
 	public void testNamesAndRenaming() throws Exception {
 		String text = Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8);
-		TLObject project = project("Zigbee catalog probe", "P-TEST-64-CATALOG-PROBE");
+		Project project = project("Zigbee catalog probe", "P-TEST-64-CATALOG-PROBE");
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.parse(text));
 				tx.commit();
 			}
-			TLObject device = ZigbeeImport.devices(project).get(0);
+			ZigbeeDevice device = project.getZigbeeDevices().get(0);
 			assertNotNull(ZigbeeCatalog.type(device));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				device.tUpdateByName("name", "Küche Süd / Melder");
+				device.setName("Küche Süd / Melder");
 				tx.commit();
 			}
 			List<TLObject> created;
@@ -110,8 +114,8 @@ public class TestZigbeeCatalogProbe extends BasicTestCase {
 			}
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			assertTrue(image.validate().toString(), image.validate().isValid());
-			TLObject occupancy = function(device, "occupancy");
-			String label = String.valueOf(derived(Locale.GERMAN, ZigbeeBindings.boundDatapoints(occupancy).get(0), "label"));
+			ZigbeeFunction occupancy = function(device, "occupancy");
+			String label = String.valueOf(derived(Locale.GERMAN, ((ApplicationDatapoint) ZigbeeBindings.boundDatapoints(occupancy).get(0))::getLabel));
 			assertTrue(label, label.contains("Küche Süd") && label.contains("Bewegung"));
 
 			// The catalog file renames the occupancy entry: every device shows it at once.
@@ -130,7 +134,7 @@ public class TestZigbeeCatalogProbe extends BasicTestCase {
 			assertEquals("Motion", inLocale(Locale.ENGLISH, () -> ZigbeeStatus.functionLabel(occupancy)));
 			// The datapoint created before keeps its id and label: the catalog names new ones only.
 			assertTrue(label, label.equals(String.valueOf(derived(Locale.GERMAN,
-				ZigbeeBindings.boundDatapoints(occupancy).get(0), "label"))));
+				((ApplicationDatapoint) ZigbeeBindings.boundDatapoints(occupancy).get(0))::getLabel))));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				again = ZigbeeCatalogJson.importText(ZigbeeCatalog.root(), renamed, ZigbeeCatalogJson.Mode.UPDATE);
 				tx.commit();
@@ -144,17 +148,17 @@ public class TestZigbeeCatalogProbe extends BasicTestCase {
 		}
 	}
 
-	private static TLObject function(TLObject device, String key) {
-		for (Object function : (Iterable<?>) device.tValueByName("functions")) {
-			if (key.equals(((TLObject) function).tValueByName("function"))) {
-				return (TLObject) function;
+	private static ZigbeeFunction function(ZigbeeDevice device, String key) {
+		for (ZigbeeFunction function : device.getFunctions()) {
+			if (key.equals(function.getFunction())) {
+				return function;
 			}
 		}
 		throw new AssertionError("No function " + key);
 	}
 
-	private static Object derived(Locale locale, TLObject obj, String attribute) {
-		return inLocale(locale, () -> obj.tValueByName(attribute));
+	private static Object derived(Locale locale, Supplier<?> attribute) {
+		return inLocale(locale, attribute::get);
 	}
 
 	private static <T> T inLocale(Locale locale, Supplier<T> value) {
@@ -175,12 +179,12 @@ public class TestZigbeeCatalogProbe extends BasicTestCase {
 		}
 	}
 
-	private static TLObject project(String name, String extId) {
+	private static Project project(String name, String extId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("extId", extId);
+			project.setName(name);
+			project.setExtId(extId);
 			tx.commit();
 			return project;
 		}

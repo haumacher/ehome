@@ -21,6 +21,8 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 
+import de.haumacher.ehome.model.operational.Program;
+
 /**
  * The languages of the texts of the application programs an import reads (haumacher/ehome #38).
  *
@@ -49,11 +51,6 @@ public class ProgramLanguages {
 	 */
 	public static final Property<ProgramLanguages> PROPERTY =
 		TypedAnnotatable.property(ProgramLanguages.class, "programLanguages");
-
-	/**
-	 * The attribute of a program holding the languages of its texts.
-	 */
-	public static final String LANGUAGES = "languages";
 
 	/**
 	 * A program of the import with the languages of its texts.
@@ -109,7 +106,7 @@ public class ProgramLanguages {
 			}
 			Set<String> languages = languages(_program);
 			if (languages.add(locale.getLanguage())) {
-				_program.tUpdateByName(LANGUAGES, String.join(" ", languages));
+				((Program) _program).setLanguages(String.join(" ", languages));
 				if (_before != null) {
 					_added.add(new Locale(locale.getLanguage()));
 				}
@@ -206,7 +203,7 @@ public class ProgramLanguages {
 	 */
 	public static Set<String> languages(TLObject program) {
 		Set<String> result = new TreeSet<>();
-		String value = (String) program.tValueByName(LANGUAGES);
+		String value = ((Program) program).getLanguages();
 		if (value != null) {
 			for (String language : value.trim().split("\\s+")) {
 				if (!language.isEmpty()) {

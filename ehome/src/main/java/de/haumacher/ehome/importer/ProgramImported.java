@@ -13,6 +13,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
 
+import de.haumacher.ehome.model.operational.Program;
+
 /**
  * Concludes the import of a new application program (the <code>this</code> of its
  * <code>&lt;object&gt;</code>, as its last handler, after the handlers reading its element): records
@@ -25,8 +27,6 @@ import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
  * </p>
  */
 public class ProgramImported<C extends ProgramImported.Config<?>> extends ConfiguredImportHandler<C> {
-
-	private static final String EXT_ID = "extId";
 
 	/**
 	 * Configuration of {@link ProgramImported}.
@@ -60,7 +60,7 @@ public class ProgramImported<C extends ProgramImported.Config<?>> extends Config
 	 * The ETS ID of the given program, which names the translation unit of its texts.
 	 */
 	static String id(TLObject program) {
-		return (String) program.tValueByName(EXT_ID);
+		return ((Program) program).getExtId();
 	}
 
 }

@@ -34,6 +34,8 @@ import com.top_logic.tl.ai.tool.api.ToolResult;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 
@@ -93,7 +95,7 @@ public class BuildingTools {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", id(part));
 		result.put("kind", part.tType().getName());
-		result.put("name", part.tValueByName("name"));
+		result.put("name", ((BuildingDefinition) part).getName());
 		result.put("devices", BuildingDevices.devices(part).size());
 		List<Object> parts = new ArrayList<>();
 		for (TLObject child : ExtIds.list(part, "parts")) {
@@ -225,12 +227,13 @@ public class BuildingTools {
 
 	private static TLObject create(TLObject container, Map<?, ?> part) {
 		TLClass kind = kind(part.get("kind"));
-		TLObject result = ModelService.getInstance().getFactory().createObject(kind);
-		result.tUpdateByName("name", ((String) part.get("name")).trim());
-		String reference = partsReference(container);
-		List<TLObject> elements = ExtIds.list(container, reference);
-		elements.add(result);
-		container.tUpdateByName(reference, elements);
+		BuildingDefinition result = (BuildingDefinition) ModelService.getInstance().getFactory().createObject(kind);
+		result.setName(((String) part.get("name")).trim());
+		if (ExtIds.isA(container, ToolSupport.PROJECT)) {
+			((Project) container).addBuilding(result);
+		} else {
+			((BuildingDefinition) container).addPart(result);
+		}
 		if (part.get("parts") instanceof List<?> children) {
 			for (Object child : children) {
 				create(result, (Map<?, ?>) child);
@@ -243,7 +246,7 @@ public class BuildingTools {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", id(part));
 		result.put("kind", part.tType().getName());
-		result.put("name", part.tValueByName("name"));
+		result.put("name", ((BuildingDefinition) part).getName());
 		List<Object> parts = new ArrayList<>();
 		for (TLObject child : ExtIds.list(part, "parts")) {
 			parts.add(createdNode(child));
@@ -309,7 +312,7 @@ public class BuildingTools {
 			BuildingDevices.move(parts, container, before);
 			List<Object> order = new ArrayList<>();
 			for (TLObject part : ExtIds.list(container, partsReference(container))) {
-				order.add(ref(part, (String) part.tValueByName("name")));
+				order.add(ref(part, ((BuildingDefinition) part).getName()));
 			}
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("container", ref(container));

@@ -12,4 +12,32 @@ public interface ZigbeeFunction extends de.haumacher.ehome.model.zigbee.internal
 
 	// Wrapper functionality.
 
+	/**
+	 * The endpoint number of the function; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Integer getEndpointOrNull() {
+		return (Integer) tValueByName(ENDPOINT_ATTR);
+	}
+
+	/**
+	 * Whether the function is writable; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Boolean getWritableOrNull() {
+		return (Boolean) tValueByName(WRITABLE_ATTR);
+	}
+
+	/**
+	 * Whether the last export no longer lists the function; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Boolean getAbsentOrNull() {
+		return (Boolean) tValueByName(ABSENT_ATTR);
+	}
+
+	/**
+	 * Whether the device's catalog type hides the function (derived; also <code>null</code> without a person); <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Boolean getHiddenOrNull() {
+		return (Boolean) tValueByName(HIDDEN_ATTR);
+	}
+
 }

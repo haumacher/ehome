@@ -12,4 +12,82 @@ public interface Program extends de.haumacher.ehome.model.operational.internal.P
 
 	// Wrapper functionality.
 
+	/**
+	 * The name in every application language (an <code>I18NString</code>; {@link #getName()} gives it
+	 * in the user's language).
+	 */
+	default com.top_logic.basic.util.ResKey getNameKey() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(NAME_ATTRIBUTE);
+	}
+
+	/**
+	 * Sets the {@link #getNameKey() name in every application language}.
+	 */
+	default void setNameKey(com.top_logic.basic.util.ResKey value) {
+		tUpdateByName(NAME_ATTRIBUTE, value);
+	}
+
+	/**
+	 * The value of {@link #REQUIREMENTS_READ_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getRequirementsReadOrNull() {
+		return (Boolean) tValueByName(REQUIREMENTS_READ_ATTR);
+	}
+
+	/**
+	 * Sets {@link #REQUIREMENTS_READ_ATTR}, <code>null</code> to clear it.
+	 */
+	default void setRequirementsReadOrNull(Boolean value) {
+		tUpdateByName(REQUIREMENTS_READ_ATTR, value);
+	}
+
+	/**
+	 * The value of {@link #RESOURCES_READ_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getResourcesReadOrNull() {
+		return (Boolean) tValueByName(RESOURCES_READ_ATTR);
+	}
+
+	/**
+	 * Sets {@link #RESOURCES_READ_ATTR}, <code>null</code> to clear it.
+	 */
+	default void setResourcesReadOrNull(Boolean value) {
+		tUpdateByName(RESOURCES_READ_ATTR, value);
+	}
+
+	/**
+	 * The value of {@link #USES_MODULES_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getUsesModulesOrNull() {
+		return (Boolean) tValueByName(USES_MODULES_ATTR);
+	}
+
+	/**
+	 * The value of {@link #ASSIGNS_READ_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getAssignsReadOrNull() {
+		return (Boolean) tValueByName(ASSIGNS_READ_ATTR);
+	}
+
+	/**
+	 * The value of {@link #BUTTONS_READ_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getButtonsReadOrNull() {
+		return (Boolean) tValueByName(BUTTONS_READ_ATTR);
+	}
+
+	/**
+	 * The value of {@link #CALCULATIONS_READ_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getCalculationsReadOrNull() {
+		return (Boolean) tValueByName(CALCULATIONS_READ_ATTR);
+	}
+
+	/**
+	 * The value of {@link #VALIDATIONS_READ_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getValidationsReadOrNull() {
+		return (Boolean) tValueByName(VALIDATIONS_READ_ATTR);
+	}
+
 }

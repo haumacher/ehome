@@ -4,7 +4,6 @@
 package de.haumacher.ehome.importer;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +23,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.Handler;
 import com.top_logic.xio.importer.handlers.NestedImportHandler;
+
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.Option;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Completes a known application program (the <code>this</code> of an <code>&lt;update&gt;</code> of
@@ -47,8 +50,6 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
  * </p>
  */
 public class CompleteModules<C extends CompleteModules.Config<?>> extends NestedImportHandler<C> {
-
-	private static final String CONTENTS = "contents";
 
 	private static final String STATIC = "Static";
 
@@ -140,25 +141,17 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 	public Object importXml(ImportContext context, XMLStreamReader in) throws XMLStreamException {
 		Object known = context.getVarOrNull(ImportContext.THIS_VAR);
 		ModuleCompletion completion = null;
-		if (known instanceof TLObject program && Boolean.TRUE.equals(program.tValueByName(USES_MODULES))) {
+		if (known instanceof Program program && Boolean.TRUE.equals(program.getUsesModulesOrNull())) {
 			completion = ModuleScan.get(context).getCompletion(ProgramImported.id(program));
 		}
 		boolean modules = completion != null && completion.getProgram() == known;
-		boolean calculations = unread(known, CALCULATIONS_READ);
-		boolean validations = unread(known, VALIDATIONS_READ);
+		boolean calculations = known instanceof Program program && !Boolean.TRUE.equals(program.getCalculationsReadOrNull());
+		boolean validations = known instanceof Program program && !Boolean.TRUE.equals(program.getValidationsReadOrNull());
 		if (!modules && !calculations && !validations) {
 			return importXmlInScope(context, in);
 		}
 		complete(context, in, (TLObject) known, modules ? completion : null, calculations, validations);
 		return null;
-	}
-
-	/**
-	 * Whether the given known program lacks the part the given mark records as read.
-	 */
-	private static boolean unread(Object known, String mark) {
-		return known instanceof TLObject program && program.tType().getPart(mark) != null
-			&& !Boolean.TRUE.equals(program.tValueByName(mark));
 	}
 
 	private void complete(ImportContext context, XMLStreamReader in, TLObject program, ModuleCompletion completion,
@@ -283,21 +276,21 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		TLObject fragment = target.fragment();
 		int before = contents(fragment).size();
 		context.withVar(ImportContext.THIS_VAR, fragment, in, handler);
-		List<Object> contents = contents(fragment);
+		List<Option> contents = contents(fragment);
 		int added = contents.size() - before;
 		if (added <= 0) {
 			return;
 		}
 		int offset = inserted.getOrDefault(fragment, Integer.valueOf(0)).intValue();
-		List<Object> created = new ArrayList<>(contents.subList(before, contents.size()));
+		List<Option> created = new ArrayList<>(contents.subList(before, contents.size()));
 		contents.subList(before, contents.size()).clear();
 		contents.addAll(target.index() + offset, created);
-		fragment.tUpdateByName(CONTENTS, contents);
+		((ConfigFragment) fragment).setContents(contents);
 		inserted.put(fragment, Integer.valueOf(offset + added));
 	}
 
-	private static List<Object> contents(TLObject fragment) {
-		return new ArrayList<>((Collection<?>) fragment.tValueByName(CONTENTS));
+	private static List<Option> contents(TLObject fragment) {
+		return new ArrayList<>(((ConfigFragment) fragment).getContents());
 	}
 
 }

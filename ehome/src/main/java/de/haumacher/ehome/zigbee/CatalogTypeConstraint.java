@@ -42,7 +42,7 @@ public class CatalogTypeConstraint extends AbstractConfiguredInstance<CatalogTyp
 
 	@Override
 	public ResKey check(TLObject object, TLStructuredTypePart attribute) {
-		Object type = object.tValueByName(attribute.getName());
+		Object type = object.tValue(attribute);
 		Object function = object.tValueByName("function");
 		if (!(type instanceof TLClassifier classifier) || function == null) {
 			return null;

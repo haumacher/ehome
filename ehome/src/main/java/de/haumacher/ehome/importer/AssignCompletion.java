@@ -18,6 +18,16 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Assign;
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.ModuleDefinition;
+import de.haumacher.ehome.model.operational.Option;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.SharedPlacement;
+import de.haumacher.ehome.model.operational.Switch;
 
 /**
  * Adds the assignments (ETS: <code>Assign</code>, haumacher/ehome #142) to an application program an
@@ -38,10 +48,6 @@ final class AssignCompletion {
 
 	private static final String TYPE_PREFIX = "ehome.operational:";
 
-	private static final String CONTENTS = "contents";
-
-	private static final String EXT_ID = "extId";
-
 	private static final String ASSIGN = "Assign";
 
 	/** An assignment to add: its element and where it goes. */
@@ -53,27 +59,27 @@ final class AssignCompletion {
 
 	private final boolean _modules;
 
-	private final Map<String, TLObject> _views = new HashMap<>();
+	private final Map<String, ParameterView> _views = new HashMap<>();
 
 	private final Map<String, TLObject> _definitions = new HashMap<>();
 
 	private final List<Insertion> _insertions = new ArrayList<>();
 
-	private AssignCompletion(TLObject program) {
+	private AssignCompletion(Program program) {
 		_program = program;
-		_modules = !Boolean.TRUE.equals(program.tValueByName("usesModules"));
-		collect(program);
+		_modules = !Boolean.TRUE.equals(program.getUsesModulesOrNull());
+		collect(program.getParameters(), program.getModules());
 	}
 
-	private void collect(TLObject container) {
-		for (TLObject parameter : list(container, "parameters")) {
-			for (TLObject view : list(parameter, "views")) {
-				_views.put((String) view.tValueByName(EXT_ID), view);
+	private void collect(Collection<? extends Parameter> parameters, Collection<? extends ModuleDefinition> modules) {
+		for (Parameter parameter : parameters) {
+			for (ParameterView view : parameter.getViews()) {
+				_views.put(view.getExtId(), view);
 			}
 		}
-		for (TLObject definition : list(container, "modules")) {
-			_definitions.put((String) definition.tValueByName(EXT_ID), definition);
-			collect(definition);
+		for (ModuleDefinition definition : modules) {
+			_definitions.put(definition.getExtId(), definition);
+			collect(definition.getParameters(), definition.getModules());
 		}
 	}
 
@@ -85,7 +91,7 @@ final class AssignCompletion {
 	 * @throws ModuleCompletion.Mismatch
 	 *         If the structure of the program does not fit the file; nothing is added then.
 	 */
-	static int complete(Element xml, TLObject program) throws ModuleCompletion.Mismatch {
+	static int complete(Element xml, Program program) throws ModuleCompletion.Mismatch {
 		AssignCompletion completion = new AssignCompletion(program);
 		Element dynamic = ModuleScan.child(xml, "Dynamic");
 		if (dynamic != null) {
@@ -115,7 +121,7 @@ final class AssignCompletion {
 	}
 
 	private void walk(Element xml, TLObject fragment) throws ModuleCompletion.Mismatch {
-		List<TLObject> contents = list(fragment, CONTENTS);
+		List<TLObject> contents = fragment instanceof ConfigFragment container ? list(container.getContents()) : list(null);
 		int index = 0;
 		for (Element child : ModuleScan.childElements(xml)) {
 			String name = child.getLocalName();
@@ -141,7 +147,7 @@ final class AssignCompletion {
 				case "choose":
 					expect(option, type, null);
 					List<Element> cases = ModuleScan.children(child, "when");
-					List<TLObject> alternatives = list(option, "alternatives");
+					List<TLObject> alternatives = list(((Switch) option).getAlternatives());
 					if (cases.size() != alternatives.size()) {
 						throw new ModuleCompletion.Mismatch("Cases of a switch differ.");
 					}
@@ -210,34 +216,35 @@ final class AssignCompletion {
 	private int apply() throws ModuleCompletion.Mismatch {
 		List<Object[]> created = new ArrayList<>();
 		for (Insertion insertion : _insertions) {
-			TLObject target = view(insertion.xml().getAttribute("TargetParamRefRef"));
+			ParameterView target = view(insertion.xml().getAttribute("TargetParamRefRef"));
 			String sourceId = insertion.xml().getAttribute("SourceParamRefRef");
-			TLObject source = sourceId.isEmpty() ? null : view(sourceId);
+			ParameterView source = sourceId.isEmpty() ? null : view(sourceId);
 			created.add(new Object[] { insertion, target, source });
 		}
 		Map<TLObject, Integer> inserted = new HashMap<>();
 		TLClass type = (TLClass) TLModelUtil.findType(TYPE_PREFIX + ASSIGN);
 		for (Object[] entry : created) {
 			Insertion insertion = (Insertion) entry[0];
-			TLObject assign = ModelService.getInstance().getFactory().createObject(type);
-			assign.tUpdateByName("parameter", entry[1]);
-			assign.tUpdateByName("source", entry[2]);
+			Assign assign = (Assign) ModelService.getInstance().getFactory().createObject(type);
+			assign.setParameter((ParameterView) entry[1]);
+			assign.setSource((ParameterView) entry[2]);
 			String value = insertion.xml().getAttribute("Value");
 			if (entry[2] == null && !value.isEmpty()) {
 				ParameterValues.decode(assign, value);
 			}
 			TLObject fragment = insertion.fragment();
 			int offset = inserted.getOrDefault(fragment, Integer.valueOf(0)).intValue();
-			List<Object> contents = new ArrayList<>((Collection<?>) fragment.tValueByName(CONTENTS));
+			ConfigFragment container = (ConfigFragment) fragment;
+			List<Option> contents = new ArrayList<>(container.getContents());
 			contents.add(Math.min(insertion.index() + offset, contents.size()), assign);
-			fragment.tUpdateByName(CONTENTS, contents);
+			container.setContents(contents);
 			inserted.put(fragment, Integer.valueOf(offset + 1));
 		}
 		return created.size();
 	}
 
-	private TLObject view(String id) throws ModuleCompletion.Mismatch {
-		TLObject result = _views.get(id);
+	private ParameterView view(String id) throws ModuleCompletion.Mismatch {
+		ParameterView result = _views.get(id);
 		if (result == null) {
 			throw new ModuleCompletion.Mismatch("Unknown parameter reference " + id + ".");
 		}
@@ -249,33 +256,23 @@ final class AssignCompletion {
 			throw new ModuleCompletion.Mismatch(
 				"Expected " + type + ", found " + TLModelUtil.qualifiedName(option.tType()) + ".");
 		}
-		if (id != null && !id.isEmpty() && !id.equals(option.tValueByName(EXT_ID))) {
-			throw new ModuleCompletion.Mismatch("Expected " + id + ", found " + option.tValueByName(EXT_ID) + ".");
+		if (id != null && !id.isEmpty() && !id.equals(((Externalized) option).getExtId())) {
+			throw new ModuleCompletion.Mismatch("Expected " + id + ", found " + ((Externalized) option).getExtId() + ".");
 		}
 	}
 
 	private static void expectPlaced(TLObject option, String refId) throws ModuleCompletion.Mismatch {
 		TLObject placed = option;
 		if ((TYPE_PREFIX + "SharedPlacement").equals(TLModelUtil.qualifiedName(option.tType()))) {
-			placed = (TLObject) option.tValueByName("placed");
+			placed = ((SharedPlacement) option).getPlaced();
 		}
-		if (placed == null || !Objects.equals(refId, placed.tValueByName(EXT_ID))) {
+		if (placed == null || !Objects.equals(refId, ((Externalized) placed).getExtId())) {
 			throw new ModuleCompletion.Mismatch("Expected the placement of " + refId + ".");
 		}
 	}
 
-	private static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		if (obj.tType().getPart(attribute) == null) {
-			return result;
-		}
-		Object value = obj.tValueByName(attribute);
-		if (value instanceof Collection<?> collection) {
-			for (Object element : collection) {
-				result.add((TLObject) element);
-			}
-		}
-		return result;
+	private static List<TLObject> list(Collection<? extends TLObject> value) {
+		return value == null ? new ArrayList<>() : new ArrayList<>(value);
 	}
 
 }

@@ -19,6 +19,7 @@ import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
@@ -26,8 +27,12 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.intent.Controls;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -253,9 +258,10 @@ public final class IntentFixture {
 	public TLObject project(String name) {
 		TLObject[] result = { null };
 		inTransaction(() -> {
-			result[0] = create("ehome.project:Project");
-			result[0].tUpdateByName("name", name);
-			result[0].tUpdateByName("groupAddressStyle", TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
+			Project project = (Project) create("ehome.project:Project");
+			result[0] = project;
+			project.setName(name);
+			project.setGroupAddressStyle((TLClassifier) TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
 			TLObject area = create("ehome.physical:Area");
 			area.tUpdateByName("address", 1);
 			add(result[0], "areas", area);
@@ -273,7 +279,7 @@ public final class IntentFixture {
 
 	public static TLObject assignment(TLObject type, TLObject program) {
 		for (TLObject assignment : DevicePlanning.programs(type)) {
-			if (assignment == program || assignment.tValueByName("program") == program) {
+			if (assignment == program || ((ProgramAssignment) assignment).getProgram() == program) {
 				return assignment;
 			}
 		}
@@ -281,8 +287,9 @@ public final class IntentFixture {
 	}
 
 	public static TLObject function(TLObject project, TLObject device, String channel) {
-		for (TLObject function : FunctionProposal.functions(project)) {
-			if (function.tValueByName("device") == device && channel.equals(function.tValueByName("channel"))) {
+		for (TLObject element : FunctionProposal.functions(project)) {
+			Function function = (Function) element;
+			if (function.getDevice() == device && channel.equals(function.getChannel())) {
 				return function;
 			}
 		}
@@ -292,9 +299,9 @@ public final class IntentFixture {
 
 	public static TLObject named(TLObject function, String name, TLObject preset) {
 		inTransaction(() -> {
-			function.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, name).add(Locale.ENGLISH, name).build());
+			((Function) function).setNameKey(ResKey.builder().add(Locale.GERMAN, name).add(Locale.ENGLISH, name).build());
 			if (preset != null) {
-				function.tUpdateByName("preset", preset);
+				((Function) function).setPreset((Preset) preset);
 			}
 		});
 		return function;

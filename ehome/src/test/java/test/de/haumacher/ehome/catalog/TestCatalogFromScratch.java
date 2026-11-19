@@ -55,6 +55,12 @@ import de.haumacher.ehome.knx.ExtIds.Kind;
 import de.haumacher.ehome.knx.I18NConstants;
 import de.haumacher.ehome.knx.ProgramStructure;
 import de.haumacher.ehome.knx.ProgramStructure.Position;
+import de.haumacher.ehome.model.catalog.Catalog;
+import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.catalog.ManufacturerRoot;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
@@ -101,17 +107,17 @@ public class TestCatalogFromScratch extends BasicTestCase {
 
 	private final List<TLObject> _created = new ArrayList<>();
 
-	private TLObject _manufacturer;
+	private Manufacturer _manufacturer;
 
-	private TLObject _catalog;
+	private Catalog _catalog;
 
-	private TLObject _section;
+	private Catalog _section;
 
-	private TLObject _product;
+	private Product _product;
 
-	private TLObject _variant;
+	private Variant _variant;
 
-	private TLObject _assignment;
+	private ProgramAssignment _assignment;
 
 	private Program _program;
 
@@ -154,54 +160,55 @@ public class TestCatalogFromScratch extends BasicTestCase {
 	}
 
 	private void createCatalog() {
-		TLObject root = TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
+		ManufacturerRoot root =
+			(ManufacturerRoot) TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
 		try (Transaction tx = _kb.beginTransaction()) {
 			// Manufacturer dialog: container ROOT, reference manufacturers.
 			_manufacturer = create("ehome.catalog:Manufacturer");
-			_manufacturer.tUpdateByName("name", "Gira (test data)");
-			_manufacturer.tUpdateByName("id", MANUFACTURER_ID);
-			add(root, "manufacturers", _manufacturer);
+			_manufacturer.setName("Gira (test data)");
+			_manufacturer.setId(MANUFACTURER_ID);
+			root.addManufacturer(_manufacturer);
 			tx.commit();
 		}
 		try (Transaction tx = _kb.beginTransaction()) {
 			// Catalog dialog: container manufacturer, reference catalogs.
 			_catalog = create("ehome.catalog:Catalog");
-			_catalog.tUpdateByName("name", text("Push buttons", "Tastsensoren"));
-			add(_manufacturer, "catalogs", _catalog);
+			_catalog.setNameKey(text("Push buttons", "Tastsensoren"));
+			_manufacturer.addCatalog(_catalog);
 			tx.commit();
 		}
 		try (Transaction tx = _kb.beginTransaction()) {
 			// Section dialog: container catalog, reference sections.
 			_section = create("ehome.catalog:Catalog");
-			_section.tUpdateByName("name", text("Push buttons, 3-gang", "Taster, 3fach"));
-			add(_catalog, "sections", _section);
+			_section.setNameKey(text("Push buttons, 3-gang", "Taster, 3fach"));
+			_catalog.addSection(_section);
 			tx.commit();
 		}
 		try (Transaction tx = _kb.beginTransaction()) {
 			// Product dialog (create-variant.view.xml): a new product of the manufacturer, the variant
 			// as its first one, listed in the section - in one transaction.
 			_variant = create("ehome.catalog:Variant");
-			_variant.tUpdateByName("name", text("Push button 3 comfort, 3-gang", "Tastsensor 3 Komfort 3fach"));
-			_variant.tUpdateByName("orderNumber", "5133 00");
+			_variant.setNameKey(text("Push button 3 comfort, 3-gang", "Tastsensor 3 Komfort 3fach"));
+			_variant.setOrderNumber("5133 00");
 			_product = create("ehome.catalog:Product");
-			_product.tUpdateByName("name", "Tastsensor 3 Komfort 3fach");
-			add(_manufacturer, "products", _product);
-			add(_product, "variants", _variant);
-			add(_section, "variants", _variant);
+			_product.setName("Tastsensor 3 Komfort 3fach");
+			_manufacturer.addProduct(_product);
+			_product.addVariant(_variant);
+			_section.addVariant(_variant);
 			tx.commit();
 		}
 		try (Transaction tx = _kb.beginTransaction()) {
 			// Program dialog: container manufacturer, reference programs.
 			_program = EhomeOperationalFactory.getInstance().createProgram();
-			_program.tUpdateByName("name", text("Push button 3 comfort, 3-gang", "Tastsensor 3 Komfort 3fach"));
-			add(_manufacturer, "programs", _program);
+			_program.setNameKey(text("Push button 3 comfort, 3-gang", "Tastsensor 3 Komfort 3fach"));
+			_manufacturer.addProgram(_program);
 			tx.commit();
 		}
 		try (Transaction tx = _kb.beginTransaction()) {
 			// Program assignment dialog: owned by the product of the selected variant.
 			_assignment = create("ehome.catalog:ProgramAssignment");
-			_assignment.tUpdateByName("program", _program);
-			add((TLObject) _variant.tValueByName("product"), "programs", _assignment);
+			_assignment.setProgram(_program);
+			_variant.getProduct().addProgram(_assignment);
 			tx.commit();
 		}
 		_created.addAll(List.of(_manufacturer, _catalog, _section, _product, _variant, _program, _assignment));
@@ -279,7 +286,7 @@ public class TestCatalogFromScratch extends BasicTestCase {
 			try (Transaction tx = _kb.beginTransaction()) {
 				// Entry dialog: container the type, reference values; value and index proposed.
 				EnumerationValue entry = factory.createEnumerationValue();
-				entry.tUpdateByName("name", text(entryTexts[n][0], entryTexts[n][1]));
+				entry.setNameKey(text(entryTexts[n][0], entryTexts[n][1]));
 				entry.setValue(n);
 				entry.setIndex(n);
 				_enumeration.addValue(entry);
@@ -487,14 +494,22 @@ public class TestCatalogFromScratch extends BasicTestCase {
 			assertEquals(de ? "Taste 1" : "Button 1",
 				displayName((TLObject) ExtIds.list(_general, "contents").get(2), locale));
 			assertEquals(de ? "Funktion der Tasten" : "Function of the buttons",
-				asRoot(locale, () -> _parameters.get("enum").tValueByName("title")));
-			assertEquals(de ? "Dimmen" : "Dim", asRoot(locale, () -> _parameters.get("enum").tValueByName("displayValue")));
-			assertEquals(de ? "Taste 1" : "Button 1", asRoot(locale, () -> _port.tValueByName("title")));
+				asRoot(locale, () -> _parameters.get("enum").getTitle()));
+			assertEquals(de ? "Dimmen" : "Dim", asRoot(locale, () -> _parameters.get("enum").getDisplayValue()));
+			assertEquals(de ? "Taste 1" : "Button 1", asRoot(locale, () -> _port.getTitle()));
 		}
 	}
 
 	private static String displayName(TLObject obj, Locale locale) {
-		return (String) asRoot(locale, () -> obj.tValueByName("displayName"));
+		return (String) asRoot(locale, () -> switch (obj) {
+			case ChannelIndependent independent -> independent.getDisplayName();
+			case ParameterGroup block -> block.getDisplayName();
+			case Channel channel -> channel.getDisplayName();
+			case Switch choice -> choice.getDisplayName();
+			case Case alternative -> alternative.getDisplayName();
+			case Interface placement -> placement.getDisplayName();
+			default -> throw new IllegalArgumentException("No display name: " + obj);
+		});
 	}
 
 	private void checkDefaults() throws Exception {
@@ -519,7 +534,7 @@ public class TestCatalogFromScratch extends BasicTestCase {
 			}
 		}
 		assertNull(derived(_parameters.get("void"), "displayValue"));
-		assertEquals("2 s", asRoot(Locale.ENGLISH, () -> _parameters.get("time").tValueByName("displayValue")));
+		assertEquals("2 s", asRoot(Locale.ENGLISH, () -> _parameters.get("time").getDisplayValue()));
 
 		// The constraints still check the values against the types.
 		try (Transaction tx = _kb.beginTransaction()) {
@@ -718,14 +733,9 @@ public class TestCatalogFromScratch extends BasicTestCase {
 		return ResKey.builder().add(Locale.ENGLISH, en).add(Locale.GERMAN, de).build();
 	}
 
-	private static TLObject create(String typeName) {
-		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
-	}
-
-	private static void add(TLObject container, String reference, TLObject element) {
-		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
-		elements.add(element);
-		container.tUpdateByName(reference, elements);
+	@SuppressWarnings("unchecked")
+	private static <T extends TLObject> T create(String typeName) {
+		return (T) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 	}
 
 	public static Test suite() {

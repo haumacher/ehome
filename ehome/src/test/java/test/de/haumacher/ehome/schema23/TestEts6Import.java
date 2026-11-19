@@ -44,7 +44,23 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.building.Room;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.Case;
+import de.haumacher.ehome.model.operational.ColorType;
+import de.haumacher.ehome.model.operational.ConfigFragment;
+import de.haumacher.ehome.model.operational.LoadStep;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
+import de.haumacher.ehome.model.operational.MaskResource;
+import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterGroup;
+import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.ResourceLocation;
+import de.haumacher.ehome.model.operational.SharedPlacement;
+import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -150,15 +166,15 @@ public class TestEts6Import extends BasicTestCase {
 
 	private static List<TLObject> projects() {
 		return instances("ehome.project:Project").stream()
-			.filter(p -> "TestEts6".equals(p.tValueByName("name")))
+			.filter(p -> "TestEts6".equals(((Project) p).getName()))
 			.toList();
 	}
 
 	private void checkProject() {
 		List<TLObject> projects = projects();
 		assertEquals(1, projects.size());
-		TLObject project = projects.get(0);
-		assertEquals("P-01A0", project.tValueByName("extId"));
+		Project project = (Project) projects.get(0);
+		assertEquals("P-01A0", project.getExtId());
 
 		// The device lies in a segment of its line (ETS 6); the model has no segment.
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", projects);
@@ -184,20 +200,20 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals(10, connectors.stream().filter(c -> !list(c, "connections").isEmpty()).count());
 		assertEquals(11, SharedData.within("ehome.physical:Connection", projects).size());
 		TLObject twoLinks = connectors.stream()
-			.filter(c -> "M-0008_A-10D7-11-A0E5-O0024_O-0_R-81".equals(((TLObject) c.tValueByName("port")).tValueByName("extId")))
+			.filter(c -> "M-0008_A-10D7-11-A0E5-O0024_O-0_R-81".equals(((Externalized) c.tValueByName("port")).getExtId()))
 			.findFirst().orElseThrow();
 		List<TLObject> connections = list(twoLinks, "connections");
 		// The connections of an object are a set.
 		assertEquals(Set.of("send P-01A0-0_GA-3", "receive P-01A0-0_GA-1"), connections.stream()
 			.map(c -> ((TLClassifier) c.tValueByName("kind")).getName() + " "
-				+ ((TLObject) c.tValueByName("target")).tValueByName("extId"))
+				+ ((Externalized) c.tValueByName("target")).getExtId())
 			.collect(Collectors.toSet()));
 		assertEquals(10, SharedData.within("ehome.logical:GroupAddress", projects).size());
 
 		// The location of the device: a room in a building (ETS 5/6: Locations with spaces).
 		TLObject room = (TLObject) device.tValueByName("location");
 		assertEquals("ehome.building:Room", TLModelUtil.qualifiedName(room.tType()));
-		assertEquals("TEST Raum", room.tValueByName("name"));
+		assertEquals("TEST Raum", ((Room) room).getName());
 		assertEquals("ehome.building:Building", TLModelUtil.qualifiedName(room.tContainer().tType()));
 	}
 
@@ -232,7 +248,7 @@ public class TestEts6Import extends BasicTestCase {
 
 	private static String setting(TLObject device, String refId) {
 		return list(device, "settings").stream()
-			.map(s -> (String) ((TLObject) s.tValueByName("parameter")).tValueByName("extId"))
+			.map(s -> ((Externalized) s.tValueByName("parameter")).getExtId())
 			.filter(refId::equals)
 			.findFirst().orElse(null);
 	}
@@ -255,37 +271,37 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals(3, contents.size());
 		TLObject independent = (TLObject) contents.get(0);
 		assertEquals("ehome.operational:ChannelIndependent", TLModelUtil.qualifiedName(independent.tType()));
-		TLObject block = list(independent, "contents").get(0);
-		List<TLObject> blockContents = list(block, "contents");
+		TLObject block = list(((ConfigFragment) independent).getContents()).get(0);
+		List<TLObject> blockContents = list(((ConfigFragment) block).getContents());
 		assertEquals(List.of("ehome.operational:ParameterView", "ehome.operational:Switch"), types(blockContents));
-		List<TLObject> cases = list(blockContents.get(1), "alternatives");
+		List<TLObject> cases = list(((Switch) blockContents.get(1)).getAlternatives());
 		assertEquals(3, cases.size());
 
 		// The reference placed in two cases is owned by the first, the second refers to it.
-		List<TLObject> first = list(cases.get(0), "contents");
-		List<TLObject> second = list(cases.get(1), "contents");
+		List<TLObject> first = list(((Case) cases.get(0)).getContents());
+		List<TLObject> second = list(((Case) cases.get(1)).getContents());
 		assertEquals(List.of("ehome.operational:ParameterView", "ehome.operational:Interface"), types(first));
 		// ... and the placement of the module (haumacher/ehome #119).
 		assertEquals(List.of("ehome.operational:SharedPlacement", "ehome.operational:SharedPlacement",
 			"ehome.operational:ModulePlacement"), types(second));
-		assertSame(first.get(0), second.get(0).tValueByName("placed"));
-		assertSame(first.get(1), second.get(1).tValueByName("placed"));
-		assertEquals(P + "P-9102_R-9102", first.get(0).tValueByName("extId"));
+		assertSame(first.get(0), ((SharedPlacement) second.get(0)).getPlaced());
+		assertSame(first.get(1), ((SharedPlacement) second.get(1)).getPlaced());
+		assertEquals(P + "P-9102_R-9102", ((ParameterView) first.get(0)).getExtId());
 		assertEquals(derived(first.get(0), "title"), derived(second.get(0), "displayName"));
 		// One reference, one identity: the device setting refers to it.
-		assertEquals(1, ((TLObject) first.get(0).tValueByName("parameter")).tValueByName("views") instanceof Collection<?> views
+		assertEquals(1, ((ParameterView) first.get(0)).getParameter().getViews() instanceof Collection<?> views
 			? views.size() : -1);
 
 		// A parameter block directly in the program, with a color parameter.
 		TLObject direct = (TLObject) contents.get(1);
 		assertEquals("ehome.operational:ParameterGroup", TLModelUtil.qualifiedName(direct.tType()));
-		assertEquals(P + "PB-9103", direct.tValueByName("extId"));
-		TLObject color = list(direct, "contents").get(1);
-		TLObject colorParameter = (TLObject) color.tValueByName("parameter");
-		TLObject colorType = (TLObject) colorParameter.tValueByName("type");
+		assertEquals(P + "PB-9103", ((ParameterGroup) direct).getExtId());
+		TLObject color = list(((ParameterGroup) direct).getContents()).get(1);
+		Parameter colorParameter = ((ParameterView) color).getParameter();
+		TLObject colorType = colorParameter.getType();
 		assertEquals("ehome.operational:ColorType", TLModelUtil.qualifiedName(colorType.tType()));
-		assertEquals("RGB", colorType.tValueByName("space"));
-		assertEquals("#FF8000", colorParameter.tValueByName("text"));
+		assertEquals("RGB", ((ColorType) colorType).getSpace());
+		assertEquals("#FF8000", colorParameter.getText());
 		assertEquals("#FF8000", derived(colorParameter, "displayValue"));
 
 		assertEquals("ehome.operational:Channel", TLModelUtil.qualifiedName(((TLObject) contents.get(2)).tType()));
@@ -299,26 +315,27 @@ public class TestEts6Import extends BasicTestCase {
 
 	private static Program program() {
 		List<TLObject> programs = instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId")))
+			.filter(p -> PROGRAM.equals(((Program) p).getExtId()))
 			.toList();
 		assertEquals(1, programs.size());
 		return (Program) programs.get(0);
 	}
 
 	private void checkMasterData() {
-		TLObject mask = instances("ehome.operational:MaskVersion").stream()
-			.filter(m -> "MV-FFF0".equals(m.tValueByName("extId")))
+		MaskVersion mask = instances("ehome.operational:MaskVersion").stream()
+			.map(MaskVersion.class::cast)
+			.filter(m -> "MV-FFF0".equals(m.getExtId()))
 			.findFirst().orElseThrow();
-		assertEquals("IoT", ((TLClassifier) mask.tValueByName("medium")).getName());
-		TLObject configuration = list(mask, "configurations").get(0);
-		TLObject resource = list(configuration, "resources").get(0);
-		TLObject location = (TLObject) resource.tValueByName("location");
-		assertEquals("RelativeMemoryByObjectType", ((TLClassifier) location.tValueByName("addressSpace")).getName());
-		List<TLObject> steps = list(list(configuration, "procedures").get(0), "steps");
+		assertEquals("IoT", mask.getMedium().getName());
+		MaskConfiguration configuration = mask.getConfigurations().get(0);
+		MaskResource resource = configuration.getResources().get(0);
+		ResourceLocation location = resource.getLocation();
+		assertEquals("RelativeMemoryByObjectType", location.getAddressSpace().getName());
+		List<? extends LoadStep> steps = configuration.getProcedures().get(0).getSteps();
 		assertEquals(List.of("Connect", "MasterReset", "Disconnect"), steps.stream()
-			.map(s -> ((TLClassifier) s.tValueByName("kind")).getName()).toList());
-		assertEquals(Integer.valueOf(2), steps.get(1).tValueByName("eraseCode"));
-		assertEquals(Integer.valueOf(0), steps.get(1).tValueByName("channelNumber"));
+			.map(s -> s.getKind().getName()).toList());
+		assertEquals(Integer.valueOf(2), steps.get(1).getEraseCode());
+		assertEquals(Integer.valueOf(0), steps.get(1).getChannelNumber());
 	}
 
 	private void checkNamedValues() {
@@ -386,6 +403,10 @@ public class TestEts6Import extends BasicTestCase {
 	@SuppressWarnings("unchecked")
 	static List<TLObject> list(TLObject obj, String attribute) {
 		return List.copyOf((Collection<TLObject>) obj.tValueByName(attribute));
+	}
+
+	static List<TLObject> list(Collection<? extends TLObject> values) {
+		return List.copyOf(values);
 	}
 
 	public static Test suite() {

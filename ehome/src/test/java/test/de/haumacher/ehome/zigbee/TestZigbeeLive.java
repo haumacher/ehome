@@ -32,6 +32,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Controllers;
 import de.haumacher.ehome.connection.Enrollment;
@@ -93,8 +96,8 @@ public class TestZigbeeLive extends BasicTestCase {
 	public void testLiveImport() throws Exception {
 		String export = Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8);
 		_fake.setZigbeeExport(export, 16);
-		TLObject project = ControllerEndpoint.project("Zigbee live");
-		TLObject orphanProject = ControllerEndpoint.project("Zigbee live orphan");
+		Project project = (Project) ControllerEndpoint.project("Zigbee live");
+		Project orphanProject = (Project) ControllerEndpoint.project("Zigbee live orphan");
 		List<TLObject> controllers = new ArrayList<>();
 		try {
 			Enrolled enrolled = enroll(project, "homecontrol-live");
@@ -103,7 +106,7 @@ public class TestZigbeeLive extends BasicTestCase {
 			controllers.add(orphan.controller());
 			// The orphan stays enrolled under its project, which no longer deploys to it.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				orphanProject.tUpdateByName("controller", null);
+				orphanProject.setController(null);
 				tx.commit();
 			}
 			FakeControllerLink link = connect(enrolled);
@@ -117,17 +120,17 @@ public class TestZigbeeLive extends BasicTestCase {
 			awaitRead(id, null);
 			List<TLObject> devices = ZigbeeImport.devices(project);
 			assertEquals(1, devices.size());
-			TLObject device = devices.get(0);
-			assertEquals(IEEE, device.tValueByName("ieee"));
-			assertEquals(5, ((List<?>) device.tValueByName("functions")).size());
-			TLObject controller = enrolled.controller();
-			assertEquals(Boolean.TRUE, controller.tValueByName("zigbeeNetworkUp"));
-			assertEquals(4660L, ((Number) controller.tValueByName("zigbeePanId")).longValue());
-			assertEquals(15L, ((Number) controller.tValueByName("zigbeeChannel")).longValue());
-			assertEquals("00124b0000000001", controller.tValueByName("zigbeeExtendedPanId"));
-			assertEquals(0L, ((Number) controller.tValueByName("zigbeePermitJoin")).longValue());
-			assertEquals(new Date(1792332189000L), controller.tValueByName("zigbeeExported"));
-			assertEquals(Boolean.TRUE, controller.tValueByName("zigbeeReadLive"));
+			ZigbeeDevice device = (ZigbeeDevice) devices.get(0);
+			assertEquals(IEEE, device.getIeee());
+			assertEquals(5, device.getFunctions().size());
+			Controller controller = enrolled.controller();
+			assertEquals(Boolean.TRUE, controller.getZigbeeNetworkUpOrNull());
+			assertEquals(4660L, controller.getZigbeePanId().longValue());
+			assertEquals(15L, controller.getZigbeeChannel().longValue());
+			assertEquals("00124b0000000001", controller.getZigbeeExtendedPanId());
+			assertEquals(0L, controller.getZigbeePermitJoin().longValue());
+			assertEquals(new Date(1792332189000L), controller.getZigbeeExported());
+			assertEquals(Boolean.TRUE, controller.getZigbeeReadLiveOrNull());
 			assertEquals(text(I18NConstants.NETWORK_CLOSED__PAN_CHANNEL.fill("0x1234", Long.valueOf(15))),
 				ZigbeeStatus.networkState(project, Instant.now()));
 			String live = text(I18NConstants.READ_LIVE__TIME.fill("#"));
@@ -159,7 +162,7 @@ public class TestZigbeeLive extends BasicTestCase {
 				ZigbeeStatus.deviceState(device));
 			awaitRead(id, first);
 			assertEquals(2, exportRequests(link).size());
-			assertEquals(120L, ((Number) controller.tValueByName("zigbeePermitJoin")).longValue());
+			assertEquals(120L, controller.getZigbeePermitJoin().longValue());
 			assertTrue("No project deploys to the orphan.", exportRequests(orphanLink).isEmpty());
 
 			// The export is refused: the devices stay, the status line names the failure.
@@ -171,7 +174,7 @@ public class TestZigbeeLive extends BasicTestCase {
 				ZigbeeStatus.deviceState(device));
 			ControllerConnections.awaitKnowledgeBase();
 			assertEquals(List.of(device), ZigbeeImport.devices(project));
-			assertEquals(5, ((List<?>) device.tValueByName("functions")).size());
+			assertEquals(5, device.getFunctions().size());
 			String problem = ZigbeeStatus.liveProblem(project);
 			assertNotNull(problem);
 			assertTrue(problem, problem.contains("503") && problem.contains("homecontrol-live"));
@@ -185,20 +188,20 @@ public class TestZigbeeLive extends BasicTestCase {
 		}
 	}
 
-	private record Enrolled(String id, String secret, URI socket, TLObject controller) {
+	private record Enrolled(String id, String secret, URI socket, Controller controller) {
 		// A record.
 	}
 
-	private Enrolled enroll(TLObject project, String name) throws Exception {
+	private Enrolled enroll(Project project, String name) throws Exception {
 		Enrollment.createCode(project, null, Instant.now());
 		Map<String, Object> request = new LinkedHashMap<>();
-		request.put("code", project.tValueByName("enrollmentCode"));
+		request.put("code", project.getEnrollmentCode());
 		request.put("name", name);
 		Enrollment.Answer answer = Enrollment.enroll(request, _endpoint.base(), Instant.now());
 		assertEquals(answer.body().toString(), 200, answer.status());
 		ControllerConnections.refetch();
 		return new Enrolled((String) answer.body().get("controller"), (String) answer.body().get("secret"),
-			URI.create((String) answer.body().get("socket")), (TLObject) project.tValueByName("controller"));
+			URI.create((String) answer.body().get("socket")), project.getController());
 	}
 
 	private FakeControllerLink connect(Enrolled enrolled) throws Exception {

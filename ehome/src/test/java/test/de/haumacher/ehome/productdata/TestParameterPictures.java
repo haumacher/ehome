@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 
 import junit.framework.Test;
@@ -38,11 +39,16 @@ import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.ParameterPictures;
 import de.haumacher.ehome.knx.ParameterPictures.Display;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
+import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.PictureType;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -80,10 +86,10 @@ public class TestParameterPictures extends BasicTestCase {
 		PictureType diagram = (PictureType) byExtId("ehome.operational:PictureType", PROGRAM + "_PT-Schaltbild");
 		PictureType curve = (PictureType) byExtId("ehome.operational:PictureType", PROGRAM + "_PT-Kurve");
 		PictureType absent = (PictureType) byExtId("ehome.operational:PictureType", PROGRAM + "_PT-Ohne");
-		assertEquals("TEST_Schaltbild.png", diagram.getPicture().tValueByName("name"));
-		assertEquals("TEST_Kurve.bmp", curve.getPicture().tValueByName("name"));
-		assertEquals("TEST_Ohne.png", absent.getPicture().tValueByName("name"));
-		assertNull(absent.getPicture().tValueByName("content"));
+		assertEquals("TEST_Schaltbild.png", diagram.getPicture().getName());
+		assertEquals("TEST_Kurve.bmp", curve.getPicture().getName());
+		assertEquals("TEST_Ohne.png", absent.getPicture().getName());
+		assertNull(absent.getPicture().getContent());
 
 		// How each is shown.
 		assertEquals(Display.IMAGE, ParameterPictures.display(diagram));
@@ -125,13 +131,12 @@ public class TestParameterPictures extends BasicTestCase {
 		assertNull(ParameterPictures.pictureType(byExtId("ehome.operational:Parameter", PROGRAM + "_P-1")));
 
 		// The parameter editor of a device.
-		TLObject variant = byExtId("ehome.catalog:Variant", VARIANT);
-		TLObject assignment = ((Collection<?>) ((TLObject) variant.tValueByName("product")).tValueByName("programs"))
+		Variant variant = (Variant) byExtId("ehome.catalog:Variant", VARIANT);
+		ProgramAssignment assignment = variant.getProduct().getPrograms()
 			.stream()
-			.map(TLObject.class::cast)
-			.filter(a -> PROGRAM.equals(((TLObject) a.tValueByName("program")).tValueByName("extId")))
+			.filter(a -> PROGRAM.equals(a.getProgram().getExtId()))
 			.findFirst().orElseThrow();
-		TLObject project;
+		Project project;
 		TLObject device;
 		try (Transaction tx = kb.beginTransaction()) {
 			device = create("ehome.physical:Device");
@@ -144,9 +149,9 @@ public class TestParameterPictures extends BasicTestCase {
 			TLObject area = create("ehome.physical:Area");
 			area.tUpdateByName("address", 1);
 			area.tUpdateByName("lines", List.of(line));
-			project = create("ehome.project:Project");
-			project.tUpdateByName("name", "TEST Bilder");
-			project.tUpdateByName("areas", List.of(area));
+			project = (Project) create("ehome.project:Project");
+			project.setName("TEST Bilder");
+			project.setAreas(Set.of(area));
 			tx.commit();
 		}
 		try {
@@ -236,10 +241,9 @@ public class TestParameterPictures extends BasicTestCase {
 	}
 
 	private static TLObject entry(ParameterView view, int value) {
-		TLObject type = view.getParameter().getType();
-		return ((Collection<?>) type.tValueByName("values")).stream()
-			.map(TLObject.class::cast)
-			.filter(e -> Integer.valueOf(value).equals(e.tValueByName("value")))
+		EnumerationType type = (EnumerationType) view.getParameter().getType();
+		return type.getValues().stream()
+			.filter(e -> e.getValue() == value)
 			.findFirst().orElseThrow();
 	}
 
@@ -264,7 +268,7 @@ public class TestParameterPictures extends BasicTestCase {
 
 	private static TLObject byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals(extId, 1, result.size());
 		return result.get(0);

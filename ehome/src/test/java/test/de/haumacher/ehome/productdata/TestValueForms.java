@@ -32,10 +32,13 @@ import de.haumacher.ehome.etsImport.ImportProductDataJob;
 import de.haumacher.ehome.etsImport.importer.format.UnsignedIntFormat;
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.Rename;
 import de.haumacher.ehome.programming.ParameterEncoding;
 
 /**
@@ -134,7 +137,7 @@ public class TestValueForms extends BasicTestCase {
 	public void testRenameOfSeparator() throws Exception {
 		assertTrue(withExtId("ehome.operational:Rename", PROGRAM + "_PR-1").isEmpty());
 		TLObject rename = byExtId("ehome.operational:Rename", PROGRAM + "_PR-2");
-		assertSame(byExtId("ehome.operational:ParameterGroup", PROGRAM + "_PB-1"), rename.tValueByName("target"));
+		assertSame(byExtId("ehome.operational:ParameterGroup", PROGRAM + "_PB-1"), ((Rename) rename).getTarget());
 
 		assertEquals(List.of(Resources.getInstance().getString(
 			I18NConstants.WARN_RENAME_TARGET_NOT_IMPORTED__RENAME_TARGET.fill(PROGRAM + "_PR-1", PROGRAM + "_PS-1"))),
@@ -152,10 +155,10 @@ public class TestValueForms extends BasicTestCase {
 	public void testProgramsAfterHardware() throws Exception {
 		TLObject program = byExtId(PROGRAM_TYPE, PROGRAM);
 		TLObject second = byExtId(PROGRAM_TYPE, SECOND);
-		assertSame(program, byExtId("ehome.catalog:ProgramAssignment", "M-0008_H-TEST.20WERTFORMEN-1_HP-FFB3-01-0000")
-			.tValueByName("program"));
-		assertSame(second, byExtId("ehome.catalog:ProgramAssignment", "M-0008_H-TEST.20SCHRITTE-1_HP-FFB4-01-0000")
-			.tValueByName("program"));
+		assertSame(program, ((ProgramAssignment) byExtId("ehome.catalog:ProgramAssignment",
+			"M-0008_H-TEST.20WERTFORMEN-1_HP-FFB3-01-0000")).getProgram());
+		assertSame(second, ((ProgramAssignment) byExtId("ehome.catalog:ProgramAssignment",
+			"M-0008_H-TEST.20SCHRITTE-1_HP-FFB4-01-0000")).getProgram());
 		assertSame(byExtId("ehome.catalog:Manufacturer", "M-0008"), program.tContainer());
 		assertSame(byExtId("ehome.catalog:Manufacturer", "M-0008"), second.tContainer());
 
@@ -210,7 +213,7 @@ public class TestValueForms extends BasicTestCase {
 
 	static List<TLObject> withExtId(String typeName, String extId) {
 		return instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 	}
 

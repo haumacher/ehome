@@ -23,11 +23,13 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
-import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
@@ -56,23 +58,23 @@ public class TestZigbeeReportingProbe extends BasicTestCase {
 
 	public void testOverridesFollowBindings() throws Exception {
 		String text = Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8);
-		TLObject project = project("Zigbee reporting probe", "P-TEST-64-REPORTING-PROBE");
+		Project project = project("Zigbee reporting probe", "P-TEST-64-REPORTING-PROBE");
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.parse(text));
 				tx.commit();
 			}
-			TLObject device = ZigbeeImport.devices(project).get(0);
-			TLObject temperature = function(device, "temperature");
-			TLObject illuminance = function(device, "illuminance");
-			TLObject battery = function(device, "battery");
+			ZigbeeDevice device = project.getZigbeeDevices().get(0);
+			ZigbeeFunction temperature = function(device, "temperature");
+			ZigbeeFunction illuminance = function(device, "illuminance");
+			ZigbeeFunction battery = function(device, "battery");
 
 			// Overrides on unbound functions: stored, but no datapoint carries them into the image.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				temperature.tUpdateByName(ZigbeeReporting.MIN, Integer.valueOf(60));
-				temperature.tUpdateByName(ZigbeeReporting.MAX, Integer.valueOf(ZigbeeReporting.NO_PERIODIC));
-				battery.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(0.5));
-				illuminance.tUpdateByName(ZigbeeReporting.MAX, Integer.valueOf(1200));
+				temperature.setReportingMin(Integer.valueOf(60));
+				temperature.setReportingMax(Integer.valueOf(ZigbeeReporting.NO_PERIODIC));
+				battery.setReportingChange(Double.valueOf(0.5));
+				illuminance.setReportingMax(Integer.valueOf(1200));
 				tx.commit();
 			}
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
@@ -105,8 +107,8 @@ public class TestZigbeeReportingProbe extends BasicTestCase {
 				ZigbeeImport.importExport(project, ZigbeeExport.read(reduced));
 				tx.commit();
 			}
-			assertEquals(Boolean.TRUE, battery.tValueByName("absent"));
-			assertEquals(Double.valueOf(0.5), battery.tValueByName(ZigbeeReporting.CHANGE));
+			assertEquals(Boolean.TRUE, battery.getAbsentOrNull());
+			assertEquals(Double.valueOf(0.5), battery.getReportingChange());
 			assertEquals(map("change", Double.valueOf(0.5)), reportingByFunction(RuntimeImage.build(project, 1, NOW)).get("battery"));
 			assertNull(ZigbeeStatus.removeAbsentVeto(device));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -124,13 +126,13 @@ public class TestZigbeeReportingProbe extends BasicTestCase {
 
 			// A refused override on a bound function cannot be committed, so the image never carries it.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				illuminance.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(50));
+				illuminance.setReportingChange(Double.valueOf(50));
 				tx.commit();
 				fail("The controller refuses a change in lux.");
 			} catch (TopLogicException ex) {
 				// Refused at the commit.
 			}
-			assertNull(illuminance.tValueByName(ZigbeeReporting.CHANGE));
+			assertNull(illuminance.getReportingChange());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -174,21 +176,21 @@ public class TestZigbeeReportingProbe extends BasicTestCase {
 		return result;
 	}
 
-	private static TLObject function(TLObject device, String key) {
-		for (Object function : (Iterable<?>) device.tValueByName("functions")) {
-			if (key.equals(((TLObject) function).tValueByName("function"))) {
-				return (TLObject) function;
+	private static ZigbeeFunction function(ZigbeeDevice device, String key) {
+		for (ZigbeeFunction function : device.getFunctions()) {
+			if (key.equals(function.getFunction())) {
+				return function;
 			}
 		}
 		throw new AssertionError("No function " + key);
 	}
 
-	private static TLObject project(String name, String extId) {
+	private static Project project(String name, String extId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("extId", extId);
+			project.setName(name);
+			project.setExtId(extId);
 			tx.commit();
 			return project;
 		}

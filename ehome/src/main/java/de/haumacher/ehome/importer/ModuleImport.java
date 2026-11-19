@@ -29,6 +29,7 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.xio.importer.binding.ImportContext;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Allocator;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.ModuleArgument;
@@ -76,8 +77,6 @@ final class ModuleImport {
 	 * The {@link ModuleImport} of an import in its {@link ImportContext}.
 	 */
 	static final Property<ModuleImport> PROPERTY = TypedAnnotatable.property(ModuleImport.class, "moduleImport");
-
-	private static final String EXT_ID = "extId";
 
 	private static final String TEXT = "text";
 
@@ -370,7 +369,7 @@ final class ModuleImport {
 			Deque<TLObject> todo = new ArrayDeque<>(p.getModules());
 			while (!todo.isEmpty()) {
 				TLObject obj = todo.removeFirst();
-				if (obj.tType().getPart(EXT_ID) != null && obj.tValueByName(EXT_ID) instanceof String id) {
+				if (obj instanceof Externalized externalized && externalized.getExtId() instanceof String id) {
 					result.putIfAbsent(id, obj);
 				}
 				for (TLStructuredTypePart part : ((TLClass) obj.tType()).getAllParts()) {

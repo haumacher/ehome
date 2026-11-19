@@ -46,6 +46,7 @@ import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.ImportProgress;
 import de.haumacher.ehome.importer.ImportSteps;
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
 
 /**
  * Test case for the import of a product file step by step (haumacher/ehome #160): the data its
@@ -92,8 +93,8 @@ public class TestProductDataSteps extends BasicTestCase {
 		assertTrue(withExtId(PROGRAM_TYPE, failing).isEmpty());
 		TLObject imported = byExtId(PROGRAM_TYPE, other);
 		assertEquals(List.of(imported), importer.getCreated(PROGRAM_TYPE));
-		assertSame(imported, assignment("SCHRITTEFEHLER", "FFB6").tValueByName("program"));
-		assertNull(assignment("WERTFORMENFEHLER", "FFB5").tValueByName("program"));
+		assertSame(imported, assignment("SCHRITTEFEHLER", "FFB6").getProgram());
+		assertNull(assignment("WERTFORMENFEHLER", "FFB5").getProgram());
 		String failure = Resources.getInstance(Locale.ENGLISH).getString(
 			I18NConstants.ERROR_PROGRAM_NOT_IMPORTED__PROGRAM_REASON.fill(failing, reason));
 		assertTrue(english(importer.getMessages()).toString(), english(importer.getMessages()).contains(failure));
@@ -110,7 +111,7 @@ public class TestProductDataSteps extends BasicTestCase {
 		assertEquals(Map.of(), again.getFailedPrograms());
 		TLObject completed = byExtId(PROGRAM_TYPE, failing);
 		assertEquals(List.of(completed), again.getCreated(PROGRAM_TYPE));
-		assertSame(completed, assignment("WERTFORMENFEHLER", "FFB5").tValueByName("program"));
+		assertSame(completed, assignment("WERTFORMENFEHLER", "FFB5").getProgram());
 		assertSame(imported, byExtId(PROGRAM_TYPE, other));
 	}
 
@@ -202,8 +203,8 @@ public class TestProductDataSteps extends BasicTestCase {
 		assertNotNull(byExtId("ehome.catalog:Product", "M-0008_H-TEST.20SCHRITTEABBRUCH-1"));
 	}
 
-	private static TLObject assignment(String hardware, String program) {
-		return byExtId("ehome.catalog:ProgramAssignment",
+	private static ProgramAssignment assignment(String hardware, String program) {
+		return (ProgramAssignment) byExtId("ehome.catalog:ProgramAssignment",
 			"M-0008_H-TEST.20" + hardware + "-1_HP-" + program + "-01-0000");
 	}
 

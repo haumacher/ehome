@@ -30,9 +30,14 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.catalog.Product;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -58,11 +63,10 @@ public class TestProductDataImportProbe extends BasicTestCase {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		importProduct(FIXTURES + "TestNewProduct.knxprod");
 		Program program = (Program) byExtId("ehome.operational:Program", NEW_PROGRAM);
-		TLObject variant = byExtId("ehome.catalog:Variant", NEW_VARIANT);
-		TLObject product = (TLObject) variant.tValueByName("product");
-		TLObject assignment = ((Collection<?>) product.tValueByName("programs")).stream()
-			.map(TLObject.class::cast)
-			.filter(a -> a.tValueByName("program") == program)
+		Variant variant = (Variant) byExtId("ehome.catalog:Variant", NEW_VARIANT);
+		Product product = variant.getProduct();
+		ProgramAssignment assignment = product.getPrograms().stream()
+			.filter(a -> a.getProgram() == program)
 			.findFirst().orElseThrow();
 
 		// A host project for the device: the Test project's line.
@@ -70,11 +74,11 @@ public class TestProductDataImportProbe extends BasicTestCase {
 		importSample("samples/Test.knxproj");
 		List<TLObject> projects = new ArrayList<>(instances("ehome.project:Project"));
 		projects.removeAll(before);
-		TLObject project = projects.get(0);
+		Project project = (Project) projects.get(0);
 		Parameter created = null;
 		try {
-			TLObject line = (TLObject) ((Collection<?>) ((TLObject) ((Collection<?>) project.tValueByName("areas"))
-				.iterator().next()).tValueByName("lines")).iterator().next();
+			TLObject line = (TLObject) ((Collection<?>) project.getAreas()
+				.iterator().next().tValueByName("lines")).iterator().next();
 			TLObject device;
 			try (Transaction tx = kb.beginTransaction()) {
 				device = create("ehome.physical:Device");
@@ -141,7 +145,7 @@ public class TestProductDataImportProbe extends BasicTestCase {
 
 	private static TLObject byExtId(String typeName, String extId) {
 		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals(extId, 1, result.size());
 		return result.get(0);

@@ -46,6 +46,8 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Probe of the ETS import on the XML import of TopLogic 8.0.0-alpha11: the shared objects found by
@@ -93,7 +95,7 @@ public class TestAlpha11ImportProbe extends BasicTestCase {
 
 			String program = SharedData.ids(DETAILS, "M-0008/M-0008_A-.*", "ApplicationProgram").iterator().next();
 			assertEquals(List.of(), again.getCreated(PROGRAM));
-			assertEquals(List.of(program), again.getKnown(PROGRAM).stream().map(p -> p.tValueByName("extId")).toList());
+			assertEquals(List.of(program), again.getKnown(PROGRAM).stream().map(p -> ((Program) p).getExtId()).toList());
 		} finally {
 			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
@@ -142,17 +144,18 @@ public class TestAlpha11ImportProbe extends BasicTestCase {
 	 */
 	private static int assertTexts(String file) throws IOException, XMLStreamException {
 		ProgramTexts texts = ProgramTexts.read(file);
-		TLObject program = only(PROGRAM, texts._programId);
+		Program program = only(texts._programId);
 		// The program is shared: an earlier test may have added the English texts of another file.
-		String languages = String.valueOf(program.tValueByName("languages"));
+		String languages = String.valueOf(program.getLanguages());
 		assertTrue(languages, languages.matches("de( .*)?"));
 		boolean programEnglish = languages.contains("en");
-		assertEquals(texts._programName, text(program, "name", Locale.GERMAN));
-		assertEnglish(programEnglish, texts._programName, text(program, "name", Locale.ENGLISH));
+		assertEquals(texts._programName, text(program.getNameKey(), Locale.GERMAN));
+		assertEnglish(programEnglish, texts._programName, text(program.getNameKey(), Locale.ENGLISH));
 
-		Map<String, TLObject> parameters = new HashMap<>();
-		for (TLObject parameter : instances("ehome.operational:Parameter")) {
-			String id = (String) parameter.tValueByName("extId");
+		Map<String, Parameter> parameters = new HashMap<>();
+		for (TLObject obj : instances("ehome.operational:Parameter")) {
+			Parameter parameter = (Parameter) obj;
+			String id = parameter.getExtId();
 			if (id != null && id.startsWith(texts._programId + "_")) {
 				parameters.put(id, parameter);
 			}
@@ -160,21 +163,21 @@ public class TestAlpha11ImportProbe extends BasicTestCase {
 		int withText = 0;
 		int empty = 0;
 		for (Map.Entry<String, String> entry : texts._parameters.entrySet()) {
-			TLObject parameter = parameters.get(entry.getKey());
+			Parameter parameter = parameters.get(entry.getKey());
 			assertNotNull(entry.getKey(), parameter);
 			// A German translation of the file's German text replaces it.
 			String german = texts._translated.getOrDefault(entry.getKey(), entry.getValue());
 			if (!german.isEmpty()) {
 				withText++;
-				assertEquals(entry.getKey(), german, text(parameter, "description", Locale.GERMAN));
+				assertEquals(entry.getKey(), german, text(parameter.getDescription(), Locale.GERMAN));
 				// The fallback language takes the file's own text, a translation goes to its language only.
 				String english = entry.getValue().isEmpty() ? null : entry.getValue();
 				if (english != null || !programEnglish) {
-					assertEnglish(programEnglish, english, text(parameter, "description", Locale.ENGLISH));
+					assertEnglish(programEnglish, english, text(parameter.getDescription(), Locale.ENGLISH));
 				}
 			} else if (!programEnglish) {
 				empty++;
-				assertNull(entry.getKey(), parameter.tValueByName("description"));
+				assertNull(entry.getKey(), parameter.getDescription());
 			}
 		}
 		assertTrue(file, withText > 0);
@@ -193,8 +196,7 @@ public class TestAlpha11ImportProbe extends BasicTestCase {
 		}
 	}
 
-	private static String text(TLObject obj, String attribute, Locale locale) {
-		ResKey value = (ResKey) obj.tValueByName(attribute);
+	private static String text(ResKey value, Locale locale) {
 		if (value == null) {
 			return null;
 		}
@@ -202,10 +204,10 @@ public class TestAlpha11ImportProbe extends BasicTestCase {
 		return ((LiteralKey) value).getTranslations().get(locale);
 	}
 
-	private static TLObject only(String type, String extId) {
-		List<TLObject> result = instances(type).stream().filter(obj -> extId.equals(obj.tValueByName("extId"))).toList();
+	private static Program only(String extId) {
+		List<TLObject> result = instances(PROGRAM).stream().filter(obj -> extId.equals(((Program) obj).getExtId())).toList();
 		assertEquals(extId, 1, result.size());
-		return result.get(0);
+		return (Program) result.get(0);
 	}
 
 	private static Importer importProject(String file) throws Exception {

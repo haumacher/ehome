@@ -51,6 +51,7 @@ import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -276,7 +277,7 @@ public class TestPresets extends BasicTestCase {
 			Presets.apply(planned, _led1, status);
 		});
 		for (TLObject preset : List.of(toggle, status)) {
-			String key = (String) preset.tValueByName("channel");
+			String key = ((Preset) preset).getChannel();
 			for (ParameterView view : Presets.values(configured, key, preset).keySet()) {
 				assertEquals(view.toString(), encoded(configured, view), encoded(planned, view));
 			}
@@ -460,7 +461,7 @@ public class TestPresets extends BasicTestCase {
 
 	private TLObject presetNamed(TLObject device, String name) {
 		for (TLObject preset : _presets) {
-			if (name.equals(preset.tValueByName("name"))) {
+			if (name.equals(((Preset) preset).getName())) {
 				return preset;
 			}
 		}

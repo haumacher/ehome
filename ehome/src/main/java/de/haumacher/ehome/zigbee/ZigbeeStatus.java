@@ -17,6 +17,9 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.ControllerConnections;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.Deployer;
 
@@ -75,7 +78,8 @@ public final class ZigbeeStatus {
 	 * resources, as {@link #functionLabel(TLObject)} gives it in the user's.
 	 */
 	public static String functionLabel(TLObject function, Resources resources) {
-		Object key = function.tValueByName("function");
+		ZigbeeFunction typed = (ZigbeeFunction) function;
+		Object key = typed.getFunction();
 		if (key == null) {
 			return null;
 		}
@@ -84,7 +88,7 @@ public final class ZigbeeStatus {
 			return resources.getString(catalogName);
 		}
 		String name = key.toString();
-		if (IAS_ZONE.equals(name) && function.tValueByName("genericName") instanceof String generic) {
+		if (IAS_ZONE.equals(name) && typed.getGenericName() instanceof String generic) {
 			String suffix = generic.substring(generic.lastIndexOf('.') + 1);
 			if (FUNCTION_LABELS.containsKey(suffix)) {
 				name = suffix;
@@ -113,7 +117,7 @@ public final class ZigbeeStatus {
 		if (project != null && project.tValid()) {
 			TLObject controller = Deployer.controller(project);
 			live = ZigbeeLive.deviceState(ControllerConnections.controllerId(controller),
-				(String) device.tValueByName("ieee"));
+				((ZigbeeDevice) device).getIeee());
 		}
 		ResKey state;
 		if (live != null) {
@@ -129,7 +133,7 @@ public final class ZigbeeStatus {
 					break;
 			}
 		} else {
-			state = Boolean.TRUE.equals(device.tValueByName("interviewed")) ? I18NConstants.DEVICE_PAIRED
+			state = Boolean.TRUE.equals(((ZigbeeDevice) device).getInterviewedOrNull()) ? I18NConstants.DEVICE_PAIRED
 				: I18NConstants.DEVICE_NOT_INTERVIEWED;
 		}
 		return Resources.getInstance().getString(state);
@@ -141,27 +145,27 @@ public final class ZigbeeStatus {
 	 * else the stored one counted from the time of the export.
 	 */
 	public static String networkState(TLObject project, Instant now) {
-		TLObject controller = Deployer.controller(project);
+		Controller controller = (Controller) Deployer.controller(project);
 		Resources resources = Resources.getInstance();
 		if (controller == null) {
 			return resources.getString(I18NConstants.NETWORK_NO_CONTROLLER);
 		}
 		String controllerId = ControllerConnections.controllerId(controller);
 		ZigbeeLive.Permit permit = ControllerConnections.get(controller) != null ? ZigbeeLive.permit(controllerId) : null;
-		if (permit == null && controller.tValueByName("zigbeePermitJoin") instanceof Number seconds
-			&& controller.tValueByName("zigbeeExported") instanceof Date exported) {
+		if (permit == null && controller.getZigbeePermitJoin() instanceof Number seconds
+			&& controller.getZigbeeExported() instanceof Date exported) {
 			permit = new ZigbeeLive.Permit(seconds.intValue(), exported.toInstant());
 		}
-		Object up = controller.tValueByName("zigbeeNetworkUp");
+		Object up = controller.getZigbeeNetworkUpOrNull();
 		if (up == null) {
 			return resources.getString(I18NConstants.NETWORK_UNKNOWN);
 		}
 		if (!Boolean.TRUE.equals(up)) {
 			return resources.getString(I18NConstants.NETWORK_DOWN);
 		}
-		String pan = controller.tValueByName("zigbeePanId") instanceof Number number
+		String pan = controller.getZigbeePanId() instanceof Number number
 			? String.format("0x%04X", Integer.valueOf(number.intValue())) : "?";
-		Object channel = controller.tValueByName("zigbeeChannel") instanceof Number number
+		Object channel = controller.getZigbeeChannel() instanceof Number number
 			? Long.valueOf(number.longValue()) : "?";
 		long remaining = permit == null ? 0 : permit.remaining(now);
 		if (remaining > 0) {
@@ -176,12 +180,12 @@ public final class ZigbeeStatus {
 	 * <code>null</code> before the first read.
 	 */
 	public static String readState(TLObject project) {
-		TLObject controller = Deployer.controller(project);
-		if (controller == null || !(controller.tValueByName("zigbeeExported") instanceof Date exported)) {
+		Controller controller = (Controller) Deployer.controller(project);
+		if (controller == null || !(controller.getZigbeeExported() instanceof Date exported)) {
 			return null;
 		}
 		ZigbeeLive.Read read = ZigbeeLive.lastRead(ControllerConnections.controllerId(controller));
-		boolean live = read != null ? read.live() : Boolean.TRUE.equals(controller.tValueByName("zigbeeReadLive"));
+		boolean live = read != null ? read.live() : Boolean.TRUE.equals(controller.getZigbeeReadLiveOrNull());
 		String time = format(read != null ? Date.from(read.at()) : exported);
 		return Resources.getInstance().getString(
 			live ? I18NConstants.READ_LIVE__TIME.fill(time) : I18NConstants.READ_ON_REQUEST__TIME.fill(time));
@@ -191,7 +195,7 @@ public final class ZigbeeStatus {
 	 * Why the last live import from the project's controller failed, <code>null</code> if it did not.
 	 */
 	public static String liveProblem(TLObject project) {
-		TLObject controller = Deployer.controller(project);
+		Controller controller = (Controller) Deployer.controller(project);
 		if (controller == null) {
 			return null;
 		}
@@ -201,7 +205,7 @@ public final class ZigbeeStatus {
 		}
 		Resources resources = Resources.getInstance();
 		return resources.getString(I18NConstants.LIVE_IMPORT_FAILED__CONTROLLER_TIME_REASON.fill(
-			controller.tValueByName("name"), format(Date.from(failure.at())), resources.getString(failure.reason())));
+			controller.getName(), format(Date.from(failure.at())), resources.getString(failure.reason())));
 	}
 
 	private static String format(Date date) {
@@ -213,8 +217,8 @@ public final class ZigbeeStatus {
 	 * Why {@link #removeAbsent(TLObject)} has nothing to do for the device, <code>null</code> if it has.
 	 */
 	public static ResKey removeAbsentVeto(TLObject device) {
-		for (TLObject function : ZigbeeImport.objects(device.tValueByName("functions"))) {
-			if (Boolean.TRUE.equals(function.tValueByName("absent"))) {
+		for (ZigbeeFunction function : ((ZigbeeDevice) device).getFunctions()) {
+			if (Boolean.TRUE.equals(function.getAbsentOrNull())) {
 				return null;
 			}
 		}
@@ -235,12 +239,13 @@ public final class ZigbeeStatus {
 			throw new TopLogicException(veto);
 		}
 		Resources resources = Resources.getInstance();
-		List<TLObject> functions = ZigbeeImport.objects(device.tValueByName("functions"));
-		List<TLObject> remaining = new ArrayList<>();
-		List<TLObject> removed = new ArrayList<>();
+		ZigbeeDevice typed = (ZigbeeDevice) device;
+		List<ZigbeeFunction> functions = new ArrayList<>(typed.getFunctions());
+		List<ZigbeeFunction> remaining = new ArrayList<>();
+		List<ZigbeeFunction> removed = new ArrayList<>();
 		List<String> kept = new ArrayList<>();
-		for (TLObject function : functions) {
-			if (!Boolean.TRUE.equals(function.tValueByName("absent"))) {
+		for (ZigbeeFunction function : functions) {
+			if (!Boolean.TRUE.equals(function.getAbsentOrNull())) {
 				remaining.add(function);
 				continue;
 			}
@@ -254,8 +259,8 @@ public final class ZigbeeStatus {
 			}
 		}
 		if (!removed.isEmpty()) {
-			device.tUpdateByName("functions", remaining);
-			for (TLObject function : removed) {
+			typed.setFunctions(remaining);
+			for (ZigbeeFunction function : removed) {
 				function.tDelete();
 			}
 		}
@@ -267,10 +272,10 @@ public final class ZigbeeStatus {
 			Integer.valueOf(kept.size()), String.join("; ", kept)));
 	}
 
-	private static String name(TLObject function) {
-		Object generic = function.tValueByName("genericName");
+	private static String name(ZigbeeFunction function) {
+		Object generic = function.getGenericName();
 		return generic != null ? generic.toString()
-			: function.tValueByName("function") + " (" + function.tValueByName("endpoint") + ")";
+			: function.getFunction() + " (" + function.getEndpointOrNull() + ")";
 	}
 
 }

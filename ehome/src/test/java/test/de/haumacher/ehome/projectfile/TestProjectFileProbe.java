@@ -37,6 +37,9 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileExport;
 import de.haumacher.ehome.runtime.IdRenames;
@@ -79,7 +82,7 @@ public class TestProjectFileProbe extends BasicTestCase {
 			// Renaming a parameter of the copy rewrites the copy's expressions only.
 			String originalBefore = Json.write(RuntimeImage.build(original, 1, TIME).getJson());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				parameter(copy, "frost", "below").tUpdateByName("identifier", "unter-grenze");
+				parameter(copy, "frost", "below").setIdentifier("unter-grenze");
 				tx.commit();
 			}
 			String renamed = Json.write(RuntimeImage.build(copy, 1, TIME).getJson());
@@ -127,9 +130,9 @@ public class TestProjectFileProbe extends BasicTestCase {
 	}
 
 	private static TLObject rule(TLObject project, String id) {
-		for (Object r : (List<?>) project.tValueByName("rules")) {
-			if (id.equals(((TLObject) r).tValueByName("identifier"))) {
-				return (TLObject) r;
+		for (Rule r : ((Project) project).getRules()) {
+			if (id.equals(r.getIdentifier())) {
+				return r;
 			}
 		}
 		throw new AssertionError("No rule " + id);
@@ -155,13 +158,12 @@ public class TestProjectFileProbe extends BasicTestCase {
 		return result.toString();
 	}
 
-	private static TLObject parameter(TLObject project, String rule, String id) {
-		for (Object r : (List<?>) project.tValueByName("rules")) {
-			TLObject candidate = (TLObject) r;
-			if (rule.equals(candidate.tValueByName("identifier"))) {
-				for (Object p : (List<?>) candidate.tValueByName("parameters")) {
-					if (id.equals(((TLObject) p).tValueByName("identifier"))) {
-						return (TLObject) p;
+	private static RuleParameter parameter(TLObject project, String rule, String id) {
+		for (Rule candidate : ((Project) project).getRules()) {
+			if (rule.equals(candidate.getIdentifier())) {
+				for (RuleParameter p : candidate.getParameters()) {
+					if (id.equals(p.getIdentifier())) {
+						return p;
 					}
 				}
 			}

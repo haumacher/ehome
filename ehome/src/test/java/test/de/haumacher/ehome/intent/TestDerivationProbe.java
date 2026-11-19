@@ -5,7 +5,6 @@ package test.de.haumacher.ehome.intent;
 
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
-import static test.de.haumacher.ehome.intent.IntentFixture.add;
 import static test.de.haumacher.ehome.intent.IntentFixture.control;
 import static test.de.haumacher.ehome.intent.IntentFixture.create;
 import static test.de.haumacher.ehome.intent.IntentFixture.device;
@@ -30,6 +29,11 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.intent.Derivation;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.GroupAddressDefinition;
+import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 
 /**
@@ -51,49 +55,50 @@ public class TestDerivationProbe extends BasicTestCase {
 			_f = IntentFixture.create(device(imported, 1, 3, 5), device(imported, 1, 3, 50));
 			TLObject project = _f.project("Probe");
 			TLObject[] devices = _f.planDevices(project, "Aktor", "Taster");
-			TLObject[] hand = { null, null };
+			GroupAddressDefinition[] hand = { null, null };
 			inTransaction(() -> {
-				TLObject main = create("ehome.logical:GroupRange");
-				main.tUpdateByName("name", "Licht von Hand");
-				main.tUpdateByName("rangeStart", new GA(1 << 11, null));
-				main.tUpdateByName("rangeEnd", new GA((2 << 11) - 1, null));
-				add(project, "groupAddresses", main);
-				TLObject taken = create("ehome.logical:GroupAddress");
-				taken.tUpdateByName("address", new GA(1 << 11, null));
-				taken.tUpdateByName("name", "Fremd");
-				taken.tUpdateByName("identifier", "licht");
-				add(main, "parts", taken);
+				GroupRange main = (GroupRange) create("ehome.logical:GroupRange");
+				main.setName("Licht von Hand");
+				main.setRangeStart(new GA(1 << 11, null));
+				main.setRangeEnd(new GA((2 << 11) - 1, null));
+				((Project) project).addGroupAddresse(main);
+				GroupAddress taken = (GroupAddress) create("ehome.logical:GroupAddress");
+				taken.setAddress(new GA(1 << 11, null));
+				taken.setName("Fremd");
+				taken.setIdentifier("licht");
+				main.addPart(taken);
 				hand[0] = main;
 				hand[1] = taken;
 			});
 			inTransaction(() -> FunctionProposal.apply(project));
-			TLObject licht = named(function(project, devices[0], _f.channelA), "Licht", _f.schalten);
+			Function licht = (Function) named(function(project, devices[0], _f.channelA), "Licht", _f.schalten);
 			control(licht, devices[1], _f.key1, _f.toggle, "toggle");
 
 			Derivation plan = Derivation.plan(project);
 			assertEquals(List.of(), plan.getRefusals());
 			inTransaction(() -> Derivation.apply(project, plan.fingerprint()));
 
-			TLObject command = (TLObject) licht.tValueByName("command");
-			TLObject state = (TLObject) licht.tValueByName("state");
+			GroupAddress command = (GroupAddress) licht.getCommand();
+			GroupAddress state = (GroupAddress) licht.getState();
 			assertNotNull(command);
 			assertNotNull(state);
 			assertNotSame(hand[1], command);
 			assertNotSame(hand[1], state);
-			int c = ((GA) command.tValueByName("address")).getValue();
-			int s = ((GA) state.tValueByName("address")).getValue();
+			int c = command.getAddress().getValue();
+			int s = state.getAddress().getValue();
 			assertTrue(c != (1 << 11) && s != (1 << 11) && c != s);
 			assertTrue(c >> 11 == 1 && s >> 11 == 1);
-			assertFalse("licht".equals(command.tValueByName("identifier")));
-			assertFalse(String.valueOf(command.tValueByName("identifier")).equals(state.tValueByName("identifier")));
-			assertEquals("Fremd", hand[1].tValueByName("name"));
-			assertEquals("licht", hand[1].tValueByName("identifier"));
-			assertEquals(1 << 11, ((GA) hand[1].tValueByName("address")).getValue());
+			assertFalse("licht".equals(command.getIdentifier()));
+			assertFalse(String.valueOf(command.getIdentifier()).equals(state.getIdentifier()));
+			GroupAddress taken = (GroupAddress) hand[1];
+			assertEquals("Fremd", taken.getName());
+			assertEquals("licht", taken.getIdentifier());
+			assertEquals(1 << 11, taken.getAddress().getValue());
 
 			// One main range of the kind, the hand-made one.
 			long mains = instances("ehome.logical:GroupRange").stream()
 				.filter(r -> r.tContainer() == project)
-				.filter(r -> ((GA) r.tValueByName("rangeStart")).getValue() == 1 << 11).count();
+				.filter(r -> ((GroupRange) r).getRangeStart().getValue() == 1 << 11).count();
 			assertEquals(1, mains);
 
 			assertTrue(Derivation.plan(project).getItems().stream()

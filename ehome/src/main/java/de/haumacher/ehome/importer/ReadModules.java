@@ -12,9 +12,10 @@ import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.xml.XMLStreamUtil;
-import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.NestedImportHandler;
+
+import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Reads the dynamic modules of an application program (haumacher/ehome #119) with its content
@@ -33,8 +34,6 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
 public class ReadModules<C extends ReadModules.Config<?>> extends NestedImportHandler<C> {
 
 	private static final String USES_MODULES = "usesModules";
-
-	private static final String EXT_ID = "extId";
 
 	private static final String PROGRAM_VAR = "program";
 
@@ -63,7 +62,7 @@ public class ReadModules<C extends ReadModules.Config<?>> extends NestedImportHa
 	@Override
 	public Object importXml(ImportContext context, XMLStreamReader in) throws XMLStreamException {
 		Object program = context.getVarOrNull(PROGRAM_VAR);
-		String id = program instanceof TLObject obj ? (String) obj.tValueByName(EXT_ID) : null;
+		String id = program instanceof Program obj ? obj.getExtId() : null;
 		String construct = id == null ? null : ModuleScan.get(context).getRefusal(id);
 		if (construct == null) {
 			return importXmlInScope(context, in);

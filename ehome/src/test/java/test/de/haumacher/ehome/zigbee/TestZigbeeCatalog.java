@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,6 +39,10 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
@@ -111,33 +114,33 @@ public class TestZigbeeCatalog extends BasicTestCase {
 	}
 
 	public void testMotionSensor() throws Exception {
-		TLObject project = project("Zigbee catalog", "P-TEST-64-CATALOG");
+		Project project = project("Zigbee catalog", "P-TEST-64-CATALOG");
 		try {
 			importFixture(project, Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8));
-			TLObject device = ZigbeeImport.devices(project).get(0);
+			ZigbeeDevice device = project.getZigbeeDevices().get(0);
 			assertSame(seeded(), ZigbeeCatalog.type(device));
-			assertSame("Derived when read, not stored.", seeded(), derived(Locale.GERMAN, device, "deviceType"));
-			assertEquals("Philips SML002", device.tValueByName("name"));
+			assertSame("Derived when read, not stored.", seeded(), derived(Locale.GERMAN, device::getDeviceType));
+			assertEquals("Philips SML002", device.getName());
 
-			List<TLObject> functions = objects(device, "functions");
-			TLObject temperature = functions.get(0);
-			TLObject illuminance = functions.get(1);
-			TLObject occupancy = functions.get(2);
-			TLObject battery = functions.get(3);
-			TLObject action = functions.get(4);
-			assertEquals("occupancy", occupancy.tValueByName("function"));
+			List<? extends ZigbeeFunction> functions = device.getFunctions();
+			ZigbeeFunction temperature = functions.get(0);
+			ZigbeeFunction illuminance = functions.get(1);
+			ZigbeeFunction occupancy = functions.get(2);
+			ZigbeeFunction battery = functions.get(3);
+			ZigbeeFunction action = functions.get(4);
+			assertEquals("occupancy", occupancy.getFunction());
 			assertEquals("Bewegung", inLocale(Locale.GERMAN, () -> ZigbeeStatus.functionLabel(occupancy)));
 			assertEquals("Motion", inLocale(Locale.ENGLISH, () -> ZigbeeStatus.functionLabel(occupancy)));
-			assertEquals("Philips SML002 Bewegung (2)", derived(Locale.GERMAN, occupancy, "displayName"));
-			assertEquals("Philips SML002 Motion (2)", derived(Locale.ENGLISH, occupancy, "displayName"));
+			assertEquals("Philips SML002 Bewegung (2)", derived(Locale.GERMAN, occupancy::getDisplayName));
+			assertEquals("Philips SML002 Motion (2)", derived(Locale.ENGLISH, occupancy::getDisplayName));
 			assertEquals("Helligkeit", inLocale(Locale.GERMAN, () -> ZigbeeStatus.functionLabel(illuminance)));
-			assertEquals(Boolean.TRUE, derived(Locale.GERMAN, action, "hidden"));
-			assertEquals(Boolean.FALSE, derived(Locale.GERMAN, occupancy, "hidden"));
+			assertEquals(Boolean.TRUE, derived(Locale.GERMAN, action::getHiddenOrNull));
+			assertEquals(Boolean.FALSE, derived(Locale.GERMAN, occupancy::getHiddenOrNull));
 			assertEquals("A hidden function without a name of the catalog keeps the name of its key.", "Aktion",
 				inLocale(Locale.GERMAN, () -> ZigbeeStatus.functionLabel(action)));
 
 			// The installer's override of the battery's reporting is kept, not completed by the recommendation.
-			update(battery, ZigbeeReporting.MAX, Integer.valueOf(30000));
+			update(() -> battery.setReportingMax(Integer.valueOf(30000)));
 			List<TLObject> created;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				created = inLocale(Locale.GERMAN, () -> ZigbeeBindings.createDatapoints(device));
@@ -184,25 +187,25 @@ public class TestZigbeeCatalog extends BasicTestCase {
 	public void testUnknownDeviceAndTypeAddedLater() throws Exception {
 		Map<?, ?> export = (Map<?, ?>) Json.parse(Files.readString(Path.of(FIXTURE), StandardCharsets.UTF_8), 100);
 		put(((List<?>) export.get("devices")).get(0), "model", "SML999-TEST");
-		TLObject project = project("Zigbee catalog unknown", "P-TEST-64-CATALOG-UNKNOWN");
+		Project project = project("Zigbee catalog unknown", "P-TEST-64-CATALOG-UNKNOWN");
 		TLObject later = null;
 		try {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.read(export));
 				tx.commit();
 			}
-			TLObject device = ZigbeeImport.devices(project).get(0);
-			TLObject occupancy = objects(device, "functions").get(2);
-			TLObject action = objects(device, "functions").get(4);
+			ZigbeeDevice device = project.getZigbeeDevices().get(0);
+			ZigbeeFunction occupancy = device.getFunctions().get(2);
+			ZigbeeFunction action = device.getFunctions().get(4);
 			assertNull(ZigbeeCatalog.type(device));
-			assertNull(derived(Locale.GERMAN, device, "deviceType"));
+			assertNull(derived(Locale.GERMAN, device::getDeviceType));
 			assertEquals("Anwesenheit", inLocale(Locale.GERMAN, () -> ZigbeeStatus.functionLabel(occupancy)));
-			assertEquals("Philips SML999-TEST Occupancy (2)", derived(Locale.ENGLISH, occupancy, "displayName"));
-			assertEquals(Boolean.FALSE, derived(Locale.GERMAN, action, "hidden"));
+			assertEquals("Philips SML999-TEST Occupancy (2)", derived(Locale.ENGLISH, occupancy::getDisplayName));
+			assertEquals(Boolean.FALSE, derived(Locale.GERMAN, action::getHiddenOrNull));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TLObject datapoint = ZigbeeBindings.createDatapoint(occupancy);
 				assertEquals("philips-sml999-test-occupancy", ApplicationDatapoints.id(datapoint));
-				assertNull("No recommendation, no override.", occupancy.tValueByName(ZigbeeReporting.MIN));
+				assertNull("No recommendation, no override.", occupancy.getReportingMin());
 				tx.rollback();
 			}
 
@@ -213,10 +216,10 @@ public class TestZigbeeCatalog extends BasicTestCase {
 					.get(0);
 				tx.commit();
 			}
-			assertSame(later, derived(Locale.GERMAN, device, "deviceType"));
+			assertSame(later, derived(Locale.GERMAN, device::getDeviceType));
 			assertEquals("Motion", inLocale(Locale.ENGLISH, () -> ZigbeeStatus.functionLabel(occupancy)));
-			assertEquals(Boolean.TRUE, derived(Locale.GERMAN, action, "hidden"));
-			assertNull("Nothing is copied into the project.", occupancy.tValueByName(ZigbeeReporting.MIN));
+			assertEquals(Boolean.TRUE, derived(Locale.GERMAN, action::getHiddenOrNull));
+			assertNull("Nothing is copied into the project.", occupancy.getReportingMin());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 			if (later != null) {
@@ -350,16 +353,16 @@ public class TestZigbeeCatalog extends BasicTestCase {
 		assertSame(function, ZigbeeBindings.function(datapoint));
 		assertEquals(id, ApplicationDatapoints.id(datapoint));
 		assertEquals(type, ApplicationDatapoints.valueType(datapoint));
-		assertEquals(unit, datapoint.tValueByName("unit"));
-		ResKey label = (ResKey) datapoint.tValueByName("label");
+		assertEquals(unit, ((ApplicationDatapoint) datapoint).getUnit());
+		ResKey label = ((ApplicationDatapoint) datapoint).getLabel();
 		assertEquals(de, Resources.getInstance(Locale.GERMAN).getString(label));
 		assertEquals(en, Resources.getInstance(Locale.ENGLISH).getString(label));
 	}
 
-	private static void assertReporting(TLObject function, Integer min, Integer max, Double change) {
-		assertEquals(min, function.tValueByName(ZigbeeReporting.MIN));
-		assertEquals(max, function.tValueByName(ZigbeeReporting.MAX));
-		assertEquals(change, function.tValueByName(ZigbeeReporting.CHANGE));
+	private static void assertReporting(ZigbeeFunction function, Integer min, Integer max, Double change) {
+		assertEquals(min, function.getReportingMin());
+		assertEquals(max, function.getReportingMax());
+		assertEquals(change, function.getReportingChange());
 	}
 
 	private static TLObject seeded() {
@@ -408,8 +411,8 @@ public class TestZigbeeCatalog extends BasicTestCase {
 	}
 
 	/** A derived attribute, read as root (derived attributes are computed with the reader's rights). */
-	private static Object derived(Locale locale, TLObject obj, String attribute) {
-		return inLocale(locale, () -> obj.tValueByName(attribute));
+	private static Object derived(Locale locale, Supplier<?> attribute) {
+		return inLocale(locale, attribute::get);
 	}
 
 	private static <T> T inLocale(Locale locale, Supplier<T> value) {
@@ -435,9 +438,17 @@ public class TestZigbeeCatalog extends BasicTestCase {
 		((Map<String, Object>) object).put(member, value);
 	}
 
+	/** Updates an object of the Zigbee catalog (<code>ehome.zigbee.catalog</code>, no generated binding). */
 	private static void update(TLObject obj, String attribute, Object value) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			obj.tUpdateByName(attribute, value);
+			tx.commit();
+		}
+	}
+
+	private static void update(Runnable change) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			change.run();
 			tx.commit();
 		}
 	}
@@ -446,22 +457,14 @@ public class TestZigbeeCatalog extends BasicTestCase {
 		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
 
-	private static TLObject project(String name, String extId) {
+	private static Project project(String name, String extId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = create("ehome.project:Project");
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("extId", extId);
+			Project project = (Project) create("ehome.project:Project");
+			project.setName(name);
+			project.setExtId(extId);
 			tx.commit();
 			return project;
 		}
-	}
-
-	private static List<TLObject> objects(TLObject owner, String reference) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object element : (Iterable<?>) owner.tValueByName(reference)) {
-			result.add((TLObject) element);
-		}
-		return result;
 	}
 
 	public static Test suite() {

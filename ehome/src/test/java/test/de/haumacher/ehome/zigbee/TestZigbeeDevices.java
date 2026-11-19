@@ -32,6 +32,12 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeEndpoint;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -83,41 +89,41 @@ public class TestZigbeeDevices extends BasicTestCase {
 
 			List<TLObject> devices = ZigbeeImport.devices(project);
 			assertEquals(1, devices.size());
-			TLObject device = devices.get(0);
-			assertEquals(IEEE, device.tValueByName("ieee"));
-			assertEquals("Philips", device.tValueByName("manufacturer"));
-			assertEquals("SML002", device.tValueByName("model"));
+			ZigbeeDevice device = (ZigbeeDevice) devices.get(0);
+			assertEquals(IEEE, device.getIeee());
+			assertEquals("Philips", device.getManufacturer());
+			assertEquals("SML002", device.getModel());
 			assertEquals("The label is empty: the name is manufacturer and model.", "Philips SML002",
-				device.tValueByName("name"));
-			assertNull(device.tValueByName("label"));
-			assertEquals(Boolean.TRUE, device.tValueByName("interviewed"));
-			assertEquals("example", device.tValueByName("controllerName"));
+				device.getName());
+			assertNull(device.getLabel());
+			assertEquals(Boolean.TRUE, device.getInterviewedOrNull());
+			assertEquals("example", device.getControllerName());
 
-			List<TLObject> endpoints = objects(device, "endpoints");
+			List<? extends ZigbeeEndpoint> endpoints = device.getEndpoints();
 			assertEquals(2, endpoints.size());
 			assertEndpoint(endpoints.get(0), 2, 260, 263, "0, 1, 3, 1030, 1024, 1026", "25");
 			assertEndpoint(endpoints.get(1), 1, 49246, 2128, "0", "0, 3, 6, 8, 768, 4, 5");
 
-			List<TLObject> functions = objects(device, "functions");
+			List<? extends ZigbeeFunction> functions = device.getFunctions();
 			assertEquals(5, functions.size());
-			TLObject temperature = assertFunction(functions.get(0), "temperature", 2, 1026, 0, "real", "°C");
+			ZigbeeFunction temperature = assertFunction(functions.get(0), "temperature", 2, 1026, 0, "real", "°C");
 			assertFunction(functions.get(1), "illuminance", 2, 1024, 0, "real", "lx");
-			TLObject occupancy = assertFunction(functions.get(2), "occupancy", 2, 1030, 0, "boolean", null);
-			TLObject battery = assertFunction(functions.get(3), "battery", 2, 1, 33, "real", "%");
-			TLObject action = assertFunction(functions.get(4), "action", 1, 6, null, "enumeration", null);
-			assertEquals("zigbee." + IEEE + ".2.temperature", temperature.tValueByName("genericName"));
+			ZigbeeFunction occupancy = assertFunction(functions.get(2), "occupancy", 2, 1030, 0, "boolean", null);
+			ZigbeeFunction battery = assertFunction(functions.get(3), "battery", 2, 1, 33, "real", "%");
+			ZigbeeFunction action = assertFunction(functions.get(4), "action", 1, 6, null, "enumeration", null);
+			assertEquals("zigbee." + IEEE + ".2.temperature", temperature.getGenericName());
 
 			// Datapoints for occupancy and temperature.
-			TLObject occupancyDp;
-			TLObject temperatureDp;
+			ApplicationDatapoint occupancyDp;
+			ApplicationDatapoint temperatureDp;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				occupancyDp = ZigbeeBindings.createDatapoint(occupancy);
-				temperatureDp = ZigbeeBindings.createDatapoint(temperature);
+				occupancyDp = (ApplicationDatapoint) ZigbeeBindings.createDatapoint(occupancy);
+				temperatureDp = (ApplicationDatapoint) ZigbeeBindings.createDatapoint(temperature);
 				tx.commit();
 			}
-			assertEquals("philips-sml002-occupancy", occupancyDp.tValueByName("identifier"));
-			assertEquals("philips-sml002-temperature", temperatureDp.tValueByName("identifier"));
-			assertEquals("°C", temperatureDp.tValueByName("unit"));
+			assertEquals("philips-sml002-occupancy", occupancyDp.getIdentifier());
+			assertEquals("philips-sml002-temperature", temperatureDp.getIdentifier());
+			assertEquals("°C", temperatureDp.getUnit());
 			assertEquals(List.of(occupancyDp), ZigbeeBindings.boundDatapoints(occupancy));
 			assertNotNull(ZigbeeBindings.bindVeto(occupancy));
 			assertNull(ZigbeeBindings.bindVeto(battery));
@@ -141,7 +147,7 @@ public class TestZigbeeDevices extends BasicTestCase {
 
 			// Importing the same file again changes nothing, and the user's name and room stay.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				device.tUpdateByName("name", "Bewegungsmelder Flur");
+				device.setName("Bewegungsmelder Flur");
 				tx.commit();
 			}
 			List<Object> before = ids(project);
@@ -152,7 +158,7 @@ public class TestZigbeeDevices extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(before, ids(project));
-			assertEquals("Bewegungsmelder Flur", device.tValueByName("name"));
+			assertEquals("Bewegungsmelder Flur", device.getName());
 			assertEquals(List.of(occupancyDp), ZigbeeBindings.boundDatapoints(occupancy));
 
 			// The action function: a client binding, an enumeration.
@@ -170,17 +176,17 @@ public class TestZigbeeDevices extends BasicTestCase {
 				client.get("zigbee"));
 
 			// A binding of the wrong type: a refusal with the path, against the datapoint.
-			update(occupancyDp, "type", valueType("real"));
+			update(() -> occupancyDp.setType(valueType("real")));
 			image = RuntimeImage.build(project, 1, NOW);
 			assertRefusal(image, "datapoints[0].zigbee", "the function occupancy carries boolean values, the datapoint is real");
 			assertSame(occupancyDp, image.elementAt("datapoints[0].zigbee"));
-			update(occupancyDp, "type", valueType("boolean"));
+			update(() -> occupancyDp.setType(valueType("boolean")));
 
 			// A writable datapoint of a function that cannot be commanded.
-			update(temperatureDp, "writable", Boolean.TRUE);
+			update(() -> temperatureDp.setWritable(true));
 			image = RuntimeImage.build(project, 1, NOW);
 			assertRefusal(image, "datapoints[1].zigbee", "a transmitting Zigbee datapoint needs the cluster its commands go to");
-			update(temperatureDp, "writable", Boolean.FALSE);
+			update(() -> temperatureDp.setWritable(false));
 
 			// A function bound twice (the binding commands refuse it; set directly, the image does).
 			try {
@@ -194,13 +200,13 @@ public class TestZigbeeDevices extends BasicTestCase {
 				assertEquals(I18NConstants.VETO_BOUND__DATAPOINT.fill("Philips SML002 temperature (philips-sml002-temperature)"),
 					ex.getErrorKey());
 			}
-			TLObject second;
+			ApplicationDatapoint second;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				second = RuleFunctions.create(project, "applicationDatapoints",
+				second = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
 					(TLClass) TLModelUtil.findType("ehome.runtime:ApplicationDatapoint"));
-				second.tUpdateByName("identifier", "temperature.again");
-				second.tUpdateByName("type", valueType("real"));
-				second.tUpdateByName("zigbeeFunction", temperature);
+				second.setIdentifier("temperature.again");
+				second.setType(valueType("real"));
+				second.setZigbeeFunction(temperature);
 				tx.commit();
 			}
 			image = RuntimeImage.build(project, 1, NOW);
@@ -236,14 +242,14 @@ public class TestZigbeeDevices extends BasicTestCase {
 			}
 			assertFalse(battery.tValid());
 			assertTrue(temperature.tValid());
-			assertEquals(Boolean.TRUE, temperature.tValueByName("absent"));
-			assertEquals(4, objects(device, "functions").size());
+			assertEquals(Boolean.TRUE, temperature.getAbsentOrNull());
+			assertEquals(4, device.getFunctions().size());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ZigbeeImport.importExport(project, ZigbeeExport.parse(text));
 				tx.commit();
 			}
-			assertFalse(Boolean.TRUE.equals(temperature.tValueByName("absent")));
-			assertEquals(5, objects(device, "functions").size());
+			assertFalse(Boolean.TRUE.equals(temperature.getAbsentOrNull()));
+			assertEquals(5, device.getFunctions().size());
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -255,14 +261,14 @@ public class TestZigbeeDevices extends BasicTestCase {
 		String two = text.replace("\"devices\": [", "\"devices\": [" + device(text).replace(IEEE, "00158d0001020304") + ",");
 		FakeController fake = new FakeController(TOKEN, 262144);
 		TLObject project = project("Zigbee controller", "P-TEST-40-CONTROLLER");
-		TLObject controller;
+		Controller controller;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			controller = ModelService.getInstance().getFactory()
+			controller = (Controller) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-			controller.tUpdateByName("name", "Fake");
-			controller.tUpdateByName("host", "127.0.0.1");
-			controller.tUpdateByName("port", Integer.valueOf(fake.getPort()));
-			controller.tUpdateByName("token", TOKEN);
+			controller.setName("Fake");
+			controller.setHost("127.0.0.1");
+			controller.setPort(fake.getPort());
+			controller.setToken(TOKEN);
 			ControllerFixture.own(project, controller);
 			tx.commit();
 		}
@@ -284,14 +290,14 @@ public class TestZigbeeDevices extends BasicTestCase {
 			assertTrue(summary, summary.contains(": 2 ("));
 			List<TLObject> devices = ZigbeeImport.devices(project);
 			assertEquals(2, devices.size());
-			assertEquals("00158d0001020304", devices.get(0).tValueByName("ieee"));
-			assertEquals(IEEE, devices.get(1).tValueByName("ieee"));
-			assertEquals(5, objects(devices.get(1), "functions").size());
+			assertEquals("00158d0001020304", ((ZigbeeDevice) devices.get(0)).getIeee());
+			assertEquals(IEEE, ((ZigbeeDevice) devices.get(1)).getIeee());
+			assertEquals(5, ((ZigbeeDevice) devices.get(1)).getFunctions().size());
 			List<Object> before = ids(project);
 			ZigbeeController.read(project);
 			assertEquals(before, ids(project));
 
-			update(controller, "token", "hct_ffffffffffffffffffffffffffffffff");
+			update(() -> controller.setToken("hct_ffffffffffffffffffffffffffffffff"));
 			try {
 				ZigbeeController.read(project);
 				fail("A wrong token is accepted.");
@@ -324,33 +330,34 @@ public class TestZigbeeDevices extends BasicTestCase {
 
 	private static TLObject project(String name, String extId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject project = ModelService.getInstance().getFactory()
+			Project project = (Project) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", name);
-			project.tUpdateByName("extId", extId);
+			project.setName(name);
+			project.setExtId(extId);
 			tx.commit();
 			return project;
 		}
 	}
 
-	private static void assertEndpoint(TLObject endpoint, int id, int profile, int deviceType, String in, String out) {
-		assertEquals(Integer.valueOf(id), endpoint.tValueByName("endpoint"));
-		assertEquals(Integer.valueOf(profile), endpoint.tValueByName("profile"));
-		assertEquals(Integer.valueOf(deviceType), endpoint.tValueByName("deviceType"));
-		assertEquals(in, endpoint.tValueByName("inputClusters"));
-		assertEquals(out, endpoint.tValueByName("outputClusters"));
-		assertNull(endpoint.tValueByName("zoneType"));
+	private static void assertEndpoint(ZigbeeEndpoint endpoint, int id, int profile, int deviceType, String in,
+			String out) {
+		assertEquals(Integer.valueOf(id), endpoint.getEndpointOrNull());
+		assertEquals(Integer.valueOf(profile), endpoint.getProfile());
+		assertEquals(Integer.valueOf(deviceType), endpoint.getDeviceType());
+		assertEquals(in, endpoint.getInputClusters());
+		assertEquals(out, endpoint.getOutputClusters());
+		assertNull(endpoint.getZoneType());
 	}
 
-	private static TLObject assertFunction(TLObject function, String key, int endpoint, int cluster, Integer attribute,
-			String type, String unit) {
-		assertEquals(key, function.tValueByName("function"));
-		assertEquals(Integer.valueOf(endpoint), function.tValueByName("endpoint"));
-		assertEquals(Integer.valueOf(cluster), function.tValueByName("cluster"));
-		assertEquals(attribute, function.tValueByName("attribute"));
-		assertEquals(type, ((TLClassifier) function.tValueByName("valueType")).getName());
-		assertEquals(unit, function.tValueByName("unit"));
-		assertEquals(Boolean.FALSE, function.tValueByName("writable"));
+	private static ZigbeeFunction assertFunction(ZigbeeFunction function, String key, int endpoint, int cluster,
+			Integer attribute, String type, String unit) {
+		assertEquals(key, function.getFunction());
+		assertEquals(Integer.valueOf(endpoint), function.getEndpointOrNull());
+		assertEquals(Integer.valueOf(cluster), function.getCluster());
+		assertEquals(attribute, function.getAttribute());
+		assertEquals(type, ((TLClassifier) function.getValueType()).getName());
+		assertEquals(unit, function.getUnit());
+		assertEquals(Boolean.FALSE, function.getWritableOrNull());
 		return function;
 	}
 
@@ -373,35 +380,27 @@ public class TestZigbeeDevices extends BasicTestCase {
 		List<Object> result = new ArrayList<>();
 		for (TLObject device : ZigbeeImport.devices(project)) {
 			result.add(device.tId());
-			for (TLObject part : objects(device, "endpoints")) {
+			for (TLObject part : ((ZigbeeDevice) device).getEndpoints()) {
 				result.add(part.tId());
 			}
-			for (TLObject part : objects(device, "functions")) {
+			for (TLObject part : ((ZigbeeDevice) device).getFunctions()) {
 				result.add(part.tId());
 			}
 		}
-		for (TLObject datapoint : objects(project, "applicationDatapoints")) {
+		for (TLObject datapoint : ((Project) project).getApplicationDatapoints()) {
 			result.add(datapoint.tId());
 		}
 		return result;
 	}
 
-	private static List<TLObject> objects(TLObject owner, String reference) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object element : (Iterable<?>) owner.tValueByName(reference)) {
-			result.add((TLObject) element);
-		}
-		return result;
-	}
-
-	private static void update(TLObject obj, String attribute, Object value) {
+	private static void update(Runnable change) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			obj.tUpdateByName(attribute, value);
+			change.run();
 			tx.commit();
 		}
 	}
 
-	private static Object valueType(String name) {
+	private static TLClassifier valueType(String name) {
 		return ((com.top_logic.model.TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType"))
 			.getClassifier(name);
 	}

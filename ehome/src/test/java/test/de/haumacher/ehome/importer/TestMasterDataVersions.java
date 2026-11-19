@@ -42,6 +42,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.MasterDataUpdates;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
+import de.haumacher.ehome.model.operational.MaskVersion;
 
 /**
  * The mask versions by the version of the master data they come from (haumacher/ehome #34), with the
@@ -95,9 +97,9 @@ public class TestMasterDataVersions extends BasicTestCase {
 		Map<String, String> fromOld = dumps();
 		assertFalse(fromOld.get("MV-FFF1").equals(fromNew.get("MV-FFF1")));
 		assertEquals(fromOld.get("MV-FFF2"), fromNew.get("MV-FFF2"));
-		Map<String, TLObject> before = masks();
+		Map<String, MaskVersion> before = masks();
 		// The old master data: the configuration by memory is the current one.
-		assertFalse(((Collection<?>) configuration(before.get("MV-FFF1"), false).tValueByName("memory")).isEmpty());
+		assertFalse(configuration(before.get("MV-FFF1"), false).getMemory().isEmpty());
 
 		List<BufferingI18NLog.Entry> messages = masterDataEntries(importSample(NEW));
 		assertEquals(1, messages.size());
@@ -115,13 +117,13 @@ public class TestMasterDataVersions extends BasicTestCase {
 		assertEquals(fromNew, dumps());
 		assertEquals(Map.of("MV-FFF1", 1002, "MV-FFF2", 1002), versions());
 		// The new master data: the configuration by memory is the legacy one.
-		assertFalse(((Collection<?>) configuration(before.get("MV-FFF1"), true).tValueByName("memory")).isEmpty());
-		assertTrue(((Collection<?>) configuration(before.get("MV-FFF1"), false).tValueByName("memory")).isEmpty());
+		assertFalse(configuration(before.get("MV-FFF1"), true).getMemory().isEmpty());
+		assertTrue(configuration(before.get("MV-FFF1"), false).getMemory().isEmpty());
 		// In place: the mask versions keep their identity, the compatible mask refers to the known one.
 		assertEquals(before, masks());
-		assertEquals(List.of(before.get("MV-FFF2")), before.get("MV-FFF1").tValueByName("compatibleMasks"));
+		assertEquals(List.of(before.get("MV-FFF2")), before.get("MV-FFF1").getCompatibleMasks());
 		// No duplicates of the parts, no candidates left over.
-		assertEquals(2, instances(MASK).stream().filter(m -> TEST_MASKS.contains(m.tValueByName("extId"))).count());
+		assertEquals(2, instances(MASK).stream().filter(m -> TEST_MASKS.contains(((MaskVersion) m).getExtId())).count());
 	}
 
 	/**
@@ -131,7 +133,7 @@ public class TestMasterDataVersions extends BasicTestCase {
 	public void testOlderKeeps() throws Exception {
 		importSample(NEW);
 		Map<String, String> fromNew = dumps();
-		Map<String, TLObject> before = masks();
+		Map<String, MaskVersion> before = masks();
 
 		List<BufferingI18NLog.Entry> messages = masterDataEntries(importSample(OLD));
 		assertEquals(1, messages.size());
@@ -162,7 +164,7 @@ public class TestMasterDataVersions extends BasicTestCase {
 			deleteTestMasks();
 			importSample(file);
 			Map<String, String> dumped = dumps();
-			Map<String, TLObject> before = masks();
+			Map<String, MaskVersion> before = masks();
 			int parts = parts();
 			assertEquals(List.of(), masterDataMessages(importSample(file)));
 			assertEquals(dumped, dumps());
@@ -182,10 +184,10 @@ public class TestMasterDataVersions extends BasicTestCase {
 		return messages;
 	}
 
-	private static TLObject configuration(TLObject mask, boolean legacy) {
-		for (Object configuration : (Collection<?>) mask.tValueByName("configurations")) {
-			if (Boolean.valueOf(legacy).equals(((TLObject) configuration).tValueByName("legacy"))) {
-				return (TLObject) configuration;
+	private static MaskConfiguration configuration(MaskVersion mask, boolean legacy) {
+		for (MaskConfiguration configuration : mask.getConfigurations()) {
+			if (Boolean.valueOf(legacy).equals(configuration.getLegacyOrNull())) {
+				return configuration;
 			}
 		}
 		return null;
@@ -210,10 +212,11 @@ public class TestMasterDataVersions extends BasicTestCase {
 		return masterDataEntries(messages).stream().map(BufferingI18NLog.Entry::getMessage).toList();
 	}
 
-	private static Map<String, TLObject> masks() {
-		Map<String, TLObject> result = new TreeMap<>();
-		for (TLObject mask : instances(MASK)) {
-			String id = (String) mask.tValueByName("extId");
+	private static Map<String, MaskVersion> masks() {
+		Map<String, MaskVersion> result = new TreeMap<>();
+		for (TLObject obj : instances(MASK)) {
+			MaskVersion mask = (MaskVersion) obj;
+			String id = mask.getExtId();
 			if (TEST_MASKS.contains(id)) {
 				assertNull("Duplicate mask version " + id + ".", result.put(id, mask));
 			}
@@ -223,7 +226,7 @@ public class TestMasterDataVersions extends BasicTestCase {
 
 	private static Map<String, Integer> versions() {
 		Map<String, Integer> result = new TreeMap<>();
-		masks().forEach((id, mask) -> result.put(id, (Integer) mask.tValueByName(VERSION)));
+		masks().forEach((id, mask) -> result.put(id, mask.getMasterDataVersion()));
 		return result;
 	}
 

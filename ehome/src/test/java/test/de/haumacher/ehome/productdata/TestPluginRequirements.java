@@ -33,6 +33,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.PluginRequirements;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -87,7 +88,7 @@ public class TestPluginRequirements extends BasicTestCase {
 		assertEquals(List.of("UserInterfacePlugin", "DownloadPlugin"), names(program(DOWNLOAD)));
 		assertEquals(List.of("DataHandler", "ExternalSoftware"), names(program(DATA)));
 		for (String id : List.of(UI, DOWNLOAD, DATA)) {
-			assertEquals(id, Boolean.TRUE, program(id).tValueByName("requirementsRead"));
+			assertEquals(id, Boolean.TRUE, program(id).getRequirementsReadOrNull());
 		}
 		assertFalse(PluginRequirements.refusesDownload(PluginRequirements.requirements(program(UI))));
 		assertTrue(PluginRequirements.refusesDownload(PluginRequirements.requirements(program(DOWNLOAD))));
@@ -215,15 +216,15 @@ public class TestPluginRequirements extends BasicTestCase {
 	public void testKnownProgramCompleted() throws Exception {
 		Program program = program(DATA);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			program.tUpdateByName(PluginRequirements.REQUIREMENTS, Set.of());
-			program.tUpdateByName("requirementsRead", null);
+			program.setRequirements(Set.of());
+			program.setRequirementsReadOrNull(null);
 			tx.commit();
 		}
 		assertEquals(List.of(), names(program));
 
 		List<BufferingI18NLog.Entry> again = importSample(FILE);
 		assertEquals(List.of("DataHandler", "ExternalSoftware"), names(program));
-		assertEquals(Boolean.TRUE, program.tValueByName("requirementsRead"));
+		assertEquals(Boolean.TRUE, program.getRequirementsReadOrNull());
 		assertEquals(List.of("WARN The application program \"" + DATA + "\" needs in ETS what E-Home does not run "
 			+ "(Data handler, External software): its devices can be planned, parameterized and connected, but "
 			+ "E-Home cannot download them."), requirementMessages(again));
@@ -238,7 +239,7 @@ public class TestPluginRequirements extends BasicTestCase {
 	}
 
 	private static TLObject firstLine(TLObject project) {
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				return (TLObject) line;
 			}
@@ -249,7 +250,7 @@ public class TestPluginRequirements extends BasicTestCase {
 
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object area : (Collection<?>) project.tValueByName("areas")) {
+		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
 					result.add((TLObject) device);

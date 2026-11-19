@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.function.Function;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.HistoryUtils;
@@ -38,6 +39,7 @@ import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
@@ -688,14 +690,20 @@ public final class ChannelShape {
 		return false;
 	}
 
-	private static final List<String> FLAGS =
-		List.of("communication", "canRead", "canWrite", "transmission", "update", "readOnInit");
+	/** The flags of a placed object, each in effect at the placement, else at the program's object. */
+	private static final List<Function<Interface, TLClassifier>> FLAGS = List.of(Interface::getCommunication,
+		Interface::getCanRead, Interface::getCanWrite, Interface::getTransmission, Interface::getUpdate,
+		Interface::getReadOnInit);
+
+	/** The flags of {@link #FLAGS} at the program's object, in the same order. */
+	private static final List<Function<Port, TLClassifier>> PORT_FLAGS = List.of(Port::getCommunication,
+		Port::getCanRead, Port::getCanWrite, Port::getTransmission, Port::getUpdate, Port::getReadOnInit);
 
 	private static boolean sameObject(Interface a, Interface b) {
 		if (ObjectTypes.size(a) != ObjectTypes.size(b)) {
 			return false;
 		}
-		for (String flag : FLAGS) {
+		for (int flag = 0; flag < FLAGS.size(); flag++) {
 			if (!Objects.equals(flag(a, flag), flag(b, flag))) {
 				return false;
 			}
@@ -703,13 +711,13 @@ public final class ChannelShape {
 		return true;
 	}
 
-	private static String flag(Interface placed, String flag) {
-		for (TLObject holder : new TLObject[] { placed, placed.getPort() }) {
-			if (holder != null && holder.tValueByName(flag) instanceof TLClassifier classifier) {
-				return classifier.getName();
-			}
+	private static String flag(Interface placed, int flag) {
+		TLClassifier classifier = FLAGS.get(flag).apply(placed);
+		if (classifier == null) {
+			Port port = placed.getPort();
+			classifier = port == null ? null : PORT_FLAGS.get(flag).apply(port);
 		}
-		return null;
+		return classifier == null ? null : classifier.getName();
 	}
 
 	/**

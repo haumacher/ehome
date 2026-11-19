@@ -39,6 +39,8 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
@@ -108,7 +110,7 @@ public final class ProjectFileExport {
 		assignIds(_project, "");
 		for (TLObject address : groupAddresses()) {
 			assignIds(address, ProjectFile.GROUP_ADDRESSES_MEMBER + "/"
-				+ RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
+				+ RuntimeImage.threeLevel(((GroupAddress) address).getAddress().getValue()));
 		}
 		for (TLObject device : devices()) {
 			assignIds(device, ProjectFile.DEVICES_MEMBER + "/" + device.tValueByName("extId"));
@@ -120,15 +122,15 @@ public final class ProjectFileExport {
 		result.put(ProjectFile.EXPORTED_MEMBER, time.truncatedTo(ChronoUnit.SECONDS).toString());
 
 		Map<String, Object> project = new LinkedHashMap<>();
-		project.put(ProjectFile.ID_MEMBER, _project.tValueByName("extId"));
-		project.put(ProjectFile.NAME_MEMBER, _project.tValueByName("name"));
+		project.put(ProjectFile.ID_MEMBER, ((Project) _project).getExtId());
+		project.put(ProjectFile.NAME_MEMBER, ((Project) _project).getName());
 		writeAttributes(project, _project);
 		result.put(ProjectFile.PROJECT_MEMBER, project);
 
 		List<Object> settings = new ArrayList<>();
 		for (TLObject address : groupAddresses()) {
 			Map<String, Object> entry = new LinkedHashMap<>();
-			entry.put(ProjectFile.GA, RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
+			entry.put(ProjectFile.GA, RuntimeImage.threeLevel(((GroupAddress) address).getAddress().getValue()));
 			writeAttributes(entry, address);
 			if (entry.size() > 1) {
 				settings.add(entry);
@@ -174,7 +176,7 @@ public final class ProjectFileExport {
 	private List<TLObject> groupAddresses() {
 		TreeMap<Integer, TLObject> result = new TreeMap<>();
 		for (TLObject obj : _knx) {
-			if (isGroupAddress(obj) && obj.tValueByName("address") instanceof GA address) {
+			if (isGroupAddress(obj) && ((GroupAddress) obj).getAddress() instanceof GA address) {
 				result.put(Integer.valueOf(address.getValue()), obj);
 			}
 		}
@@ -353,7 +355,7 @@ public final class ProjectFileExport {
 			return id;
 		}
 		if (_knx.contains(target)) {
-			if (isGroupAddress(target) && target.tValueByName("address") instanceof GA address) {
+			if (isGroupAddress(target) && ((GroupAddress) target).getAddress() instanceof GA address) {
 				return Map.of(ProjectFile.GA, RuntimeImage.threeLevel(address.getValue()));
 			}
 			String key = ProjectFile.knxKey(target);

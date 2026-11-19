@@ -15,6 +15,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.AbstractReferenceImport;
 
+import de.haumacher.ehome.model.operational.Rename;
+
 /**
  * Imports the target of a rename of an application program (ETS: <code>Rename@RefId</code>, the block
  * or channel getting another title, haumacher/ehome #122).
@@ -28,8 +30,6 @@ import com.top_logic.xio.importer.handlers.AbstractReferenceImport;
  * </p>
  */
 public class RenameTarget<C extends RenameTarget.Config<?>> extends AbstractReferenceImport<C> {
-
-	private static final String EXT_ID = "extId";
 
 	/**
 	 * Configuration of {@link RenameTarget}.
@@ -69,7 +69,7 @@ public class RenameTarget<C extends RenameTarget.Config<?>> extends AbstractRefe
 		if (!(rename instanceof TLObject obj) || !obj.tValid()) {
 			return;
 		}
-		Object id = obj.tValueByName(EXT_ID);
+		Object id = ((Rename) obj).getExtId();
 		context.log(Level.WARN, location,
 			I18NConstants.WARN_RENAME_TARGET_NOT_IMPORTED__RENAME_TARGET.fill(id == null ? "" : id.toString(), target),
 			null);

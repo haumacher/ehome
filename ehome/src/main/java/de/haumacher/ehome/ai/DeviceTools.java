@@ -38,6 +38,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.catalog.Catalog;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
@@ -162,7 +163,7 @@ public class DeviceTools {
 	}
 
 	private static void collectSections(TLObject catalog, String path, Map<TLObject, String> result) {
-		Object name = catalog.tValueByName("name");
+		Object name = ((Catalog) catalog).getNameKey();
 		String own = path == null ? Objects.toString(name, "") : path + " / " + Objects.toString(name, "");
 		for (TLObject variant : ExtIds.list(catalog, "variants")) {
 			result.putIfAbsent(variant, own);

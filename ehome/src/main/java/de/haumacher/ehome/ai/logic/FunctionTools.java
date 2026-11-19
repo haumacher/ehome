@@ -32,6 +32,11 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.ai.CommitMessages;
 import de.haumacher.ehome.ai.I18NConstants;
 import de.haumacher.ehome.ai.logic.LogicSupport.Outcome;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.model.runtime.Page;
+import de.haumacher.ehome.model.runtime.PageSection;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -185,7 +190,7 @@ public class FunctionTools {
 		for (TLObject function : functions) {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("function", label(function));
-			entry.put("proposed", Boolean.valueOf(function.tValueByName("channel") != null));
+			entry.put("proposed", Boolean.valueOf(((Function) function).getChannel() != null));
 			entry.put("stillReferredToBy", RuleTools.usage(owner, function, null));
 			report.add(entry);
 		}
@@ -276,18 +281,16 @@ public class FunctionTools {
 		}
 		boolean dry = Boolean.TRUE.equals(dryRun);
 		return LogicSupport.perform(context, owner, dry, () -> {
-			TLObject function = ModelService.getInstance().getFactory()
+			Function function = (Function) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
-			function.tUpdateByName("name", LogicSupport.allLanguages(name));
-			function.tUpdateByName("kind", FunctionProposal.classifier(kind));
-			function.tUpdateByName("room", room);
+			function.setNameKey(LogicSupport.allLanguages(name));
+			function.setKind(FunctionProposal.classifier(kind));
+			function.setRoom((BuildingDefinition) room);
 			if (scene != null) {
-				function.tUpdateByName("scene", scene);
+				function.setScene(scene);
 			}
 			targets.forEach((role, target) -> function.tUpdateByName(role, target));
-			List<TLObject> functions = FunctionProposal.functions(owner);
-			functions.add(function);
-			owner.tUpdateByName("functions", functions);
+			((Project) owner).addFunction(function);
 			List<AutomationChange.Problem> problems = AutomationChange.check("function " + name, function);
 			List<Reason> errors = LogicSupport.reasons(problems, false);
 			if (!errors.isEmpty()) {
@@ -383,12 +386,12 @@ public class FunctionTools {
 				last = page;
 			}
 			TLObject page = Pages.insert(owner, last, Pages.PAGE, List.of());
-			page.tUpdateByName("name", LogicSupport.allLanguages(name));
+			((Page) page).setNameKey(LogicSupport.allLanguages(name));
 			List<Object> problems = new ArrayList<>();
 			for (int n = 0; n < resolved.size(); n++) {
 				TLObject section = Pages.insert(owner, page, Pages.SECTION, List.of());
 				if (titles.get(n) != null) {
-					section.tUpdateByName("title", LogicSupport.allLanguages(titles.get(n)));
+					((PageSection) section).setTitle(LogicSupport.allLanguages(titles.get(n)));
 				}
 				for (Map.Entry<String, List<TLObject>> kind : resolved.get(n).entrySet()) {
 					if (!kind.getValue().isEmpty()) {
@@ -411,7 +414,7 @@ public class FunctionTools {
 			if (!dry) {
 				data.put("page", LogicSupport.ref(page));
 			}
-			data.put("identifier", page.tValueByName("identifier"));
+			data.put("identifier", ((Page) page).getIdentifier());
 			List<Object> sectionList = new ArrayList<>();
 			for (TLObject section : Pages.children(page)) {
 				Map<String, Object> entry = new LinkedHashMap<>();
@@ -452,7 +455,7 @@ public class FunctionTools {
 		result.put("name", label(function));
 		String kind = FunctionProposal.kind(function);
 		result.put("kind", kind);
-		if (function.tValueByName("room") instanceof TLObject room) {
+		if (((Function) function).getRoom() instanceof TLObject room) {
 			result.put("room", label(room));
 		}
 		Map<String, Object> roles = new LinkedHashMap<>();

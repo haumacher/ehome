@@ -29,6 +29,8 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.operational.Program;
+
 /**
  * Probe of the program parts made known on demand and the set additions stored at the end of an
  * import: imports alternating between two projects sharing the push-button program leave every
@@ -100,7 +102,7 @@ public class TestSharedObjectsProbe extends BasicTestCase {
 					inSets += value instanceof Collection<?> c ? c.size() : value == null ? 0 : 1;
 				}
 			}
-			assertEquals("Parts of " + program.tValueByName("extId"), contained.getOrDefault(program, 0).intValue(),
+			assertEquals("Parts of " + ((Program) program).getExtId(), contained.getOrDefault(program, 0).intValue(),
 				inSets);
 		}
 	}

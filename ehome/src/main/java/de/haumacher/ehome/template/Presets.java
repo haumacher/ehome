@@ -35,6 +35,11 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.template.AlikeChannel;
+import de.haumacher.ehome.model.template.DeviceTemplate;
+import de.haumacher.ehome.model.template.Preset;
+import de.haumacher.ehome.model.template.PresetObject;
+import de.haumacher.ehome.model.template.PresetValue;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -189,7 +194,7 @@ public final class Presets {
 		if (shape == null) {
 			Program program = program(template);
 			if (ChannelShape.moduleChannel(program, key) != null) {
-				return (String) ChannelShape.moduleChannel(program, key).tValueByName("displayName");
+				return ChannelShape.moduleChannel(program, key).getDisplayName();
 			}
 			return key;
 		}
@@ -201,14 +206,14 @@ public final class Presets {
 	 */
 	public static String presetChannelLabel(TLObject preset) {
 		TLObject template = preset == null ? null : preset.tContainer();
-		return template == null ? null : templateChannelLabel(template, (String) preset.tValueByName("channel"));
+		return template == null ? null : templateChannelLabel(template, ((Preset) preset).getChannel());
 	}
 
 	/**
 	 * The application program of a template.
 	 */
 	public static Program program(TLObject template) {
-		return template != null && template.tValueByName("program") instanceof Program program ? program : null;
+		return template != null && ((DeviceTemplate) template).getProgram() instanceof Program program ? program : null;
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -219,9 +224,9 @@ public final class Presets {
 	 * alike to none.
 	 */
 	public static String model(TLObject template, String key) {
-		for (TLObject alike : list(template, "alikeChannels")) {
-			if (Objects.equals(alike.tValueByName("channel"), key)) {
-				return (String) alike.tValueByName("model");
+		for (AlikeChannel alike : alikes(template)) {
+			if (Objects.equals(alike.getChannel(), key)) {
+				return alike.getModel();
 			}
 		}
 		return key;
@@ -307,9 +312,9 @@ public final class Presets {
 		List<String> channels = new ArrayList<>(new LinkedHashSet<>(keys));
 		String model = model(template, channels.get(0));
 		Set<String> members = members(template, channels, model);
-		List<TLObject> declarations = new ArrayList<>();
-		for (TLObject alike : list(template, "alikeChannels")) {
-			Object channel = alike.tValueByName("channel");
+		List<AlikeChannel> declarations = new ArrayList<>();
+		for (AlikeChannel alike : alikes(template)) {
+			Object channel = alike.getChannel();
 			if (members.contains(channel) || model.equals(channel)) {
 				alike.tDelete();
 			} else {
@@ -317,12 +322,12 @@ public final class Presets {
 			}
 		}
 		for (String key : members) {
-			TLObject alike = create(ALIKE);
-			alike.tUpdateByName("channel", key);
-			alike.tUpdateByName("model", model);
+			AlikeChannel alike = (AlikeChannel) create(ALIKE);
+			alike.setChannel(key);
+			alike.setModel(model);
 			declarations.add(alike);
 		}
-		template.tUpdateByName("alikeChannels", declarations);
+		((DeviceTemplate) template).setAlikeChannels(declarations);
 	}
 
 	/**
@@ -332,8 +337,8 @@ public final class Presets {
 	 */
 	public static void removeAlike(TLObject template, Collection<String> keys) {
 		checkTemplateWrite();
-		for (TLObject alike : list(template, "alikeChannels")) {
-			if (keys.contains(alike.tValueByName("channel")) || keys.contains(alike.tValueByName("model"))) {
+		for (AlikeChannel alike : alikes(template)) {
+			if (keys.contains(alike.getChannel()) || keys.contains(alike.getModel())) {
 				alike.tDelete();
 			}
 		}
@@ -476,46 +481,52 @@ public final class Presets {
 		if (template == null) {
 			template = DeviceTemplates.create(program);
 		}
-		for (TLObject existing : list(template, "presets")) {
-			if (key.equals(existing.tValueByName("channel")) && trimmed.equals(existing.tValueByName("name"))) {
+		for (Preset existing : presets(template)) {
+			if (key.equals(existing.getChannel()) && trimmed.equals(existing.getName())) {
 				throw new TopLogicException(I18NConstants.ERROR_PRESET_NAME_TAKEN__NAME_CHANNEL.fill(trimmed,
 					shape.label(device)));
 			}
 		}
-		TLObject preset = create(PRESET);
-		preset.tUpdateByName("name", trimmed);
-		preset.tUpdateByName("channel", key);
-		preset.tUpdateByName("purpose", purpose);
-		preset.tUpdateByName("kind", source ? null : kind);
-		preset.tUpdateByName("operations", source ? new ArrayList<>(operations) : List.of());
-		List<TLObject> values = new ArrayList<>();
+		Preset preset = (Preset) create(PRESET);
+		preset.setName(trimmed);
+		preset.setChannel(key);
+		preset.setPurpose((TLClassifier) purpose);
+		preset.setKind(source ? null : (TLClassifier) kind);
+		List<TLClassifier> chosenOperations = new ArrayList<>();
+		if (source) {
+			for (Object operation : operations) {
+				chosenOperations.add((TLClassifier) operation);
+			}
+		}
+		preset.setOperations(chosenOperations);
+		List<PresetValue> values = new ArrayList<>();
 		Set<ParameterView> chosen = new LinkedHashSet<>(views);
 		for (Candidate candidate : candidates(device, key)) {
 			if (!chosen.contains(candidate.view())) {
 				continue;
 			}
-			TLObject value = create(VALUE);
-			value.tUpdateByName("parameter", ModuleParts.template(candidate.view()));
+			PresetValue value = (PresetValue) create(VALUE);
+			value.setParameter(ModuleParts.template(candidate.view()));
 			ParameterType type = ParameterValues.valueType(ModuleParts.template(candidate.view()));
 			value.tUpdateByName(ParameterValues.valueAttribute(type), candidate.value());
 			values.add(value);
 		}
-		preset.tUpdateByName("values", values);
-		List<TLObject> presetObjects = new ArrayList<>();
+		preset.setValues(values);
+		List<PresetObject> presetObjects = new ArrayList<>();
 		for (Interface placed : objects) {
 			TLObject role = roles.get(placed);
 			if (role == null) {
 				continue;
 			}
-			TLObject object = create(OBJECT);
-			object.tUpdateByName("placement", ModuleParts.template(placed));
-			object.tUpdateByName("role", role);
+			PresetObject object = (PresetObject) create(OBJECT);
+			object.setPlacement(ModuleParts.template(placed));
+			object.setRole((TLClassifier) role);
 			presetObjects.add(object);
 		}
-		preset.tUpdateByName("objects", presetObjects);
-		List<TLObject> presets = list(template, "presets");
+		preset.setObjects(presetObjects);
+		List<Preset> presets = presets(template);
 		presets.add(preset);
-		template.tUpdateByName("presets", presets);
+		((DeviceTemplate) template).setPresets(presets);
 		return preset;
 	}
 
@@ -528,6 +539,7 @@ public final class Presets {
 		if (preset == null) {
 			names = List.of();
 		} else if (isSource((TLObject) preset.tValueByName("purpose"))) {
+			// The preset may be a draft (a transient object, PresetDrafts): no wrapper of the model.
 			names = SOURCE_ROLES;
 		} else {
 			names = FunctionKinds.roles(name((TLObject) preset.tValueByName("kind")));
@@ -556,7 +568,7 @@ public final class Presets {
 		if (template == null || key == null) {
 			return result;
 		}
-		for (TLObject preset : list(template, "presets")) {
+		for (Preset preset : presets(template)) {
 			if (offerVeto(device, key, preset) == null) {
 				result.add(preset);
 			}
@@ -616,11 +628,11 @@ public final class Presets {
 		if (target == null) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_CHANNEL__CHANNEL.fill(key));
 		}
-		String source = (String) preset.tValueByName("channel");
+		String source = ((Preset) preset).getChannel();
 		Counterparts counterparts = counterparts(device, template, source, target, shapes);
 		Map<ParameterView, Object> values = new LinkedHashMap<>();
-		for (TLObject value : list(preset, "values")) {
-			ParameterView view = (ParameterView) value.tValueByName("parameter");
+		for (PresetValue value : ((Preset) preset).getValues()) {
+			ParameterView view = value.getParameter();
 			Option counterpart = view == null ? null : counterparts.of(view);
 			if (!(counterpart instanceof ParameterView mapped)) {
 				throw new TopLogicException(I18NConstants.ERROR_PRESET_NO_COUNTERPART__PRESET_CHANNEL_PARAMETER
@@ -629,14 +641,14 @@ public final class Presets {
 			values.put(mapped, ParameterValues.value(value));
 		}
 		Map<String, Interface> objects = new LinkedHashMap<>();
-		for (TLObject object : list(preset, "objects")) {
-			Interface placed = (Interface) object.tValueByName("placement");
+		for (PresetObject object : ((Preset) preset).getObjects()) {
+			Interface placed = object.getPlacement();
 			Option counterpart = placed == null ? null : counterparts.of(placed);
 			if (!(counterpart instanceof Interface mapped)) {
 				throw new TopLogicException(I18NConstants.ERROR_PRESET_NO_OBJECT__PRESET_CHANNEL_OBJECT
 					.fill(label(preset), target.label(device), placed == null ? "?" : ChannelShape.objectLabel(device, placed)));
 			}
-			if (object.tValueByName("role") instanceof TLClassifier role) {
+			if (object.getRole() instanceof TLClassifier role) {
 				objects.putIfAbsent(role.getName(), mapped);
 			}
 		}
@@ -726,7 +738,7 @@ public final class Presets {
 
 	private static Object display(ParameterView view, Object value) {
 		if (value instanceof EnumerationValue entry) {
-			return entry.tValueByName("name");
+			return entry.getNameKey();
 		}
 		return value == null ? "" : value;
 	}
@@ -873,7 +885,7 @@ public final class Presets {
 	 * Whether the given preset is a source preset (a key, an LED, a sensor), else an actuator preset.
 	 */
 	public static boolean isSourcePreset(TLObject preset) {
-		return preset != null && isSource((TLObject) preset.tValueByName("purpose"));
+		return preset != null && isSource(((Preset) preset).getPurpose());
 	}
 
 	/**
@@ -881,8 +893,10 @@ public final class Presets {
 	 */
 	public static List<String> operations(TLObject preset) {
 		List<String> result = new ArrayList<>();
-		for (TLObject operation : list(preset, "operations")) {
-			result.add(name(operation));
+		if (preset != null) {
+			for (TLClassifier operation : ((Preset) preset).getOperations()) {
+				result.add(name(operation));
+			}
 		}
 		return result;
 	}
@@ -953,7 +967,15 @@ public final class Presets {
 	}
 
 	private static String label(TLObject preset) {
-		return preset == null ? "?" : String.valueOf(preset.tValueByName("name"));
+		return preset == null ? "?" : String.valueOf(((Preset) preset).getName());
+	}
+
+	private static List<AlikeChannel> alikes(TLObject template) {
+		return template == null ? new ArrayList<>() : new ArrayList<>(((DeviceTemplate) template).getAlikeChannels());
+	}
+
+	private static List<Preset> presets(TLObject template) {
+		return template == null ? new ArrayList<>() : new ArrayList<>(((DeviceTemplate) template).getPresets());
 	}
 
 	private static List<TLObject> list(TLObject holder, String reference) {

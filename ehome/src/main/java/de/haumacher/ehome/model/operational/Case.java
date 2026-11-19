@@ -12,4 +12,11 @@ public interface Case extends de.haumacher.ehome.model.operational.internal.Case
 
 	// Wrapper functionality.
 
+	/**
+	 * {@link #getIsDefault()} as stored: <code>null</code> if unset.
+	 */
+	default Boolean getIsDefaultOrNull() {
+		return (Boolean) tValueByName(IS_DEFAULT_ATTR);
+	}
+
 }

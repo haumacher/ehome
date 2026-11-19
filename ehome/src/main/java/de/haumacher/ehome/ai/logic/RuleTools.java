@@ -22,6 +22,7 @@ import java.util.Set;
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.tl.ai.core.agent.ToolContext;
 import com.top_logic.tl.ai.core.tools.refusal.ApplicationRefusals;
 import com.top_logic.tl.ai.core.tools.refusal.messages.Reason;
@@ -34,6 +35,14 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.ai.CommitMessages;
 import de.haumacher.ehome.ai.I18NConstants;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.LogAction;
+import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimer;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ExpressionRenames;
@@ -110,18 +119,18 @@ public class RuleTools {
 		for (TLObject rule : RuleExport.orderedRules(owner)) {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("id", id(rule));
-			entry.put("identifier", rule.tValueByName("identifier"));
+			entry.put("identifier", ((Rule) rule).getIdentifier());
 			entry.put("name", label(rule));
-			entry.put("enabled", rule.tValueByName("enabled"));
+			entry.put("enabled", ((Rule) rule).getEnabled());
 			entry.put("outline", outline(rule));
 			rules.add(entry);
 		}
 		result.put("rules", rules);
 		List<Object> schedules = new ArrayList<>();
-		for (TLObject entry : AutomationChange.objects(owner.tValueByName("schedules"))) {
+		for (TLObject entry : AutomationChange.objects(((Project) owner).getSchedules())) {
 			Map<String, Object> item = new LinkedHashMap<>();
 			item.put("id", id(entry));
-			item.put("identifier", entry.tValueByName("identifier"));
+			item.put("identifier", ((ScheduleEntry) entry).getIdentifier());
 			item.put("label", label(entry));
 			item.put("entry", RuleFunctions.summary(entry));
 			schedules.add(item);
@@ -160,66 +169,71 @@ public class RuleTools {
 		DatapointNames names = DatapointNames.of(owner);
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("rule", ref(rule));
-		result.put("identifier", rule.tValueByName("identifier"));
-		result.put("enabled", rule.tValueByName("enabled"));
-		if (rule.tValueByName("description") != null) {
-			result.put("description", rule.tValueByName("description"));
+		Rule typed = (Rule) rule;
+		result.put("identifier", typed.getIdentifier());
+		result.put("enabled", typed.getEnabled());
+		if (typed.getDescription() != null) {
+			result.put("description", typed.getDescription());
 		}
 		List<Object> parameters = new ArrayList<>();
-		for (TLObject parameter : AutomationChange.objects(rule.tValueByName("parameters"))) {
+		for (TLObject obj : AutomationChange.objects(typed.getParameters())) {
+			RuleParameter parameter = (RuleParameter) obj;
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("parameter", DatapointNames.format(DatapointNames.label(parameter),
-				"$" + parameter.tValueByName("identifier")));
-			entry.put("type", label(parameter.tValueByName("type")));
-			entry.put("default", parameter.tValueByName("default"));
-			if (parameter.tValueByName("unit") != null) {
-				entry.put("unit", parameter.tValueByName("unit"));
+				"$" + parameter.getIdentifier()));
+			entry.put("type", label(parameter.getType()));
+			entry.put("default", parameter.getDefault());
+			if (parameter.getUnit() != null) {
+				entry.put("unit", parameter.getUnit());
 			}
 			parameters.add(entry);
 		}
 		result.put("parameters", parameters);
 		List<Object> timers = new ArrayList<>();
-		for (TLObject timer : AutomationChange.objects(rule.tValueByName("timers"))) {
-			timers.add(timer.tValueByName("identifier") + " = "
-				+ names.expression(rule, (String) timer.tValueByName("duration")));
+		for (TLObject obj : AutomationChange.objects(typed.getTimers())) {
+			RuleTimer timer = (RuleTimer) obj;
+			timers.add(timer.getIdentifier() + " = "
+				+ names.expression(rule, timer.getDuration()));
 		}
 		result.put("timers", timers);
 		List<Object> states = new ArrayList<>();
-		for (TLObject state : AutomationChange.objects(rule.tValueByName("states"))) {
+		for (TLObject obj : AutomationChange.objects(typed.getStates())) {
+			RuleState state = (RuleState) obj;
 			Map<String, Object> entry = new LinkedHashMap<>();
-			entry.put("state", state.tValueByName("identifier"));
-			entry.put("entry", summaries(state.tValueByName("entry")));
-			entry.put("exit", summaries(state.tValueByName("exit")));
+			entry.put("state", state.getIdentifier());
+			entry.put("entry", summaries(state.getEntry()));
+			entry.put("exit", summaries(state.getExit()));
 			states.add(entry);
 		}
 		if (!states.isEmpty()) {
 			result.put("states", states);
-			if (rule.tValueByName("initialState") instanceof TLObject initial) {
-				result.put("initialState", initial.tValueByName("identifier"));
+			if (typed.getInitialState() instanceof RuleState initial) {
+				result.put("initialState", initial.getIdentifier());
 			}
 		}
 		List<Object> reactions = new ArrayList<>();
-		for (TLObject reaction : AutomationChange.objects(rule.tValueByName("reactions"))) {
+		for (TLObject obj : AutomationChange.objects(typed.getReactions())) {
+			Reaction reaction = (Reaction) obj;
 			Map<String, Object> entry = new LinkedHashMap<>();
-			entry.put("when", summaries(reaction.tValueByName("triggers")));
-			String condition = names.expression(rule, (String) reaction.tValueByName("condition"));
+			entry.put("when", summaries(reaction.getTriggers()));
+			String condition = names.expression(rule, reaction.getCondition());
 			if (condition != null) {
 				entry.put("if", condition);
 			}
 			List<String> from = new ArrayList<>();
-			for (TLObject state : AutomationChange.objects(reaction.tValueByName("from"))) {
-				from.add(String.valueOf(state.tValueByName("identifier")));
+			for (TLObject state : AutomationChange.objects(reaction.getFrom())) {
+				from.add(String.valueOf(((RuleState) state).getIdentifier()));
 			}
 			if (!from.isEmpty()) {
 				entry.put("inStates", from);
 			}
-			entry.put("then", summaries(reaction.tValueByName("actions")));
-			List<String> otherwise = summaries(reaction.tValueByName("elseActions"));
+			entry.put("then", summaries(reaction.getActions()));
+			List<String> otherwise = summaries(reaction.getElseActions());
 			if (!otherwise.isEmpty()) {
 				entry.put("else", otherwise);
 			}
-			if (reaction.tValueByName("to") instanceof TLObject to) {
-				entry.put("toState", to.tValueByName("identifier"));
+			if (reaction.getTo() instanceof RuleState to) {
+				entry.put("toState", to.getIdentifier());
 			}
 			reactions.add(entry);
 		}
@@ -497,11 +511,12 @@ public class RuleTools {
 	 */
 	static List<String> outline(TLObject rule) {
 		List<String> result = new ArrayList<>();
-		for (TLObject reaction : AutomationChange.objects(rule.tValueByName("reactions"))) {
+		for (TLObject obj : AutomationChange.objects(((Rule) rule).getReactions())) {
+			Reaction reaction = (Reaction) obj;
 			StringBuilder line = new StringBuilder(RuleFunctions.summary(reaction));
-			List<String> actions = summaries(reaction.tValueByName("actions"));
+			List<String> actions = summaries(reaction.getActions());
 			line.append(" then ").append(actions.isEmpty() ? "-" : String.join("; ", actions));
-			List<String> otherwise = summaries(reaction.tValueByName("elseActions"));
+			List<String> otherwise = summaries(reaction.getElseActions());
 			if (!otherwise.isEmpty()) {
 				line.append(" else ").append(String.join("; ", otherwise));
 			}
@@ -537,7 +552,8 @@ public class RuleTools {
 	private static void collect(TLObject project, TLObject rule, TLObject obj, DatapointNames names, Set<String> reads,
 			Set<String> writes) {
 		String type = obj.tType().getName();
-		if (obj.tType().getPart("datapoint") != null && obj.tValueByName("datapoint") instanceof TLObject target) {
+		TLStructuredTypePart datapoint = obj.tType().getPart("datapoint");
+		if (datapoint != null && obj.tValue(datapoint) instanceof TLObject target) {
 			String name = names.reference(target, "datapoint");
 			if (type.equals("WriteAction")) {
 				writes.add(name);
@@ -545,11 +561,13 @@ public class RuleTools {
 				reads.add(name);
 			}
 		}
-		if (obj.tType().getPart("output") != null && obj.tValueByName("output") instanceof TLObject output) {
+		TLStructuredTypePart outputPart = obj.tType().getPart("output");
+		if (outputPart != null && obj.tValue(outputPart) instanceof TLObject output) {
 			writes.add(names.reference(output, "output"));
 		}
 		for (String attribute : new String[] { "condition", "value", "duration", "after" }) {
-			if (obj.tType().getPart(attribute) != null && obj.tValueByName(attribute) instanceof String text) {
+			TLStructuredTypePart part = obj.tType().getPart(attribute);
+			if (part != null && obj.tValue(part) instanceof String text) {
 				try {
 					references(RuleText.parse(text), names, reads);
 				} catch (SyntaxError ex) {
@@ -557,7 +575,7 @@ public class RuleTools {
 				}
 			}
 		}
-		if (type.equals("LogAction") && obj.tValueByName("message") instanceof String message) {
+		if (type.equals("LogAction") && ((LogAction) obj).getMessage() instanceof String message) {
 			try {
 				for (Object part : RuleText.parseMessage(message)) {
 					references(part, names, reads);

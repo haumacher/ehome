@@ -23,6 +23,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.template.DeviceTemplate;
+import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.modules.ModuleParts;
 
 /**
@@ -348,9 +350,9 @@ public class TemplateFunctions extends GenericMethod {
 		if (template == null) {
 			return result;
 		}
-		for (Object preset : (Collection<?>) template.tValueByName("presets")) {
-			if (channel == null || channel.equals(((TLObject) preset).tValueByName("channel"))) {
-				result.add((TLObject) preset);
+		for (Preset preset : ((DeviceTemplate) template).getPresets()) {
+			if (channel == null || channel.equals(preset.getChannel())) {
+				result.add(preset);
 			}
 		}
 		return result;

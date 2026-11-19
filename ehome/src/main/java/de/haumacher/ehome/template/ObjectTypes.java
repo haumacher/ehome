@@ -14,6 +14,7 @@ import com.top_logic.model.util.TLModelUtil;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.modules.ModuleParts;
 
 /**
@@ -59,11 +60,11 @@ public final class ObjectTypes {
 		if (placed == null) {
 			return new ArrayList<>();
 		}
-		List<TLObject> result = list(placed);
+		List<TLObject> result = list(placed.getDatapointTypes());
 		if (result.isEmpty()) {
 			Port port = placed.getPort();
 			if (port != null) {
-				result = list(port);
+				result = list(port.getDatapointTypes());
 			}
 		}
 		return result;
@@ -76,7 +77,7 @@ public final class ObjectTypes {
 	public static List<TLObject> inherited(Interface placed) {
 		TLObject overlay = overlay(placed);
 		if (overlay != null) {
-			List<TLObject> own = list(overlay);
+			List<TLObject> own = list(((ObjectOverlay) overlay).getDatapointTypes());
 			if (!own.isEmpty()) {
 				return own;
 			}
@@ -93,7 +94,7 @@ public final class ObjectTypes {
 		if (connector == null) {
 			return null;
 		}
-		TLObject own = first(list(connector));
+		TLObject own = first(list(connector.tValueByName(DATAPOINT_TYPES)));
 		if (own != null) {
 			return own;
 		}
@@ -160,9 +161,9 @@ public final class ObjectTypes {
 		return (TLReference) TLModelUtil.findPart("ehome.template:ObjectOverlay#placement");
 	}
 
-	private static List<TLObject> list(TLObject holder) {
+	private static List<TLObject> list(Object value) {
 		List<TLObject> result = new ArrayList<>();
-		if (holder.tValueByName(DATAPOINT_TYPES) instanceof Collection<?> types) {
+		if (value instanceof Collection<?> types) {
 			for (Object type : types) {
 				if (type instanceof TLObject obj) {
 					result.add(obj);

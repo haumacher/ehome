@@ -12,4 +12,11 @@ public interface Baggage extends de.haumacher.ehome.model.catalog.internal.Bagga
 
 	// Wrapper functionality.
 
+	/**
+	 * The value of {@link #UNPACKED_ATTR}, <code>null</code> if it is not set.
+	 */
+	default Boolean getUnpackedOrNull() {
+		return (Boolean) tValueByName(UNPACKED_ATTR);
+	}
+
 }

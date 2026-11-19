@@ -57,6 +57,14 @@ import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.logical.HistoryArchive;
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.BlockParameter;
+import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.ObjectFollower;
+import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileExport;
@@ -173,18 +181,18 @@ public class TestProjectFile extends BasicTestCase {
 			assertEquals(1, imported.size());
 			TLObject copy = imported.get(0);
 			assertSame(copy, report.get(ImportEtsProjectJob.PROJECT));
-			assertEquals(project.tValueByName("extId"), copy.tValueByName("extId"));
+			assertEquals(((Project) project).getExtId(), ((Project) copy).getExtId());
 
 			assertEquals(Json.write(image), Json.write(RuntimeImage.build(copy, 1, TIME).getJson()));
 			assertEquals(dump, dump(copy));
-			assertNull(copy.tValueByName("installationKey"));
-			TLObject controller = (TLObject) copy.tValueByName("controller");
+			assertNull(((Project) copy).getInstallationKey());
+			Controller controller = ((Project) copy).getController();
 			assertNotNull(controller);
-			assertNull(controller.tValueByName("token"));
-			assertNull(controller.tValueByName("secret"));
+			assertNull(controller.getToken());
+			assertNull(controller.getSecret());
 
 			List<String> messages = messages(report);
-			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("ID " + project.tValueByName("extId"))
+			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("ID " + ((Project) project).getExtId())
 				&& m.contains("same controllers")));
 			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("Pair the controllers again")));
 
@@ -235,14 +243,15 @@ public class TestProjectFile extends BasicTestCase {
 	/**
 	 * The test home with what the file has to carry besides.
 	 */
-	private static void setUp(TLObject project) throws Exception {
-		TLObject temperature = address(project, "Raumtemperatur");
+	private static void setUp(TLObject projectObject) throws Exception {
+		Project project = (Project) projectObject;
+		GroupAddress temperature = address(project, "Raumtemperatur");
 		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
 			.filter(t -> "DPST-9-1".equals(t.tValueByName("extId"))).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			GroupAddressTypes.setType(temperature, type);
 			for (String key : List.of("Taste1", "Taste2", "Taste3", "Taste4", "Taste6")) {
-				address(project, key).tUpdateByName("runtimeWritable", Boolean.TRUE);
+				address(project, key).setRuntimeWritable(Boolean.TRUE);
 			}
 			ZigbeeImport.importExport(project,
 				ZigbeeExport.parse(read("src/test/fixtures/zigbee/hue-steckdose.export.json")));
@@ -254,14 +263,14 @@ public class TestProjectFile extends BasicTestCase {
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			// Settings of a group address: a history with an archive, a unit.
-			temperature.tUpdateByName("historyManual", Boolean.TRUE);
-			temperature.tUpdateByName("historyRetention", Integer.valueOf(172800));
-			temperature.tUpdateByName("historySpacing", Integer.valueOf(300));
-			TLObject archive = create("ehome.logical:HistoryArchive");
-			archive.tUpdateByName("resolution", Integer.valueOf(86400));
-			archive.tUpdateByName("retention", Integer.valueOf(365 * 86400));
-			temperature.tUpdateByName("historyArchives", List.of(archive));
-			temperature.tUpdateByName("runtimeUnit", "°C");
+			temperature.setHistoryManual(true);
+			temperature.setHistoryRetention(Integer.valueOf(172800));
+			temperature.setHistorySpacing(Integer.valueOf(300));
+			HistoryArchive archive = (HistoryArchive) create("ehome.logical:HistoryArchive");
+			archive.setResolution(86400);
+			archive.setRetention(365 * 86400);
+			temperature.setHistoryArchives(List.of(archive));
+			temperature.setRuntimeUnit("°C");
 
 			// Functions, one of them dismissed.
 			List<TLObject> functions = FunctionProposal.apply(project);
@@ -270,31 +279,30 @@ public class TestProjectFile extends BasicTestCase {
 
 			// A virtual device in a room, bound to group addresses and the plug.
 			// The sample has no buildings: a room created in E-Home, holding the plug.
-			TLObject building = create("ehome.building:Building");
-			building.tUpdateByName("name", "Testhaus");
-			project.tUpdateByName("buildings", List.of(building));
+			BuildingDefinition building = (BuildingDefinition) create("ehome.building:Building");
+			building.setName("Testhaus");
+			project.setBuildings(List.of(building));
 			ExtIds.assign(building);
-			TLObject room = create("ehome.building:Room");
-			room.tUpdateByName("name", "Büro");
-			building.tUpdateByName("parts", List.of(room));
+			BuildingDefinition room = (BuildingDefinition) create("ehome.building:Room");
+			room.setName("Büro");
+			building.setParts(List.of(room));
 			ExtIds.assign(room);
 			for (TLObject plug : SharedData.within("ehome.zigbee:ZigbeeDevice", List.of(project))) {
-				plug.tUpdateByName("location", room);
+				((ZigbeeDevice) plug).setLocation(room);
 			}
 			TLObject block = BlockInstances.create(project, BlockInstances.typeKey(RoomController.INSTANCE.manifest()),
 				room, ResKey.builder().add(Locale.ENGLISH, "Heating").add(Locale.GERMAN, "Heizung").build());
 			BlockInstances.bind(BlockInstances.port(block, "temperature"), temperature);
 			BlockInstances.bind(BlockInstances.port(block, "window"),
-				((List<?>) project.tValueByName("applicationDatapoints")).stream().map(TLObject.class::cast)
-					.findFirst().orElseThrow());
-			BlockInstances.parameter(block, "comfort").tUpdateByName("value", Double.valueOf(21.5));
+				project.getApplicationDatapoints().stream().findFirst().orElseThrow());
+			((BlockParameter) BlockInstances.parameter(block, "comfort")).setValue(Double.valueOf(21.5));
 
 			// A page with a datapoint, a rule's switch and a chart of the temperature.
 			TLObject page = Pages.insert(project, null, Pages.PAGE, null);
 			TLObject section = Pages.insert(project, page, Pages.SECTION, null);
 			Pages.insert(project, section, Pages.DATAPOINT, List.of(BlockInstances.port(block, "valve")));
 			Pages.insert(project, section, Pages.RULE,
-				List.of(((List<?>) project.tValueByName("rules")).get(0)));
+				List.of(project.getRules().get(0)));
 			TLObject chart = Pages.insert(project, section, Pages.CHART, null);
 			Pages.insert(project, chart, Pages.SERIES, List.of(temperature));
 
@@ -302,27 +310,27 @@ public class TestProjectFile extends BasicTestCase {
 			TLObject device = SharedData.within("ehome.physical:Device", List.of(project)).stream()
 				.filter(d -> ((Collection<?>) d.tValueByName("connectors")).size() > 1).findFirst().orElseThrow();
 			List<?> connectors = new ArrayList<>((Collection<?>) device.tValueByName("connectors"));
-			TLObject follower = create("ehome.runtime:ObjectFollower");
-			follower.tUpdateByName("device", device);
-			follower.tUpdateByName("source", connectors.get(0));
-			follower.tUpdateByName("follower", connectors.get(1));
-			follower.tUpdateByName("inverted", Boolean.TRUE);
-			project.tUpdateByName("simulationFollowers", List.of(follower));
+			ObjectFollower follower = (ObjectFollower) create("ehome.runtime:ObjectFollower");
+			follower.setDevice(device);
+			follower.setSource((TLObject) connectors.get(0));
+			follower.setFollower((TLObject) connectors.get(1));
+			follower.setInverted(true);
+			project.setSimulationFollowers(List.of(follower));
 
 			// An enrolled controller as deploy target, and the secrets the file must not carry.
-			TLObject controller = create(ProjectFile.CONTROLLER_TYPE);
-			controller.tUpdateByName("name", "Flur");
-			controller.tUpdateByName("host", "192.168.178.20");
-			controller.tUpdateByName("port", Integer.valueOf(8080));
-			controller.tUpdateByName("token", TOKEN);
-			controller.tUpdateByName("controllerId", "0123456789abcdef");
-			controller.tUpdateByName("secret", SECRET);
-			project.tUpdateByName("controllers", List.of(controller));
-			project.tUpdateByName("controller", controller);
-			project.tUpdateByName("installationKey", SECRET);
-			project.tUpdateByName("ntpServer", "pool.ntp.org");
-			project.tUpdateByName("gateway", "192.168.178.81:3671");
-			((TLObject) ((List<?>) project.tValueByName("rules")).get(0)).tUpdateByName("simulationEnabled", "false");
+			Controller controller = (Controller) create(ProjectFile.CONTROLLER_TYPE);
+			controller.setName("Flur");
+			controller.setHost("192.168.178.20");
+			controller.setPort(8080);
+			controller.setToken(TOKEN);
+			controller.setControllerId("0123456789abcdef");
+			controller.setSecret(SECRET);
+			project.setControllers(List.of(controller));
+			project.setController(controller);
+			project.setInstallationKey(SECRET);
+			project.setNtpServer("pool.ntp.org");
+			project.setGateway("192.168.178.81:3671");
+			project.getRules().get(0).setSimulationEnabled("false");
 			commit(tx);
 		}
 	}
@@ -338,9 +346,9 @@ public class TestProjectFile extends BasicTestCase {
 		}
 	}
 
-	private static TLObject address(TLObject project, String name) {
+	private static GroupAddress address(TLObject project, String name) {
 		return SharedData.within(ProjectFile.GROUP_ADDRESS_TYPE, List.of(project)).stream()
-			.filter(a -> name.equals(a.tValueByName("name"))).findFirst().orElseThrow();
+			.map(GroupAddress.class::cast).filter(a -> name.equals(a.getName())).findFirst().orElseThrow();
 	}
 
 	private static TLObject create(String type) {

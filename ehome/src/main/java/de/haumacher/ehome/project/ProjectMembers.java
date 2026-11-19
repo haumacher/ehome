@@ -20,6 +20,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.query.Queries;
 
 /**
@@ -146,7 +147,7 @@ public class ProjectMembers {
 		Comparator.comparing(ProjectMembers::name, String.CASE_INSENSITIVE_ORDER);
 
 	private static String name(TLObject project) {
-		Object name = project.tValueByName("name");
+		Object name = ((Project) project).getName();
 		return name == null ? "" : name.toString();
 	}
 
@@ -290,7 +291,7 @@ public class ProjectMembers {
 	 */
 	public static Set<Person> accounts(TLObject project, String reference) {
 		Set<Person> result = new LinkedHashSet<>();
-		if (project.tValueByName(reference) instanceof Collection<?> values) {
+		if (values(project, reference) instanceof Collection<?> values) {
 			for (Object value : values) {
 				if (value instanceof Person person) {
 					result.add(person);
@@ -298,6 +299,26 @@ public class ProjectMembers {
 			}
 		}
 		return result;
+	}
+
+	private static Set<? extends Person> values(TLObject project, String reference) {
+		Project typed = (Project) project;
+		return switch (reference) {
+			case MEMBERS -> typed.getMembers();
+			case EDITORS -> typed.getEditors();
+			case OWNERS -> typed.getOwners();
+			default -> throw new IllegalArgumentException("No reference of the members of a project: " + reference);
+		};
+	}
+
+	private static void update(TLObject project, String reference, Set<Person> values) {
+		Project typed = (Project) project;
+		switch (reference) {
+			case MEMBERS -> typed.setMembers(values);
+			case EDITORS -> typed.setEditors(values);
+			case OWNERS -> typed.setOwners(values);
+			default -> throw new IllegalArgumentException("No reference of the members of a project: " + reference);
+		}
 	}
 
 	private static Person member(TLObject project, Object account) {
@@ -340,14 +361,14 @@ public class ProjectMembers {
 	private static void addTo(TLObject project, String reference, Person person) {
 		Set<Person> values = accounts(project, reference);
 		if (values.add(person)) {
-			project.tUpdateByName(reference, values);
+			update(project, reference, values);
 		}
 	}
 
 	private static void removeFrom(TLObject project, String reference, Person person) {
 		Set<Person> values = accounts(project, reference);
 		if (values.remove(person)) {
-			project.tUpdateByName(reference, values);
+			update(project, reference, values);
 		}
 	}
 

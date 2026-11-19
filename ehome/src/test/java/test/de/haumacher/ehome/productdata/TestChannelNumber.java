@@ -64,7 +64,7 @@ public class TestChannelNumber extends BasicTestCase {
 		}
 		Channel channel = (Channel) TestValueForms.byExtId("ehome.operational:Channel", PROGRAM + "_CH-18d");
 		assertEquals("18d", channel.getNumber());
-		assertEquals("18d: Kanal A", channel.tValueByName("displayName"));
+		assertEquals("18d: Kanal A", channel.getDisplayName());
 		assertEquals("18d: Kanal A", DeviceTexts.label(null, channel));
 	}
 

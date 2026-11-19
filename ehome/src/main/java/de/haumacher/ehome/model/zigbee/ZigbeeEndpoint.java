@@ -12,4 +12,11 @@ public interface ZigbeeEndpoint extends de.haumacher.ehome.model.zigbee.internal
 
 	// Wrapper functionality.
 
+	/**
+	 * The endpoint number; <code>null</code> where it is unset (the primitive getter fails there).
+	 */
+	default Integer getEndpointOrNull() {
+		return (Integer) tValueByName(ENDPOINT_ATTR);
+	}
+
 }
