@@ -431,7 +431,6 @@ public final class ControllerConnections {
 		String version = connection.version();
 		String build = connection.build();
 		execute(() -> store(connection.controllerId(), now, version, build));
-		deviceKey(connection, connection.deviceKey());
 		refusedImage(connection);
 		for (Listener listener : LISTENERS) {
 			try {

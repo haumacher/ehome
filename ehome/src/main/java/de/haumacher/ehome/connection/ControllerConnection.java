@@ -663,7 +663,11 @@ public final class ControllerConnection {
 		_build = text(message.get("build"));
 		_format = text(message.get("format"));
 		image(message.get("image"), message.get("slot"));
-		_deviceKey = text(message.get("key"));
+		// Stored before it becomes visible, as on key_accepted: whoever sees the key on the registered
+		// connection and then waits for the knowledge base sees it stored.
+		String key = text(message.get("key"));
+		ControllerConnections.deviceKey(this, key);
+		_deviceKey = key;
 		_since = Instant.now();
 		synchronized (this) {
 			if (_state != State.CHALLENGED) {
