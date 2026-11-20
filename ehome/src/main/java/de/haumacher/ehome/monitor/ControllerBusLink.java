@@ -337,9 +337,12 @@ public class ControllerBusLink implements BusLink {
 		}
 		Connection connection = new Connection();
 		long timeout = _client.timeout().toMillis();
+		// The step a timeout names: the WebSocket handshake, or the answer to the subscription.
+		String step = "the WebSocket handshake of " + uri;
 		try {
 			connection._socket = _http.newWebSocketBuilder().connectTimeout(_client.timeout())
 				.buildAsync(uri, connection).get(timeout, TimeUnit.MILLISECONDS);
+			step = "the subscription to the monitor stream";
 			Map<String, Object> answer = connection._subscribed.get(timeout, TimeUnit.MILLISECONDS);
 			_connection = connection;
 			if (answer.get("next") instanceof Number next && _next < 0) {
@@ -357,7 +360,7 @@ public class ControllerBusLink implements BusLink {
 			throw new IOException(ex.getCause() == null ? ex.getMessage() : ex.getCause().getMessage(), ex);
 		} catch (TimeoutException ex) {
 			connection.close();
-			throw new IOException("The controller did not answer within " + timeout + " ms.", ex);
+			throw new IOException("The controller did not answer " + step + " within " + timeout + " ms.", ex);
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
 			connection.close();
