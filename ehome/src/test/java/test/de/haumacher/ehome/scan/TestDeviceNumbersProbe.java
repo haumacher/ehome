@@ -3,7 +3,9 @@
  */
 package test.de.haumacher.ehome.scan;
 
-import static test.de.haumacher.ehome.importer.TestEtsImport.*;
+import static test.de.haumacher.ehome.importer.TestEtsImport.derived;
+import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
+import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.List;
 
