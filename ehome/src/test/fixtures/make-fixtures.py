@@ -3192,6 +3192,37 @@ write('src/test/fixtures/TestFunctionClimate.knxproj',
     artificial_fixture('TestFunctionClimate', CLIMATE_PROGRAMS, CLIMATE_HARDWARE, CLIMATE_ADDRESSES, CLIMATE_DEVICES),
     [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in CLIMATE_PROGRAMS])
 
+# TestFunctionChannelKeys.knxproj: a key whose object is named differently in the program's languages (haumacher/ehome
+# #211), with an artificial program of its own (M-0008_A-FFCE, marked as test data) in the building of
+# TestFunctionWiring: "TEST Taster Sprachen" (1.0.1, in "Wohnzimmer") has the one channel "Taste 3", whose object
+# "Schalten" (1 bit, flags W and T, connected to nothing) the program's en-US translation names "Button 3".
+KEY_LANGUAGE_PROGRAMS = [
+    ('M-0008_A-FFCE-01-0000', 'FFCE', 65486, 'TEST: Taster Sprachen (künstliche Testdaten)', [
+        ('Taste 3', [('Schalten', '1 Bit', WT, None, None)])]),
+]
+KEY_LANGUAGE_DEVICES = [(0, 'TEST Taster Sprachen', 'P-01A0-0_BP-5', None)]
+
+
+def translated_program(program, number, name, channels, english):
+    """An artificial program (function_program) with an en-US translation of the texts of its objects and channels."""
+    xml = function_program(program, number, name, channels)
+    elements = [(ident, english[text]) for ident, text
+        in re.findall(r'<ComObject Id="([^"]+)" Name="[^"]*" Text="([^"]*)"', xml) if text in english]
+    elements += [(ident, english[text]) for text, ident
+        in re.findall(r'<Channel Name="[^"]*" Text="([^"]*)" Number="\d+" Id="([^"]+)"', xml) if text in english]
+    languages = ('<Languages><Language Identifier="en-US"><TranslationUnit RefId="' + program + '" Version="0">'
+        + ''.join('<TranslationElement RefId="' + ident + '"><Translation AttributeName="Text" Text="' + text
+            + '" /></TranslationElement>' for ident, text in elements)
+        + '</TranslationUnit></Language></Languages>')
+    return replace_once(xml, '</ApplicationPrograms>', '</ApplicationPrograms>' + languages)
+
+
+write('src/test/fixtures/TestFunctionChannelKeys.knxproj',
+    artificial_fixture('TestFunctionChannelKeys', KEY_LANGUAGE_PROGRAMS, 'M-0008_H-TEST.20KEYLANGUAGES-1', {},
+        KEY_LANGUAGE_DEVICES),
+    [('M-0008/' + p + '.xml', translated_program(p, n, name, c, {'Taste 3': 'Button 3'}))
+        for p, _, n, name, c in KEY_LANGUAGE_PROGRAMS])
+
 # TestFunctionNames.knxproj: distinct names of the functions in use (haumacher/ehome #144), where the project's
 # group addresses carry the generic names ETS gives ("Schalten EIN/AUS"), with two artificial programs of their own
 # (M-0008_A-FFCA/FFCB, marked as test data) in the building of TestFunctionWiring. Two switching actuators "TEST

@@ -704,10 +704,11 @@ public final class FunctionProposal {
 		Overwrite overwritten = overwrite ? overwrite(project, proposals).apply() : Overwrite.NONE;
 
 		List<TLObject> existing = functions(project);
+		StoredChannels stored = new StoredChannels();
 		Decision decision = new Decision();
 		for (TLObject object : existing) {
 			Function function = (Function) object;
-			String identity = identity(function.getDevice(), function.getChannel());
+			String identity = stored.identity(function.getDevice(), function.getChannel());
 			String kind = kind(function);
 			if (identity != null) {
 				decision._proposedChannels.add(identity);
@@ -731,7 +732,7 @@ public final class FunctionProposal {
 		}
 
 		for (DismissedProposal dismissal : dismissals(project)) {
-			String identity = identity(dismissal.getDevice(), dismissal.getChannel());
+			String identity = stored.identity(dismissal.getDevice(), dismissal.getChannel());
 			if (identity != null) {
 				decision._dismissed.add(kind(dismissal) + " " + identity);
 			}
@@ -1051,14 +1052,15 @@ public final class FunctionProposal {
 
 	private static Overwrite overwrite(TLObject project, List<Proposal> proposals) {
 		List<TLObject> candidates = functions(project).stream().filter(FunctionProposal::proposed).toList();
+		StoredChannels stored = new StoredChannels();
 		Map<String, List<TLObject>> byChannel = new HashMap<>();
 		for (TLObject function : candidates) {
-			byChannel.computeIfAbsent(identity(((Function) function).getDevice(), ((Function) function).getChannel()),
+			byChannel.computeIfAbsent(stored.identity(((Function) function).getDevice(), ((Function) function).getChannel()),
 				i -> new ArrayList<>()).add(function);
 		}
 		Set<String> dismissed = new HashSet<>();
 		for (DismissedProposal dismissal : dismissals(project)) {
-			String identity = identity(dismissal.getDevice(), dismissal.getChannel());
+			String identity = stored.identity(dismissal.getDevice(), dismissal.getChannel());
 			if (identity != null) {
 				dismissed.add(kind(dismissal) + " " + identity);
 			}
@@ -1571,8 +1573,10 @@ public final class FunctionProposal {
 		String identity = identity(device, function.getChannel());
 		if (project != null && identity != null && function.getKind() != null) {
 			boolean known = false;
+			StoredChannels stored = new StoredChannels();
+			identity = stored.identity(device, function.getChannel());
 			for (DismissedProposal dismissal : dismissals(project)) {
-				known |= identity.equals(identity(dismissal.getDevice(), dismissal.getChannel()))
+				known |= identity.equals(stored.identity(dismissal.getDevice(), dismissal.getChannel()))
 					&& dismissal.getKind() == function.getKind();
 			}
 			if (!known) {
@@ -1645,6 +1649,55 @@ public final class FunctionProposal {
 		}
 		return device instanceof TLObject knx && isA(knx, "ehome.physical:Device") ? knx.tId() + " " + text : null;
 	}
+
+	/**
+	 * The identities ({@link #identity(Object, Object)}) of the channels stored in the functions and
+	 * dismissals of a project, as the proposal keys the channels now (haumacher/ehome #211). A channel
+	 * named by its objects (<code>object:&lt;name&gt;</code>) is keyed by the object's name in the fallback
+	 * language, a text of the shared program: a project made or imported on another installation, or
+	 * before the program's texts changed, stores the name in another language ("object:Button 3" where
+	 * the program now names the object "Taste 3" in every language). A stored name that is the name of an
+	 * object of the device in any supported language stands for that object's channel; a function of a
+	 * channel is therefore recognized whatever language its key was written in. Reads the objects of the
+	 * devices of one project only, each device once.
+	 */
+	private static final class StoredChannels {
+
+		private final Map<TLObject, Map<String, String>> _byDevice = new HashMap<>();
+
+		String identity(Object device, Object channel) {
+			if (channel instanceof String text && text.startsWith(OBJECT_CHANNEL) && device instanceof TLObject knx
+				&& isA(knx, "ehome.physical:Device")) {
+				String current = _byDevice.computeIfAbsent(knx, StoredChannels::objectKeys).get(text);
+				if (current != null) {
+					return FunctionProposal.identity(device, current);
+				}
+			}
+			return FunctionProposal.identity(device, channel);
+		}
+
+		/** The keys of the device's object channels in every supported language, each with the key now. */
+		private static Map<String, String> objectKeys(TLObject device) {
+			Map<String, String> result = new HashMap<>();
+			if (DeviceConfiguration.program(device) == null) {
+				return result;
+			}
+			for (Interface placed : new DeviceConfiguration(device).getActiveInterfaces().values()) {
+				if (programChannel(placed) != null) {
+					continue;
+				}
+				String key = channelKey(placed);
+				for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+					result.putIfAbsent(OBJECT_CHANNEL
+						+ GroupAddressConnections.objectName(placed, Resources.getInstance(locale)), key);
+				}
+			}
+			return result;
+		}
+	}
+
+	/** The beginning of the key of a channel named by its objects ({@link #channelKey(Interface)}). */
+	private static final String OBJECT_CHANNEL = "object:";
 
 	private static boolean zigbee(String channel) {
 		return channel != null && channel.startsWith(ZIGBEE_CHANNEL);

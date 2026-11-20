@@ -155,6 +155,7 @@ src/test/java/test/de/haumacher/ehome/runtime/TestBlockInstances.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestControlPages.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestCreateDialogs.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestDatapointEffect.java = 3
+src/test/java/test/de/haumacher/ehome/runtime/TestFunctionChannelKeys.java = 1
 src/test/java/test/de/haumacher/ehome/runtime/TestFunctionProposal.java = 1
 src/test/java/test/de/haumacher/ehome/runtime/TestFunctionProposalProbe.java = 1
 src/test/java/test/de/haumacher/ehome/runtime/TestFunctionRooms.java = 2
