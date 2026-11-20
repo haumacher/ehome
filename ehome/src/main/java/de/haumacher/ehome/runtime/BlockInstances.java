@@ -180,6 +180,25 @@ public final class BlockInstances {
 	}
 
 	/**
+	 * The label of a port or parameter of a virtual device in the given language, as its manifest
+	 * names it (the label of E-Home's translation where it has one), its id where its type does not
+	 * declare it; <code>null</code> for another object.
+	 */
+	public static String memberLabel(TLObject member, String language) {
+		if (isPort(member)) {
+			Port decl = portDecl(member);
+			return decl == null ? ((BlockPort) member).getPort()
+				: BlockTexts.label(blockType(member), decl.id(), decl.label(), language);
+		}
+		if (isParameter(member)) {
+			Param decl = paramDecl(member);
+			return decl == null ? ((BlockParameter) member).getParameter()
+				: BlockTexts.label(blockType(member), decl.id(), decl.label(), language);
+		}
+		return null;
+	}
+
+	/**
 	 * The id the virtual device, port or parameter has in the image
 	 * (<code>block/&lt;id&gt;/&lt;x&gt;</code>), <code>null</code> for another object.
 	 */
@@ -210,7 +229,7 @@ public final class BlockInstances {
 		}
 		if (isPort(target)) {
 			Port decl = portDecl(target);
-			return decl != null && (!decl.isInput() || bound(target).size() > 1);
+			return decl != null && (!decl.isInput() || RoomControllers.reads(target).size() > 1);
 		}
 		return false;
 	}
@@ -242,7 +261,7 @@ public final class BlockInstances {
 			}
 			for (Port decl : type.manifest().ports()) {
 				TLObject port = port(instance, decl.id());
-				if (decl.isInput() && port != null && bound(port).size() > 1) {
+				if (decl.isInput() && port != null && RoomControllers.reads(port).size() > 1) {
 					result.add(port);
 				}
 			}
@@ -403,7 +422,7 @@ public final class BlockInstances {
 		if (decl == null || instance == null) {
 			return List.of();
 		}
-		List<TLObject> bound = bound(port);
+		List<TLObject> bound = RoomControllers.reads(port);
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject datapoint : Pages.datapoints(RuntimeFunctions.project(instance))) {
 			if (bound.contains(datapoint) || datapoint == instance || datapoint.tContainer() == instance) {
@@ -567,9 +586,18 @@ public final class BlockInstances {
 
 	/**
 	 * Binds the datapoint to the port (to be called in a transaction): a new binding at the end,
-	 * which keeps the datapoint's id in the image.
+	 * which keeps the datapoint's id in the image. The input <code>temperature</code> of a room
+	 * controller regulating a function reads the function's sensors (haumacher/ehome #212): the
+	 * datapoint is added to them instead, and the result is <code>null</code>.
 	 */
 	public static TLObject bind(TLObject port, TLObject datapoint) {
+		if (RoomControllers.readsSensors(port)) {
+			de.haumacher.ehome.model.runtime.Function function = RoomControllers.regulated(port.tContainer());
+			if (!RoomControllers.sensors(function).contains(datapoint)) {
+				function.addSensor((ProjectDatapoint) datapoint);
+			}
+			return null;
+		}
 		BlockBinding binding = (BlockBinding) createObject(BINDING);
 		binding.setDatapoint((ProjectDatapoint) datapoint);
 		binding.setBoundId(datapointImageId(datapoint));
@@ -699,6 +727,35 @@ public final class BlockInstances {
 				}
 				String member = decl.isInput() ? "inputs" : "outputs";
 				List<String> names = new ArrayList<>();
+				if (decl.isInput() && RoomControllers.readsSensors(port)) {
+					// The input reads the sensors of the function the room controller regulates (haumacher/ehome #212).
+					String at = path + "." + member + "." + decl.id();
+					List<TLObject> sensors = RoomControllers.reads(port);
+					for (int k = 0; k < sensors.size(); k++) {
+						TLObject sensor = sensors.get(k);
+						if (sensors.size() > 1) {
+							sources.put(at + "[" + k + "]", port);
+						}
+						String sensorId = ids.apply(sensor);
+						if (sensorId == null) {
+							de.haumacher.ehome.model.runtime.Function function = RoomControllers.regulated(instance);
+							problems.add(new Problem(at, I18NConstants.BLOCK_SENSOR_NOT_IN_IMAGE__BLOCK_PORT_SENSOR_FUNCTION
+								.fill(name + " (" + id + ")", decl.id(), DatapointNames.name(sensor),
+									DatapointNames.label(function))));
+							continue;
+						}
+						names.add(sensorId);
+					}
+					if (!names.isEmpty()) {
+						sources.put(at, port);
+						inputs.put(decl.id(), names.size() == 1 ? names.get(0) : names);
+						if (names.size() > 1 && ((BlockPort) port).getAggregation() instanceof String a && !a.isBlank()) {
+							aggregation.put(decl.id(), a.trim());
+							sources.put(path + ".aggregation." + decl.id(), port);
+						}
+					}
+					continue;
+				}
 				List<TLObject> bindings = RuleExport.objects(((BlockPort) port).getBindings());
 				for (int k = 0; k < bindings.size(); k++) {
 					BlockBinding binding = (BlockBinding) bindings.get(k);

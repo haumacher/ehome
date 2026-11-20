@@ -23,10 +23,12 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.BlockType;
@@ -52,11 +54,13 @@ import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.BlockTexts;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Pages;
+import de.haumacher.ehome.runtime.RoomControllers;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
@@ -288,8 +292,11 @@ public class TestBlockInstances extends BasicTestCase {
 	}
 
 	/**
-	 * "Propose functions" proposes a climate function of the room controller; deleted, it is dismissed
-	 * by the instance's identifier and not proposed again, also after the instance was renamed.
+	 * "Propose functions" proposes a climate function of the room controller, regulated by it
+	 * (haumacher/ehome #212): the valve's address is its heating level, the datapoints the controller's
+	 * input read are its sensors, which the input reads from then on. Deleted, it is dismissed by the
+	 * instance's identifier and not proposed again, also after the instance was renamed; the controller
+	 * reads the sensors by bindings of its own again.
 	 */
 	public void testClimateProposal() throws Exception {
 		TLObject function;
@@ -306,12 +313,19 @@ public class TestBlockInstances extends BasicTestCase {
 		assertEquals(BlockInstances.port(_block, "activeSetpoint"), ((Function) function).getSetpoint());
 		assertEquals(BlockInstances.parameter(_block, "comfort"), ((Function) function).getSetpointCommand());
 		assertEquals(BlockInstances.port(_block, "demand"), ((Function) function).getHeating());
+		assertEquals(_valve, ((Function) function).getHeatingLevel());
+		assertEquals(List.of(_t1, _t2), ((Function) function).getSensors());
+		assertSame(function, _block.getFunction());
+		TLObject temperature = BlockInstances.port(_block, "temperature");
+		assertEquals(List.of(), BlockInstances.bound(temperature));
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
 		assertTrue(image.validate().toString(), image.validate().isValid());
 		Map<?, ?> exported = (Map<?, ?>) ((List<?>) image.getJson().get("functions")).get(0);
 		assertEquals(Map.of("temperature", "block/wz-heating/filtered", "setpoint", "block/wz-heating/activeSetpoint",
-			"setpointCommand", "block/wz-heating/comfort", "heating", "block/wz-heating/demand"),
+			"setpointCommand", "block/wz-heating/comfort", "heating", "block/wz-heating/demand", "heatingLevel", "1/3/30"),
 			exported.get("datapoints"));
+		Map<?, ?> block = (Map<?, ?>) ((List<?>) image.getJson().get("blocks")).get(0);
+		assertEquals(List.of("1/3/0", "1/3/1"), ((Map<?, ?>) block.get("inputs")).get("temperature"));
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			assertNull("Proposed once.", FunctionProposal.apply(_project).isEmpty() ? null : "again");
 			assertNotNull(FunctionProposal.dismiss(function));
@@ -319,6 +333,8 @@ public class TestBlockInstances extends BasicTestCase {
 			assertEquals(List.of(), FunctionProposal.apply(_project));
 			tx.commit();
 		}
+		assertNull(_block.getFunction());
+		assertEquals(List.of(_t1, _t2), BlockInstances.bound(temperature));
 	}
 
 	/**
@@ -475,6 +491,152 @@ public class TestBlockInstances extends BasicTestCase {
 		assertFalse(report.isValid());
 		assertEquals(report.toString(), path, report.getRefusals().get(0).path());
 		assertEquals(reason, report.getRefusals().get(0).reason());
+	}
+
+	/**
+	 * A climate made by hand gets the room controller attached (haumacher/ehome #212): the datapoints the
+	 * controller's input read move into the function's sensors after the one it offered already, the
+	 * input reads them from then on (the image, with its aggregation), the outputs give the roles, the
+	 * valve's address the heating level; the image's function carries no sensors. Binding a datapoint to
+	 * the input adds a sensor; a run of the proposal adds and changes nothing; deleting the controller
+	 * keeps the function and its sensors, the roles of the controller's own outputs are cleared.
+	 */
+	public void testRegulateHandMadeClimate() throws Exception {
+		Function climate;
+		TLObject temperature = BlockInstances.port(_block, "temperature");
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			climate = climate("Heizung");
+			climate.setSensors(List.of(_t2));
+			assertTrue(RoomControllers.regulate(_block, climate));
+			tx.commit();
+		}
+		assertSame(climate, _block.getFunction());
+		assertEquals(List.of(_t2, _t1), climate.getSensors());
+		assertEquals(List.of(), BlockInstances.bound(temperature));
+		assertEquals(List.of(_t2, _t1), RoomControllers.reads(temperature));
+		assertEquals(BlockInstances.port(_block, "filtered"), climate.getTemperature());
+		assertEquals(BlockInstances.port(_block, "activeSetpoint"), climate.getSetpoint());
+		assertEquals(BlockInstances.parameter(_block, "comfort"), climate.getSetpointCommand());
+		assertEquals(BlockInstances.port(_block, "demand"), climate.getHeating());
+		assertEquals(_valve, climate.getHeatingLevel());
+		assertEquals(List.of(climate), RoomControllers.options(_block));
+
+		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
+		assertTrue(image.validate().toString(), image.validate().isValid());
+		Map<?, ?> block = (Map<?, ?>) ((List<?>) image.getJson().get("blocks")).get(0);
+		assertEquals(List.of("1/3/1", "1/3/0"), ((Map<?, ?>) block.get("inputs")).get("temperature"));
+		assertEquals("min", ((Map<?, ?>) block.get("aggregation")).get("temperature"));
+		Map<?, ?> function = (Map<?, ?>) ((List<?>) image.getJson().get("functions")).get(0);
+		assertEquals(Set.of("temperature", "setpoint", "setpointCommand", "heating", "heatingLevel"),
+			((Map<?, ?>) function.get("datapoints")).keySet());
+
+		GroupAddress window;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			window = address("Temperatur Fenster", 1, 3, 2, _t1.getDatapointTypes().iterator().next());
+			Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(_project.getGroupAddresses());
+			addresses.add(window);
+			_project.setGroupAddresses(addresses);
+			assertTrue(BlockInstances.bindingOptions(temperature).contains(window));
+			assertFalse(BlockInstances.bindingOptions(temperature).contains(_t1));
+			assertNull(BlockInstances.bind(temperature, window));
+			tx.commit();
+		}
+		assertEquals(List.of(_t2, _t1, window), climate.getSensors());
+		assertEquals(List.of(), BlockInstances.bound(temperature));
+
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			FunctionProposal.Run run = FunctionProposal.run(_project);
+			assertEquals(List.of(), run.added());
+			assertEquals(List.of(), run.updated());
+			tx.commit();
+		}
+
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_block.tDelete();
+			tx.commit();
+		}
+		assertTrue(climate.tValid());
+		assertEquals(List.of(_t2, _t1, window), climate.getSensors());
+		assertNull(climate.getTemperature());
+		assertEquals(_valve, climate.getHeatingLevel());
+	}
+
+	/**
+	 * The room controller's input reads the sensors of the function it regulates in the simulation
+	 * (haumacher/ehome #212), combined by its aggregation; released, it reads them by bindings of its
+	 * own again, and the function keeps them.
+	 */
+	public void testRegulatedSimulation() throws Exception {
+		Function climate;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_t1.setRuntimeWritable(Boolean.TRUE);
+			_t2.setRuntimeWritable(Boolean.TRUE);
+			climate = climate("Heizung");
+			RoomControllers.regulate(_block, climate);
+			tx.commit();
+		}
+		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
+		assertTrue(image.validate().toString(), image.validate().isValid());
+		long start = de.haumacher.ehome.rules.Values.daysOf(2026, 11, 4) * 86400 + 8 * 3600;
+		try (de.haumacher.ehome.simulation.Simulation simulation = new de.haumacher.ehome.simulation.Simulation(
+			(Map<?, ?>) Json.parse(image.getText(), 100), start, new de.haumacher.ehome.rules.ParameterStore())) {
+			assertNull(simulation.start());
+			assertEquals(de.haumacher.ehome.rules.DatapointModel.CommandStatus.OK,
+				simulation.command("1/3/0", de.haumacher.ehome.rules.Val.ofReal(19.5)));
+			assertEquals(de.haumacher.ehome.rules.DatapointModel.CommandStatus.OK,
+				simulation.command("1/3/1", de.haumacher.ehome.rules.Val.ofReal(20.5)));
+			simulation.advance(30 * 60_000);
+			assertEquals("The sensors of the function, min aggregation.", 19.5,
+				simulation.value("block/wz-heating/filtered").real(), 0.05);
+		}
+
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			assertTrue(RoomControllers.regulate(_block, null));
+			tx.commit();
+		}
+		assertNull(_block.getFunction());
+		assertEquals(List.of(_t1, _t2), climate.getSensors());
+		assertEquals(List.of(_t1, _t2), BlockInstances.bound(BlockInstances.port(_block, "temperature")));
+	}
+
+	/**
+	 * A port or parameter of a virtual device is named like every datapoint (haumacher/ehome #212):
+	 * "&lt;device&gt;: &lt;port&gt;" with its id, in the reader's language, also by the label provider
+	 * the forms use; no "unnamed object".
+	 */
+	public void testPortNames() {
+		TLObject filtered = BlockInstances.port(_block, "filtered");
+		TLObject comfort = BlockInstances.parameter(_block, "comfort");
+		assertEquals("Living room heating: Filtered temperature (block/wz-heating/filtered)",
+			inLocale(Locale.ENGLISH, () -> DatapointNames.name(filtered)));
+		assertEquals("Heizung Wohnzimmer: Gefilterte Temperatur (block/wz-heating/filtered)",
+			inLocale(Locale.GERMAN, () -> DatapointNames.name(filtered)));
+		assertEquals("Heizung Wohnzimmer: Komfort (block/wz-heating/comfort)",
+			inLocale(Locale.GERMAN, () -> MetaLabelProvider.INSTANCE.getLabel(comfort)));
+	}
+
+	/** The value as read in the given language. */
+	private static <T> T inLocale(Locale locale, java.util.function.Supplier<T> value) {
+		TLContext context = TLContext.getContext();
+		Locale before = context.getCurrentLocale();
+		context.setCurrentLocale(locale);
+		try {
+			return value.get();
+		} finally {
+			context.setCurrentLocale(before);
+		}
+	}
+
+	/** A climate the user made, in the room of the controller. */
+	private Function climate(String name) {
+		Function result = create("ehome.runtime:Function");
+		result.setNameKey(ResKey.text(name));
+		result.setKind(FunctionProposal.classifier("climate"));
+		result.setRoom(_room);
+		List<Function> functions = new ArrayList<>(_project.getFunctions());
+		functions.add(result);
+		_project.setFunctions(functions);
+		return result;
 	}
 
 	// ---- building the project ----------------------------------------------------------------

@@ -123,6 +123,8 @@
 					<method name="blockAggregationValue" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockApplyAggregation" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockBindingUnit" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockFunctionOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockRegulate" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="runtimeIdentifierProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeTimeZoneProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeHostNameProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>

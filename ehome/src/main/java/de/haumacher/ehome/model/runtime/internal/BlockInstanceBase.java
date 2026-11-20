@@ -52,6 +52,15 @@ public interface BlockInstanceBase extends de.haumacher.ehome.model.logical.Proj
 	String ENABLED_ADJUSTABLE_ATTR = "enabledAdjustable";
 
 	/**
+	 * Part <code>function</code> of <code>BlockInstance</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.runtime:Function</code> in configuration.
+	 * </p>
+	 */
+	String FUNCTION_ATTR = "function";
+
+	/**
 	 * Part <code>identifier</code> of <code>BlockInstance</code>
 	 * 
 	 * <p>
@@ -164,6 +173,20 @@ public interface BlockInstanceBase extends de.haumacher.ehome.model.logical.Proj
 	 */
 	default void setEnabledAdjustable(boolean newValue) {
 		tUpdateByName(ENABLED_ADJUSTABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #FUNCTION_ATTR}.
+	 */
+	default de.haumacher.ehome.model.runtime.Function getFunction() {
+		return (de.haumacher.ehome.model.runtime.Function) tValueByName(FUNCTION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #FUNCTION_ATTR}.
+	 */
+	default void setFunction(de.haumacher.ehome.model.runtime.Function newValue) {
+		tUpdateByName(FUNCTION_ATTR, newValue);
 	}
 
 	/**

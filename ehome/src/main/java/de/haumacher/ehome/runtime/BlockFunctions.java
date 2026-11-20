@@ -35,8 +35,9 @@ import de.haumacher.ehome.programming.BuildingDevices;
  * The TL-Script functions of the virtual devices of a project (haumacher/ehome #75,
  * {@link BlockInstances}), registered in <code>ehome.runtime.config.xml</code> under the names of
  * their {@link Function} constants. Only {@link Function#blockCreate}, {@link Function#blockBind},
- * {@link Function#blockApplyValue} and {@link Function#blockApplyAggregation} change data; a view
- * command calling them checks the Write access to their object.
+ * {@link Function#blockApplyValue}, {@link Function#blockApplyAggregation} and
+ * {@link Function#blockRegulate} change data; a view command calling them checks the Write access to
+ * their object.
  */
 public class BlockFunctions extends GenericMethod {
 
@@ -130,7 +131,18 @@ public class BlockFunctions extends GenericMethod {
 		 * <code>blockBindingUnit(port, datapoint)</code>: the unit of the datapoint, with a hint where it
 		 * has none and the port has one.
 		 */
-		blockBindingUnit(2);
+		blockBindingUnit(2),
+		/**
+		 * <code>blockFunctionOptions(instance)</code>: the climate functions of the project the room
+		 * controller may regulate (haumacher/ehome #212), those no other room controller regulates.
+		 */
+		blockFunctionOptions(1),
+		/**
+		 * <code>blockRegulate(instance, function)</code>: lets the room controller regulate the climate
+		 * function, <code>null</code> for none (side effects, haumacher/ehome #212): its input temperature
+		 * reads the function's sensors, its outputs give the function's roles.
+		 */
+		blockRegulate(2);
 
 		private final int _arity;
 
@@ -176,6 +188,7 @@ public class BlockFunctions extends GenericMethod {
 			case blockBind:
 			case blockApplyValue:
 			case blockApplyAggregation:
+			case blockRegulate:
 				return false;
 			default:
 				return true;
@@ -217,6 +230,7 @@ public class BlockFunctions extends GenericMethod {
 				case blockAllRoomInstances:
 				case blockChoiceOptions:
 				case blockAggregationOptions:
+				case blockFunctionOptions:
 					return List.of();
 				default:
 					return null;
@@ -251,6 +265,13 @@ public class BlockFunctions extends GenericMethod {
 				return portInfo(obj);
 			case blockPortBindings: {
 				List<String> result = new ArrayList<>();
+				if (RoomControllers.readsSensors(obj)) {
+					// The sensors of the function the room controller regulates (haumacher/ehome #212).
+					for (TLObject datapoint : RoomControllers.reads(obj)) {
+						result.add(DatapointNames.format(DatapointNames.label(datapoint), BlockInstances.datapointImageId(datapoint)));
+					}
+					return String.join(", ", result);
+				}
 				for (TLObject object : RuleExport.objects(obj instanceof BlockPort port ? port.getBindings() : null)) {
 					BlockBinding binding = (BlockBinding) object;
 					if (binding.getDatapoint() instanceof TLObject datapoint && datapoint.tValid()) {
@@ -323,6 +344,11 @@ public class BlockFunctions extends GenericMethod {
 			}
 			case blockApplyAggregation:
 				return BlockInstances.applyAggregation(obj, arguments[1]);
+			case blockFunctionOptions:
+				return RoomControllers.isRoomController(obj) ? RoomControllers.options(obj) : List.of();
+			case blockRegulate:
+				return Boolean.valueOf(RoomControllers.regulate(obj,
+					arguments[1] instanceof TLObject function && function.tValid() ? function : null));
 			case blockBindingUnit:
 				return arguments[1] instanceof TLObject datapoint ? BlockInstances.bindingUnit(obj, datapoint) : null;
 			case blockAdjustable: {

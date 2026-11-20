@@ -25,7 +25,11 @@
 	kind, room, roles; haumacher/ehome #177), after a confirmation naming their count. "New function"
 	asks for its name and kind (projects/create-function.view.xml, haumacher/ehome #205). The form of the selected function shows the roles
 	of its kind only; the options of a role are the datapoints of the project, its group addresses
-	and its application datapoints (haumacher/ehome #61).
+	and its application datapoints (haumacher/ehome #61). A climate offers the temperature sensors of
+	its room (haumacher/ehome #212, several) to whatever regulates it, and its actual temperature is
+	the one the regulating device reports; a room controller regulating it (tab "Virtual devices")
+	reads the sensors and gives its roles. The proposal gives the room of a room controller one
+	climate, with the room's temperature sensors no function binds, regulated by the controller.
 
 	Deleting a proposed function remembers it as dismissed (haumacher/ehome #49), so the next proposal
 	does not bring it back; the dismissed proposals are listed below the functions, and "Undo
@@ -410,6 +414,7 @@
 								<field attribute="atTop"/>
 								<field attribute="atBottom"/>
 								<field attribute="value"/>
+								<field attribute="sensors"/>
 								<field attribute="temperature"/>
 								<field attribute="setpoint"/>
 								<field attribute="setpointCommand"/>

@@ -19,6 +19,12 @@
 	user finishes is applied at once (blockApplyValue): the default or an emptied input removes the
 	value. What a parameter does is its help text (haumacher/ehome #101, blockHelp): the tooltip of its
 	name in the table and, in full, in the editor between the input and the hint on default and range.
+	A room controller regulates a climate function (haumacher/ehome #212): "Regulate function" chooses
+	it among the project's climates no other room controller regulates (blockRegulate,
+	de.haumacher.ehome.runtime.RoomControllers), which moves the datapoints of the input "temperature"
+	into the function's temperature sensors and gives the function's roles the controller's outputs;
+	from then on that input reads the function's sensors, and binding a datapoint to it adds a sensor.
+	Deleting the controller leaves the function.
 	The inputs and the outputs with their bindings: "Bind datapoints" offers the datapoints of
 	the project of a type and unit the port reads or commands (block-bind.view.xml), an input binds up
 	to its number of datapoints and an aggregation chosen from the port's combines them. A binding
@@ -79,6 +85,17 @@
         .fill(blockDefault($parameter), if($range == null or $range == '', '–', $range)).localize()
 })]]></expr>
 		</derived-channel>
+		<!-- The climate function the selected room controller regulates (haumacher/ehome #212), again after each selection and change. -->
+		<channel name="regulatedValue"
+			init="if($block == null, null, $block.get(`ehome.runtime:BlockInstance#function`))"
+			inputs="block"
+			observed-types="ehome.runtime:BlockInstance"
+		/>
+		<!-- Whether the selected virtual device is a room controller the user may let regulate a function. -->
+		<derived-channel name="regulates"
+			expr="$block != null and $block.get(`ehome.runtime:BlockInstance#blockType`) == 'org.homecontrol.room-controller' and canWrite($block)"
+			inputs="block"
+		/>
 		<!-- What the last "Read diagnostics" told, with the virtual device it was read for. -->
 		<channel name="diagnostics"/>
 		<derived-channel name="diagnosticsText"
@@ -262,7 +279,39 @@
 										<field attribute="version"
 											readonly="true"
 										/>
+										<field attribute="function"/>
 									</form>
+									<visible-if
+										expr="$regulates"
+										input="regulates"
+									>
+										<fields max-columns="1">
+											<value-input
+												type="ehome.runtime:Function"
+												value="regulatedValue"
+											>
+												<label>
+													<en>Regulate function</en>
+													<de>Funktion regeln</de>
+												</label>
+												<inputs>
+													<input channel="block"/>
+												</inputs>
+												<options>blockFunctionOptions($block)</options>
+												<on-submit inputs="block">
+													<access>
+														<operation name="Write"
+															object="$block"
+															type="ehome.runtime:BlockInstance"
+														/>
+													</access>
+													<with-transaction>
+														<execute-script function="blockRegulate($block, $value)"/>
+													</with-transaction>
+												</on-submit>
+											</value-input>
+										</fields>
+									</visible-if>
 									<text
 										input="problem"
 										tone="secondary"

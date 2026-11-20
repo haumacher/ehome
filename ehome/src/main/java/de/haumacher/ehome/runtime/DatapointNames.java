@@ -91,6 +91,15 @@ public final class DatapointNames {
 			return rule == null ? null
 				: Resources.getInstance().getString(I18NConstants.STATE_DATAPOINT_LABEL__RULE.fill(rule));
 		}
+		if (BlockInstances.isPort(target) || BlockInstances.isParameter(target)) {
+			// A port or parameter of a virtual device by the device and its manifest (haumacher/ehome #212):
+			// "Raumregler Wohnzimmer: Gefilterte Temperatur".
+			Resources resources = Resources.getInstance();
+			String member = BlockInstances.memberLabel(target, resources.getLocale().getLanguage());
+			String device = target.tContainer() == null ? null : label(target.tContainer());
+			return device == null ? member
+				: resources.getString(I18NConstants.BLOCK_MEMBER_LABEL__DEVICE_MEMBER.fill(device, member));
+		}
 		for (String attribute : new String[] { "title", "label", "name" }) {
 			if (target.tType().getPart(attribute) != null) {
 				String text = text(target.tValueByName(attribute));

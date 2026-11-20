@@ -256,7 +256,8 @@
 		<!--
 			Group addresses (model type ehome.logical:GA) are written in the notation they carry; a device
 			is named with its individual address (also in the options of a device choice); the datapoint of
-			a rule's state, a state and a day plan by label and id (haumacher/ehome #140).
+			a rule's state, a state and a day plan by label and id (haumacher/ehome #140); a port or a
+			parameter of a virtual device by the device, its manifest's label and its id (haumacher/ehome #212).
 		-->
 		<config service-class="com.top_logic.layout.provider.LabelProviderService">
 			<instance>
@@ -265,6 +266,8 @@
 					<provider kind="MODEL" type="ehome.runtime:RuleStateDatapoint" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
 					<provider kind="MODEL" type="ehome.runtime:RuleState" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
 					<provider kind="MODEL" type="ehome.runtime:TimelinePlan" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
+					<provider kind="MODEL" type="ehome.runtime:BlockPort" implementation="de.haumacher.ehome.runtime.DatapointLabelProvider"/>
+					<provider kind="MODEL" type="ehome.runtime:BlockParameter" implementation="de.haumacher.ehome.runtime.DatapointLabelProvider"/>
 					<!-- A deployment by its revision and time (haumacher/ehome #192: the deployment an entry went back to). -->
 					<provider kind="MODEL" type="ehome.runtime:Deployment" implementation="de.haumacher.ehome.runtime.DeploymentLabelProvider"/>
 					<!-- An area or a line without a name (ETS 6 writes none) by its address (haumacher/ehome #168). -->

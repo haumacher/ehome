@@ -223,6 +223,15 @@ public interface FunctionBase extends com.top_logic.model.TLNamed {
 	String SCENE_ATTR = "scene";
 
 	/**
+	 * Part <code>sensors</code> of <code>Function</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.logical:ProjectDatapoint</code> in configuration.
+	 * </p>
+	 */
+	String SENSORS_ATTR = "sensors";
+
+	/**
 	 * Part <code>setpoint</code> of <code>Function</code>
 	 * 
 	 * <p>
@@ -654,6 +663,49 @@ public interface FunctionBase extends com.top_logic.model.TLNamed {
 	 */
 	default void setScene(Integer newValue) {
 		tUpdateByName(SCENE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #SENSORS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.logical.ProjectDatapoint> getSensors() {
+		return (java.util.List<? extends de.haumacher.ehome.model.logical.ProjectDatapoint>) tValueByName(SENSORS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #SENSORS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.logical.ProjectDatapoint> getSensorsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(SENSORS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.logical.ProjectDatapoint> result = (java.util.List<de.haumacher.ehome.model.logical.ProjectDatapoint>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #SENSORS_ATTR}.
+	 */
+	default void setSensors(java.util.List<de.haumacher.ehome.model.logical.ProjectDatapoint> newValue) {
+		tUpdateByName(SENSORS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #SENSORS_ATTR} reference.
+	 */
+	default void addSensor(de.haumacher.ehome.model.logical.ProjectDatapoint newValue) {
+		tAddByName(SENSORS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #SENSORS_ATTR} reference.
+	 */
+	default void removeSensor(de.haumacher.ehome.model.logical.ProjectDatapoint oldValue) {
+		tRemoveByName(SENSORS_ATTR, oldValue);
 	}
 
 	/**

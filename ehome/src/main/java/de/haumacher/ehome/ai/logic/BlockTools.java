@@ -47,6 +47,7 @@ import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.Pages;
+import de.haumacher.ehome.runtime.RoomControllers;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
 
 /**
@@ -327,7 +328,7 @@ public class BlockTools {
 		Map<String, Object> ports = new LinkedHashMap<>();
 		for (TLObject port : AutomationChange.objects(block.getPorts())) {
 			List<String> bound = new ArrayList<>();
-			for (TLObject datapoint : BlockInstances.bound(port)) {
+			for (TLObject datapoint : RoomControllers.reads(port)) {
 				bound.add(DatapointNames.format(DatapointNames.label(datapoint), BlockInstances.datapointImageId(datapoint)));
 			}
 			ports.put(String.valueOf(((BlockPort) port).getPort()), bound);

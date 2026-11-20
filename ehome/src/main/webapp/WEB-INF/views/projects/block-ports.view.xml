@@ -10,7 +10,9 @@
 	one. What the port does is its help text (haumacher/ehome #101, blockHelp): the tooltip of its name
 	in the table and, in full, below the selected port's text. An input that binds several datapoints
 	combines them with the aggregation chosen from those the port allows (haumacher/ehome #78);
-	choosing the port's default removes the choice.
+	choosing the port's default removes the choice. The input "temperature" of a room controller regulating a
+	function reads the function's temperature sensors (haumacher/ehome #212): "Bound to" shows them, and
+	"Bind datapoints" adds sensors to the function.
 -->
 <view>
 	<channels>
@@ -48,7 +50,7 @@
 				unit="%"
 			>
 				<table
-					observed-types="ehome.runtime:BlockPort,ehome.runtime:BlockBinding"
+					observed-types="ehome.runtime:BlockPort,ehome.runtime:BlockBinding,ehome.runtime:BlockInstance,ehome.runtime:Function"
 					selection="port"
 					types="ehome.runtime:BlockPort"
 				>

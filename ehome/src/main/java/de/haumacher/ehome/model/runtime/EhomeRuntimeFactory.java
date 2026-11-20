@@ -1188,6 +1188,13 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
+	 * Lookup {@link Function#SENSORS_ATTR} of {@link Function}.
+	 */
+	public static com.top_logic.model.TLReference getSensorsFunctionAttr() {
+		return (com.top_logic.model.TLReference) getFunctionType().getPart(Function.SENSORS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Function#SETPOINT_ATTR} of {@link Function}.
 	 */
 	public static com.top_logic.model.TLReference getSetpointFunctionAttr() {
@@ -3271,6 +3278,13 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	 */
 	public static com.top_logic.model.TLProperty getEnabledAdjustableBlockInstanceAttr() {
 		return (com.top_logic.model.TLProperty) getBlockInstanceType().getPart(BlockInstance.ENABLED_ADJUSTABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link BlockInstance#FUNCTION_ATTR} of {@link BlockInstance}.
+	 */
+	public static com.top_logic.model.TLReference getFunctionBlockInstanceAttr() {
+		return (com.top_logic.model.TLReference) getBlockInstanceType().getPart(BlockInstance.FUNCTION_ATTR);
 	}
 
 	/**

@@ -3161,6 +3161,37 @@ write('src/test/fixtures/TestFunctionBlinds.knxproj',
     artificial_fixture('TestFunctionBlinds', BLIND_PROGRAMS, BLIND_HARDWARE, BLIND_ADDRESSES, BLIND_DEVICES),
     [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in BLIND_PROGRAMS])
 
+# TestFunctionClimate.knxproj: the temperature sensors of rooms and a valve drive (haumacher/ehome #212), with two
+# artificial programs of their own (M-0008_A-FFCC/FFCD, marked as test data) in the building of TestFunctionWiring.
+# Five keys "TEST Taster Temperatur" send "Gemessene Raumtemperatur" (9.001): 1.0.1, 1.0.2 and 1.0.3 in "Wohnzimmer" on
+# 8/1/1, 8/1/2 and 8/1/3, 1.0.4 in "Küche" on 8/2/1, 1.0.5 in "Flur" on 8/3/1. "TEST Stellantrieb Klima" (1.0.6, in
+# the board) has the channel "Stellgröße" with "Position anfahren" (1 byte, no type) on 8/1/10 "Heizung Wohnzimmer
+# Ventil" (5.001). The room controllers are virtual devices the test creates.
+CLIMATE_PROGRAMS = [
+    ('M-0008_A-FFCC-01-0000', 'FFCC', 65484, 'TEST: Taster Temperatur (künstliche Testdaten)', [
+        ('Temperatur', [('Gemessene Raumtemperatur', '2 Bytes', T, 'DPST-9-1', None)])]),
+    ('M-0008_A-FFCD-01-0000', 'FFCD', 65485, 'TEST: Stellantrieb Klima (künstliche Testdaten)', [
+        ('Stellgröße', [('Position anfahren', '1 Byte', W, None, '8/1/10')])]),
+]
+CLIMATE_HARDWARE = 'M-0008_H-TEST.20CLIMATE-1'
+# The group addresses of TestFunctionClimate: name and datapoint type by address.
+CLIMATE_ADDRESSES = {'8/1/1': ('Raumtemperatur Wohnzimmer Tür', 'DPST-9-1'),
+    '8/1/2': ('Raumtemperatur Wohnzimmer Fenster', 'DPST-9-1'), '8/1/3': ('Raumtemperatur Wohnzimmer Balkon', 'DPST-9-1'),
+    '8/1/10': ('Heizung Wohnzimmer Ventil', 'DPST-5-1'), '8/2/1': ('Raumtemperatur Küche', 'DPST-9-1'),
+    '8/3/1': ('Raumtemperatur Flur', 'DPST-9-1')}
+CLIMATE_DEVICES = [
+    (0, 'TEST Taster Temperatur', 'P-01A0-0_BP-5', {0: '8/1/1'}),
+    (0, 'TEST Taster Temperatur', 'P-01A0-0_BP-5', {0: '8/1/2'}),
+    (0, 'TEST Taster Temperatur', 'P-01A0-0_BP-5', {0: '8/1/3'}),
+    (0, 'TEST Taster Temperatur', 'P-01A0-0_BP-7', {0: '8/2/1'}),
+    (0, 'TEST Taster Temperatur', 'P-01A0-0_BP-3', {0: '8/3/1'}),
+    (1, 'TEST Stellantrieb Klima', 'P-01A0-0_BP-4', None),
+]
+
+write('src/test/fixtures/TestFunctionClimate.knxproj',
+    artificial_fixture('TestFunctionClimate', CLIMATE_PROGRAMS, CLIMATE_HARDWARE, CLIMATE_ADDRESSES, CLIMATE_DEVICES),
+    [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in CLIMATE_PROGRAMS])
+
 # TestFunctionNames.knxproj: distinct names of the functions in use (haumacher/ehome #144), where the project's
 # group addresses carry the generic names ETS gives ("Schalten EIN/AUS"), with two artificial programs of their own
 # (M-0008_A-FFCA/FFCB, marked as test data) in the building of TestFunctionWiring. Two switching actuators "TEST

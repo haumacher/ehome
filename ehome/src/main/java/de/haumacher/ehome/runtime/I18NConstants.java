@@ -918,6 +918,16 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 BLOCK_OUTPUT_SEVERAL__BLOCK_PORT;
 
 	/**
+	 * @en The virtual device {0}: its input ''{1}'' reads the sensor {2} of the function {3}, which the image does not have.
+	 */
+	public static ResKey4 BLOCK_SENSOR_NOT_IN_IMAGE__BLOCK_PORT_SENSOR_FUNCTION;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 BLOCK_MEMBER_LABEL__DEVICE_MEMBER;
+
+	/**
 	 * @en outputConflict: the output ''{1}'' of the virtual device {0} is bound to the group address {2}, on which the KNX object {3} sends: two sources would write the datapoint.
 	 */
 	public static ResKey4 BLOCK_OUTPUT_SENT_BY_OBJECT__BLOCK_PORT_ADDRESS_OBJECT;

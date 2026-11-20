@@ -693,7 +693,32 @@
 						</dynamic-visibility>
 					</annotations>
 				</reference>
-				<!-- The datapoint of the measured temperature. -->
+				<!--
+					The temperature sensors of the room (haumacher/ehome #212): the datapoints the function offers
+					to whatever regulates it, several, combined by the regulating device as its parameters say (a
+					room controller's input "temperature" reads them, its aggregation combines them). Not part of
+					the runtime image and not shown on the controller's tile.
+				-->
+				<reference name="sensors"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint of the actual temperature (Istwert) the regulating device reports: a room temperature controller's actual value, a room controller's filtered temperature. -->
 				<reference name="temperature"
 					kind="forwards"
 					type="ehome.logical:ProjectDatapoint"
@@ -4203,6 +4228,30 @@
 				<property name="description"
 					type="tl.core:Text"
 				/>
+				<!--
+					The climate function a room controller regulates (haumacher/ehome #212): its input
+					"temperature" reads the function's sensors, its outputs give the function's roles (filtered
+					temperature, active setpoint, valve, demand) and its comfort setpoint the setpoint command
+					(de.haumacher.ehome.runtime.RoomControllers). The function exists without the device: deleting
+					the device leaves it and its sensors.
+				-->
+				<reference name="function"
+					kind="forwards"
+					type="Function"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[b -> blockFunctionOptions($b)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[b -> editMode -> if($b.get(`ehome.runtime:BlockInstance#blockType`) == "org.homecontrol.room-controller", "read-only", "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
 				<!-- One per port of the type, in manifest order. -->
 				<reference name="ports"
 					composite="true"

@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +38,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.blocks.Manifest.Port;
 import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.blocks.SunShading;
 import de.haumacher.ehome.importer.ProgramLanguages;
@@ -66,6 +68,7 @@ import de.haumacher.ehome.programming.DeviceTexts;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.template.ObjectTypes;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
 import de.haumacher.ehome.zigbee.ZigbeeCatalog;
@@ -270,6 +273,20 @@ import de.haumacher.ehome.modules.ModuleParts;
  * option finds the existing function of a proposal ({@link #overwrite(TLObject)}). A function the
  * proposal no longer gives is kept unchanged (control pages may refer to it) and named in the
  * result; dismissed proposals stay dismissed. The run then goes on as without the option.
+ * </p>
+ *
+ * <p>
+ * <b>Room controllers</b> (haumacher/ehome #212). The room of a room controller (a virtual device)
+ * gets one climate function, regulated by the controller ({@link RoomControllers}): its sensors are the
+ * datapoints the controller's input <code>temperature</code> reads, then the temperature sensors of the
+ * room (sensor proposals of a value the input reads in its unit, °C) no function binds, which are no
+ * sensor functions of their own, nor is a temperature the controller reads already; its roles are the
+ * controller's outputs, the valve's group address the heating level. A controller regulating a function
+ * already proposes none; its function gets the temperature sensors of the room no function binds. A
+ * room without a room controller keeps its temperature sensors as sensor functions. A run with the option
+ * to overwrite moves the climates of a room controller in their earlier form (proposed for the
+ * controller, or made by the user with the controller's filtered temperature as the actual value, whose
+ * name and room it keeps) to this form.
  * </p>
  *
  * <p>
@@ -502,9 +519,23 @@ public final class FunctionProposal {
 	 *        What the objects of the function's channels say about their wiring (haumacher/ehome
 	 *        #134): a status object sending on the command address, an address whose datapoint type
 	 *        contradicts the object that decided the kind; empty for none.
+	 * @param sensors
+	 *        For the climate of a room controller (haumacher/ehome #212), the temperature sensors it
+	 *        offers ({@link RoomControllers}): the datapoints the controller's input reads, then the
+	 *        temperature sensors of its room, of which the run takes those no function binds; empty for
+	 *        another function.
 	 */
 	public record Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
-			String channel, Integer scene, List<TLObject> sends, List<Member> members, List<ResKey> warnings) {
+			String channel, Integer scene, List<TLObject> sends, List<Member> members, List<ResKey> warnings,
+			List<TLObject> sensors) {
+
+		/**
+		 * A proposal without sensors.
+		 */
+		public Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
+				String channel, Integer scene, List<TLObject> sends, List<Member> members, List<ResKey> warnings) {
+			this(kind, label, roles, device, channel, scene, sends, members, warnings, List.of());
+		}
 
 		/**
 		 * A proposal of no KNX device channel: a Zigbee datapoint, a virtual device.
@@ -711,6 +742,14 @@ public final class FunctionProposal {
 		Set<TLObject> updated = new LinkedHashSet<>();
 		for (int n = 0; n < proposals.size(); n++) {
 			Proposal proposal = proposals.get(n);
+			if (RoomControllers.regulated(proposal.device()) instanceof Function regulated) {
+				// The room controller regulates its function already (haumacher/ehome #212): it gets the
+				// temperature sensors of the room no function binds.
+				if (decision.addSensors(regulated, proposal)) {
+					updated.add(regulated);
+				}
+				continue;
+			}
 			if (proposal.sends().isEmpty()) {
 				TLObject known = decision.existing(proposal);
 				if (known != null) {
@@ -755,7 +794,7 @@ public final class FunctionProposal {
 			Proposal proposal = proposals.get(n);
 			TLObject function = null;
 			if (accepted[n]) {
-				function = create(proposal, decision._identifiers);
+				function = create(proposal, decision._sensors.getOrDefault(proposal, List.of()), decision._identifiers);
 				added.add(function);
 			} else if (!proposal.warnings().isEmpty()) {
 				function = decision.existing(proposal);
@@ -855,7 +894,7 @@ public final class FunctionProposal {
 		 */
 		Overwrite apply() {
 			List<TLObject> differing = differing();
-			List<TLObject> renaming = differing.stream().filter(f -> renames(f, matches.get(f))).toList();
+			List<TLObject> renaming = differing.stream().filter(f -> proposed(f) && renames(f, matches.get(f))).toList();
 			// The identifiers of the functions keeping their name, and of those not renamed; the renamed
 			// ones give theirs up first, so that two functions may swap their names.
 			Set<String> identifiers = new HashSet<>();
@@ -875,22 +914,55 @@ public final class FunctionProposal {
 					function.setIdentifier(uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 					renames.add(new Rename(function, before, name));
 				}
-				String kind = kind(function);
-				if (!proposal.kind().equals(kind)) {
-					function.setKind(classifier(proposal.kind()));
-				}
-				BuildingDefinition room = room(proposal);
-				if (function.getRoom() != room) {
-					function.setRoom(room);
-				}
-				for (String role : roles(kind, proposal.kind())) {
-					TLObject datapoint = proposal.roles().get(role);
-					if (function.tValueByName(role) != datapoint) {
-						function.tUpdateByName(role, datapoint);
+				if (proposed(function)) {
+					String kind = kind(function);
+					if (!proposal.kind().equals(kind)) {
+						function.setKind(classifier(proposal.kind()));
 					}
+					BuildingDefinition room = room(proposal);
+					if (function.getRoom() != room) {
+						function.setRoom(room);
+					}
+					for (String role : roles(kind, proposal.kind())) {
+						TLObject datapoint = proposal.roles().get(role);
+						if (function.tValueByName(role) != datapoint) {
+							function.tUpdateByName(role, datapoint);
+						}
+					}
+				}
+				if (RoomControllers.isRoomController(proposal.device())) {
+					// The climate of a room controller in its form of haumacher/ehome #212: regulated by the
+					// controller, with the temperature sensors of the room.
+					List<TLObject> sensors = sensors(project, function, proposal);
+					if (!sensors.equals(RoomControllers.sensors(function))) {
+						function.setSensors(RuleImport.typed(sensors));
+					}
+					RoomControllers.regulate(proposal.device(), function);
 				}
 			}
 			return new Overwrite(project, matches, stale, differing, renames);
+		}
+
+		/**
+		 * The sensors the overwritten climate of a room controller gets: those of the proposal no other
+		 * function of the project binds, and the datapoints the controller's input reads.
+		 */
+		private static List<TLObject> sensors(TLObject project, TLObject function, Proposal proposal) {
+			Set<TLObject> bound = new HashSet<>();
+			for (TLObject other : functions(project)) {
+				if (other != function) {
+					bound.addAll(datapoints(other));
+				}
+			}
+			TLObject input = BlockInstances.port(proposal.device(), RoomControllers.TEMPERATURE);
+			List<TLObject> reads = input == null ? List.of() : RoomControllers.reads(input);
+			List<TLObject> result = new ArrayList<>();
+			for (TLObject sensor : proposal.sensors()) {
+				if (!result.contains(sensor) && (reads.contains(sensor) || !bound.contains(sensor))) {
+					result.add(sensor);
+				}
+			}
+			return result;
 		}
 
 		/**
@@ -898,12 +970,38 @@ public final class FunctionProposal {
 		 * datapoint of a role.
 		 */
 		private static boolean differs(TLObject function, Proposal proposal) {
+			if (!proposed(function)) {
+				// A climate the user made with the room controller's actual value (haumacher/ehome #212): only
+				// its regulation by the controller and its sensors.
+				return controlled(function, proposal);
+			}
 			if (renames(function, proposal) || !proposal.kind().equals(kind(function))
 				|| ((Function) function).getRoom() != room(proposal)) {
 				return true;
 			}
 			for (String role : roles(kind(function), proposal.kind())) {
 				if (function.tValueByName(role) != proposal.roles().get(role)) {
+					return true;
+				}
+			}
+			return controlled(function, proposal);
+		}
+
+		/**
+		 * Whether the function differs from the climate of the proposal's room controller in its form of
+		 * haumacher/ehome #212: not regulated by the controller, other sensors or roles than it gives.
+		 */
+		private static boolean controlled(TLObject function, Proposal proposal) {
+			TLObject device = proposal.device();
+			if (!RoomControllers.isRoomController(device)) {
+				return false;
+			}
+			if (RoomControllers.regulated(device) != function
+				|| !sensors(function.tContainer(), function, proposal).equals(RoomControllers.sensors(function))) {
+				return true;
+			}
+			for (Map.Entry<String, TLObject> role : RoomControllers.roles(device).entrySet()) {
+				if (function.tValueByName(role.getKey()) != role.getValue()) {
 					return true;
 				}
 			}
@@ -999,6 +1097,24 @@ public final class FunctionProposal {
 				if (!taken.contains(function) && proposal.kind().equals(kind) && main != null
 					&& function.tValueByName(main) instanceof TLObject address
 					&& key.equals(mainKey(kind, address, ((Function) function).getScene()))) {
+					matched[n] = function;
+					taken.add(function);
+					break;
+				}
+			}
+		}
+		for (int n = 0; n < proposals.size(); n++) {
+			Proposal proposal = proposals.get(n);
+			if (matched[n] != null || !RoomControllers.isRoomController(proposal.device())) {
+				continue;
+			}
+			// A climate the user made with the room controller's actual value is its climate as well
+			// (haumacher/ehome #212): it is regulated by the controller, with the sensors of its room.
+			TLObject filtered = BlockInstances.port(proposal.device(), "filtered");
+			for (TLObject function : functions(project)) {
+				if (!taken.contains(function) && "climate".equals(kind(function))
+					&& ((Function) function).getPreset() == null && filtered != null
+					&& ((Function) function).getTemperature() == filtered) {
 					matched[n] = function;
 					taken.add(function);
 					break;
@@ -1171,6 +1287,10 @@ public final class FunctionProposal {
 				result.add(datapoint);
 			}
 		}
+		if ("climate".equals(kind(function))) {
+			// The temperature sensors a climate offers (haumacher/ehome #212) are bound by it as well.
+			result.addAll(RoomControllers.sensors(function));
+		}
 		return result;
 	}
 
@@ -1232,6 +1352,51 @@ public final class FunctionProposal {
 		 * binding it.
 		 */
 		final Map<TLObject, Object> _usedBy = new HashMap<>();
+
+		/**
+		 * The sensors each accepted climate of a room controller takes (haumacher/ehome #212): those of
+		 * its proposal no function binds, and the datapoints the controller's input reads.
+		 */
+		final Map<Proposal, List<TLObject>> _sensors = new IdentityHashMap<>();
+
+		/**
+		 * The sensors of the proposal the function takes: the datapoints the room controller's input
+		 * reads, and the room's temperature sensors no other function (or proposal added before) binds.
+		 */
+		List<TLObject> freeSensors(Proposal proposal, TLObject self) {
+			TLObject input = BlockInstances.port(proposal.device(), RoomControllers.TEMPERATURE);
+			List<TLObject> reads = input == null ? List.of() : RoomControllers.reads(input);
+			List<TLObject> result = new ArrayList<>();
+			for (TLObject sensor : proposal.sensors()) {
+				if (!result.contains(sensor)
+					&& (reads.contains(sensor) || !other(_usedBy.get(sensor), self) && !_sceneAddresses.contains(sensor))) {
+					result.add(sensor);
+				}
+			}
+			return result;
+		}
+
+		/**
+		 * Adds the free sensors of the proposal ({@link #freeSensors(Proposal, TLObject)}) to the function
+		 * the proposal's room controller regulates, those it has not yet; records them as bound.
+		 *
+		 * @return Whether the function was changed.
+		 */
+		boolean addSensors(Function function, Proposal proposal) {
+			List<TLObject> sensors = RoomControllers.sensors(function);
+			boolean changed = false;
+			for (TLObject sensor : freeSensors(proposal, function)) {
+				if (!sensors.contains(sensor)) {
+					sensors.add(sensor);
+					changed = true;
+				}
+			}
+			if (changed) {
+				function.setSensors(RuleImport.typed(sensors));
+			}
+			record(function, "climate", sensors, null);
+			return changed;
+		}
 
 		/** The scenes bound ({@link #mainKey}: the address and the number), each with its binder. */
 		final Map<String, Object> _scenesBy = new HashMap<>();
@@ -1351,6 +1516,11 @@ public final class FunctionProposal {
 				return false;
 			}
 			record(proposal, proposal.kind(), proposal.roles().values(), proposal.scene());
+			if (!proposal.sensors().isEmpty()) {
+				List<TLObject> sensors = freeSensors(proposal, null);
+				_sensors.put(proposal, sensors);
+				record(proposal, proposal.kind(), sensors, null);
+			}
 			return true;
 		}
 	}
@@ -1417,6 +1587,9 @@ public final class FunctionProposal {
 				((Project) project).setDismissedProposals(dismissals);
 			}
 		}
+		// A room controller regulating the function reads its sensors by bindings of its own again
+		// (haumacher/ehome #212).
+		RoomControllers.deleting(function);
 		function.tDelete();
 		return result;
 	}
@@ -1477,7 +1650,7 @@ public final class FunctionProposal {
 		return channel != null && channel.startsWith(ZIGBEE_CHANNEL);
 	}
 
-	private static TLObject create(Proposal proposal, Set<String> identifiers) {
+	private static TLObject create(Proposal proposal, List<TLObject> sensors, Set<String> identifiers) {
 		Function function = (Function) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
 		ResKey name = proposal.name();
@@ -1494,6 +1667,13 @@ public final class FunctionProposal {
 		}
 		for (Map.Entry<String, TLObject> role : proposal.roles().entrySet()) {
 			function.tUpdateByName(role.getKey(), role.getValue());
+		}
+		if (!sensors.isEmpty()) {
+			function.setSensors(RuleImport.typed(sensors));
+		}
+		if (RoomControllers.isRoomController(proposal.device())) {
+			// The room controller regulates its climate (haumacher/ehome #212).
+			RoomControllers.regulate(proposal.device(), function);
 		}
 		return function;
 	}
@@ -1706,18 +1886,91 @@ public final class FunctionProposal {
 		for (TLObject device : ZigbeeImport.devices(project)) {
 			zigbee((ZigbeeDevice) device, datapoints, result);
 		}
+		List<Proposal> blocks = new ArrayList<>();
 		for (TLObject instance : BlockInstances.of(project)) {
-			block((BlockInstance) instance, result);
+			block((BlockInstance) instance, blocks);
 		}
+		roomSensors(blocks, result);
+		result.addAll(blocks);
 		return result;
+	}
+
+	/**
+	 * Gives the climates of the room controllers among the proposals of the virtual devices the
+	 * temperature sensors of their rooms
+	 * (haumacher/ehome #212): the sensor proposals in the room of a room controller whose value its input
+	 * <code>temperature</code> reads in its unit (°C) are no functions of their own but sensors of the
+	 * room's climate, the first room controller's of the room; which of them the climate takes, those no
+	 * function binds, the run decides.
+	 */
+	private static void roomSensors(List<Proposal> climates, List<Proposal> result) {
+		Map<BuildingDefinition, Integer> first = new LinkedHashMap<>();
+		for (int n = 0; n < climates.size(); n++) {
+			if (RoomControllers.isRoomController(climates.get(n).device())
+				&& room(climates.get(n)) instanceof BuildingDefinition room) {
+				first.putIfAbsent(room, Integer.valueOf(n));
+			}
+		}
+		// A sensor a room controller reads already is its climate's, wherever the sensor is.
+		Map<TLObject, Integer> reading = new HashMap<>();
+		for (int n = 0; n < climates.size(); n++) {
+			for (TLObject sensor : climates.get(n).sensors()) {
+				reading.putIfAbsent(sensor, Integer.valueOf(n));
+			}
+		}
+		if (first.isEmpty() && reading.isEmpty()) {
+			return;
+		}
+		Map<Integer, List<TLObject>> sensors = new HashMap<>();
+		for (Iterator<Proposal> it = result.iterator(); it.hasNext();) {
+			Proposal proposal = it.next();
+			TLObject value = "sensor".equals(proposal.kind()) ? proposal.roles().get("value") : null;
+			Integer climate = value == null ? null : reading.get(value);
+			if (climate == null && value != null) {
+				climate = first.get(room(proposal));
+			}
+			TLObject input = climate == null ? null
+				: BlockInstances.port(climates.get(climate.intValue()).device(), RoomControllers.TEMPERATURE);
+			Port decl = input == null ? null : BlockInstances.portDecl(input);
+			if (decl != null && temperature(decl, value)) {
+				sensors.computeIfAbsent(climate, n -> new ArrayList<>()).add(value);
+				it.remove();
+			}
+		}
+		for (Map.Entry<Integer, List<TLObject>> entry : sensors.entrySet()) {
+			int n = entry.getKey().intValue();
+			Proposal climate = climates.get(n);
+			List<TLObject> all = new ArrayList<>(climate.sensors());
+			for (TLObject sensor : entry.getValue()) {
+				if (!all.contains(sensor)) {
+					all.add(sensor);
+				}
+			}
+			climates.set(n, new Proposal(climate.kind(), climate.label(), climate.roles(), climate.device(),
+				climate.channel(), null, List.of(), List.of(), List.of(), all));
+		}
+	}
+
+	/**
+	 * Whether the datapoint is a temperature the input reads: of a type it reads and of its unit.
+	 */
+	private static boolean temperature(Port input, TLObject datapoint) {
+		String name = Pages.valueType(datapoint);
+		ValueType type = name == null ? null : ValueType.fromName(name);
+		return type != null && input.type().reads(type)
+			&& BlockInstances.unitFit(input, datapoint) == BlockInstances.UnitFit.SAME;
 	}
 
 	/**
 	 * The function of a virtual device, keyed by its identifier (<code>block:&lt;id&gt;</code>):
 	 * <ul>
-	 * <li>A room controller (haumacher/ehome #75) is a climate function: its filtered temperature,
-	 * its active setpoint, the comfort setpoint as the setpoint command and its heat demand as
-	 * heating.</li>
+	 * <li>A room controller (haumacher/ehome #75, #212) is the climate function it regulates
+	 * ({@link RoomControllers}): its filtered temperature the actual value, its active setpoint, the
+	 * comfort setpoint as the setpoint command, its heat demand as heating and its valve as the heating
+	 * level, each output by the datapoint it is bound to where it is bound (the valve's group address);
+	 * its sensors the datapoints the controller's input <code>temperature</code> reads and the
+	 * temperature sensors of its room ({@link #roomSensors(List, List)}). Added, the climate is
+	 * regulated by the controller. A controller regulating a function already proposes none.</li>
 	 * <li>A sun shading (haumacher/ehome #78) is a blind: the datapoints its outputs command are
 	 * the blind it moves, so the function operates and shows them - its up/down output's datapoint
 	 * moves (the role the blind cannot do without, a command the device needs writable, which the
@@ -1735,12 +1988,13 @@ public final class FunctionProposal {
 		Object type = instance.getBlockType();
 		String kind;
 		Map<String, TLObject> roles = new LinkedHashMap<>();
+		List<TLObject> sensors = List.of();
 		if (RoomController.TYPE.equals(type)) {
 			kind = "climate";
-			put(roles, "temperature", BlockInstances.port(instance, "filtered"));
-			put(roles, "setpoint", BlockInstances.port(instance, "activeSetpoint"));
-			put(roles, "setpointCommand", BlockInstances.parameter(instance, "comfort"));
-			put(roles, "heating", BlockInstances.port(instance, "demand"));
+			roles.putAll(RoomControllers.roles(instance));
+			TLObject input = BlockInstances.port(instance, RoomControllers.TEMPERATURE);
+			sensors = RoomControllers.regulated(instance) != null ? RoomControllers.reads(input)
+				: input == null ? List.of() : BlockInstances.bound(input);
 		} else if (SunShading.TYPE.equals(type)) {
 			kind = "blind";
 			put(roles, "move", boundTo(instance, "upDown"));
@@ -1766,7 +2020,8 @@ public final class FunctionProposal {
 		} else {
 			label.put(userLanguage(), id);
 		}
-		result.add(new Proposal(kind, label, roles, instance, BLOCK_CHANNEL + id, null, List.of()));
+		result.add(new Proposal(kind, label, roles, instance, BLOCK_CHANNEL + id, null, List.of(), List.of(), List.of(),
+			sensors));
 	}
 
 	/** The datapoint the output of the instance is bound to, <code>null</code> for none. */
