@@ -32,6 +32,13 @@ jobs:
           cache: maven
 
       # The resource bundles are committed: no machine translation (it needs a DeepL key) in CI.
+      # The download of the Maven distribution from Maven Central fails now and then on the runners
+      # (4 of 25 runs in November 2026); the wrapper itself does not retry.
+      - name: Fetch Maven
+        env:
+          MVNW_VERBOSE: 'true'
+        run: ./mvnw -v || (sleep 30 && ./mvnw -v) || (sleep 90 && ./mvnw -v)
+
       # Verbose wrapper: a failed download of the Maven distribution shows wget's own error.
       - name: Build and test the app
         env:
