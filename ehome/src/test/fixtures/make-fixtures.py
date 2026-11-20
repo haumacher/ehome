@@ -3078,8 +3078,9 @@ def artificial_fixture(project, programs, hardware_id, addresses, devices):
         for main in sorted(set(int(a.split('/')[0]) for a in ordered)):
             ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
                 % (main, main, main << 11, (main << 11) + 2047)
-                + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" DatapointType="%s" />'
-                    % (ordered.index(a) + 1, ga_value(a), addresses[a][0], addresses[a][1])
+                + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s"%s />'
+                    % (ordered.index(a) + 1, ga_value(a), addresses[a][0],
+                        '' if addresses[a][1] is None else ' DatapointType="' + addresses[a][1] + '"')
                     for a in ordered if a.startswith(str(main) + '/'))
                 + '</GroupRange>\n')
         xml = xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
@@ -3112,6 +3113,53 @@ write('src/test/fixtures/TestFunctionHeating.knxproj',
     artificial_fixture('TestFunctionHeating', HEATING_PROGRAMS, HEATING_HARDWARE, HEATING_ADDRESSES, HEATING_DEVICES),
     [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in HEATING_PROGRAMS])
 
+
+# TestFunctionBlinds.knxproj: actuators whose program and group addresses name no datapoint subtype for their
+# switching objects (haumacher/ehome #211, the construct of an old blind actuator and a valve drive), with two
+# artificial programs of their own (M-0008_A-FFC8/FFC9, marked as test data) in the building of TestFunctionWiring.
+# "TEST Jalousieaktor ohne Typen" (1.0.1, in the board) has three channels "Ausgang 1" to "Ausgang 3", each with
+# "Langzeitbetrieb" and "Kurzzeitbetrieb" (1 bit, no type), "Position Rolllade/Markise" (1 byte, no type, its address
+# 5.001) and the reports "Rückmeldung Rollladenposition" (1 byte, its address 5.001) and "Rückmeldung
+# Antriebsbewegung" (1 bit, no type): "Ausgang 1" on 6/1/1..5 "Rollladen Wohnzimmer ...", "Ausgang 2" on 6/2/1..5
+# "Rollladen Küche ...", "Ausgang 3" on 6/3/1..5 "Rollladen Flur ...". "TEST Stellantrieb" (1.0.2, in the board) has
+# the channel "Stellgröße" with "Position anfahren" (1 byte, no type, its address 5.001) on 6/4/1, "Zwangsposition
+# anfahren" (1 bit), "Aktuelle Ventilposition melden" (1 byte), "Fensterstatus melden" and "Stellgrößenausfall
+# melden" (1 bit each, no types) on 6/4/2..5.
+def blind_channel(name, group):
+    """A channel of the blind actuator naming no subtypes, on the addresses 6/<group>/1..5."""
+    return (name, [obj + ('6/%d/%d' % (group, n),) for n, obj in enumerate([
+        ('Langzeitbetrieb', '1 Bit', W, None), ('Kurzzeitbetrieb', '1 Bit', W, None),
+        ('Position Rolllade/Markise', '1 Byte', W, None), ('Rückmeldung Rollladenposition', '1 Byte', T, None),
+        ('Rückmeldung Antriebsbewegung', '1 Bit', T, None)], 1)])
+
+
+BLIND_PROGRAMS = [
+    ('M-0008_A-FFC8-01-0000', 'FFC8', 65480, 'TEST: Jalousieaktor ohne Typen (künstliche Testdaten)', [
+        blind_channel('Ausgang 1', 1), blind_channel('Ausgang 2', 2), blind_channel('Ausgang 3', 3)]),
+    ('M-0008_A-FFC9-01-0000', 'FFC9', 65481, 'TEST: Stellantrieb (künstliche Testdaten)', [
+        ('Stellgröße', [('Position anfahren', '1 Byte', W, None, '6/4/1'), ('Zwangsposition anfahren', '1 Bit', W, None, '6/4/2'),
+            ('Aktuelle Ventilposition melden', '1 Byte', T, None, '6/4/3'), ('Fensterstatus melden', '1 Bit', T, None, '6/4/4'),
+            ('Stellgrößenausfall melden', '1 Bit', T, None, '6/4/5')])]),
+]
+BLIND_HARDWARE = 'M-0008_H-TEST.20BLINDS-1'
+# The group addresses of TestFunctionBlinds: name and datapoint type (None for none) by address.
+BLIND_ADDRESSES = {address: (name, dpt) for group, room in ((1, 'Wohnzimmer'), (2, 'Küche'), (3, 'Flur'))
+    for address, name, dpt in (('6/%d/1' % group, 'Rollladen %s fahren' % room, None),
+        ('6/%d/2' % group, 'Rollladen %s Step' % room, None),
+        ('6/%d/3' % group, 'Rollladen %s Position' % room, 'DPST-5-1'),
+        ('6/%d/4' % group, 'Rollladen %s Rückmeldung Position' % room, 'DPST-5-1'),
+        ('6/%d/5' % group, 'Rollladen %s Rückmeldung Motor' % room, None))}
+BLIND_ADDRESSES.update({'6/4/1': ('Heizung Wohnzimmer Position anfahren', 'DPST-5-1'),
+    '6/4/2': ('Heizung Wohnzimmer Zwangsposition', None), '6/4/3': ('Heizung Wohnzimmer Aktuelle Position', None),
+    '6/4/4': ('Wohnzimmer Fenster offen', None), '6/4/5': ('Heizung Wohnzimmer Stellgrößenausfall', None)})
+BLIND_DEVICES = [
+    (0, 'TEST Jalousieaktor ohne Typen', 'P-01A0-0_BP-4', None),
+    (1, 'TEST Stellantrieb', 'P-01A0-0_BP-4', None),
+]
+
+write('src/test/fixtures/TestFunctionBlinds.knxproj',
+    artificial_fixture('TestFunctionBlinds', BLIND_PROGRAMS, BLIND_HARDWARE, BLIND_ADDRESSES, BLIND_DEVICES),
+    [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in BLIND_PROGRAMS])
 
 # TestFunctionNames.knxproj: distinct names of the functions in use (haumacher/ehome #144), where the project's
 # group addresses carry the generic names ETS gives ("Schalten EIN/AUS"), with two artificial programs of their own

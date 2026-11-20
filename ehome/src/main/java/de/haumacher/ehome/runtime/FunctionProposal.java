@@ -134,8 +134,11 @@ import de.haumacher.ehome.modules.ModuleParts;
  * their names (German and English words), tried in this order:
  * </p>
  * <ol>
- * <li><code>blind</code>: an input of DPT 1.008 (up/down) moves; an input of 1.007, 1.010 or 1.017
- * stops, as does one of 1.008 or 1.009 named for a stop or a short-term operation
+ * <li><code>blind</code>: an input of DPT 1.008 (up/down) moves, else an input of a truth value naming
+ * no subtype (its program and its address name none, as an old actuator's) named for the long-term
+ * operation (Langzeit/long-term/Auf/Ab/up/down/fahren/move, haumacher/ehome #211: "Langzeitbetrieb");
+ * an input of 1.007, 1.010 or 1.017 stops, as does one of 1.008, 1.009 or of a truth value naming no
+ * subtype named for a stop or a short-term operation
  * (stop/Stopp/Kurzzeit/short/step/Schritt/Lamellenverstellung), which is no move; 5.001 objects are
  * the position or, named slat/Lamelle, the slats; inputs set, outputs report. An output of a truth
  * value (DPT 1.x but 1.007, 1.008, 1.010, 1.017) whose own name names the upper end position
@@ -144,7 +147,9 @@ import de.haumacher.ehome.modules.ModuleParts;
  * "Endlage unten"); not where its name names both ("Position oben/unten") or a movement or direction
  * (Richtung/direction/Fahrt/moving/Bewegung/Lauf: "Status akt. Richtung"). All roles come from the
  * objects of the same channel.</li>
- * <li><code>dimmer</code>: an input of DPT 5.001 sets the level; a 5.001 output reports it; a 1.001
+ * <li><code>dimmer</code>: an input of DPT 5.001 sets the level, unless it is named for an actuating
+ * value (below; a valve drive's "Stellgröße: Position anfahren" is no dimmer, haumacher/ehome #211); a
+ * 5.001 output reports it; a 1.001
  * input switches, a state (below) reports; a 3.007 input dims relatively (the role
  * <code>step</code>).</li>
  * <li><code>climate</code>: an output of DPT 9.001 (the temperature) together with a setpoint
@@ -234,12 +239,15 @@ import de.haumacher.ehome.modules.ModuleParts;
  *
  * <p>
  * The proposal adds a function only for a channel no function of the project was proposed for, and
- * none whose main role an existing function of the same kind already binds (a scene: the same
- * address with the same scene number), nor a second one for a main role another proposal of the same
- * run binds. The only change it makes to a function the project has (haumacher/ehome #98): the
+ * none that binds a datapoint an existing function of the project binds, in any role and of any kind
+ * (haumacher/ehome #211: proposed or made by hand, configured by intent or not; a blind the user made
+ * keeps the actuator's channel from coming back as another function), nor one binding a datapoint a
+ * function proposed before in the same run binds; scenes count by their address and number (several
+ * scenes share an address), and a scene's address bound in another role counts as bound. The only
+ * change it makes to a function the project has (haumacher/ehome #98): the
  * existing function of a proposal (of the same kind, proposed for one of its linked channels or
  * binding its main role) that is unused gets the roles of the proposal it has not bound, once its
- * channel is linked; and one whose name is still a generated one is renamed after the group address
+ * channel is linked, unless another function binds one of the proposal's datapoints; and one whose name is still a generated one is renamed after the group address
  * of its main role. A name is generated where it reads, in every application language, as the
  * unused function's name the proposal gives the channel now, or as the channel's name earlier
  * proposals gave it ("Kanal H"); a name the user edited stays, as do the roles a function binds (an
@@ -304,7 +312,7 @@ import de.haumacher.ehome.modules.ModuleParts;
  * and the function key (of the on/off function for a dimmer), which a new import of the controller's
  * export keeps, so that a dismissal of it stays as the dismissal of a KNX channel does. A Zigbee
  * function is not proposed where an existing function (or one proposed before it in the same run)
- * uses one of its datapoints in any role.
+ * uses one of its datapoints in any role, as every other function.
  * </p>
  */
 public final class FunctionProposal {
@@ -316,6 +324,12 @@ public final class FunctionProposal {
 	 * its slats): an object of DPT 1.008 named so is no move, but the stop (haumacher/ehome #134).
 	 */
 	private static final Pattern STOP = words("stop", "kurzzeit", "short", "step", "schritt", "lamellenverst");
+
+	/**
+	 * The words naming the long-term operation of a blind, which moves it (haumacher/ehome #211): an
+	 * input of a truth value naming no subtype named so ("Langzeitbetrieb") is the move.
+	 */
+	private static final Pattern MOVE = words("langzeit", "long-term", "long term", "auf/ab", "up/down", "fahren", "move");
 
 	private static final Pattern STATE = words("status", "state", "rückmeld", "feedback", "zustand");
 
@@ -674,11 +688,7 @@ public final class FunctionProposal {
 				decision._boundMainRoles.add(key);
 				decision._byMainRole.putIfAbsent(key, function);
 			}
-			for (String role : FunctionKinds.roles(kind)) {
-				if (function.tValueByName(role) instanceof TLObject datapoint) {
-					decision._usedDatapoints.add(datapoint);
-				}
-			}
+			decision.record(function, kind, datapoints(function), function.getScene());
 			for (String role : FunctionKinds.commandRoles(kind)) {
 				if (function.tValueByName(role) instanceof TLObject datapoint) {
 					decision.commands(datapoint, function.getDevice());
@@ -704,8 +714,9 @@ public final class FunctionProposal {
 			if (proposal.sends().isEmpty()) {
 				TLObject known = decision.existing(proposal);
 				if (known != null) {
-					if (update(known, proposal, decision._identifiers, names)) {
+					if (update(known, proposal, !decision.taken(proposal, known), decision._identifiers, names)) {
 						updated.add(known);
+						decision.record(known, kind(known), datapoints(known), ((Function) known).getScene());
 					}
 					decision.bound(proposal);
 				} else if (!sourceChannel(proposal, sources)) {
@@ -727,8 +738,9 @@ public final class FunctionProposal {
 			}
 			TLObject known = decision.existing(proposal);
 			if (known != null) {
-				if (update(known, proposal, decision._identifiers, names)) {
+				if (update(known, proposal, !decision.taken(proposal, known), decision._identifiers, names)) {
 					updated.add(known);
+					decision.record(known, kind(known), datapoints(known), ((Function) known).getScene());
 				}
 				decision.bound(proposal);
 			} else if (!sourceChannel(proposal, sources) && !decision.commandedElsewhere(proposal)
@@ -1030,9 +1042,13 @@ public final class FunctionProposal {
 	 * the identifier of the new name as well (the controller never had it). A name the user edited
 	 * and the roles the function binds stay.
 	 *
+	 * @param fill
+	 *        Whether the roles may be filled: no other function binds one of the proposal's datapoints
+	 *        (haumacher/ehome #211).
 	 * @return Whether the function was changed.
 	 */
-	private static boolean update(TLObject object, Proposal proposal, Set<String> identifiers, Names names) {
+	private static boolean update(TLObject object, Proposal proposal, boolean fill, Set<String> identifiers,
+			Names names) {
 		if (proposal.unused() || proposal.members().isEmpty()) {
 			return false;
 		}
@@ -1048,7 +1064,7 @@ public final class FunctionProposal {
 		}
 		boolean changed = false;
 		boolean wasUnused = unused(function);
-		if (wasUnused) {
+		if (wasUnused && fill) {
 			for (Map.Entry<String, TLObject> role : proposal.roles().entrySet()) {
 				if (function.tValueByName(role.getKey()) == null) {
 					function.tUpdateByName(role.getKey(), role.getValue());
@@ -1146,6 +1162,19 @@ public final class FunctionProposal {
 	}
 
 	/**
+	 * The datapoints the function binds, in the roles of its kind.
+	 */
+	private static List<TLObject> datapoints(TLObject function) {
+		List<TLObject> result = new ArrayList<>();
+		for (String role : FunctionKinds.roles(kind(function))) {
+			if (function.tValueByName(role) instanceof TLObject datapoint) {
+				result.add(datapoint);
+			}
+		}
+		return result;
+	}
+
+	/**
 	 * Whether the given function is unused (haumacher/ehome #98): its main role has no datapoint, as
 	 * the proposal makes it for a channel whose main object has no group address; for a dimmer neither
 	 * its switching command (its main role) nor its level command (haumacher/ehome #134,
@@ -1197,7 +1226,59 @@ public final class FunctionProposal {
 			return _byMainRole.get(mainKey(proposal.kind(), proposal.main(), proposal.scene()));
 		}
 
-		final Set<TLObject> _usedDatapoints = new HashSet<>();
+		/**
+		 * The datapoints the functions of the project and the proposals added before bind in a role
+		 * other than a scene's (haumacher/ehome #211), each with the first function or proposal
+		 * binding it.
+		 */
+		final Map<TLObject, Object> _usedBy = new HashMap<>();
+
+		/** The scenes bound ({@link #mainKey}: the address and the number), each with its binder. */
+		final Map<String, Object> _scenesBy = new HashMap<>();
+
+		/** The addresses of the scenes bound. */
+		final Set<TLObject> _sceneAddresses = new HashSet<>();
+
+		/**
+		 * Records the datapoints the given function or proposal binds.
+		 */
+		void record(Object binder, String kind, Collection<TLObject> datapoints, Object scene) {
+			for (TLObject datapoint : datapoints) {
+				if ("scene".equals(kind)) {
+					_scenesBy.putIfAbsent(mainKey(kind, datapoint, scene), binder);
+					_sceneAddresses.add(datapoint);
+				} else {
+					_usedBy.putIfAbsent(datapoint, binder);
+				}
+			}
+		}
+
+		/**
+		 * Whether a function other than the given one (or a proposal added before) binds one of the
+		 * datapoints of the proposal, in any role and of any kind (haumacher/ehome #211): a scene
+		 * the same scene of its address, or its address in another role; another function one of its
+		 * datapoints in any role, or as the address of a scene.
+		 */
+		boolean taken(Proposal proposal, TLObject self) {
+			for (TLObject datapoint : proposal.roles().values()) {
+				if (datapoint == null) {
+					continue;
+				}
+				if ("scene".equals(proposal.kind())) {
+					Object binder = _scenesBy.get(mainKey(proposal.kind(), datapoint, proposal.scene()));
+					if (binder != null && binder != self || other(_usedBy.get(datapoint), self)) {
+						return true;
+					}
+				} else if (other(_usedBy.get(datapoint), self) || _sceneAddresses.contains(datapoint)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		private static boolean other(Object binder, TLObject self) {
+			return binder != null && binder != self;
+		}
 
 		final Set<String> _identifiers = new HashSet<>();
 
@@ -1260,20 +1341,17 @@ public final class FunctionProposal {
 				// Nothing bound: one function for the channel.
 				return _proposedChannels.add(identity);
 			}
-			TLObject main = proposal.main();
-			if (zigbee(proposal.channel()) || proposal.channel().startsWith(BLOCK_CHANNEL)) {
-				if (proposal.roles().values().stream().anyMatch(_usedDatapoints::contains)) {
-					return false;
-				}
-				if (proposal.channel().startsWith(BLOCK_CHANNEL)
-					&& !_boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
-					// A sun shading's blind moves the actuator whose channel was proposed a blind already.
-					return false;
-				}
-				_usedDatapoints.addAll(proposal.roles().values());
-				return true;
+			// No datapoint bound twice, in any role and of any kind (haumacher/ehome #211): a hand-made blind
+			// keeps the actuator's channel from coming back as another function.
+			if (taken(proposal, null)) {
+				return false;
 			}
-			return _boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()));
+			if (!zigbee(proposal.channel())
+				&& !_boundMainRoles.add(mainKey(proposal.kind(), proposal.main(), proposal.scene()))) {
+				return false;
+			}
+			record(proposal, proposal.kind(), proposal.roles().values(), proposal.scene());
+			return true;
 		}
 	}
 
@@ -2194,10 +2272,15 @@ public final class FunctionProposal {
 
 		Map<String, Obj> found = new LinkedHashMap<>();
 		Obj move = first(objects, o -> o.input() && o.is(1, 8) && !o.ownNamed(STOP));
+		if (move == null) {
+			// An actuator naming no subtype (haumacher/ehome #211): its long-term operation moves.
+			move = first(objects, o -> o.input() && o.untyped(1) && o.ownNamed(MOVE) && !o.ownNamed(STOP));
+		}
 		if (move != null) {
+			Obj moving = move;
 			found.put("move", move);
-			found(found, "stop", first(objects, o -> o != move && o.input() && (o.is(1, 7) || o.is(1, 10) || o.is(1, 17)
-				|| ((o.is(1, 8) || o.is(1, 9)) && o.ownNamed(STOP)))));
+			found(found, "stop", first(objects, o -> o != moving && o.input() && (o.is(1, 7) || o.is(1, 10)
+				|| o.is(1, 17) || ((o.is(1, 8) || o.is(1, 9) || o.untyped(1)) && o.ownNamed(STOP)))));
 			found(found, "position", first(objects, o -> o.output() && o.is(5, 1) && !o.named(SLAT)));
 			found(found, "positionCommand", first(objects, o -> o.input() && o.is(5, 1) && !o.named(SLAT)));
 			found(found, "slat", first(objects, o -> o.output() && o.is(5, 1) && o.named(SLAT)));
@@ -2213,7 +2296,8 @@ public final class FunctionProposal {
 		if (command == null && !channel.named(KEY) && (state != null || channel.named(SWITCHED))) {
 			command = first(objects, o -> o.input() && o.untyped(1) && !o.named(LOCK) && !o.named(CENTRAL));
 		}
-		Obj levelCommand = first(objects, o -> o.input() && o.is(5, 1));
+		// A valve's actuating value is no brightness (haumacher/ehome #211).
+		Obj levelCommand = first(objects, o -> o.input() && o.is(5, 1) && !o.ownNamed(ACTUATING));
 		if (levelCommand != null) {
 			found.put("levelCommand", levelCommand);
 			found(found, "level", first(objects, o -> o.output() && !o.input() && o.is(5, 1)));
