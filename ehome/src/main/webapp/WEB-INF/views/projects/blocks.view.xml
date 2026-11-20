@@ -8,8 +8,8 @@
 	inputs bound to several datapoints are datapoints block/<id>/<x> of the image, which functions,
 	rules, pages and other virtual devices name like any other.
 
-	"New virtual device" asks for the type and the room (block-create.view.xml); the identifier is
-	derived from the name once and never changes. The form of the selected instance shows what the
+	"New virtual device" asks for the name, the type and the room (block-create.view.xml); the
+	identifier is derived from the name once and never changes. The form of the selected instance shows what the
 	image refuses of it (the controller's reason with its path). Below it the parameters of the type
 	with their value, the value of the image (set or default), the type's default and the bounds or
 	choices, each as people read it (haumacher/ehome #78, BlockValues): a choice by its label, a

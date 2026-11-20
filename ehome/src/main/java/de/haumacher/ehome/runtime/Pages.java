@@ -857,7 +857,6 @@ public final class Pages {
 		switch (kind) {
 			case PAGE: {
 				Page page = (Page) create("Page");
-				page.setNameKey(FunctionProposal.text(I18NConstants.NEW_PAGE_NAME));
 				page.setMinimumRole(RuleImport.classifier("PageRole", OPERATOR));
 				created.add(page);
 				break;

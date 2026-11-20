@@ -103,7 +103,7 @@ public class TestFunctionOverwrite extends BasicTestCase {
 
 				FunctionProposal.dismiss(taste6);
 
-				taste2.setNameKey(FunctionProposal.text(ResKey.text("Mein Taster")));
+				taste2.setNameKey(FunctionProposal.text(Map.of("de", "Mein Taster", "en", "Mein Taster")));
 				kanalC.setState(null);
 				tx.commit();
 			}

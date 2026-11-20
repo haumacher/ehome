@@ -38,6 +38,7 @@ import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.model.zigbee.ZigbeeEndpoint;
 import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -134,7 +135,9 @@ public class TestZigbeeDevices extends BasicTestCase {
 			assertTrue(report.toString(), report.isValid());
 			List<?> datapoints = (List<?>) image.getJson().get("datapoints");
 			assertEquals(2, datapoints.size());
-			assertEquals(map("id", "philips-sml002-occupancy", "label", Map.of("de", "Philips SML002 occupancy", "en",
+			// Named after the device and its function's key, a text without language: in the user's
+			// language only (haumacher/ehome #205).
+			assertEquals(map("id", "philips-sml002-occupancy", "label", Map.of(FunctionProposal.userLanguage(),
 				"Philips SML002 occupancy"), "type", "boolean", "readOnStart", Boolean.TRUE, "zigbee",
 				map("ieee", IEEE, "endpoint", Long.valueOf(2), "cluster", Long.valueOf(1030), "attribute", Long.valueOf(0))),
 				datapoints.get(0));

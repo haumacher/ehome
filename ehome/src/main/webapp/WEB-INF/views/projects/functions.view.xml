@@ -23,7 +23,7 @@
 	or linked. The command opens a dialog (projects/propose-functions.view.xml) whose checkbox, off by
 	default, overwrites the existing functions that come from a proposal with what it gives now (name,
 	kind, room, roles; haumacher/ehome #177), after a confirmation naming their count. "New function"
-	adds an empty one. The form of the selected function shows the roles
+	asks for its name and kind (projects/create-function.view.xml, haumacher/ehome #205). The form of the selected function shows the roles
 	of its kind only; the options of a role are the datapoints of the project, its group addresses
 	and its application datapoints (haumacher/ehome #61).
 
@@ -196,11 +196,27 @@
 										<executability>
 											<null-input-disabled/>
 										</executability>
-										<create-function>
+										<create-transient
+											container="project"
+											reference="functions"
+											type="ehome.runtime:Function"
+										>
 											<with-result>
-												<write-channel name="function"/>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="projects/create-function.view.xml"
+												>
+													<bind
+														channel="project"
+														to="project"
+													/>
+													<bind
+														channel="selection"
+														to="function"
+													/>
+												</open-dialog>
 											</with-result>
-										</create-function>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"

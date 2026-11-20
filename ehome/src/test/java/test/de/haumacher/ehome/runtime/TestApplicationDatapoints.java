@@ -38,6 +38,7 @@ import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.DatapointTrigger;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.model.runtime.Reaction;
+import de.haumacher.ehome.model.runtime.Rule;
 import de.haumacher.ehome.model.runtime.WeeklySchedule;
 import de.haumacher.ehome.model.runtime.WriteAction;
 
@@ -101,8 +102,11 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			morning = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
 				runtime("ApplicationDatapoint"));
 			morning.setIdentifier("schedule.morning");
+			// A label is entered, never preset (haumacher/ehome #205).
+			morning.setLabel(ResKey.builder().add(Locale.GERMAN, "Morgen").add(Locale.ENGLISH, "Morning").build());
 			counter = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
 				runtime("ApplicationDatapoint"));
+			counter.setLabel(ResKey.builder().add(Locale.GERMAN, "Zähler").add(Locale.ENGLISH, "Counter").build());
 			counter.setType(valueType("unsigned"));
 			counter.setWritable(true);
 			counter.setUnit("x");
@@ -113,7 +117,9 @@ public class TestApplicationDatapoints extends BasicTestCase {
 
 			entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
 			entry.setOutput(morning);
+			entry.setLabel(ResKey.builder().add(Locale.GERMAN, "Morgens").add(Locale.ENGLISH, "Mornings").build());
 			TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
+			((Rule) rule).setNameKey(ResKey.builder().add(Locale.GERMAN, "Zählen").add(Locale.ENGLISH, "Count").build());
 			Reaction reaction = (Reaction) RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 			((DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")))
 				.setDatapoint(morning);
@@ -141,8 +147,8 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			Map<?, ?> exportedMorning = (Map<?, ?>) datapoints.get(2);
 			assertEquals(List.of("id", "label", "type", "virtual"), List.copyOf(exportedMorning.keySet()));
 			assertEquals("schedule.morning", exportedMorning.get("id"));
-			assertEquals(Map.of("en", "New datapoint", "de", "Neuer Datenpunkt"), exportedMorning.get("label"));
-			assertEquals(map("id", "value1", "label", Map.of("en", "New datapoint", "de", "Neuer Datenpunkt"),
+			assertEquals(Map.of("en", "Morning", "de", "Morgen"), exportedMorning.get("label"));
+			assertEquals(map("id", "value1", "label", Map.of("en", "Counter", "de", "Zähler"),
 				"type", "unsigned", "unit", "x", "writable", Boolean.TRUE,
 				"history", map("retention", Long.valueOf(3600), "spacing", Long.valueOf(60)), "virtual", Map.of()),
 				datapoints.get(3));
@@ -154,7 +160,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(5, table.size());
 			Resources resources = Resources.getInstance();
 			// The datapoint of the rule's enable switch (spec/rules.md 8.6), after the image's own.
-			assertEquals(map("id", "rule/rule-1/enabled", "label", resources.getString(I18NConstants.NEW_RULE_NAME),
+			assertEquals(map("id", "rule/rule-1/enabled", "label", "Count",
 				"type", "boolean", "writable", Boolean.TRUE, "binding", resources.getString(I18NConstants.BINDING_RULE_PARAMETER),
 				"parameter", Map.of("rule", "rule-1", "parameter", "enabled")), table.get(4));
 			assertEquals(resources.getString(I18NConstants.BINDING_KNX), ((Map<?, ?>) table.get(0)).get("binding"));

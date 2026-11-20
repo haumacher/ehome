@@ -11,6 +11,7 @@ import java.util.Set;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
@@ -46,10 +47,10 @@ public class BlockFunctions extends GenericMethod {
 		/** <code>blockTypeLabel(key)</code>: the type of the key in the user's language with its version. */
 		blockTypeLabel(1),
 		/**
-		 * <code>blockCreate(project, key, room)</code>: a new virtual device of the type in the room
-		 * (side effects).
+		 * <code>blockCreate(project, key, room, name)</code>: a new virtual device of the type in the
+		 * room with the name entered (side effects).
 		 */
-		blockCreate(3),
+		blockCreate(4),
 		/** <code>blockBind(port, datapoint)</code>: binds the datapoint to the port (side effects). */
 		blockBind(2),
 		/**
@@ -203,7 +204,7 @@ public class BlockFunctions extends GenericMethod {
 			}
 			case blockCreate:
 				return BlockInstances.create((TLObject) argument, String.valueOf(arguments[1]),
-					(TLObject) arguments[2], null);
+					(TLObject) arguments[2], arguments[3] instanceof ResKey name ? name : null);
 			default:
 				break;
 		}

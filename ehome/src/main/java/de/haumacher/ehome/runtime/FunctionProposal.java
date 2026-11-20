@@ -1498,15 +1498,59 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The texts of the application languages, each in its language: the given text for every
-	 * language (a user's text, which has no language of its own).
+	 * The language of the acting user, one of the application languages (else the fallback
+	 * language): the language of a text that has none of its own, such as a name the installer gave,
+	 * a name the assistant passes or a plain label of a runtime image (haumacher/ehome #205), so that
+	 * a later rename in the user's language leaves no stale language behind. Without a person (the
+	 * system context of a test or a background job) it is the application's default language
+	 * ({@link Resources#findBestLocale()}): the language a person's session starts in.
 	 */
-	public static ResKey text(ResKey key) {
-		Map<String, String> texts = new TreeMap<>();
+	public static String userLanguage() {
+		String language = Resources.getInstance().getLocale().getLanguage();
 		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			texts.put(locale.getLanguage(), Resources.getInstance(locale).getString(key));
+			if (locale.getLanguage().equals(language)) {
+				return language;
+			}
 		}
-		return text(texts);
+		return ResourcesModule.getInstance().getFallbackLocale().getLanguage();
+	}
+
+	/**
+	 * A text without language of its own as a multilingual text in the {@link #userLanguage() user's
+	 * language} only (haumacher/ehome #205); <code>null</code> for none.
+	 */
+	public static ResKey userText(String text) {
+		return text == null ? null : text(Map.of(userLanguage(), text));
+	}
+
+	/**
+	 * The application languages the given multilingual text has (haumacher/ehome #205): of a text
+	 * entered or imported in languages ({@link ResKey.LiteralKey}) those of its translations, of a
+	 * text of the resource bundles every application language, of a text without language of its own
+	 * ({@link ResKey#text(String)}, or in none of the application languages) the
+	 * {@link #userLanguage() user's}; empty for none.
+	 */
+	public static Set<String> textLanguages(ResKey key) {
+		Set<String> result = new LinkedHashSet<>();
+		if (key == null) {
+			return result;
+		}
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			String language = locale.getLanguage();
+			if (key instanceof ResKey.LiteralKey literal) {
+				for (Locale translated : literal.getTranslations().keySet()) {
+					if (translated.getLanguage().equals(language)) {
+						result.add(language);
+					}
+				}
+			} else if (key.hasKey()) {
+				result.add(language);
+			}
+		}
+		if (result.isEmpty()) {
+			result.add(userLanguage());
+		}
+		return result;
 	}
 
 	/**
@@ -1639,9 +1683,10 @@ public final class FunctionProposal {
 		if (labels instanceof Map<?, ?> map) {
 			map.forEach((language, text) -> label.put((String) language, (String) text));
 		} else if (labels instanceof String text) {
-			label.put("en", text);
+			// A name without language: the user's (haumacher/ehome #205).
+			label.put(userLanguage(), text);
 		} else {
-			label.put("en", id);
+			label.put(userLanguage(), id);
 		}
 		result.add(new Proposal(kind, label, roles, instance, BLOCK_CHANNEL + id, null, List.of()));
 	}
@@ -1762,9 +1807,14 @@ public final class FunctionProposal {
 	 *        The endpoint to name, <code>null</code> for none.
 	 */
 	private static Map<String, String> zigbeeLabel(ZigbeeDevice device, TLObject function, Integer endpoint) {
+		// The languages the name of the function has; the device's name alone has none: the user's
+		// (haumacher/ehome #205).
+		Set<String> named = function == null ? Set.of(userLanguage()) : textLanguages(ZigbeeStatus.functionLabelKey(function));
 		Map<String, Resources> languages = new TreeMap<>();
 		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			languages.put(locale.getLanguage(), Resources.getInstance(locale));
+			if (named.contains(locale.getLanguage())) {
+				languages.put(locale.getLanguage(), Resources.getInstance(locale));
+			}
 		}
 		Object deviceName = device.getName();
 		String prefix = String.valueOf(deviceName == null ? device.getIeee() : deviceName);
@@ -2746,11 +2796,8 @@ public final class FunctionProposal {
 		if (name == null || name.toString().isBlank()) {
 			return Map.of();
 		}
-		Map<String, Resources> languages = new TreeMap<>();
-		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			languages.put(locale.getLanguage(), Resources.getInstance(locale));
-		}
-		return texts(languages, r -> name.toString());
+		// The name of the address has no language: the user's (haumacher/ehome #205).
+		return withoutLanguage(name.toString());
 	}
 
 	/**
@@ -2864,7 +2911,7 @@ public final class FunctionProposal {
 			: primary.generated().get(primary.generated().size() - 1);
 		Map<String, String> base = channel;
 		if (primary.own() != null) {
-			base = allLanguages(primary.own());
+			base = withoutLanguage(primary.own());
 			result.add(truncated(base));
 		}
 		if (room(proposal) instanceof TLObject room) {
@@ -2891,15 +2938,12 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The given text, a name the installer gave (which has no language of its own), in every
-	 * application language.
+	 * The given text, a name the installer gave (which has no language of its own), in the
+	 * {@link #userLanguage() user's language} only (haumacher/ehome #205).
 	 */
-	private static Map<String, String> allLanguages(String text) {
-		Map<String, Resources> languages = new TreeMap<>();
-		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			languages.put(locale.getLanguage(), Resources.getInstance(locale));
-		}
-		return texts(languages, r -> text);
+	private static Map<String, String> withoutLanguage(String text) {
+		String language = userLanguage();
+		return texts(Map.of(language, Resources.getInstance(new Locale(language))), r -> text);
 	}
 
 	/**

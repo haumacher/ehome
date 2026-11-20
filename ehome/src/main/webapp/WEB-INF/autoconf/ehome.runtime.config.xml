@@ -171,6 +171,7 @@
 					<method name="rulePageDraft" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleDraftField" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleDraftTitle" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleDraftOwner" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleAdd" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The control pages (haumacher/ehome #72, de.haumacher.ehome.runtime.PageFunctions). -->
 					<method name="pageOptions" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>

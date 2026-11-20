@@ -101,7 +101,8 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 				proposals.stream().map(p -> p.kind() + " " + p.channel()).toList());
 			Proposal button = proposals.get(0);
 			assertEquals(Map.of("press", action), button.roles());
-			assertEquals(Map.of("de", "Fernbedienung Flur", "en", "Fernbedienung Flur"), button.label());
+			// Named after the device alone, a name without language: the user's (haumacher/ehome #205).
+			assertEquals(Map.of(FunctionProposal.userLanguage(), "Fernbedienung Flur"), button.label());
 
 			// Applied: the button once; proposed again, nothing is created twice.
 			List<TLObject> added = apply(project);

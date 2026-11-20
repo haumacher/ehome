@@ -14,6 +14,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -120,18 +121,23 @@ public class TestRuleReferences extends BasicTestCase {
 
 			_flag = datapoint("flag", "boolean", false);
 			_level = datapoint("level", "unsigned", true);
+			_level.setLabel(ResKey.text("Level"));
 			_switch = datapoint("switch", "boolean", true);
 
 			_rule = add(_project, "rules", runtime("Rule"));
+			_rule.setNameKey(ResKey.text("r"));
 			_rule.setIdentifier("r");
 			_timer = add(_rule, "timers", runtime("RuleTimer"));
 			_parameter = add(_rule, "parameters", runtime("RuleParameter"));
+			_parameter.setTitle(ResKey.text("Level"));
 			_reaction = add(_rule, "reactions", runtime("Reaction"));
 
 			_weekly = add(_project, "schedules", runtime("WeeklySchedule"));
+			((de.haumacher.ehome.model.runtime.ScheduleEntry) _weekly).setLabel(ResKey.text("morning"));
 			_weekly.setIdentifier("morning");
 			_weekly.setTimeAdjustable(true);
 			_astro = add(_project, "schedules", runtime("AstroSchedule"));
+			((de.haumacher.ehome.model.runtime.ScheduleEntry) _astro).setLabel(ResKey.text("dusk"));
 			_astro.setIdentifier("dusk");
 			tx.commit();
 		}
@@ -179,8 +185,8 @@ public class TestRuleReferences extends BasicTestCase {
 
 		// The labels name the id the image uses.
 		assertEquals("Licht (1/0/1)", RuleReferences.optionLabel(_light, RuleReferences.TRIGGER));
-		String flag = RuleReferences.optionLabel(_flag, RuleReferences.OUTPUT);
-		assertTrue(flag, flag.endsWith(" (flag)"));
+		// Without a label (none is preset, haumacher/ehome #205): the id alone.
+		assertEquals("flag", RuleReferences.optionLabel(_flag, RuleReferences.OUTPUT));
 		assertEquals("t1", RuleReferences.optionLabel(_timer, RuleReferences.TIMER));
 		String parameter = RuleReferences.optionLabel(_parameter, RuleReferences.TRIGGER);
 		assertTrue(parameter, parameter.endsWith("(rule/r/p1)"));
@@ -213,7 +219,7 @@ public class TestRuleReferences extends BasicTestCase {
 		}
 		assertEquals(List.of("evening", "level2", "off"), ids());
 		assertEquals("flag2", schedule(1).get("output"));
-		assertEquals("write New datapoint (level2) := 1", RuleFunctions.summary(write));
+		assertEquals("write Level (level2) := 1", RuleFunctions.summary(write));
 	}
 
 	/** The ids of the schedule trigger, the write and the timer start of the rule's reaction. */

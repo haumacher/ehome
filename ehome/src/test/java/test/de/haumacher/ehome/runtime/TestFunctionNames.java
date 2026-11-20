@@ -8,6 +8,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -15,7 +16,6 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -80,8 +80,8 @@ public class TestFunctionNames extends BasicTestCase {
 			Function flurC = function(project, "Flur: Kanal C");
 			Function flurD = function(project, "Flur: Kanal D");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				flurC.setNameKey(FunctionProposal.text(ResKey.text("Schalten EIN/AUS")));
-				flurD.setNameKey(FunctionProposal.text(ResKey.text("Licht Garderobe")));
+				flurC.setNameKey(FunctionProposal.text(Map.of("de", "Schalten EIN/AUS", "en", "Schalten EIN/AUS")));
+				flurD.setNameKey(FunctionProposal.text(Map.of("de", "Licht Garderobe", "en", "Licht Garderobe")));
 				tx.commit();
 			}
 			FunctionProposal.Run again = run(project);

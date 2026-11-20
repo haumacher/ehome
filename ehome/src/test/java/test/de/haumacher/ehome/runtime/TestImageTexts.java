@@ -12,7 +12,7 @@ import static test.de.haumacher.ehome.runtime.TestFunctionProposal.createAddress
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.Set;
 import java.util.TreeSet;
 
 import junit.framework.Test;
@@ -36,11 +36,9 @@ import com.top_logic.model.annotate.util.ConstraintCheck;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
-import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.runtime.ExportRuntimeImageAction;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
@@ -57,8 +55,9 @@ public class TestImageTexts extends BasicTestCase {
 	private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
 
 	/**
-	 * A proposed function has a label of each language of its device's program; a name the user gave
-	 * in two languages is exported in both, a long one cut to 63 bytes, and the image is valid.
+	 * A proposed function named after its group address has a label in the user's language only, a
+	 * name without language of its own (haumacher/ehome #205); a name the user gave in two languages
+	 * is exported in both, a long one cut to 63 bytes, and the image is valid.
 	 */
 	public void testLabels() throws Exception {
 		withDemo(project -> {
@@ -71,8 +70,7 @@ public class TestImageTexts extends BasicTestCase {
 				TLObject function = image.getFunctionSources().get(n);
 				Object label = ((Map<?, ?>) functions.get(n)).get("label");
 				assertTrue(String.valueOf(label), label instanceof Map<?, ?>);
-				assertEquals(ProgramLanguages.languages(DeviceConfiguration.program(((Function) function).getDevice())),
-					new TreeSet<>(((Map<?, ?>) label).keySet()));
+				assertEquals(Set.of(FunctionProposal.userLanguage()), new TreeSet<>(((Map<?, ?>) label).keySet()));
 			}
 
 			TLObject function = image.getFunctionSources().get(0);
@@ -88,12 +86,6 @@ public class TestImageTexts extends BasicTestCase {
 			assertTrue(longText.startsWith((String) label.get("de")));
 			assertTrue(((String) label.get("de")).getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 63);
 			assertTrue(image.getText(), image.getText().contains("\"label\":{\"de\":\"Küche"));
-
-			// A function the user created is named in every application language.
-			ResKey created = FunctionProposal.text(ResKey.text("Neu"));
-			Map<String, String> expected = new TreeMap<>(Map.of("de", "Neu", "en", "Neu"));
-			assertEquals(expected, new TreeMap<>(((ResKey.LiteralKey) created).getTranslations().entrySet().stream()
-				.collect(java.util.stream.Collectors.toMap(e -> e.getKey().getLanguage(), Map.Entry::getValue))));
 		});
 	}
 

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog of a function (projects/functions.view.xml, haumacher/ehome #205). "model" carries
+	the transient function the opening command made in the project, "project" the project it is
+	added to; name and kind are entered, nothing is preset. "Create" stores the function at the end
+	of the project's functions and writes it to "selection"; "Cancel" leaves nothing. Its room and
+	datapoints are edited in the form afterwards.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="project"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New function</en>
+			<de>Neue Funktion</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<field attribute="name"/>
+			<field attribute="kind"/>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					inputs="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$model.container()"
+							type="tl.model:TLObject"
+						/>
+					</access>
+					<store-form-state/>
+					<persist-transient
+						container="project"
+						reference="functions"
+					>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</persist-transient>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

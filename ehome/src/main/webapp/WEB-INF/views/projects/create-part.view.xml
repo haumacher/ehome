@@ -4,11 +4,12 @@
 	Create dialog of a part of the rules, a schedule entry, an application datapoint or a node of the
 	control pages (haumacher/ehome #91): "model" carries the draft the "New" command made
 	(ruleDraft, rulePageDraft: transient, created in the object it will be added to, with the defaults
-	of its kind and a proposed unique id). The dialog shows only the fields that make the object
+	of its kind and a proposed unique id, its name or label empty: haumacher/ehome #205; of a new
+	timeline the draft of its first day plan). The dialog shows only the fields that make the object
 	meaningful (ruleDraftField); they are checked as the detail form checks them, the controller's
 	refusals as warnings, a text that does not parse as an error that blocks "Create". "Create" stores
-	the draft at its place (ruleAdd) and writes the stored object to "selection"; "Cancel" leaves
-	nothing.
+	the draft as the dialog shows it at its place (ruleAdd) and writes the stored object to
+	"selection"; "Cancel" leaves nothing.
 -->
 <view>
 	<channels>
@@ -270,7 +271,7 @@
 					</label>
 					<access>
 						<operation name="Write"
-							object="$model.container()"
+							object="ruleDraftOwner($model)"
 							type="tl.model:TLObject"
 						/>
 					</access>

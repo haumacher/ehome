@@ -2,9 +2,10 @@
 
 <!--
 	Dialog creating a virtual device in a project (projects/blocks.view.xml, haumacher/ehome #75):
-	the block type (those E-Home has, homecontrol spec/blocks.md 14) and the room. "Create" adds the
-	instance with a port per port and a parameter per parameter of the type, named after the type, its
-	identifier derived from the name (blockCreate); it is written to "selection".
+	the name (empty, haumacher/ehome #205), the block type (those E-Home has, homecontrol
+	spec/blocks.md 14) and the room. "Create" adds the instance with the name entered, its identifier
+	derived from it, and a port per port and a parameter per parameter of the type (blockCreate); it is
+	written to "selection".
 -->
 <view>
 	<channels>
@@ -12,6 +13,7 @@
 		<channel name="selection"/>
 		<channel name="type"/>
 		<channel name="room"/>
+		<channel name="name"/>
 	</channels>
 	<window width="720px">
 		<title>
@@ -20,6 +22,18 @@
 		</title>
 		<inset>
 			<stack gap="default">
+				<fields>
+					<value-input
+						mandatory="true"
+						type="tl.model.i18n:I18NString"
+						value="name"
+					>
+						<label>
+							<en>Name</en>
+							<de>Name</de>
+						</label>
+					</value-input>
+				</fields>
 				<table selection="type">
 					<inputs>
 						<input channel="project"/>
@@ -72,7 +86,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-plus-lg"
-					inputs="project, type, room"
+					inputs="project, type, room, name"
 				>
 					<label>
 						<en>Create</en>
@@ -85,10 +99,10 @@
 						/>
 					</access>
 					<executability>
-						<disabled-if expr="if($project == null or $type == null, #('Choose the type.'@en, 'Den Typ wählen.'@de))"/>
+						<disabled-if expr="if($name == null or $name.localize().trim().isEmpty(), #('Enter the name.'@en, 'Den Namen eingeben.'@de), if($project == null or $type == null, #('Choose the type.'@en, 'Den Typ wählen.'@de)))"/>
 					</executability>
 					<with-transaction>
-						<execute-script function="blockCreate($project, $type, $room)"/>
+						<execute-script function="blockCreate($project, $type, $room, $name)"/>
 						<with-result>
 							<write-channel name="selection"/>
 							<close-dialog/>

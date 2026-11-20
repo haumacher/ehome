@@ -101,6 +101,7 @@ public class TestDeleteConfirmation extends BasicTestCase {
 			project.setFunctions(List.of(sensor, light));
 
 			entry = add(project, "schedules", runtime("WeeklySchedule"));
+			((de.haumacher.ehome.model.runtime.ScheduleEntry) entry).setLabel(ResKey.text("entry"));
 			entry.setOutput(presence);
 			rule = add(project, "rules", runtime("Rule"));
 			rule.setNameKey(ResKey.builder().add(Locale.GERMAN, "Frostschutz").add(Locale.ENGLISH, "Frostschutz").build());

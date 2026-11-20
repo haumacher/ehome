@@ -6,14 +6,11 @@ package de.haumacher.ehome.ai.logic;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.TreeMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
 import com.top_logic.tl.ai.core.agent.ToolContext;
@@ -27,7 +24,6 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.ai.CommitMessages;
 import de.haumacher.ehome.knx.ExtIds;
-import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
 
 /**
@@ -279,18 +275,6 @@ final class LogicSupport {
 				+ "'. Nothing was changed.");
 		}
 		return null;
-	}
-
-	/**
-	 * A name given in no particular language as a text of every language of the application, as the
-	 * import of an image stores a label.
-	 */
-	static ResKey allLanguages(String text) {
-		Map<String, String> texts = new TreeMap<>();
-		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			texts.put(locale.getLanguage(), text);
-		}
-		return FunctionProposal.text(texts);
 	}
 
 }

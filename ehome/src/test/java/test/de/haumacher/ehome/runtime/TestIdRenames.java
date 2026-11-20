@@ -16,6 +16,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
 import com.top_logic.base.services.simpleajax.HTMLFragment;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.xml.TagWriter;
 import com.top_logic.event.infoservice.DefaultInfoServiceItem;
 import com.top_logic.event.infoservice.InfoService;
@@ -113,6 +114,7 @@ public class TestIdRenames extends BasicTestCase {
 			_project.setGroupAddresses(Set.of(_address));
 
 			_dimmer = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_dimmer.setNameKey(ResKey.text("dimmer"));
 			_dimmer.setIdentifier("dimmer");
 			_a = parameter(_dimmer, "a");
 			_ab = parameter(_dimmer, "ab");
@@ -126,6 +128,7 @@ public class TestIdRenames extends BasicTestCase {
 			_log = (LogAction) RuleFunctions.create(reaction, "actions", runtime("LogAction"));
 
 			_other = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_other.setNameKey(ResKey.text("other"));
 			_other.setIdentifier("other");
 			_otherA = parameter(_other, "a");
 			((RuleTimer) RuleFunctions.create(_other, "timers", runtime("RuleTimer"))).setIdentifier("t");

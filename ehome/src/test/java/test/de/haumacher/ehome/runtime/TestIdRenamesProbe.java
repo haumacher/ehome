@@ -11,6 +11,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -80,6 +81,7 @@ public class TestIdRenamesProbe extends BasicTestCase {
 	/** A rule with the parameter "a"; returns the parameter. */
 	private static TLObject rule(TLObject project, String id) {
 		Rule rule = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
+		rule.setNameKey(ResKey.text("rule"));
 		rule.setIdentifier(id);
 		RuleParameter parameter = (RuleParameter) RuleFunctions.create(rule, "parameters", type("RuleParameter"));
 		parameter.setIdentifier("a");

@@ -22,7 +22,10 @@ import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBui
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ObjectFollower;
 import de.haumacher.ehome.programming.DeviceChanges;
+import de.haumacher.ehome.runtime.RuleDrafts;
 
 /**
  * The TL-Script functions of the simulation view (<code>projects/simulation.view.xml</code>), each
@@ -78,7 +81,13 @@ public class SimulationFunctions extends GenericMethod {
 		 * <code>simulationFollowerOptions(follower)</code>: the devices of the project of an object
 		 * follower (<code>ehome.runtime:ObjectFollower#device</code>).
 		 */
-		simulationFollowerOptions(1, 1, true);
+		simulationFollowerOptions(1, 1, true),
+		/**
+		 * <code>simulationFollowerAdd(draft)</code>: stores the draft of an object follower from the
+		 * create dialog at the end of the object followers of its project; refused unless device,
+		 * switching object and state object are entered (side effects, in a transaction).
+		 */
+		simulationFollowerAdd(1, 1, false);
 
 		private final int _minArguments;
 
@@ -132,6 +141,9 @@ public class SimulationFunctions extends GenericMethod {
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		if (_function == Function.simulationFollowerOptions) {
 			return followerDevices(arguments[0]);
+		}
+		if (_function == Function.simulationFollowerAdd) {
+			return addFollower(arguments[0]);
 		}
 		TLObject project = arguments[0] instanceof TLObject object && object.tValid() ? object : null;
 		Simulations simulations = Simulations.getInstance();
@@ -251,6 +263,26 @@ public class SimulationFunctions extends GenericMethod {
 			throw new TopLogicException(I18NConstants.ERROR_INVALID_SPEED__SPEED.fill(value));
 		}
 		return speed.intValue();
+	}
+
+	/**
+	 * Stores the draft of an object follower (haumacher/ehome #205) at the end of the object
+	 * followers of its project, as the create dialog shows it; refused unless device, switching
+	 * object and state object are entered. The caller provides the transaction, which the refusal
+	 * rolls back.
+	 *
+	 * @return The stored object follower.
+	 */
+	public static ObjectFollower addFollower(Object draft) {
+		if (!(draft instanceof TLObject object) || !object.tTransient() || object.tContainer() == null) {
+			throw new IllegalArgumentException("No draft of an object follower: " + draft);
+		}
+		TLObject project = object.tContainer();
+		ObjectFollower created = (ObjectFollower) RuleDrafts.persist(object, project, Project.SIMULATION_FOLLOWERS_ATTR).get(object);
+		if (created.getDevice() == null || created.getSource() == null || created.getFollower() == null) {
+			throw new TopLogicException(I18NConstants.ERROR_FOLLOWER_INCOMPLETE);
+		}
+		return created;
 	}
 
 	private static List<TLObject> followerDevices(Object follower) {

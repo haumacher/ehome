@@ -323,6 +323,7 @@ public class TestTimelines extends BasicTestCase {
 			created.setIdentifier("comfort.lamp");
 			lamp = created;
 			Rule rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			rule.setNameKey(ResKey.text("follow"));
 			rule.setIdentifier("follow");
 			follow = rule;
 			TLObject reaction = RuleFunctions.create(follow, "reactions", runtime("Reaction"));

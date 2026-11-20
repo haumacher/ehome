@@ -239,7 +239,7 @@ public class TestZigbeeCatalog extends BasicTestCase {
 				TLObject type = create(ZigbeeCatalog.DEVICE_TYPE);
 				type.tUpdateByName("manufacturer", "Test");
 				type.tUpdateByName("model", "T-1");
-				type.tUpdateByName("name", FunctionProposal.text(ResKey.text("Test device")));
+				type.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Test device", "en", "Test device")));
 				entry = create(ZigbeeCatalog.FUNCTION_ENTRY);
 				entry.tUpdateByName("endpoint", Integer.valueOf(1));
 				entry.tUpdateByName("function", "temperature");

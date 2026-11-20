@@ -19,6 +19,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -95,6 +96,7 @@ public class TestGroupAddressIdentifiers extends BasicTestCase {
 			WriteAction write;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				Rule rule = (Rule) RuleFunctions.create(project, "rules", runtime("Rule"));
+				rule.setNameKey(ResKey.text("diele"));
 				rule.setIdentifier("diele");
 				reaction = (Reaction) RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"));

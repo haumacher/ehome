@@ -266,6 +266,7 @@ public class TestBlockInstances extends BasicTestCase {
 			function.setValue((ProjectDatapoint) valve);
 			_project.setFunctions(List.of(function));
 			TLObject page = Pages.insert(_project, null, Pages.PAGE, null);
+			((de.haumacher.ehome.model.runtime.Page) page).setNameKey(ResKey.text("page"));
 			TLObject section = Pages.insert(_project, page, Pages.SECTION, null);
 			Pages.insert(_project, section, Pages.DATAPOINT, List.of(valve));
 			TLObject chart = Pages.insert(_project, section, Pages.CHART, null);

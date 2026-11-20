@@ -119,6 +119,7 @@ public class TestHistoryConfig extends BasicTestCase {
 			_counter.setIdentifier("counter");
 			_counter.setType(classifier("DatapointValueType", "unsigned"));
 			Page page = (Page) Pages.insert(_project, null, Pages.PAGE, null);
+			page.setNameKey(ResKey.text("climate"));
 			page.setIdentifier("climate");
 			_section = Pages.insert(_project, page, Pages.SECTION, null);
 			tx.commit();

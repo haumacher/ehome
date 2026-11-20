@@ -83,6 +83,7 @@ public class TestLocalizedRefusals extends BasicTestCase {
 			ApplicationDatapoint level =
 				(ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
 			level.setIdentifier("virtual.level");
+			level.setLabel(ResKey.builder().add(Locale.GERMAN, "Helligkeit").build());
 			level.setType(valueType("unsigned"));
 
 			Function sensor = create("ehome.runtime:Function");
@@ -109,12 +110,12 @@ public class TestLocalizedRefusals extends BasicTestCase {
 			assertEquals("the role levelCommand needs a writable datapoint; 'virtual.level' is not", writable.reason());
 			// The datapoint by its name, as the image was built for the reader (haumacher/ehome #118).
 			// The refusal names the settings that make a datapoint writable (haumacher/ehome #139).
-			assertEquals("Die Rolle „levelCommand“ braucht einen beschreibbaren Datenpunkt; „New datapoint (virtual.level)“ "
+			assertEquals("Die Rolle „levelCommand“ braucht einen beschreibbaren Datenpunkt; „Helligkeit (virtual.level)“ "
 				+ "ist es nicht. Eine Gruppenadresse ist beschreibbar, wenn ein verbundenes Objekt Werte von ihr annimmt "
 				+ "(Flag „Schreiben“; ein Objekt, das dort auch sendet, braucht zusätzlich das Flag „Aktualisieren“ oder "
 				+ "„Lesen“), oder durch ihre Einstellung „Beschreibbar (Einstellung)“; ein Anwendungsdatenpunkt durch seine "
 				+ "Einstellung „Schreibbar“.", text(writable, Locale.GERMAN));
-			assertEquals("The role levelCommand needs a writable datapoint; \"New datapoint (virtual.level)\" is not. "
+			assertEquals("The role levelCommand needs a writable datapoint; \"Helligkeit (virtual.level)\" is not. "
 				+ "A group address is writable when a connected object takes values from it (flag W; an object that also "
 				+ "sends there needs the flag U or R as well), or by its setting \"Writable (setting)\"; an application "
 				+ "datapoint by its setting \"Writable\".", text(writable, Locale.ENGLISH));

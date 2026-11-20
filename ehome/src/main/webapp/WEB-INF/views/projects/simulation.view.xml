@@ -41,7 +41,8 @@
 	- Device behaviour: the object followers of the project (ehome.runtime:ObjectFollower): which object of a
 	device takes the values another object of the device receives (a channel's state following its switching
 	object), inverted for an object of one bit. The program data of a device does not say this, so the user
-	names the pairs; they take effect when a simulation starts.
+	names the pairs (a new one in the dialog projects/create-follower.view.xml, haumacher/ehome #205); they
+	take effect when a simulation starts.
 -->
 <view>
 	<channels>
@@ -1191,12 +1192,23 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<with-transaction>
-														<execute-script function="{ f = new(`ehome.runtime:ObjectFollower`); $project.add(`ehome.project:Project#simulationFollowers`, $f); $f; }"/>
+													<create-transient
+														container="project"
+														reference="simulationFollowers"
+														type="ehome.runtime:ObjectFollower"
+													>
 														<with-result>
-															<write-channel name="follower"/>
+															<open-dialog
+																bind-input-to="model"
+																dialog-view="projects/create-follower.view.xml"
+															>
+																<bind
+																	channel="selection"
+																	to="follower"
+																/>
+															</open-dialog>
 														</with-result>
-													</with-transaction>
+													</create-transient>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"

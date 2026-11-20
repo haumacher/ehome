@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLFormObjectBase;
@@ -124,8 +123,9 @@ public final class ZigbeeBindings {
 	 *
 	 * <p>
 	 * Where the device's type in the Zigbee catalog lists the function ({@link ZigbeeCatalog#entry(TLObject)}),
-	 * the function is named by the catalog's name (the id in the user's language, the label in every
-	 * language), the type and unit are the ones the catalog recommends, and the catalog's reporting
+	 * the function is named by the catalog's name (the id in the user's language, the label in the
+	 * languages the catalog's name has; without a catalog name by its key, in the user's language
+	 * only), the type and unit are the ones the catalog recommends, and the catalog's reporting
 	 * recommendation becomes the function's override, unless the installer has set one.
 	 * </p>
 	 *
@@ -140,17 +140,15 @@ public final class ZigbeeBindings {
 		ResKey friendly = entry != null && entry.tValueByName("name") instanceof ResKey key ? key : null;
 		String name;
 		ResKey label;
-		if (friendly != null) {
-			name = deviceName + " " + Resources.getInstance().getString(friendly);
-			Map<String, String> texts = new TreeMap<>();
-			for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-				texts.put(locale.getLanguage(), deviceName + " " + Resources.getInstance(locale).getString(friendly));
-			}
-			label = FunctionProposal.text(texts);
-		} else {
-			name = deviceName + " " + typed.getFunction();
-			label = FunctionProposal.text(ResKey.text(name));
+		// The label in the languages the catalog's name has; a name without language goes into the
+		// user's language only (haumacher/ehome #205).
+		ResKey source = friendly != null ? friendly : ResKey.text(String.valueOf(typed.getFunction()));
+		name = deviceName + " " + Resources.getInstance().getString(source);
+		Map<String, String> texts = new TreeMap<>();
+		for (String language : FunctionProposal.textLanguages(source)) {
+			texts.put(language, deviceName + " " + Resources.getInstance(new Locale(language)).getString(source));
 		}
+		label = FunctionProposal.text(texts);
 		Set<String> ids = new HashSet<>();
 		for (TLObject other : ApplicationDatapoints.of(project)) {
 			String id = ApplicationDatapoints.id(other);
