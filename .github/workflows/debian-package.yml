@@ -32,7 +32,10 @@ jobs:
           cache: maven
 
       # The resource bundles are committed: no machine translation (it needs a DeepL key) in CI.
+      # Verbose wrapper: a failed download of the Maven distribution shows wget's own error.
       - name: Build and test the app
+        env:
+          MVNW_VERBOSE: 'true'
         run: ./mvnw -B -Pproduction,debian -DskipTests=false -Dtl.javadoc.skipTranslate=true install
 
       - name: Build the package
