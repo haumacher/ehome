@@ -228,3 +228,23 @@ Open (proposals, not decided):
 2. `--network host`, the data in a volume at `/var/lib/homecontrol`, port by environment variable.
 
 Why it waits: homecontrol#95 first.
+
+## Scan: candidate products by the hardware type
+
+Came up with haumacher/ehome#206 (the hardware type shown as "Bestellnummer"); not discussed further.
+
+Today:
+- The scan reads the hardware type (device object, property 78,
+  `ehome/src/main/java/de/haumacher/ehome/scan/BusScanner.java:462`); the device stub shows it as
+  "Hardware-Typ" (`ehome/src/main/webapp/WEB-INF/views/projects/devices.view.xml:926`).
+- An application program checks it when loading (`LdCtrlCompareProp PropId="78"`, e.g.
+  `InlineData="00000000030D00000000"` in the Gira program of `ehome/samples/KNX-Testsystem.knxproj`);
+  the catalog match uses it only to exclude programs whose application number and version already
+  match (`scan/CatalogMatch.java:175-178`).
+
+Idea: for a device the catalog does not identify by application number and version, list the
+manufacturer's programs whose load procedure compares property 78 with the hardware type read, as
+candidates for "Zuordnen".
+
+Open: whether manufacturers assign hardware types uniquely enough for this; how the candidates are
+offered (a choice in "Zuordnen", or only a hint which product data to import).
