@@ -163,6 +163,7 @@ src/test/java/test/de/haumacher/ehome/runtime/TestFunctionWiringProbe.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestGroupAddressIds.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestHistoryConfig.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestRuleDrafts.java = 8
+src/test/java/test/de/haumacher/ehome/runtime/TestRuleLabels.java = 5
 src/test/java/test/de/haumacher/ehome/runtime/TestRuleReferences.java = 2
 src/test/java/test/de/haumacher/ehome/runtime/TestRuntimeImage.java = 1
 src/test/java/test/de/haumacher/ehome/runtime/TestTestHome.java = 1

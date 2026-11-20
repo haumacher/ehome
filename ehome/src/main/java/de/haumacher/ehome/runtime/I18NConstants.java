@@ -2309,6 +2309,271 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 CONTROLLER_IMAGE_UNREADABLE__REASON;
 
+	/**
+	 * @en {0} changes
+	 */
+	public static ResKey1 TRIGGER_CHANGES__NAME;
+
+	/**
+	 * @en {0} changes (report)
+	 */
+	public static ResKey1 TRIGGER_CHANGES_REPORT__NAME;
+
+	/**
+	 * @en {0} changes (command)
+	 */
+	public static ResKey1 TRIGGER_CHANGES_COMMAND__NAME;
+
+	/**
+	 * @en {0} received
+	 */
+	public static ResKey1 TRIGGER_RECEIVED__NAME;
+
+	/**
+	 * @en {0} received (report)
+	 */
+	public static ResKey1 TRIGGER_RECEIVED_REPORT__NAME;
+
+	/**
+	 * @en {0} received (command)
+	 */
+	public static ResKey1 TRIGGER_RECEIVED_COMMAND__NAME;
+
+	/**
+	 * @en {0} becomes true
+	 */
+	public static ResKey1 TRIGGER_MATCH__CONDITION;
+
+	/**
+	 * @en {0} silent for {1}
+	 */
+	public static ResKey2 TRIGGER_SILENCE__NAME_DURATION;
+
+	/**
+	 * @en Schedule {0}
+	 */
+	public static ResKey1 TRIGGER_SCHEDULE__NAME;
+
+	/**
+	 * @en Timer {0} expired
+	 */
+	public static ResKey1 TRIGGER_TIMER__NAME;
+
+	/**
+	 * @en {0} changed
+	 */
+	public static ResKey1 TRIGGER_PARAMETER__NAME;
+
+	/**
+	 * @en Start
+	 */
+	public static ResKey TRIGGER_START;
+
+	/**
+	 * @en Start {0}
+	 */
+	public static ResKey1 TRIGGER_START__REASONS;
+
+	/**
+	 * @en (reboot)
+	 */
+	public static ResKey START_REASONS_BOOT;
+
+	/**
+	 * @en (new image)
+	 */
+	public static ResKey START_REASONS_IMAGE;
+
+	/**
+	 * @en (switching on)
+	 */
+	public static ResKey START_REASONS_ENABLE;
+
+	/**
+	 * @en (reboot, new image)
+	 */
+	public static ResKey START_REASONS_BOOT_IMAGE;
+
+	/**
+	 * @en (reboot, switching on)
+	 */
+	public static ResKey START_REASONS_BOOT_ENABLE;
+
+	/**
+	 * @en (new image, switching on)
+	 */
+	public static ResKey START_REASONS_IMAGE_ENABLE;
+
+	/**
+	 * @en (none)
+	 */
+	public static ResKey START_REASONS_NONE;
+
+	/**
+	 * @en When {0}
+	 */
+	public static ResKey1 REACTION_WHEN__TRIGGER;
+
+	/**
+	 * @en When schedule {0}
+	 */
+	public static ResKey1 REACTION_WHEN_SCHEDULE__NAMES;
+
+	/**
+	 * @en When timer {0} expired
+	 */
+	public static ResKey1 REACTION_WHEN_TIMER__NAME;
+
+	/**
+	 * @en When start
+	 */
+	public static ResKey REACTION_WHEN_START;
+
+	/**
+	 * @en When start {0}
+	 */
+	public static ResKey1 REACTION_WHEN_START__REASONS;
+
+	/**
+	 * @en In state {0}: when {1}
+	 */
+	public static ResKey2 REACTION_IN_STATE_WHEN__STATES_TRIGGER;
+
+	/**
+	 * @en In state {0}: when schedule {1}
+	 */
+	public static ResKey2 REACTION_IN_STATE_WHEN_SCHEDULE__STATES_NAMES;
+
+	/**
+	 * @en In state {0}: when timer {1} expired
+	 */
+	public static ResKey2 REACTION_IN_STATE_WHEN_TIMER__STATES_NAME;
+
+	/**
+	 * @en In state {0}: when start
+	 */
+	public static ResKey1 REACTION_IN_STATE_WHEN_START__STATES;
+
+	/**
+	 * @en In state {0}: when start {1}
+	 */
+	public static ResKey2 REACTION_IN_STATE_WHEN_START__STATES_REASONS;
+
+	/**
+	 * @en {0} or {1}
+	 */
+	public static ResKey2 REACTION_OR__TEXT_TRIGGER;
+
+	/**
+	 * @en {0} or schedule {1}
+	 */
+	public static ResKey2 REACTION_OR_SCHEDULE__TEXT_NAMES;
+
+	/**
+	 * @en {0} or timer {1} expired
+	 */
+	public static ResKey2 REACTION_OR_TIMER__TEXT_NAME;
+
+	/**
+	 * @en {0} or start
+	 */
+	public static ResKey1 REACTION_OR_START__TEXT;
+
+	/**
+	 * @en {0} or start {1}
+	 */
+	public static ResKey2 REACTION_OR_START__TEXT_REASONS;
+
+	/**
+	 * @en {0} · if {1}
+	 */
+	public static ResKey2 REACTION_IF__TEXT_CONDITION;
+
+	/**
+	 * @en {0} → {1}
+	 */
+	public static ResKey2 REACTION_TO__TEXT_STATE;
+
+	/**
+	 * @en {0} ← {1}
+	 */
+	public static ResKey2 ACTION_WRITE__TARGET_VALUE;
+
+	/**
+	 * @en {0} ← {1} (only on change)
+	 */
+	public static ResKey2 ACTION_WRITE_ON_CHANGE__TARGET_VALUE;
+
+	/**
+	 * @en Read {0}
+	 */
+	public static ResKey1 ACTION_READ__NAME;
+
+	/**
+	 * @en Start timer {0}
+	 */
+	public static ResKey1 ACTION_START_TIMER__NAME;
+
+	/**
+	 * @en Start timer {0} ({1})
+	 */
+	public static ResKey2 ACTION_START_TIMER__NAME_DURATION;
+
+	/**
+	 * @en Restart timer {0}
+	 */
+	public static ResKey1 ACTION_RESTART_TIMER__NAME;
+
+	/**
+	 * @en Restart timer {0} ({1})
+	 */
+	public static ResKey2 ACTION_RESTART_TIMER__NAME_DURATION;
+
+	/**
+	 * @en Cancel timer {0}
+	 */
+	public static ResKey1 ACTION_CANCEL_TIMER__NAME;
+
+	/**
+	 * @en {0} ← {1}
+	 */
+	public static ResKey2 ACTION_SET_PARAMETER__NAME_VALUE;
+
+	/**
+	 * @en Log (info): {0}
+	 */
+	public static ResKey1 ACTION_LOG_INFO__MESSAGE;
+
+	/**
+	 * @en Log (warning): {0}
+	 */
+	public static ResKey1 ACTION_LOG_WARNING__MESSAGE;
+
+	/**
+	 * @en Log (error): {0}
+	 */
+	public static ResKey1 ACTION_LOG_ERROR__MESSAGE;
+
+	/**
+	 * @en On
+	 */
+	public static ResKey VALUE_ON;
+
+	/**
+	 * @en Off
+	 */
+	public static ResKey VALUE_OFF;
+
+	/**
+	 * @en Up
+	 */
+	public static ResKey VALUE_UP;
+
+	/**
+	 * @en Down
+	 */
+	public static ResKey VALUE_DOWN;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

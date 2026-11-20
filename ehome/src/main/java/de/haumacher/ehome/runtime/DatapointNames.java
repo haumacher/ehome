@@ -43,15 +43,25 @@ import de.haumacher.ehome.rules.RuleText.SyntaxError;
  * language ({@link RuleText}), a string literal stays as it is. The field that edits an expression
  * shows the rule language, never these names.
  * </p>
+ *
+ * <p>
+ * The short display texts of the tables of rules (haumacher/ehome #214) name the same objects by
+ * their names alone ({@link #withoutIds()}): <code>Licht Flur</code>, <code>Max. Helligkeit</code>,
+ * the id (a reference in an expression as it is written) only where there is no name.
+ * </p>
  */
 public final class DatapointNames {
 
 	private final TLObject _project;
 
+	private final boolean _withIds;
+
 	private Map<String, TLObject> _datapoints;
 
-	private DatapointNames(TLObject project) {
+	private DatapointNames(TLObject project, boolean withIds, Map<String, TLObject> datapoints) {
 		_project = project;
+		_withIds = withIds;
+		_datapoints = datapoints;
 	}
 
 	/**
@@ -59,7 +69,27 @@ public final class DatapointNames {
 	 * project: every datapoint is then named by its id).
 	 */
 	public static DatapointNames of(TLObject project) {
-		return new DatapointNames(project);
+		return new DatapointNames(project, true, null);
+	}
+
+	/**
+	 * The same names without the ids (haumacher/ehome #214): every object named here by its name
+	 * alone, by its id only where it has no name; a reference in an expression without a name as it
+	 * is written.
+	 */
+	public DatapointNames withoutIds() {
+		return _withIds ? new DatapointNames(_project, false, _datapoints) : this;
+	}
+
+	/**
+	 * The display text of an object with the given label and id: {@link #format(String, String)},
+	 * without the ids ({@link #withoutIds()}) the label, the id only where there is no label.
+	 */
+	private String display(String label, String id) {
+		if (_withIds) {
+			return format(label, id);
+		}
+		return label != null ? label : id;
 	}
 
 	// ---- the format --------------------------------------------------------------------------
@@ -136,7 +166,7 @@ public final class DatapointNames {
 	 * (11/0/4)</code>, the id alone if the project has no object of this id or it has no name.
 	 */
 	public String datapoint(String id) {
-		return format(label(datapoints().get(id)), id);
+		return display(label(datapoints().get(id)), id);
 	}
 
 	/**
@@ -235,7 +265,7 @@ public final class DatapointNames {
 	 */
 	public String reference(Object target, String attribute) {
 		String id = RuleReferences.id(_project, target, attribute);
-		return id == null ? null : format(label((TLObject) target), id);
+		return id == null ? null : display(label((TLObject) target), id);
 	}
 
 	private Map<String, TLObject> datapoints() {
@@ -327,13 +357,13 @@ public final class DatapointNames {
 			@Override
 			public String datapoint(String name) {
 				String label = label(datapoints().get(name));
-				return label == null || label.equals(name) ? null : format(label, name);
+				return label == null || label.equals(name) ? null : display(label, name);
 			}
 
 			@Override
 			public String parameter(String id) {
 				String label = label(ruleParameter(rule, id));
-				return label == null ? null : format(label, RuleText.parameterReference(id));
+				return label == null ? null : display(label, RuleText.parameterReference(id));
 			}
 		};
 	}

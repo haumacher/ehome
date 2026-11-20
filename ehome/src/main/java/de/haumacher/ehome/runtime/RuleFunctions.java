@@ -76,7 +76,7 @@ import de.haumacher.ehome.rules.ValueType;
 
 /**
  * The TL-Script functions of the rules and schedules of a project (haumacher/ehome #57): the summaries
- * their tables show, the datapoints they may name, and creating, listing and moving their parts.
+ * and short labels their tables show, the datapoints they may name, and creating, listing and moving their parts.
  *
  * <p>
  * Each function is registered in <code>ehome.runtime.config.xml</code> under the name of its
@@ -91,6 +91,12 @@ public class RuleFunctions extends GenericMethod {
 	public enum Function {
 		/** <code>ruleSummary(obj)</code>: a line describing a reaction, trigger, action or schedule entry. */
 		ruleSummary(1, true),
+		/**
+		 * <code>ruleLabel(obj)</code>: the short display text of a reaction, trigger or action, by
+		 * names alone in the language of the reader ({@link RuleLabels#label(TLObject)}); the
+		 * summary of another part.
+		 */
+		ruleLabel(1, true),
 		/** <code>ruleList(owner, reference)</code>: the parts in the given reference of the owner. */
 		ruleList(2, true),
 		/**
@@ -233,6 +239,8 @@ public class RuleFunctions extends GenericMethod {
 		switch (_function) {
 			case ruleSummary:
 				return summary(obj);
+			case ruleLabel:
+				return RuleLabels.label(obj);
 			case ruleList:
 				return objects(obj, String.valueOf(arguments[1]));
 			case ruleCreate:
