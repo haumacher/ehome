@@ -382,7 +382,9 @@
 																		<en>Reaction</en>
 																		<de>Reaktion</de>
 																	</label>
-																	<value>ruleSummary($row)</value>
+																	<!-- The short text by names; the tooltip the technical one with the ids (haumacher/ehome #214). -->
+																	<value>ruleLabel($row)</value>
+																	<tooltip>ruleSummary($row)</tooltip>
 																</computed-column>
 															</columns>
 															<rows>if($rule == null, [], $rule.get(`ehome.runtime:Rule#reactions`))</rows>
@@ -750,7 +752,9 @@
 																					<en>Trigger</en>
 																					<de>Auslöser</de>
 																				</label>
-																				<value>ruleSummary($row)</value>
+																				<!-- The short text by names; the tooltip the technical one with the ids (haumacher/ehome #214). -->
+																				<value>ruleLabel($row)</value>
+																				<tooltip>ruleSummary($row)</tooltip>
 																			</computed-column>
 																		</columns>
 																		<rows>if($reaction == null, [], $reaction.get(`ehome.runtime:Reaction#triggers`))</rows>

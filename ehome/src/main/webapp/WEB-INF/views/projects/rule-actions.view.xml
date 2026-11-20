@@ -365,7 +365,9 @@
 									<en>Action</en>
 									<de>Aktion</de>
 								</label>
-								<value>ruleSummary($row)</value>
+								<!-- The short text by names; the tooltip the technical one with the ids (haumacher/ehome #214). -->
+								<value>ruleLabel($row)</value>
+								<tooltip>ruleSummary($row)</tooltip>
 							</computed-column>
 						</columns>
 						<rows>ruleList($owner, $listName)</rows>

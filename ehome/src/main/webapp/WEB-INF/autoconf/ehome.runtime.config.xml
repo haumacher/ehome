@@ -156,6 +156,8 @@
 					<method name="datapointFlagsSource" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- Rules and schedules (haumacher/ehome #57, de.haumacher.ehome.runtime.RuleFunctions). -->
 					<method name="ruleSummary" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The short labels of the tables of reactions, triggers and actions (haumacher/ehome #214). -->
+					<method name="ruleLabel" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleList" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleCreate" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleMove" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
