@@ -48,9 +48,11 @@ import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.ProgrammingFunctions;
 import de.haumacher.ehome.scan.BusScanner;
+import de.haumacher.ehome.scan.CatalogMatch;
 import de.haumacher.ehome.scan.DeviceInfo;
 import de.haumacher.ehome.scan.DeviceInfoFunctions;
 import de.haumacher.ehome.scan.DeviceInfoJob;
+import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.scan.I18NConstants;
 import de.haumacher.ehome.scan.InstallationBuilder;
 
@@ -85,6 +87,9 @@ public class TestDeviceInfo extends BasicTestCase {
 	private static final String DIALOG = "src/main/webapp/WEB-INF/views/projects/device-info.view.xml";
 
 	private static final String SERIAL = "008300001234";
+
+	/** The program of the actuator 1.3.5, whose load procedure compares the hardware type. */
+	private static final String ACTUATOR_PROGRAM = "M-0083_A-000C-21-83B5";
 
 	public void testDeviceInfo() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -207,6 +212,25 @@ public class TestDeviceInfo extends BasicTestCase {
 			assertEquals(0, mdtInfo.count(DeviceInfo.Comparison.DIFFERENT));
 			assertTrue(DeviceInfoFunctions.rows(mdtInfo).stream()
 				.noneMatch(r -> "orderInfo".equals(r.get("name")) && r.get("role") != null));
+			// An order info and a hardware type of FF bytes only (unwritten memory) are not set
+			// (haumacher/ehome #206): read as nothing, without a note of a value not read, and the hardware
+			// type excludes no program - another one does.
+			MockDevice unset = actuator().setProperty(0, BusScanner.PID_ORDER_INFO, "FF".repeat(10))
+				.setProperty(0, BusScanner.PID_HARDWARE_TYPE, "FF".repeat(6));
+			FoundDevice unsetFound = BusScanner.read(unset, ACTUATOR);
+			assertNull(unsetFound.orderInfo());
+			assertNull(unsetFound.orderNumber());
+			assertNull(unsetFound.hardwareType());
+			assertEquals(BusScanner.read(actuator().setProperty(0, BusScanner.PID_ORDER_INFO, "41"), ACTUATOR).notes(),
+				unsetFound.notes());
+			assertTrue(programs(CatalogMatch.match(unsetFound)).contains(ACTUATOR_PROGRAM));
+			FoundDevice otherType = BusScanner.read(
+				actuator().setProperty(0, BusScanner.PID_HARDWARE_TYPE, "000A00000034"), ACTUATOR);
+			assertFalse(programs(CatalogMatch.match(otherType)).contains(ACTUATOR_PROGRAM));
+			// Zeros are a value: a program may compare a hardware type of zeros.
+			assertNotNull(BusScanner.read(actuator().setProperty(0, BusScanner.PID_HARDWARE_TYPE, "000000000000"),
+				ACTUATOR).hardwareType());
+
 			// An order info as text is the order number, padded or not.
 			MockDevice text = actuator().setProperty(0, BusScanner.PID_ORDER_INFO,
 				HexFormat.of().formatHex("AKK-0416.03\0\0".getBytes(StandardCharsets.ISO_8859_1)));
@@ -274,6 +298,10 @@ public class TestDeviceInfo extends BasicTestCase {
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
+	}
+
+	private static List<String> programs(CatalogMatch.Match match) {
+		return match.candidates().stream().map(c -> c.program().getExtId()).toList();
 	}
 
 	private static MockDevice actuator() throws Exception {

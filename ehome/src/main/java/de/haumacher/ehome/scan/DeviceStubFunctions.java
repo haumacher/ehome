@@ -38,7 +38,7 @@ public class DeviceStubFunctions extends GenericMethod {
 	public enum Function {
 		/** <code>deviceStubManufacturer(stub)</code>: {@link DeviceStubs#manufacturer(TLObject)}. */
 		deviceStubManufacturer(1, true),
-		/** <code>deviceStubOrder(stub)</code>: {@link DeviceStubs#orderText(TLObject)}. */
+		/** <code>deviceStubOrder(stub)</code>: {@link DeviceStubs#orderNumber(TLObject)}. */
 		deviceStubOrder(1, true),
 		/** <code>deviceStubAssign(stub)</code>: {@link DeviceStubs#assign(TLObject)}, the device replacing the stub. */
 		deviceStubAssign(1, false),
@@ -101,7 +101,7 @@ public class DeviceStubFunctions extends GenericMethod {
 			case deviceStubManufacturer:
 				return DeviceStubs.isStub(obj) ? DeviceStubs.manufacturer(obj) : null;
 			case deviceStubOrder:
-				return DeviceStubs.isStub(obj) ? DeviceStubs.orderText(obj) : null;
+				return DeviceStubs.isStub(obj) ? DeviceStubs.orderNumber(obj) : null;
 			case deviceStubAssign:
 				return DeviceStubs.assign(obj);
 			case knxprojLeftOut: {

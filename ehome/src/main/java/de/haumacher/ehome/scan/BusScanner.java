@@ -459,8 +459,8 @@ public class BusScanner {
 			serial = property(reader, DEVICE_OBJECT, PID_SERIAL_NUMBER, I18NConstants.READ_SERIAL_NUMBER, notes);
 			programVersion = property(reader, APPLICATION_OBJECT, LoadControls.PID_PROGRAM_VERSION,
 				I18NConstants.READ_PROGRAM_VERSION, notes);
-			hardwareType = property(reader, DEVICE_OBJECT, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes);
-			orderInfo = text(property(reader, DEVICE_OBJECT, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes));
+			hardwareType = set(property(reader, DEVICE_OBJECT, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes));
+			orderInfo = text(set(property(reader, DEVICE_OBJECT, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes)));
 			MaskVersion mask = descriptor == null ? null : mask(descriptor.intValue());
 			if (mask != null && !LoadStateMachines.propertyMapped(mask)) {
 				// A mask whose load state machines are controlled in memory (mask 7.1, BIM M112): the
@@ -549,8 +549,8 @@ public class BusScanner {
 		byte[] id = localProperty(local, 0, PID_MANUFACTURER_ID, I18NConstants.READ_MANUFACTURER, notes);
 		Integer manufacturer = id != null && id.length >= 2 ? Integer.valueOf((id[0] & 0xFF) << 8 | (id[1] & 0xFF)) : null;
 		byte[] serial = localProperty(local, 0, PID_SERIAL_NUMBER, I18NConstants.READ_SERIAL_NUMBER, notes);
-		byte[] hardwareType = localProperty(local, 0, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes);
-		String orderInfo = text(localProperty(local, 0, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes));
+		byte[] hardwareType = set(localProperty(local, 0, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes));
+		String orderInfo = text(set(localProperty(local, 0, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes)));
 		byte[] programVersion = localProperty(local, APPLICATION_OBJECT, LoadControls.PID_PROGRAM_VERSION,
 			I18NConstants.READ_PROGRAM_VERSION, notes);
 		return new FoundDevice(individual, FoundDevice.Source.LOCAL, null, manufacturer, serial, programVersion,
@@ -604,6 +604,24 @@ public class BusScanner {
 		} catch (BusException ex) {
 			// The connection ends anyway.
 		}
+	}
+
+	/**
+	 * The given value of the hardware type or the order info, <code>null</code> where it consists of
+	 * <code>FF</code> bytes only: unwritten memory, a value not set (haumacher/ehome #206). The
+	 * property was read, so this is no note. Zeros are a value: a program may compare a hardware type
+	 * of zeros.
+	 */
+	static byte[] set(byte[] value) {
+		if (value == null) {
+			return null;
+		}
+		for (byte b : value) {
+			if (b != (byte) 0xFF) {
+				return value;
+			}
+		}
+		return null;
 	}
 
 	/**

@@ -200,22 +200,26 @@ public class TestDeviceStubs extends BasicTestCase {
 	}
 
 	/**
-	 * A device reporting no text as its order info is named and refused by its hardware type
-	 * (haumacher/ehome #183, the device 1.1.7 of the test system reports <code>FF</code> bytes).
+	 * A device reporting no text as its order info (the manufacturer's encoding of MDT,
+	 * haumacher/ehome #179) has no order number, in the scan table and at its stub: the hardware type
+	 * is not shown in its place (haumacher/ehome #206), the stub shows it in its own field; "Assign"
+	 * names it in its refusal (haumacher/ehome #183).
 	 */
 	public void testHardwareTypeWhereNoOrderNumber() throws Exception {
 		TLObject project = TestScanTakeOver.emptyProject("Stub without order number");
 		try {
-			FoundDevice found = device(STUB_ADDRESS, 0x20BE, "FF FF FF FF FF FF FF FF FF FF");
+			FoundDevice found = device(STUB_ADDRESS, 0x20BE, "14 30 34 31 36 FF FF 03 0F 60");
 			assertNull(found.orderNumber());
-			assertEquals("00 0A 00 00 00 34", found.orderText());
+			Map<String, Object> row = ScanRows.row(project, found, CatalogMatch.match(project, found));
+			assertNull("No order number in the scan table.", row.get("order"));
+			assertEquals("00 0A 00 00 00 34", row.get("hardwareType"));
 			TLObject stub;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				stub = DeviceStubs.record(project, found);
 				tx.commit();
 			}
-			assertEquals("00 0A 00 00 00 34", stub.tValueByName("orderNumber"));
-			assertEquals("FF FF FF FF FF FF FF FF FF FF", stub.tValueByName("orderInfo"));
+			assertNull("No order number at the stub.", stub.tValueByName("orderNumber"));
+			assertEquals("000A00000034", stub.tValueByName("hardwareType"));
 			String manufacturer = ((Manufacturer) CatalogMatch.manufacturer(GIRA)).getName();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				DeviceStubs.assign(stub);

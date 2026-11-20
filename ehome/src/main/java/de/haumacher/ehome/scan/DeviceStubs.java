@@ -137,11 +137,11 @@ public final class DeviceStubs {
 	}
 
 	/**
-	 * The order number the stub's device reports; where it reports no text there, its hardware type
-	 * in hex ({@link FoundDevice#orderText()}).
+	 * The order number the stub's device reports ({@link FoundDevice#orderNumber()}), <code>null</code>
+	 * where it reports no text there (haumacher/ehome #206: the hardware type is shown on its own).
 	 */
-	public static String orderText(TLObject stub) {
-		return found(stub).orderText();
+	public static String orderNumber(TLObject stub) {
+		return found(stub).orderNumber();
 	}
 
 	/**
@@ -150,7 +150,7 @@ public final class DeviceStubs {
 	 */
 	public static String product(TLObject stub) {
 		String manufacturer = manufacturer(stub);
-		String order = orderText(stub);
+		String order = orderNumber(stub);
 		if (manufacturer == null) {
 			return order == null ? "?" : order;
 		}

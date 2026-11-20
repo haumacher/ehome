@@ -544,8 +544,9 @@ choice "Suchen nach" stays on "Geräte im Programmiermodus". Everything here onl
   identified uniquely, those to choose for, and the unidentified. Several candidates: "Produkt
   wählen" (a choice dialog) makes the chosen one the match of the row; none: the row is taken over as
   a stub (below). The scan itself changes nothing in the project. The table shows address,
-  manufacturer, order number (the order info as read where it is text, else the hardware type in hex),
-  serial number, program version, catalog and the state in the project; how a device was read, its mask
+  manufacturer, order number (the order info as read where it is text, else empty; an order info or a
+  hardware type of `FF` bytes only is not set and read as nothing, haumacher/ehome #206), serial
+  number, program version, catalog and the state in the project; how a device was read, its mask
   version and its load states are the tooltip of its address, and a device not read completely
   carries a marker with the reasons as its tooltip.
 - **Take-over** (`TakeOverJob`, "Übernehmen" on the selected rows, "Alle übernehmen" on every row):

@@ -17,7 +17,7 @@
 	before the row is taken over. A device the catalog does not identify is taken over as a stub in its
 	line (ehome.physical:DeviceStub, haumacher/ehome #183), without program and without reading its
 	configuration; "Assign" at the stub matches it again after an import of product data. The table
-	shows the order number a device reports, where it reports no text there its hardware type.
+	shows the order number a device reports, empty where it reports no text there (haumacher/ehome #206).
 
 	The table selects several rows; "Take over" works on the selected rows, "Take over all" on every
 	row, each row saying in its state what happened. "LED on/off" switches the programming mode of the
@@ -502,7 +502,7 @@
 										</label>
 										<value>$row["manufacturer"]</value>
 									</computed-column>
-									<!-- The order number the device reports; where it reports no text there, its hardware type in hex (haumacher/ehome #183). -->
+									<!-- The order number the device reports, empty where it reports no text there (haumacher/ehome #206). -->
 									<computed-column name="order"
 										type="tl.core:String"
 										width="160"

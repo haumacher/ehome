@@ -388,7 +388,7 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<!-- The order number the device reports; where it reports no text there, its hardware type in hex. -->
+				<!-- The order number the device reports, empty where it reports no text there. -->
 				<property name="orderNumber"
 					type="tl.core:String"
 				>

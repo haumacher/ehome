@@ -33,10 +33,12 @@ import com.top_logic.basic.util.ResKey;
  *        bytes (application object, property 13; memory 0104-0107 for BCU 1 with the manufacturer
  *        of the device).
  * @param hardwareType
- *        The hardware type (device object, property 78).
+ *        The hardware type (device object, property 78); <code>null</code> also where the device
+ *        reports <code>FF</code> bytes only, the value of a type not set (haumacher/ehome #206).
  * @param orderInfo
  *        The order info (device object, property 15), as text where it is printable, otherwise as
- *        its bytes in hex ({@link #hex(byte[])}). Only the text is an order number
+ *        its bytes in hex ({@link #hex(byte[])}); <code>null</code> also where the device reports
+ *        <code>FF</code> bytes only, an order info not set (haumacher/ehome #206). Only the text is an order number
  *        ({@link #orderNumber()}): many devices report a manufacturer-specific encoding there
  *        (haumacher/ehome #179).
  * @param loadStates
@@ -157,16 +159,6 @@ public record FoundDevice(int address, Source source, Integer descriptor, Intege
 			}
 		}
 		return orderInfo;
-	}
-
-	/**
-	 * What a person looks the device up by at its manufacturer (haumacher/ehome #183): the order
-	 * number ({@link #orderNumber()}); where the device reports no text there, its hardware type in
-	 * hex; <code>null</code> if neither was read.
-	 */
-	public String orderText() {
-		String order = orderNumber();
-		return order != null ? order : hardwareTypeText();
 	}
 
 	/**

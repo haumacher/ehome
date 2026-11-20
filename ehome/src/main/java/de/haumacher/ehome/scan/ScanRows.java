@@ -79,7 +79,7 @@ public class ScanRows {
 		row.put("programVersion", found.programVersionText());
 		row.put("hardwareType", found.hardwareTypeText());
 		row.put("orderInfo", found.orderInfo());
-		row.put("order", found.orderText());
+		row.put("order", found.orderNumber());
 		row.put("states", texts(found.loadStates(), ", "));
 		String notes = texts(found.notes(), "; ");
 		row.put(NOTES, notes.isEmpty() ? null : notes);
