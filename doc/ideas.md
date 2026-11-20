@@ -249,3 +249,30 @@ candidates for "Zuordnen".
 
 Open: whether manufacturers assign hardware types uniquely enough for this; how the candidates are
 offered (a choice in "Zuordnen", or only a hint which product data to import).
+
+## Rules: reaction types and a conditional action
+
+The user: "Zustände und Bedingungen sind optional - aber in der starren Struktur muss man sie immer
+mitlesen und das macht das noch unübersichtlicher. Eigentlich sind das unterschiedliche
+Reaktionstypen (zustandsbehaftet oder nicht) und verschiedene Aktionstypen (bedingt und nicht
+bedingt)." Put off: "wir machen das erst mal minimal" (the labels: haumacher/ehome#214).
+
+Today:
+- A reaction has triggers, an optional condition, actions, else-actions, and in a rule with states
+  `from` and `to` (homecontrol `spec/rules.md:255-262`); the form shows condition, from, to, then
+  the triggers, then Dann/Sonst (`ehome/src/main/webapp/WEB-INF/views/projects/rules.view.xml:383-820`);
+  a transition's exit and entry actions are edited at the states and not visible at the reaction.
+- The firmware has no conditional action (`spec/rules.md:300-312`).
+
+Proposed:
+- Two reaction types chosen at creation: *Reaktion* ((in state) · when · actions) and
+  *Zustandswechsel* (from · when · (guard) · actions · to, with the exit/entry actions shown
+  read-only); the form shows only what the type has.
+- A conditional action "Falls … dann … sonst …" with its own action lists; a firmware action `if`
+  (`condition`, `then`, `else`, a nesting limit), the reaction's `condition`/`elseActions` kept for
+  older images, an older firmware refusing an image with `if` (I4/I5); existing rules migrated
+  (condition + actions + else without `to` → one conditional action; with `to` → a transition with
+  the condition as its guard).
+
+Open: nesting of conditional actions (proposed: up to depth 4); keeping the guard of a transition
+(proposed: yes, it decides whether the state changes).
