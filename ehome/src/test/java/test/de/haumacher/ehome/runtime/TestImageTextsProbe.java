@@ -23,13 +23,15 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
  * Probe of the function labels (haumacher/ehome #51) with the demo project, whose programs have German
  * and English: every label of the image is a language map with non-empty texts of at most 63 bytes in
- * the application languages, and at least one function has both languages.
+ * the application languages; the functions, named after their group addresses, have the user's
+ * language only (haumacher/ehome #205).
  */
 @SuppressWarnings("javadoc")
 public class TestImageTextsProbe extends BasicTestCase {
@@ -45,7 +47,6 @@ public class TestImageTextsProbe extends BasicTestCase {
 			assertTrue(report.toString(), report.isValid());
 			List<?> functions = (List<?>) image.getJson().get("functions");
 			assertFalse(functions.isEmpty());
-			boolean both = false;
 			for (Object function : functions) {
 				Object label = ((Map<?, ?>) function).get("label");
 				assertTrue(String.valueOf(label), label instanceof Map);
@@ -56,9 +57,9 @@ public class TestImageTextsProbe extends BasicTestCase {
 					int bytes = text.toString().getBytes(StandardCharsets.UTF_8).length;
 					assertTrue(texts.toString(), bytes > 0 && bytes <= 63);
 				}
-				both |= texts.size() == 2;
+				// Named after their group addresses, a name without language: the user's (haumacher/ehome #205).
+				assertEquals(texts.toString(), Set.of(FunctionProposal.userLanguage()), texts.keySet());
 			}
-			assertTrue(functions.toString(), both);
 		} finally {
 			SharedData.deleteProjects(projects);
 		}

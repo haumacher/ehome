@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog of an object follower of the simulation (projects/simulation.view.xml, tab "Device
+	behaviour", haumacher/ehome #205). "model" carries the transient follower the opening command made
+	in the project; the device, the switching object (source) and the state object (follower) are
+	entered, the options of the objects following the device entered. "Create" stores it at the end of
+	the project's object followers (simulationFollowerAdd), refused unless all three are entered, and
+	writes it to "selection"; "Cancel" leaves nothing. Whether it inverts is set in the form afterwards.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="560px">
+		<title>
+			<en>New object follower</en>
+			<de>Neue Objektfolge</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<field attribute="device"/>
+			<field attribute="source">
+				<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+					order="as-given"
+				/>
+			</field>
+			<field attribute="follower">
+				<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+					order="as-given"
+				/>
+			</field>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					inputs="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$model.container()"
+							type="tl.model:TLObject"
+						/>
+					</access>
+					<store-form-state/>
+					<with-transaction>
+						<execute-script function="simulationFollowerAdd($model)"/>
+						<with-result>
+							<write-channel name="selection"/>
+						</with-result>
+					</with-transaction>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

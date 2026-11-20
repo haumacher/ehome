@@ -14,6 +14,7 @@ import test.de.haumacher.ehome.history.OlderView;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.importer.TestEtsImport;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -58,6 +59,7 @@ public class TestImageCache extends BasicTestCase {
 				light.setIdentifier("light");
 				light.setType(valueType("unsigned"));
 				entry = (AstroSchedule) RuleFunctions.create(project, "schedules", runtime("AstroSchedule"));
+				((de.haumacher.ehome.model.runtime.ScheduleEntry) entry).setLabel(ResKey.text("dusk"));
 				entry.setIdentifier("dusk");
 				entry.setOutput(light);
 				tx.commit();
@@ -104,6 +106,7 @@ public class TestImageCache extends BasicTestCase {
 				light.setIdentifier("light");
 				light.setType(valueType("unsigned"));
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) rule).setNameKey(ResKey.text("rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
 				write = (WriteAction) RuleFunctions.create(reaction, "actions", runtime("WriteAction"));

@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import junit.framework.Test;
@@ -20,6 +21,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
 import com.top_logic.basic.io.binary.BinaryDataFactory;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
@@ -90,6 +92,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 				light.setIdentifier("light");
 				light.setWritable(true);
 				TLObject rule = add(project, "rules", runtime("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) rule).setNameKey(ResKey.text("rule"));
 				add(rule, "timers", runtime("RuleTimer"));
 				TLObject reaction = add(rule, "reactions", runtime("Reaction"));
 				add(reaction, "triggers", runtime("StartTrigger"));
@@ -140,10 +143,13 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ApplicationDatapoint light = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
 				light.setIdentifier("light");
+				light.setLabel(ResKey.builder().add(Locale.GERMAN, "Licht").add(Locale.ENGLISH, "Light").build());
 				ApplicationDatapoint lamp = add(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
 				lamp.setIdentifier("lamp");
+				lamp.setLabel(ResKey.builder().add(Locale.GERMAN, "Lampe").add(Locale.ENGLISH, "Lamp").build());
 				lamp.setWritable(true);
 				TLObject rule = add(project, "rules", runtime("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) rule).setNameKey(ResKey.text("rule"));
 				reaction = add(rule, "reactions", runtime("Reaction"));
 				trigger = add(reaction, "triggers", runtime("DatapointTrigger"));
 				trigger.setDatapoint(light);
@@ -154,9 +160,9 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 				tx.commit();
 			}
 			// The datapoints by their labels, in the language of the reader (haumacher/ehome #113).
-			assertEquals("datapoint Neuer Datenpunkt (light)", derived(trigger, "summary"));
-			assertEquals("write Neuer Datenpunkt (lamp) := true", derived(action, "summary"));
-			assertEquals("when datapoint Neuer Datenpunkt (light) if Neuer Datenpunkt (light)", derived(reaction, "summary"));
+			assertEquals("datapoint Licht (light)", derived(trigger, "summary"));
+			assertEquals("write Lampe (lamp) := true", derived(action, "summary"));
+			assertEquals("when datapoint Licht (light) if Licht (light)", derived(reaction, "summary"));
 			for (TLObject obj : List.of(reaction, trigger, action)) {
 				assertEquals(derived(obj, "summary"), asRoot(obj));
 			}
@@ -205,6 +211,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			DatesSchedule entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TLObject rule = add(project, "rules", runtime("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) rule).setNameKey(ResKey.text("rule"));
 				parameter = add(rule, "parameters", runtime("RuleParameter"));
 				parameter.setType(parameterType("duration"));
 				parameter.setDefault("180000ms");
@@ -216,6 +223,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 				log = add(reaction, "actions", runtime("LogAction"));
 				log.setMessage("on: {  @light }");
 				entry = add(project, "schedules", runtime("DatesSchedule"));
+				((de.haumacher.ehome.model.runtime.ScheduleEntry) entry).setLabel(ResKey.text("entry"));
 				entry.setDates("2027-01-08;2027-01-22");
 				entry.setTime("6:15");
 				tx.commit();
@@ -261,6 +269,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			RuleChoice comfort;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TLObject rule = add(project, "rules", runtime("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) rule).setNameKey(ResKey.text("rule"));
 				parameter = add(rule, "parameters", runtime("RuleParameter"));
 				parameter.setType(parameterType("integer"));
 				parameter.setDefault("1");

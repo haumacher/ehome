@@ -265,6 +265,7 @@ public class TestProjectUpdate extends BasicTestCase {
 				ga3.setIdentifier("kueche.licht");
 				ga3.setRuntimeWritable(Boolean.TRUE);
 				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				rule.setNameKey(ResKey.text("licht"));
 				rule.setIdentifier("licht");
 				reaction = RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
 				DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));

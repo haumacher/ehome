@@ -209,13 +209,14 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 			assertEquals(List.of("dimmer zigbee:00000000000000a1:11:on_off", "switch zigbee:00000000000000a2:1:on_off",
 				"light zigbee:00000000000000a3:1:on_off", "button zigbee:00000000000000a4:1:action"), summary(proposals));
 			assertEquals(Map.of("press", datapoint(project, "action", 1, "Taster")), proposals.get(3).roles());
-			assertEquals(Map.of("de", "Taster", "en", "Taster"), proposals.get(3).label());
+			// Named after the device alone, a name without language: the user's (haumacher/ehome #205).
+			assertEquals(Map.of(FunctionProposal.userLanguage(), "Taster"), proposals.get(3).label());
 			Proposal dimmer = proposals.get(0);
 			TLObject onOff = datapoint(project, "on_off", 11);
 			TLObject level = datapoint(project, "level", 11);
 			assertEquals(Map.of("levelCommand", level, "level", level, "command", onOff, "state", onOff), dimmer.roles());
 			// A dimmer is named after the device; a function on one endpoint without the endpoint.
-			assertEquals(Map.of("de", "Stehlampe", "en", "Stehlampe"), dimmer.label());
+			assertEquals(Map.of(FunctionProposal.userLanguage(), "Stehlampe"), dimmer.label());
 			assertEquals(Map.of("de", "Decke: Ein/Aus", "en", "Decke: On/Off"), proposals.get(2).label());
 			// The socket has on/off on two endpoints (the second unbound): its name names the endpoint.
 			assertEquals(Map.of("de", "Steckdose: Ein/Aus (Endpunkt 1)", "en", "Steckdose: On/Off (endpoint 1)"),

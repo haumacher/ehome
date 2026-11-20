@@ -180,6 +180,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 				entry.setTimeMin("05:00");
 				entry.setTimeMax("09:00");
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) rule).setNameKey(ResKey.text("rule"));
 				Reaction reaction = (Reaction) RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				((DatapointTrigger) RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")))
 					.setDatapoint(entry);
@@ -258,6 +259,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				entry = workdayMorning(project);
 				TLObject page = Pages.insert(project, null, Pages.PAGE, null);
+				((de.haumacher.ehome.model.runtime.Page) page).setNameKey(ResKey.text("page"));
 				TLObject section = Pages.insert(project, page, Pages.SECTION, null);
 				Pages.insert(project, section, Pages.DATAPOINT, List.of(entry));
 				tx.commit();

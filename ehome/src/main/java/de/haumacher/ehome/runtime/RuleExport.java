@@ -259,11 +259,15 @@ public final class RuleExport {
 
 	private List<TLObject> list(TLObject obj, String attribute) {
 		List<TLObject> result = objects(get(obj, attribute));
-		if (_target != null && _target.tTransient() && obj == _target.tContainer()
-			&& attribute.equals(RuleDrafts.reference(_target)) && !result.contains(_target)) {
-			// The draft of a create dialog (haumacher/ehome #91) is checked at the place it will be
-			// added to.
-			result.add(_target);
+		if (_chain != null) {
+			for (TLObject draft : _chain) {
+				if (draft.tTransient() && obj == draft.tContainer() && attribute.equals(RuleDrafts.reference(draft))
+					&& !result.contains(draft)) {
+					// The draft of a create dialog (haumacher/ehome #91) is checked at the place it will
+					// be added to; the plan of a new timeline with the draft of its timeline (#205).
+					result.add(draft);
+				}
+			}
 		}
 		return result;
 	}
@@ -423,7 +427,8 @@ public final class RuleExport {
 			result.put("initialState", orEmpty(text(initial, "identifier")));
 		}
 
-		if (get(rule, "timeline") instanceof TLObject timeline && timeline.tValid()) {
+		// The timeline, or the draft of a new one (haumacher/ehome #205).
+		for (TLObject timeline : list(rule, "timeline")) {
 			result.put("timeline", timeline(timeline, path + ".timeline"));
 		}
 

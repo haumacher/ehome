@@ -71,6 +71,7 @@ public class TestRefusalNames extends BasicTestCase {
 			light.setAddress(GA.parse("11/0/4", GroupAddressStyle.ThreeLevel));
 			((Project) _project).setGroupAddresses(Set.of(light));
 			Rule rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			rule.setNameKey(ResKey.text("licht"));
 			rule.setIdentifier("licht");
 			TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 			RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));

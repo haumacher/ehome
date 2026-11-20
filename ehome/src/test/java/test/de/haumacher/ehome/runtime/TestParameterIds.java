@@ -138,6 +138,10 @@ public class TestParameterIds extends BasicTestCase {
 	private static TLObject part(TLObject owner, String reference, String type) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject result = RuleFunctions.create(owner, reference, runtime(type));
+			if (result instanceof Rule rule) {
+				// A name is entered, never preset (haumacher/ehome #205).
+				rule.setNameKey(com.top_logic.basic.util.ResKey.text("Rule"));
+			}
 			tx.commit();
 			return result;
 		}

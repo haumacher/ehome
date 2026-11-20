@@ -520,15 +520,18 @@ public final class BlockInstances {
 	 * @param typeKey
 	 *        <code>&lt;type id&gt; &lt;major&gt;.&lt;minor&gt;</code> as {@link #typeKeys()} lists them.
 	 * @param name
-	 *        The name; <code>null</code>: the type's label.
+	 *        The name, in the languages it was entered in (haumacher/ehome #205: never preset).
 	 */
 	public static TLObject create(TLObject project, String typeKey, TLObject room, ResKey name) {
 		BlockType type = typeOfKey(typeKey);
 		if (type == null) {
 			throw new IllegalArgumentException("No block type '" + typeKey + "'.");
 		}
+		String base = name == null ? null : Resources.getInstance().getString(name, null);
+		if (base == null || base.isBlank()) {
+			throw new IllegalArgumentException("A virtual device needs a name.");
+		}
 		Manifest m = type.manifest();
-		ResKey label = name != null ? name : FunctionProposal.text(typeLabel(m));
 		BlockInstance instance = (BlockInstance) createObject(INSTANCE);
 		Set<String> ids = new HashSet<>();
 		for (TLObject other : of(project)) {
@@ -537,9 +540,8 @@ public final class BlockInstances {
 				ids.add(id);
 			}
 		}
-		String base = com.top_logic.util.Resources.getInstance().getString(label);
 		instance.setIdentifier(FunctionProposal.uniqueIdentifier(base, ids));
-		instance.setNameKey(label);
+		instance.setNameKey(name);
 		instance.setBlockType(m.type());
 		instance.setVersion(m.version());
 		instance.setRoom((BuildingDefinition) room);

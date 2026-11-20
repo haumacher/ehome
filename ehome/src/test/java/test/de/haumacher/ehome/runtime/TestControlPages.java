@@ -201,6 +201,7 @@ public class TestControlPages extends BasicTestCase {
 			_holiday.setWritable(true);
 
 			_rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_rule.setNameKey(ResKey.text("heat"));
 			_rule.setIdentifier("heat");
 			_setpoint = (RuleParameter) RuleFunctions.create(_rule, "parameters", runtime("RuleParameter"));
 			_setpoint.setIdentifier("setpoint");
@@ -638,6 +639,7 @@ public class TestControlPages extends BasicTestCase {
 			TLObject element;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TLObject page = Pages.insert(project, null, Pages.PAGE, null);
+				((de.haumacher.ehome.model.runtime.Page) page).setNameKey(ResKey.text("page"));
 				TLObject section = Pages.insert(project, page, Pages.SECTION, null);
 				element = Pages.insert(project, section, Pages.DATAPOINT, List.of(address));
 				((DatapointElement) element).setLabel(de("Meine Adresse"));

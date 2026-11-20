@@ -12,6 +12,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -68,6 +69,7 @@ public class TestRuleDrafts extends BasicTestCase {
 
 			// Create: one entry at the end, with the values entered.
 			draft.tUpdateByName("offset", "-30min");
+			draft.tUpdateByName(AstroSchedule.LABEL_ATTR, ResKey.text("Dusk"));
 			draft.tUpdateByName("days", List.of(weekday("saturday"), weekday("sunday")));
 			TLObject created;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -112,6 +114,7 @@ public class TestRuleDrafts extends BasicTestCase {
 			timer.tUpdateByName("duration", "5min");
 			TLObject second = RuleDrafts.draft(project, "rules", runtime("Rule"));
 			assertEquals("rule-2", second.tValueByName("identifier"));
+			second.tUpdateByName(Rule.NAME_ATTR, ResKey.text("Second"));
 			TLObject stored;
 			TLObject secondRule;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -136,7 +139,9 @@ public class TestRuleDrafts extends BasicTestCase {
 			TLObject first;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				first = Pages.insert(project, null, Pages.PAGE, List.of());
-				Pages.insert(project, first, Pages.PAGE, List.of());
+				((de.haumacher.ehome.model.runtime.Page) first).setNameKey(ResKey.text("first"));
+				((de.haumacher.ehome.model.runtime.Page) Pages.insert(project, first, Pages.PAGE, List.of()))
+					.setNameKey(ResKey.text("second"));
 				tx.commit();
 			}
 			long revision = revision();
@@ -146,6 +151,7 @@ public class TestRuleDrafts extends BasicTestCase {
 			assertEquals(revision, revision());
 
 			section.tUpdateByName("title", com.top_logic.basic.util.ResKey.text("Living room"));
+			page.tUpdateByName(de.haumacher.ehome.model.runtime.Page.NAME_ATTR, ResKey.text("Added"));
 			TLObject added;
 			TLObject addedPage;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -171,6 +177,12 @@ public class TestRuleDrafts extends BasicTestCase {
 	private static TLObject part(TLObject owner, String reference, String type) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject result = RuleFunctions.create(owner, reference, runtime(type));
+			if (result instanceof Rule rule) {
+				// A name is entered, never preset (haumacher/ehome #205).
+				rule.setNameKey(ResKey.text("Rule"));
+			} else if (result instanceof de.haumacher.ehome.model.runtime.ScheduleEntry entry) {
+				entry.setLabel(ResKey.text("Entry"));
+			}
 			tx.commit();
 			return result;
 		}

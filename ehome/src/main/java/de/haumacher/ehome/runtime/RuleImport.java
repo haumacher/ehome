@@ -858,7 +858,7 @@ public final class RuleImport {
 		};
 		ScheduleEntry result = create(type);
 		result.setIdentifier((String) json.get("id"));
-		result.setLabel(allLanguages(String.valueOf(json.get("label"))));
+		result.setLabel(label(json.get("label"), "schedule entry " + json.get("id")));
 		result.setEnabled(!Boolean.FALSE.equals(json.get("enabled")));
 		result.setEnabledAdjustable(!Boolean.FALSE.equals(json.get("enabledAdjustable")));
 		result.setMissed(classifier("MissedFiring", json.get("missed") == null ? "skip" : json.get("missed")));
@@ -992,34 +992,50 @@ public final class RuleImport {
 	}
 
 	/**
-	 * A label of the image (spec/rules.md 2.2) as a multilingual text: a plain string in every
-	 * application language; a language map with, for each application language, the text the
-	 * controller shows in that language (the exact tag, the base language, en, the first entry). The
-	 * texts of other languages are named in the {@link #getNotes() notes}.
+	 * A label of the image (spec/rules.md 2.2) as a multilingual text in the languages it has
+	 * (haumacher/ehome #205): a plain string, which has no language, in the
+	 * {@link FunctionProposal#userLanguage() user's language} only; a language map in each
+	 * application language it gives a text for (by its exact tag). A map in none of the application languages gives
+	 * the text the controller shows by default (en, the first entry) in the user's language. The
+	 * texts of other languages are named in the {@link #getNotes() notes}; <code>null</code> stays
+	 * empty.
 	 */
 	private ResKey label(Object json, String what) {
+		if (json == null) {
+			return null;
+		}
 		if (!(json instanceof Map<?, ?> map)) {
-			return allLanguages(String.valueOf(json));
+			return FunctionProposal.userText(String.valueOf(json));
 		}
 		Map<String, String> languages = new LinkedHashMap<>();
 		for (Map.Entry<?, ?> entry : map.entrySet()) {
 			languages.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
 		}
 		Map<String, String> texts = new TreeMap<>();
-		List<String> kept = new ArrayList<>();
+		List<String> application = new ArrayList<>();
+		List<String> used = new ArrayList<>();
 		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			texts.put(locale.getLanguage(), RuleLoader.resolveLabel(languages, locale.getLanguage()));
-			kept.add(locale.getLanguage());
-		}
-		List<String> dropped = new ArrayList<>();
-		for (String tag : languages.keySet()) {
-			if (kept.stream().noneMatch(tag::equalsIgnoreCase)) {
-				dropped.add(tag);
+			String language = locale.getLanguage();
+			application.add(language);
+			String tag = tagOf(languages, language);
+			if (tag != null) {
+				texts.put(language, languages.get(tag));
+				used.add(tag);
 			}
 		}
+		if (texts.isEmpty() && !languages.isEmpty()) {
+			String language = FunctionProposal.userLanguage();
+			String text = RuleLoader.resolveLabel(languages, language);
+			texts.put(language, text);
+			_notes.add(what + ": the label has no text in the languages of E-Home (" + String.join(", ", application)
+				+ "); its text \"" + text + "\" is kept in " + language);
+			return FunctionProposal.text(texts);
+		}
+		List<String> dropped = new ArrayList<>(languages.keySet());
+		dropped.removeAll(used);
 		if (!dropped.isEmpty()) {
 			_notes.add(what + ": the label's texts in " + String.join(", ", dropped) + " are not kept (the languages of E-Home: "
-				+ String.join(", ", kept) + ")");
+				+ String.join(", ", application) + ")");
 		}
 		return FunctionProposal.text(texts);
 	}
@@ -1038,14 +1054,17 @@ public final class RuleImport {
 	}
 
 	/**
-	 * The text in every application language (a text of the image, which has no language).
+	 * The tag of a label's language map giving the text of the application language: the language
+	 * itself (a regional tag such as <code>de-CH</code> is another language); <code>null</code> for
+	 * none.
 	 */
-	static ResKey allLanguages(String text) {
-		Map<String, String> texts = new TreeMap<>();
-		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
-			texts.put(locale.getLanguage(), text);
+	private static String tagOf(Map<String, String> languages, String language) {
+		for (String tag : languages.keySet()) {
+			if (tag.equalsIgnoreCase(language)) {
+				return tag;
+			}
 		}
-		return FunctionProposal.text(texts);
+		return null;
 	}
 
 	static TLClassifier classifier(String enumeration, Object name) {

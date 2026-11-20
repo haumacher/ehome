@@ -20,6 +20,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_NO_PROJECT;
 
 	/**
+	 * @en An object follower needs its device, the switching object and the state object.
+	 */
+	public static ResKey ERROR_FOLLOWER_INCOMPLETE;
+
+	/**
 	 * @en No simulation runs for the project.
 	 */
 	public static ResKey ERROR_NOT_RUNNING;

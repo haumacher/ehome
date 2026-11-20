@@ -299,6 +299,7 @@ public class TestProjectFile extends BasicTestCase {
 
 			// A page with a datapoint, a rule's switch and a chart of the temperature.
 			TLObject page = Pages.insert(project, null, Pages.PAGE, null);
+			((de.haumacher.ehome.model.runtime.Page) page).setNameKey(ResKey.text("page"));
 			TLObject section = Pages.insert(project, page, Pages.SECTION, null);
 			Pages.insert(project, section, Pages.DATAPOINT, List.of(BlockInstances.port(block, "valve")));
 			Pages.insert(project, section, Pages.RULE,

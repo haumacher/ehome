@@ -147,6 +147,7 @@ public class TestRedeployment extends BasicTestCase {
 			Page page;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				page = (Page) Pages.insert(project, null, Pages.PAGE, null);
+				page.setNameKey(ResKey.text("home"));
 				page.setIdentifier("home");
 				page.setMinimumRole(classifier("PageRole", Pages.ANONYMOUS));
 				TLObject section = Pages.insert(project, page, Pages.SECTION, null);

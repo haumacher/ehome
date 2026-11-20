@@ -111,9 +111,11 @@ public class TestGroupAddressIds extends BasicTestCase {
 			_holiday = (ApplicationDatapoint) RuleFunctions.create(_project, "applicationDatapoints",
 				runtime("ApplicationDatapoint"));
 			_holiday.setIdentifier("urlaub");
+			_holiday.setLabel(ResKey.text("Urlaub"));
 			_holiday.setWritable(true);
 
 			_rule = (Rule) RuleFunctions.create(_project, "rules", runtime("Rule"));
+			_rule.setNameKey(ResKey.text("licht"));
 			_rule.setIdentifier("licht");
 			_reaction = (Reaction) RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
 			DatapointTrigger trigger = (DatapointTrigger) RuleFunctions.create(_reaction, "triggers",
@@ -217,7 +219,7 @@ public class TestGroupAddressIds extends BasicTestCase {
 		for (String id : List.of("knx.time", "knx.date", "knx.datetime", "zigbee.lampe")) {
 			assertTrue(id, resources.getString(GroupAddressIds.problem(id, _licht)).contains("reserved"));
 		}
-		assertEquals("The application datapoint New datapoint (urlaub) has the id urlaub already.",
+		assertEquals("The application datapoint Urlaub (urlaub) has the id urlaub already.",
 			resources.getString(GroupAddressIds.problem("urlaub", _licht)));
 
 		update(() -> _status.setIdentifier("kueche.status"));

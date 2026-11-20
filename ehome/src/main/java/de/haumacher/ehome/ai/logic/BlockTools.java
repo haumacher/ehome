@@ -44,6 +44,7 @@ import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.BlockTexts;
 import de.haumacher.ehome.runtime.BlockValues;
 import de.haumacher.ehome.runtime.DatapointNames;
+import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
@@ -148,7 +149,7 @@ public class BlockTools {
 	public ToolResult createBlock(ToolContext context,
 			@P("The room (a building part) the device belongs to") TLObject room,
 			@P("The key of the block type, e.g. \"org.homecontrol.room-controller 1.0\" (blockTypes lists them)") String type,
-			@P(value = "The name; omitted: the type's label", required = false) String name,
+			@P("The name") String name,
 			@P(value = "The bindings by port: {\"temperature\": [\"1/3/0\"], \"valve\": [\"1/3/30\"]}", required = false)
 			Map<String, Object> bindings,
 			@P(value = "The parameters by id: {\"comfort\": 21.5}", required = false) Map<String, Object> parameters,
@@ -157,14 +158,16 @@ public class BlockTools {
 		if (owner == null || !RuntimeFunctions.buildingParts(owner).contains(room)) {
 			return LogicSupport.wrongKind("room", room, "a building part of a project");
 		}
+		if (name == null || name.isBlank()) {
+			return failure("A virtual device needs a name. Nothing was created.");
+		}
 		if (BlockInstances.typeOfKey(type) == null) {
 			return failure("Unknown block type '" + type + "'; the types are " + BlockInstances.typeKeys()
 				+ ". Nothing was created.");
 		}
 		boolean dry = Boolean.TRUE.equals(dryRun);
 		return LogicSupport.perform(context, owner, dry, () -> {
-			TLObject instance = BlockInstances.create(owner, type, room, name == null || name.isBlank() ? null
-				: LogicSupport.allLanguages(name));
+			TLObject instance = BlockInstances.create(owner, type, room, FunctionProposal.userText(name));
 			List<Reason> errors = new ArrayList<>();
 			bind(instance, bindings, errors);
 			setParameters(instance, parameters, errors);

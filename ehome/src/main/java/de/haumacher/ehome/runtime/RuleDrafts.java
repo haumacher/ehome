@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+import com.top_logic.element.model.copy.CopyOperation;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.impl.TransientObjectFactory;
 import com.top_logic.model.util.TLModelUtil;
@@ -19,7 +21,9 @@ import com.top_logic.model.util.TLModelUtil;
  * The create dialogs of the rules, schedule entries, application datapoints and control pages
  * (haumacher/ehome #91): "New" opens a dialog over a transient draft ({@link #draft(TLObject, String, TLClass)},
  * {@link #pageDraft(TLObject, TLObject, String)}) with the defaults of its kind and a proposed unique
- * id; "Create" stores it at its place ({@link #add(TLObject)}), "Cancel" leaves nothing.
+ * id, but no name or label (haumacher/ehome #205: a multilingual text is entered, never preset);
+ * "Create" stores the draft as the dialog shows it at its place ({@link #add(TLObject)}), "Cancel"
+ * leaves nothing.
  *
  * <p>
  * The draft is created in its owner (its {@link TLObject#tContainer() container} is the rule,
@@ -27,7 +31,8 @@ import com.top_logic.model.util.TLModelUtil;
  * its project and rule; the reference it will be added to is remembered with it
  * ({@link #reference(TLObject)}), and the field checks put it there ({@link RuleExport}). The dialog
  * asks only for the fields that make the object meaningful ({@link #fields(TLObject)}); the others
- * keep their defaults and are edited in the detail form.
+ * keep their defaults and are edited in the detail form. A new timeline is a draft as a whole, with
+ * its first day plan and the plan's assignment; its dialog asks for the plan.
  * </p>
  */
 public final class RuleDrafts {
@@ -86,12 +91,19 @@ public final class RuleDrafts {
 	/**
 	 * A draft of a part of the given type, to be added at the end of the given reference of the
 	 * owner: created in the owner, with a unique id and the defaults of its kind
-	 * ({@link RuleFunctions#initialize(TLObject, TLObject, TLClass, List)}). Nothing is stored.
+	 * ({@link RuleFunctions#initialize(TLObject, TLObject, TLClass, List)}), without a name or label.
+	 * Of a timeline the result is the draft of its first day plan, created in the draft of the
+	 * timeline with the plan's assignment. Nothing is stored.
 	 */
 	public static TLObject draft(TLObject owner, String reference, TLClass type) {
 		TLObject result = TransientObjectFactory.INSTANCE.createObject(type, owner);
 		RuleFunctions.initialize(result, owner, type, RuleExport.objects(owner.tValueByName(reference)));
 		remember(result, new Place(reference, null, null));
+		if (result.tType().getName().equals("RuleTimeline")) {
+			TLObject plan = RuleExport.objects(result.tValueByName("plans")).get(0);
+			remember(plan, new Place("plans", null, null));
+			return plan;
+		}
 		return result;
 	}
 
@@ -108,9 +120,6 @@ public final class RuleDrafts {
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.runtime:" + typeName);
 		TLObject result = TransientObjectFactory.INSTANCE.createObject(type, project);
 		switch (kind) {
-			case Pages.PAGE:
-				result.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_PAGE_NAME));
-				break;
 			case Pages.CHART:
 				result.tUpdateByName("range", RuleImport.classifier("ChartRange", "day"));
 				break;
@@ -160,6 +169,18 @@ public final class RuleDrafts {
 	}
 
 	/**
+	 * The stored object the draft is added to: its container, of the plan of a new timeline the rule
+	 * (the container of the timeline's draft).
+	 */
+	public static TLObject owner(TLObject draft) {
+		TLObject result = draft.tContainer();
+		while (result != null && result.tTransient()) {
+			result = result.tContainer();
+		}
+		return result;
+	}
+
+	/**
 	 * The title of the create dialog: the name of the draft's type.
 	 */
 	public static String title(TLObject draft) {
@@ -167,10 +188,11 @@ public final class RuleDrafts {
 	}
 
 	/**
-	 * Stores the draft at its place: a part at the end of its owner's reference (with the order of
-	 * a rule after the last one), a node of the pages where the pages insert one for the node
-	 * selected when the dialog opened; the values of the dialog's fields are those entered, the
-	 * others the defaults of the kind. The caller provides the transaction.
+	 * Stores the draft at its place, as the dialog shows it (haumacher/ehome #205): a part becomes
+	 * persistent with the draft's values, at the end of its owner's reference (a timeline with its
+	 * plan and assignment, the result then its plan); a node of the pages is added where the pages
+	 * insert one for the node selected when the dialog opened and takes the values of the dialog's
+	 * fields. A field left empty stays empty. The caller provides the transaction.
 	 *
 	 * @return The stored object.
 	 */
@@ -179,28 +201,67 @@ public final class RuleDrafts {
 		if (place == null || !draft.tTransient()) {
 			throw new IllegalArgumentException("No draft of a create dialog: " + draft);
 		}
-		TLObject owner = draft.tContainer();
 		TLObject created;
 		if (place.kind() != null) {
+			TLObject owner = draft.tContainer();
 			created = Pages.insert(owner, place.selected() != null && place.selected().tValid() ? place.selected() : null,
 				place.kind(), List.of());
+			for (String attribute : fields(draft)) {
+				TLStructuredTypePart part = draft.tType().getPart(attribute);
+				if (part != null) {
+					created.tUpdate(part, draft.tValue(part));
+				}
+			}
 		} else {
-			created = RuleFunctions.create(owner, place.reference(), (TLClass) draft.tType());
-		}
-		for (String attribute : fields(draft)) {
-			TLStructuredTypePart part = draft.tType().getPart(attribute);
-			if (part == null) {
-				continue;
+			// The outermost draft at its place: of the plan of a new timeline the timeline's draft.
+			TLObject root = draft;
+			while (root.tContainer() != null && root.tContainer().tTransient()) {
+				root = root.tContainer();
 			}
-			Object value = draft.tValue(part);
-			if (value != null && !(value instanceof Collection<?> collection && collection.isEmpty())) {
-				created.tUpdate(part, value);
+			Place rootPlace = place(root);
+			if (rootPlace == null || rootPlace.reference() == null) {
+				throw new IllegalArgumentException("No draft of a create dialog: " + root);
 			}
+			Map<TLObject, TLObject> copies = persist(root, root.tContainer(), rootPlace.reference());
+			if (root.tType().getName().equals("Rule")) {
+				// Its state datapoint at once (haumacher/ehome #140), not only at the commit.
+				StateDatapoints.ensure(copies.get(root));
+			}
+			created = copies.get(draft);
+			forget(root);
 		}
+		forget(draft);
+		return created;
+	}
+
+	/**
+	 * Makes the transient draft persistent with its values and composition parts, as the engine's
+	 * create dialogs do (<code>persist-transient</code>), and adds it to the given reference of the
+	 * owner: at the end of a list, as the value of a single reference. The caller provides the
+	 * transaction.
+	 *
+	 * @return The persistent copies by their drafts.
+	 */
+	public static Map<TLObject, TLObject> persist(TLObject draft, TLObject owner, String reference) {
+		TLStructuredTypePart part = owner.tType().getPartOrFail(reference);
+		CopyOperation operation = CopyOperation.initial();
+		operation.setContext(owner, part instanceof TLReference ref ? ref : null);
+		operation.setTransient(Boolean.FALSE);
+		operation.skipTransactionDefaults(true);
+		TLObject created = (TLObject) operation.copyReference(draft);
+		operation.finish();
+		if (part.isMultiple()) {
+			owner.tAdd(part, created);
+		} else {
+			owner.tUpdate(part, created);
+		}
+		return operation.getCorrespondence();
+	}
+
+	private static void forget(TLObject draft) {
 		synchronized (PLACES) {
 			PLACES.remove(draft);
 		}
-		return created;
 	}
 
 }

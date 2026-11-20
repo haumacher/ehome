@@ -13,6 +13,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -47,6 +48,7 @@ public class TestRuleSuggestionsProbe extends BasicTestCase {
 		_project = TestRuleAuthoring.createProject();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			Rule rule = (Rule) RuleFunctions.create(_project, "rules", type("Rule"));
+			rule.setNameKey(ResKey.text("probe"));
 			rule.setIdentifier("probe");
 			((RuleParameter) RuleFunctions.create(rule, "parameters", type("RuleParameter"))).setIdentifier("darkBelow");
 			((RuleParameter) RuleFunctions.create(rule, "parameters", type("RuleParameter"))).setIdentifier("max-helligkeit");

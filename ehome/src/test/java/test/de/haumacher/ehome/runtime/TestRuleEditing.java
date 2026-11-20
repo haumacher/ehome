@@ -16,6 +16,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -94,6 +95,7 @@ public class TestRuleEditing extends BasicTestCase {
 			WeeklySchedule entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				rule = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
+				rule.setNameKey(ResKey.text("rule"));
 				RuleTimer timer = (RuleTimer) RuleFunctions.create(rule, "timers", type("RuleTimer"));
 				timer.setDuration("5min");
 				reaction = (Reaction) RuleFunctions.create(rule, "reactions", type("Reaction"));
@@ -109,6 +111,7 @@ public class TestRuleEditing extends BasicTestCase {
 				log.setMessage("off at {time()}, {{braces}}");
 
 				entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", type("WeeklySchedule"));
+				((de.haumacher.ehome.model.runtime.ScheduleEntry) entry).setLabel(ResKey.text("entry"));
 				TLObject expiry = RuleFunctions.create(rule, "reactions", type("Reaction"));
 				((TimerTrigger) RuleFunctions.create(expiry, "triggers", type("TimerTrigger"))).setTimer(timer);
 				((ScheduleTrigger) RuleFunctions.create(expiry, "triggers", type("ScheduleTrigger"))).setSchedule(entry);

@@ -46,6 +46,7 @@
 					<method name="simulationSpeedVeto" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
 					<method name="simulationPauseVeto" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
 					<method name="simulationFollowerOptions" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationFollowerAdd" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

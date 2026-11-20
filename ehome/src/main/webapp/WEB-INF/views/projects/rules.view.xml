@@ -34,10 +34,12 @@
 	the inhabitant replaces it on the controller as a whole. The states have labels, which the
 	controller shows and which are the choices of the datapoint of the rule's state (rule/<id>/state).
 
-	Each "New" (a rule, a reaction, a trigger, a parameter, a choice, a timer, a state, a day plan, a
+	Each "New" (a rule, a trigger, a parameter, a choice, a timer, a state, a timeline, a day plan, a
 	switching point, an assignment) opens the create
 	dialog projects/create-part.view.xml (haumacher/ehome #91) over a draft that goes to the end of its
-	list, asking for the fields that define it; nothing is stored before "Create".
+	list, asking for the fields that define it, a name or label empty (haumacher/ehome #205); nothing
+	is stored before "Create". A new timeline is asked for its first day plan. A reaction, which has
+	no value of its own, is added at once.
 -->
 <view>
 	<channels>
@@ -1553,9 +1555,20 @@
 														<null-input-disabled/>
 														<disabled-if expr="$rule.get(`ehome.runtime:Rule#timeline`) != null"/>
 													</executability>
-													<with-transaction>
-														<execute-script function="ruleCreate($rule, 'timeline', `ehome.runtime:RuleTimeline`)"/>
-													</with-transaction>
+													<!-- The dialog asks for the first day plan; timeline, plan and assignment are stored on "Create" (#205). -->
+													<execute-script function="ruleDraft($rule, 'timeline', `ehome.runtime:RuleTimeline`)">
+														<with-result>
+															<open-dialog
+																bind-input-to="model"
+																dialog-view="projects/create-part.view.xml"
+															>
+																<bind
+																	channel="selection"
+																	to="plan"
+																/>
+															</open-dialog>
+														</with-result>
+													</execute-script>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-calendar-x"

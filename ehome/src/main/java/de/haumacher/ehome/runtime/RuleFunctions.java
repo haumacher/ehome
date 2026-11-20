@@ -27,6 +27,7 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
+import com.top_logic.model.impl.TransientObjectFactory;
 import com.top_logic.model.search.expr.EvalContext;
 import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
@@ -142,7 +143,8 @@ public class RuleFunctions extends GenericMethod {
 		/**
 		 * <code>ruleDraft(owner, reference, type)</code>: the draft of a create dialog, a transient part
 		 * of the given type for the end of the given reference of the owner, with a unique id and the
-		 * defaults of its kind ({@link RuleDrafts#draft(TLObject, String, TLClass)}); nothing is stored.
+		 * defaults of its kind, without a name or label ({@link RuleDrafts#draft(TLObject, String, TLClass)});
+		 * of a timeline, the draft of its first day plan; nothing is stored.
 		 */
 		ruleDraft(3, false),
 		/**
@@ -161,8 +163,13 @@ public class RuleFunctions extends GenericMethod {
 		 */
 		ruleDraftTitle(1, true),
 		/**
+		 * <code>ruleDraftOwner(draft)</code>: the stored object the draft of a create dialog is added
+		 * to (of the plan of a new timeline the rule), for the access check of "Create".
+		 */
+		ruleDraftOwner(1, true),
+		/**
 		 * <code>ruleAdd(draft)</code>: stores the draft of a create dialog at its place, with the values
-		 * entered ({@link RuleDrafts#add(TLObject)}); must run in a transaction.
+		 * the dialog shows ({@link RuleDrafts#add(TLObject)}); must run in a transaction.
 		 */
 		ruleAdd(1, false);
 
@@ -255,6 +262,8 @@ public class RuleFunctions extends GenericMethod {
 				return Boolean.valueOf(RuleDrafts.hasField(obj, String.valueOf(arguments[1])));
 			case ruleDraftTitle:
 				return RuleDrafts.title(obj);
+			case ruleDraftOwner:
+				return RuleDrafts.owner(obj);
 			case ruleAdd:
 				return RuleDrafts.add(obj);
 			default:
@@ -532,10 +541,13 @@ public class RuleFunctions extends GenericMethod {
 
 	/**
 	 * Creates a part of the given type at the end of the given reference of the owner, with a unique
-	 * id and the defaults of its kind; the caller provides the transaction.
+	 * id and the defaults of its kind, without a text: a name or label is entered (haumacher/ehome
+	 * #205); the caller provides the transaction. In a transient owner (the timeline of a create
+	 * dialog's draft) the part is transient as well.
 	 */
 	public static TLObject create(TLObject owner, String reference, TLClass type) {
-		TLObject result = ModelService.getInstance().getFactory().createObject(type);
+		TLObject result = owner.tTransient() ? TransientObjectFactory.INSTANCE.createObject(type, owner)
+			: ModelService.getInstance().getFactory().createObject(type);
 		if (owner.tType().getPart(reference) instanceof com.top_logic.model.TLStructuredTypePart part && !part.isMultiple()) {
 			// A single part: the timeline of a rule.
 			owner.tUpdateByName(reference, result);
@@ -558,7 +570,6 @@ public class RuleFunctions extends GenericMethod {
 		switch (type.getName()) {
 			case "Rule": {
 				result.tUpdateByName("identifier", unique("rule", parts, "-"));
-				result.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_RULE_NAME));
 				long order = 0;
 				for (TLObject rule : parts) {
 					if (rule.tValueByName("order") instanceof Number number) {
@@ -576,7 +587,6 @@ public class RuleFunctions extends GenericMethod {
 			}
 			case "RuleParameter":
 				result.tUpdateByName("identifier", unique("p", parts, ""));
-				result.tUpdateByName("title", FunctionProposal.text(I18NConstants.NEW_PARAMETER_LABEL));
 				result.tUpdateByName("type", RuleImport.classifier("RuleParameterType", "real"));
 				result.tUpdateByName("default", "0.0");
 				result.tUpdateByName("adjustable", Boolean.TRUE);
@@ -587,7 +597,6 @@ public class RuleFunctions extends GenericMethod {
 				Type valueType = Type.fromName(typeName);
 				result.tUpdateByName("value", valueType == null ? "0"
 					: RuleText.printValue(RuleExport.stubValue(typeName), valueType));
-				result.tUpdateByName("title", FunctionProposal.text(I18NConstants.NEW_CHOICE_LABEL));
 				break;
 			}
 			case "RuleTimer":
@@ -599,7 +608,7 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			case "RuleTimeline":
 				// A timeline the controller accepts: one day plan without points, assigned by default
-				// (homecontrol spec/rules.md 2.8).
+				// (homecontrol spec/rules.md 2.8); in a draft, the plan and its assignment are drafts.
 				result.tUpdateByName("adjustable", Boolean.TRUE);
 				create(result, "plans", (TLClass) com.top_logic.model.util.TLModelUtil.findType("ehome.runtime:TimelinePlan"));
 				create(result, "assignments",
@@ -607,7 +616,6 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			case "TimelinePlan":
 				result.tUpdateByName("identifier", unique("plan", parts, ""));
-				result.tUpdateByName("label", FunctionProposal.text(I18NConstants.NEW_PLAN_LABEL));
 				break;
 			case "TimelinePoint": {
 				result.tUpdateByName("time", "06:00");
@@ -664,7 +672,6 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			case ApplicationDatapoints.TYPE:
 				result.tUpdateByName("identifier", unique("value", parts, ""));
-				result.tUpdateByName("label", FunctionProposal.text(I18NConstants.NEW_DATAPOINT_LABEL));
 				result.tUpdateByName("type", RuleImport.classifier("DatapointValueType", ValueTypes.BOOLEAN));
 				break;
 			default:
@@ -677,7 +684,6 @@ public class RuleFunctions extends GenericMethod {
 
 	private static void schedule(TLObject entry, List<TLObject> entries) {
 		entry.tUpdateByName("identifier", unique("entry", entries, "-"));
-		entry.tUpdateByName("label", FunctionProposal.text(I18NConstants.NEW_SCHEDULE_LABEL));
 		entry.tUpdateByName("enabled", Boolean.TRUE);
 		entry.tUpdateByName("enabledAdjustable", Boolean.TRUE);
 		entry.tUpdateByName("missed", RuleImport.classifier("MissedFiring", "skip"));

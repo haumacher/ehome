@@ -262,11 +262,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey PROPOSAL_NOTHING_NEW;
 
 	/**
-	 * @en New function
-	 */
-	public static ResKey NEW_FUNCTION_NAME;
-
-	/**
 	 * @en {0} is the datapoint "{1}" of the function "{2}": the controller offers what the button does there already. Delete the button; the proposal does not add it again.
 	 */
 	public static ResKey3 BUTTON_REPEATS_COMMAND__ADDRESS_ROLE_FUNCTION;
@@ -478,16 +473,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_DISCOVERY_UNKNOWN_INTERFACE__NAME;
 
 	/**
-	 * @en New rule
-	 */
-	public static ResKey NEW_RULE_NAME;
-
-	/**
-	 * @en Day plan
-	 */
-	public static ResKey NEW_PLAN_LABEL;
-
-	/**
 	 * @en State datapoints created for {0} rules
 	 */
 	public static ResKey1 COMMIT_STATE_DATAPOINTS__COUNT;
@@ -501,21 +486,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The rule {0} no longer has the state {1}, which its timeline deployed last names: a timeline the inhabitant set on the controller naming it would be dropped, and the timeline of this image would apply.
 	 */
 	public static ResKey2 COMPARE_TIMELINE_STATE_GONE__RULE_STATE;
-
-	/**
-	 * @en New schedule entry
-	 */
-	public static ResKey NEW_SCHEDULE_LABEL;
-
-	/**
-	 * @en Choice
-	 */
-	public static ResKey NEW_CHOICE_LABEL;
-
-	/**
-	 * @en Parameter
-	 */
-	public static ResKey NEW_PARAMETER_LABEL;
 
 	/**
 	 * @en The file is no JSON document: {0}
@@ -638,11 +608,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 RULE_SYNTAX__REASON;
 
 	/**
-	 * @en New datapoint
-	 */
-	public static ResKey NEW_DATAPOINT_LABEL;
-
-	/**
 	 * @en A datapoint id has 1 to 63 bytes without control characters.
 	 */
 	public static ResKey INVALID_DATAPOINT_ID;
@@ -716,11 +681,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Zigbee
 	 */
 	public static ResKey BINDING_ZIGBEE;
-
-	/**
-	 * @en New page
-	 */
-	public static ResKey NEW_PAGE_NAME;
 
 	/**
 	 * @en Another page has the id {0} already.
@@ -2248,11 +2208,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Function deleted: {0}
 	 */
 	public static ResKey1 COMMIT_FUNCTION_DELETED__FUNCTION;
-
-	/**
-	 * @en New function in {0}
-	 */
-	public static ResKey1 COMMIT_FUNCTION_CREATED__PROJECT;
 
 	/**
 	 * @en Functions proposed for {0}: {1} new, {2} unused, {3} updated

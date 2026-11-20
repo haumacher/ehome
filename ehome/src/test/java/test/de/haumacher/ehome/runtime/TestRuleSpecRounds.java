@@ -15,6 +15,7 @@ import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.rules.TestRuleText;
 
 import com.top_logic.basic.util.ResKey.LiteralKey;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -92,8 +93,11 @@ public class TestRuleSpecRounds extends BasicTestCase {
 			assertEquals("silence 1/0/1 after Quiet period ($quiet)", RuleFunctions.summary(silence));
 			assertEquals("read 1/0/1", RuleFunctions.summary(read));
 			RuleParameter mode = rule.getParameters().get(1);
-			// de-CH is not a language of E-Home: the German text is what a controller in German shows.
-			assertEquals("Auto", text(mode.getChoices().get(0).getTitle(), Locale.GERMAN));
+			// de-CH is not a language of E-Home: the label keeps its English text only (haumacher/ehome
+			// #205), which a German reader sees, as a controller in German shows it.
+			assertNull(text(mode.getChoices().get(0).getTitle(), Locale.GERMAN));
+			assertEquals("Auto", com.top_logic.util.Resources.getInstance(Locale.GERMAN)
+				.getString((com.top_logic.basic.util.ResKey) mode.getChoices().get(0).getTitle()));
 
 			List<Object> exported = new RuleExport().rules(project);
 			Object expected = Json.parse("""
@@ -126,6 +130,7 @@ public class TestRuleSpecRounds extends BasicTestCase {
 					(ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"));
 				calc.setIdentifier("calc");
 				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
+				rule.setNameKey(ResKey.text("rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
 				RuleFunctions.create(reaction, "triggers", type("StartTrigger"));
 				read = RuleFunctions.create(reaction, "actions", type("ReadAction"));

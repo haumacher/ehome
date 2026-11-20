@@ -78,6 +78,16 @@ public final class ZigbeeStatus {
 	 * resources, as {@link #functionLabel(TLObject)} gives it in the user's.
 	 */
 	public static String functionLabel(TLObject function, Resources resources) {
+		ResKey label = functionLabelKey(function);
+		return label == null ? null : resources.getString(label);
+	}
+
+	/**
+	 * The multilingual name {@link #functionLabel(TLObject, Resources)} gives the function in each
+	 * language: the catalog's name, the name of its key, the key itself as a text without language
+	 * for a key E-Home does not know; <code>null</code> for a function without key.
+	 */
+	public static ResKey functionLabelKey(TLObject function) {
 		ZigbeeFunction typed = (ZigbeeFunction) function;
 		Object key = typed.getFunction();
 		if (key == null) {
@@ -85,7 +95,7 @@ public final class ZigbeeStatus {
 		}
 		ResKey catalogName = ZigbeeCatalog.name(function);
 		if (catalogName != null) {
-			return resources.getString(catalogName);
+			return catalogName;
 		}
 		String name = key.toString();
 		if (IAS_ZONE.equals(name) && typed.getGenericName() instanceof String generic) {
@@ -95,7 +105,7 @@ public final class ZigbeeStatus {
 			}
 		}
 		ResKey label = FUNCTION_LABELS.get(name);
-		return label == null ? name : resources.getString(label);
+		return label == null ? ResKey.text(name) : label;
 	}
 
 	/**

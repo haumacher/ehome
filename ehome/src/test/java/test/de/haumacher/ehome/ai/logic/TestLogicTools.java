@@ -169,6 +169,38 @@ public class TestLogicTools extends BasicTestCase {
 		assertTrue("Nothing saved.", RuleExport.orderedRules(project).isEmpty());
 	}
 
+	/**
+	 * A name the assistant passes has no language of its own: it is stored in the language of the
+	 * acting user only, not in every language (haumacher/ehome #205) - the name of a function, a
+	 * virtual device, a page and of a rule saved as a definition.
+	 */
+	public void testPlainNamesInUserLanguage() throws Exception {
+		TLObject project = _fixture.project();
+		String language = read(_fixture.installer(), FunctionProposal::userLanguage);
+		assertFalse(turn(_fixture.installer(), c -> _rules.saveAutomation(c, project, definitions(FROST), null)).failed());
+		assertFalse(turn(_fixture.installer(), c -> new FunctionTools().createFunction(c, project, "sensor",
+			"Außen", _fixture.room(), Map.of("value", "1/0/0"), null, null)).failed());
+		assertFalse(turn(_fixture.installer(), c -> new BlockTools().createBlock(c, _fixture.room(),
+			"org.homecontrol.room-controller 1.0", "Heizung Küche", null, null, null)).failed());
+		assertFalse(turn(_fixture.installer(), c -> new FunctionTools().createPage(c, project, "Erdgeschoss",
+			List.of(Map.of("title", "Küche")), null)).failed());
+
+		Project typed = (Project) project;
+		assertEquals(Map.of(language, "Frostschutz"), texts(((Rule) typed.getRules().get(0)).getNameKey()));
+		assertEquals(Map.of(language, "Außen"), texts(((Function) typed.getFunctions().get(0)).getNameKey()));
+		assertEquals(Map.of(language, "Heizung Küche"), texts(((BlockInstance) typed.getBlocks().get(0)).getNameKey()));
+		assertEquals(Map.of(language, "Erdgeschoss"), texts(typed.getPages().get(0).getNameKey()));
+		assertEquals(Map.of(language, "Küche"), texts(typed.getPages().get(0).getSections().get(0).getTitle()));
+	}
+
+	private static Map<String, String> texts(Object text) {
+		assertTrue(String.valueOf(text), text instanceof com.top_logic.basic.util.ResKey.LiteralKey);
+		Map<String, String> result = new java.util.TreeMap<>();
+		((com.top_logic.basic.util.ResKey.LiteralKey) text).getTranslations()
+			.forEach((locale, value) -> result.put(locale.getLanguage(), value));
+		return result;
+	}
+
 	public void testUsageAndFunctionsAndBlocks() throws Exception {
 		TLObject project = _fixture.project();
 		assertFalse(turn(_fixture.installer(), c -> _rules.saveAutomation(c, project, definitions(FROST), null)).failed());

@@ -40,10 +40,10 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * ETS 6 export of the KNX test system give the same datapoints, the image is valid, and building it
  * twice gives the same bytes. The function proposal (#43) gives both the same functions in kind and
  * role bindings. Their labels (#51) are maps of languages to texts, the same in both files: a
- * function named after the group address of its main role (haumacher/ehome #98) has its name in
- * every application language, also where its device's program is written in German only (the
- * push-button sensor's program of the ETS 6 file); a scene, named after its channel, has the texts
- * of the languages of its device's program.
+ * function named after the group address of its main role (haumacher/ehome #98) has its name in the
+ * user's language only, a name without language of its own (haumacher/ehome #205), also where its
+ * device's program is written in German only (the push-button sensor's program of the ETS 6 file); a
+ * scene, named after its channel, has the texts of the languages of its device's program.
  */
 @SuppressWarnings("javadoc")
 public class TestRuntimeImageProbe extends BasicTestCase {
@@ -81,7 +81,7 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 			for (Map.Entry<String, Map<?, ?>> entry : labels6.entrySet()) {
 				Map<?, ?> label4 = labels4.get(entry.getKey());
 				Map<?, ?> label6 = entry.getValue();
-				assertTrue(entry.getKey(), label6.containsKey("de"));
+				assertFalse(entry.getKey(), label6.isEmpty());
 				for (Object language : label6.keySet()) {
 					if (label4.containsKey(language)) {
 						assertEquals(entry.getKey() + " " + language, label4.get(language), label6.get(language));
@@ -98,11 +98,11 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 				if ("scene".equals(FunctionProposal.kind(function))) {
 					assertEquals(String.valueOf(label), languages, labelled);
 				} else {
-					assertEquals(String.valueOf(label), Set.of("de", "en"), labelled);
-					assertEquals(String.valueOf(label), label.get("de"), label.get("en"));
+					String user = FunctionProposal.userLanguage();
+					assertEquals(String.valueOf(label), Set.of(user), labelled);
 					assertEquals(String.valueOf(label),
 						name(function.tValueByName(FunctionKinds.mainRole(FunctionProposal.kind(function)))),
-						label.get("de"));
+						label.get(user));
 					if (!languages.contains("en")) {
 						germanOnlyProgram++;
 					}

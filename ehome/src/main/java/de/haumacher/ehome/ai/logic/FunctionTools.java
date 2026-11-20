@@ -283,7 +283,7 @@ public class FunctionTools {
 		return LogicSupport.perform(context, owner, dry, () -> {
 			Function function = (Function) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
-			function.setNameKey(LogicSupport.allLanguages(name));
+			function.setNameKey(FunctionProposal.userText(name));
 			function.setKind(FunctionProposal.classifier(kind));
 			function.setRoom((BuildingDefinition) room);
 			if (scene != null) {
@@ -386,12 +386,12 @@ public class FunctionTools {
 				last = page;
 			}
 			TLObject page = Pages.insert(owner, last, Pages.PAGE, List.of());
-			((Page) page).setNameKey(LogicSupport.allLanguages(name));
+			((Page) page).setNameKey(FunctionProposal.userText(name));
 			List<Object> problems = new ArrayList<>();
 			for (int n = 0; n < resolved.size(); n++) {
 				TLObject section = Pages.insert(owner, page, Pages.SECTION, List.of());
 				if (titles.get(n) != null) {
-					((PageSection) section).setTitle(LogicSupport.allLanguages(titles.get(n)));
+					((PageSection) section).setTitle(FunctionProposal.userText(titles.get(n)));
 				}
 				for (Map.Entry<String, List<TLObject>> kind : resolved.get(n).entrySet()) {
 					if (!kind.getValue().isEmpty()) {

@@ -25,6 +25,7 @@ import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.rules.TestRuleCorpus;
 import test.de.haumacher.ehome.rules.TestRuleText;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -251,9 +252,11 @@ public class TestRuleAuthoring extends BasicTestCase {
 			MatchTrigger match;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				first = RuleFunctions.create(project, "rules", type("Rule"));
+				((de.haumacher.ehome.model.runtime.Rule) first).setNameKey(ResKey.text("first"));
 				RuleFunctions.create(first, "reactions", type("Reaction"));
 				RuleFunctions.create(RuleFunctions.objects(first, "reactions").get(0), "triggers", type("StartTrigger"));
 				second = (Rule) RuleFunctions.create(project, "rules", type("Rule"));
+				second.setNameKey(ResKey.text("second"));
 				RuleFunctions.create(second, "states", type("RuleState"));
 				target = RuleFunctions.create(second, "states", type("RuleState"));
 				second.setInitialState(second.getStates().get(0));
@@ -327,7 +330,9 @@ public class TestRuleAuthoring extends BasicTestCase {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				for (Object item : list) {
 					if (item instanceof String id) {
-						((WeeklySchedule) RuleFunctions.create(project, "schedules", type("WeeklySchedule"))).setIdentifier(id);
+						WeeklySchedule entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", type("WeeklySchedule"));
+						entry.setIdentifier(id);
+						entry.setLabel(ResKey.text(id));
 					} else {
 						entries.add(item);
 					}

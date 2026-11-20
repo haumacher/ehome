@@ -87,11 +87,13 @@ public class TestRuleSuggestions extends BasicTestCase {
 			_log = RuleFunctions.create(_reaction, "actions", type("LogAction"));
 
 			Rule plain = (Rule) RuleFunctions.create(_project, "rules", type("Rule"));
+			plain.setNameKey(ResKey.text("plain"));
 			plain.setIdentifier("plain");
 
 			_plainReaction = RuleFunctions.create(plain, "reactions", type("Reaction"));
 
 			_schedule = RuleFunctions.create(_project, "schedules", type("WeeklySchedule"));
+			((de.haumacher.ehome.model.runtime.ScheduleEntry) _schedule).setLabel(ResKey.text("schedule"));
 			tx.commit();
 		}
 	}
