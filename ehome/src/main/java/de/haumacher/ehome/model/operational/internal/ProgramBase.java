@@ -124,6 +124,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String DYNAMIC_TABLE_MANAGEMENT_ATTR = "dynamicTableManagement";
 
 	/**
+	 * Part <code>hardwareType</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String HARDWARE_TYPE_ATTR = "hardwareType";
+
+	/**
 	 * Part <code>helpFiles</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -705,6 +714,13 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setDynamicTableManagement(boolean newValue) {
 		tUpdateByName(DYNAMIC_TABLE_MANAGEMENT_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #HARDWARE_TYPE_ATTR}.
+	 */
+	default String getHardwareType() {
+		return (String) tValueByName(HARDWARE_TYPE_ATTR);
 	}
 
 	/**

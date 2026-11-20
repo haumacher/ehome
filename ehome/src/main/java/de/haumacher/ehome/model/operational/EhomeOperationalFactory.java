@@ -2500,6 +2500,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#HARDWARE_TYPE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getHardwareTypeProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.HARDWARE_TYPE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#HELP_FILES_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getHelpFilesProgramAttr() {

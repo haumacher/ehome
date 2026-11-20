@@ -1944,6 +1944,19 @@
 				<property name="applicationVersion"
 					type="tl.core:Integer"
 				/>
+				<!--
+					The hardware type the load procedure compares with the device's (device object, property 78), in hex
+					as the device reports it; empty if it compares none. Computed from the load procedure, not stored.
+				-->
+				<property name="hardwareType"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<implementation class="de.haumacher.ehome.scan.ProgramHardwareType"/>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<!-- The type of the physical external interface (PEI) the program expects. -->
 				<property name="peiType"
 					type="tl.core:Integer"

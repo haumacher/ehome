@@ -52,6 +52,22 @@
 }"
 			inputs="selected"
 		/>
+		<!-- The identity of the selected program in hex, as a device reports it and its stub shows it (haumacher/ehome #207). -->
+		<derived-channel name="programNumberText"
+			expr="hexText($selectedProgram.get(`ehome.operational:Program#applicationNumber`), 4)"
+			inputs="selectedProgram"
+			observed-types="ehome.operational:Program"
+		/>
+		<derived-channel name="programVersionText"
+			expr="hexText($selectedProgram.get(`ehome.operational:Program#applicationVersion`), 2)"
+			inputs="selectedProgram"
+			observed-types="ehome.operational:Program"
+		/>
+		<derived-channel name="programMaskText"
+			expr="hexText($selectedProgram.get(`ehome.operational:Program#mask`).get(`ehome.operational:MaskVersion#number`), 4)"
+			inputs="selectedProgram"
+			observed-types="ehome.operational:Program,ehome.operational:MaskVersion"
+		/>
 		<!-- What the selected program needs of ETS besides its product data (haumacher/ehome #159), nothing if nothing. -->
 		<derived-channel name="requirementNotice"
 			expr="{ n = programRequirementNotice($selectedProgram); if($n == null, null, $n.localize()) }"
@@ -480,7 +496,9 @@
 							</inset>
 						</visible-if>
 						<!-- The catalogs with the columns of the classic tree grid (exported to Excel as an outline). -->
+						<!-- The filter bar searches the displayed columns, so a value copied from a device stub finds its program (haumacher/ehome #207). -->
 						<tree-table
+							filter-bar="true"
 							observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.catalog:Product,ehome.catalog:Variant,ehome.catalog:ProgramAssignment,ehome.operational:Program"
 							selection="selected"
 						>
@@ -556,6 +574,55 @@
 										<de>Externe ID</de>
 									</label>
 									<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
+								</computed-column>
+								<!--
+									The identity of an application program as a device reports it and its stub shows it, in hex
+									(haumacher/ehome #207): application number, version, mask version and the hardware type its load
+									procedure compares. In the rows of programs only; hidden until chosen in the column selection.
+								-->
+								<computed-column name="applicationNumber"
+									type="tl.core:String"
+									visible="false"
+									width="110"
+								>
+									<label>
+										<en>Application number</en>
+										<de>Applikationsnummer</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.operational:Program`), hexText($row.get(`ehome.operational:Program#applicationNumber`), 4), null)</value>
+								</computed-column>
+								<computed-column name="applicationVersion"
+									type="tl.core:String"
+									visible="false"
+									width="110"
+								>
+									<label>
+										<en>Application version</en>
+										<de>Applikationsversion</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.operational:Program`), hexText($row.get(`ehome.operational:Program#applicationVersion`), 2), null)</value>
+								</computed-column>
+								<computed-column name="mask"
+									type="tl.core:String"
+									visible="false"
+									width="110"
+								>
+									<label>
+										<en>Mask version</en>
+										<de>Maskenversion</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.operational:Program`), hexText($row.get(`ehome.operational:Program#mask`).get(`ehome.operational:MaskVersion#number`), 4), null)</value>
+								</computed-column>
+								<computed-column name="hardwareType"
+									type="tl.core:String"
+									visible="false"
+									width="160"
+								>
+									<label>
+										<en>Hardware type</en>
+										<de>Hardware-Typ</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.operational:Program`), $row.get(`ehome.operational:Program#hardwareType`), null)</value>
 								</computed-column>
 							</columns>
 						</tree-table>
@@ -642,6 +709,38 @@
 								>
 									<field attribute="name"/>
 									<field attribute="extId"/>
+									<!-- The identity of the program in hex, read-only (haumacher/ehome #207). -->
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="programNumberText"
+									>
+										<label>
+											<en>Application number</en>
+											<de>Applikationsnummer</de>
+										</label>
+									</value-input>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="programVersionText"
+									>
+										<label>
+											<en>Application version</en>
+											<de>Applikationsversion</de>
+										</label>
+									</value-input>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="programMaskText"
+									>
+										<label>
+											<en>Mask version</en>
+											<de>Maskenversion</de>
+										</label>
+									</value-input>
+									<field attribute="hardwareType"/>
 								</form>
 							</visible-if>
 							<visible-if
@@ -654,6 +753,38 @@
 								>
 									<field attribute="name"/>
 									<field attribute="extId"/>
+									<!-- The identity of the program in hex, read-only (haumacher/ehome #207). -->
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="programNumberText"
+									>
+										<label>
+											<en>Application number</en>
+											<de>Applikationsnummer</de>
+										</label>
+									</value-input>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="programVersionText"
+									>
+										<label>
+											<en>Application version</en>
+											<de>Applikationsversion</de>
+										</label>
+									</value-input>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="programMaskText"
+									>
+										<label>
+											<en>Mask version</en>
+											<de>Maskenversion</de>
+										</label>
+									</value-input>
+									<field attribute="hardwareType"/>
 									<!-- The archives of its icons and help texts (haumacher/ehome #156, #157), as the import read them. -->
 									<field attribute="iconFile"
 										readonly="true"

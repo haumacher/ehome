@@ -32,6 +32,8 @@
 					<method name="settingParameter" class="de.haumacher.ehome.modules.ModuleFunctions$Builder"/>
 					<method name="connectorPort" class="de.haumacher.ehome.modules.ModuleFunctions$Builder"/>
 					<method name="serialNumberText" class="de.haumacher.ehome.knx.SerialNumberText$Builder"/>
+					<!-- A number in hex as KNX writes it (de.haumacher.ehome.knx.HexText, haumacher/ehome #207). -->
+					<method name="hexText" class="de.haumacher.ehome.knx.HexText$Builder"/>
 					<!-- The pictures of the parameter dialog (de.haumacher.ehome.knx.ParameterPictures, haumacher/ehome #155): one builder, the function by its name. -->
 					<method name="parameterPictureImage" class="de.haumacher.ehome.knx.ParameterPictures$Builder"/>
 					<method name="parameterPictureFile" class="de.haumacher.ehome.knx.ParameterPictures$Builder"/>

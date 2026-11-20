@@ -40,6 +40,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.knx.HexText;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.logical.GroupAddress;
@@ -128,6 +129,13 @@ public class TestBusScan extends BasicTestCase {
 			assertMatch(actuatorMatch, "M-0083_A-000C-21-83B5", "AKK-0416.03");
 			CatalogMatch.Match tastsensorMatch = CatalogMatch.match(tastsensor);
 			assertMatch(tastsensorMatch, "M-0008_A-10D7-11-A0E5-O000A", "5133 00");
+			// The hardware type a program's load procedure compares, as a device reports it: the zeros of the
+			// inline data beyond the six bytes of the property cut; none where the program compares none
+			// (haumacher/ehome #207).
+			assertEquals("00 00 00 00 03 0D", candidate(actuatorMatch, "M-0083_A-000C-21-83B5").program().getHardwareType());
+			assertNull(candidate(tastsensorMatch, "M-0008_A-10D7-11-A0E5-O000A").program().getHardwareType());
+			assertEquals("000C", HexText.text(Integer.valueOf(0x0C), 4));
+			assertEquals("21", HexText.text(Integer.valueOf(0x21), 2));
 			assertNull(router.programVersion());
 			assertEquals("00C5:0101BC95", router.serialText());
 			CatalogMatch.Match routerMatch = CatalogMatch.match(router);

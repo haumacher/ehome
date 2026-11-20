@@ -4,6 +4,7 @@
 package de.haumacher.ehome.scan;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -50,6 +51,9 @@ import de.haumacher.ehome.programming.download.DownloadPlan;
  * </p>
  */
 public class CatalogMatch {
+
+	/** The number of bytes of the hardware type (device object, property 78). */
+	public static final int HARDWARE_TYPE_LENGTH = 6;
 
 	/**
 	 * The kind of a match.
@@ -311,6 +315,33 @@ public class CatalogMatch {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The hardware type the load procedure of a program compares, in hex as a device reports it
+	 * (<code>00 00 00 00 03 0D</code>): the bytes of {@link #comparedHardwareType(Program)} without the
+	 * zeros the inline data carries beyond the {@value #HARDWARE_TYPE_LENGTH} bytes of the property;
+	 * <code>null</code> if the program compares none.
+	 */
+	public static String hardwareTypeText(Program program) {
+		byte[] compared = comparedHardwareType(program);
+		if (compared == null || compared.length == 0) {
+			return null;
+		}
+		int length = compared.length;
+		if (length > HARDWARE_TYPE_LENGTH && zeros(compared, HARDWARE_TYPE_LENGTH)) {
+			length = HARDWARE_TYPE_LENGTH;
+		}
+		return FoundDevice.hex(Arrays.copyOf(compared, length));
+	}
+
+	private static boolean zeros(byte[] data, int start) {
+		for (int n = start; n < data.length; n++) {
+			if (data[n] != 0) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
