@@ -5,6 +5,7 @@ package de.haumacher.ehome.scan;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -318,8 +319,9 @@ public class CatalogMatch {
 	}
 
 	/**
-	 * The hardware type the load procedure of a program compares, in hex as a device reports it
-	 * (<code>00 00 00 00 03 0D</code>): the bytes of {@link #comparedHardwareType(Program)} without the
+	 * The hardware type the load procedure of a program compares, in hex without blanks as the device
+	 * stub shows a device's (<code>00000000030D</code>, so that a value copied from a stub is found in
+	 * the catalog): the bytes of {@link #comparedHardwareType(Program)} without the
 	 * zeros the inline data carries beyond the {@value #HARDWARE_TYPE_LENGTH} bytes of the property;
 	 * <code>null</code> if the program compares none.
 	 */
@@ -332,7 +334,7 @@ public class CatalogMatch {
 		if (length > HARDWARE_TYPE_LENGTH && zeros(compared, HARDWARE_TYPE_LENGTH)) {
 			length = HARDWARE_TYPE_LENGTH;
 		}
-		return FoundDevice.hex(Arrays.copyOf(compared, length));
+		return HexFormat.of().withUpperCase().formatHex(Arrays.copyOf(compared, length));
 	}
 
 	private static boolean zeros(byte[] data, int start) {
