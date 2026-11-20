@@ -72,6 +72,11 @@ rule cases `13-null-condition`, `14-null-stale-known-lastknown`, `15-eval-error-
 member `datapoint`, `null` for none) and the rule corpus `README.md` (which brought along its section
 "The compiled images" of the binary image round, homecontrol #87); the image and block fixtures did not
 change.
+Synced again at `50da03de90441bed100db2dbb28ab3b0c5ce6869` (2026-11-20, haumacher/homecontrol#100: a
+restored persisted value is good after a reboot, for every technology, `spec/rules.md` 3.3 and 7.10),
+which added the rule case `102-persisted-value-reboot` (with the datapoint member `persist`) and changed
+the rule corpus `README.md` (the member `persist` and the step `reboot`); the image and block fixtures
+did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

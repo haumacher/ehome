@@ -202,6 +202,9 @@ public final class ImageCorpus {
 			if (Boolean.TRUE.equals(dp.get("application"))) {
 				json.put("virtual", new LinkedHashMap<>());
 			}
+			if (Boolean.TRUE.equals(dp.get("persist"))) {
+				json.put("persist", Boolean.TRUE);
+			}
 			datapoints.add(json);
 		}
 		image.put("datapoints", datapoints);

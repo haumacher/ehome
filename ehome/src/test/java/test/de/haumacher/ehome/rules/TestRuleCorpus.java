@@ -824,6 +824,25 @@ public class TestRuleCorpus extends TestCase {
 		}
 
 		/**
+		 * README "persist": the last good value of each case datapoint the value store keeps across a
+		 * reboot (none for a datapoint that never had one).
+		 */
+		private Map<String, Val> persistedValues() {
+			Map<String, Val> result = new LinkedHashMap<>();
+			for (Object item : (List<?>) _case.get("datapoints")) {
+				Map<?, ?> dp = (Map<?, ?>) item;
+				if (!Boolean.TRUE.equals(dp.get("persist"))) {
+					continue;
+				}
+				Datapoint datapoint = _model.get((String) dp.get("name"));
+				if (datapoint != null && datapoint.quality() != Quality.UNKNOWN) {
+					result.put(datapoint.name(), datapoint.value());
+				}
+			}
+			return result;
+		}
+
+		/**
 		 * The value of the case's JSON notation for the datapoint, in its type.
 		 */
 		protected Val datapointValue(String name, Object json) {
@@ -1007,7 +1026,13 @@ public class TestRuleCorpus extends TestCase {
 					_blockRuntime = null;
 				}
 				_engine.close();
+				Map<String, Val> kept = persistedValues();
 				loadModel(_image);
+				// The value store restores the persisted values right after the model's load, before
+				// the rules start: good, no update (homecontrol #100).
+				for (Map.Entry<String, Val> entry : kept.entrySet()) {
+					_model.restore(entry.getKey(), entry.getValue());
+				}
 				_engine = newEngine();
 				_scheduler = null;
 				Refusal refusal = _engine.load(_image, _directory);
