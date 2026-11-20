@@ -39,6 +39,7 @@ import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
 import de.haumacher.ehome.rules.DatapointModel.Quality;
 import de.haumacher.ehome.rules.Engine;
+import de.haumacher.ehome.rules.Engine.ErrorSite;
 import de.haumacher.ehome.rules.Engine.LogCode;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.PosixZone;
@@ -515,6 +516,14 @@ public class TestRuleCorpus extends TestCase {
 				public void loopGuard(String rule, String culprit, int firings) {
 					int last = _logs.size() - 1;
 					_logs.set(last, _logs.get(last) + " culprit " + culprit + " " + firings);
+				}
+
+				@Override
+				public void expressionLogged(String rule, LogCode code, Level level, String text, ErrorSite site) {
+					// The first datapoint of the expression without a value (spec/rules.md 9.1).
+					ruleLogged(rule, code, level, text);
+					int last = _logs.size() - 1;
+					_logs.set(last, _logs.get(last) + " datapoint " + site.datapoint());
 				}
 
 				@Override
@@ -1338,14 +1347,21 @@ public class TestRuleCorpus extends TestCase {
 				if (l.containsKey("culprit")) {
 					line += " culprit " + l.get("culprit") + " " + ((Number) l.get("firings")).intValue();
 				}
+				if (l.containsKey("datapoint")) {
+					line += " datapoint " + l.get("datapoint");
+				}
 				wantLogs.add(line);
 			}
 			for (int i = 0; i < _logs.size(); i++) {
-				// The culprit of a loop guard is compared only where the case names it.
+				// The culprit of a loop guard and the datapoint without a value are compared only where
+				// the case names them.
 				String have = _logs.get(i);
+				Map<?, ?> want = i < logs.size() ? (Map<?, ?>) logs.get(i) : Map.of();
 				int culprit = have.indexOf(" culprit ");
-				boolean named = i < logs.size() && ((Map<?, ?>) logs.get(i)).containsKey("culprit");
-				haveLogs.add(culprit >= 0 && !named ? have.substring(0, culprit) : have);
+				have = culprit >= 0 && !want.containsKey("culprit") ? have.substring(0, culprit) : have;
+				int datapoint = have.indexOf(" datapoint ");
+				have = datapoint >= 0 && !want.containsKey("datapoint") ? have.substring(0, datapoint) : have;
+				haveLogs.add(have);
 			}
 			if (!wantLogs.equals(haveLogs)) {
 				_failures.add("logs differ\nexpected:\n  " + String.join("\n  ", wantLogs) + "\nactual:\n  "
