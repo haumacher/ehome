@@ -15,6 +15,7 @@ import com.top_logic.util.Resources;
 import de.haumacher.ehome.model.runtime.Rule;
 import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.rules.DatapointId;
+import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
 
@@ -259,6 +260,34 @@ public final class DatapointNames {
 		} catch (SyntaxError ex) {
 			return text;
 		}
+	}
+
+	/**
+	 * The expression of a part of the rule with the given id as a display text, as
+	 * {@link #expression(TLObject, String)} shows it, for a text written outside the request of a
+	 * person (the simulation's timeline): the names from the {@link #labels()} resolved before.
+	 *
+	 * @param labels
+	 *        The labels of the project's datapoints by their ids ({@link #labels()}).
+	 * @param rule
+	 *        The id of the rule in the image, <code>null</code> outside a rule.
+	 * @param expression
+	 *        The expression as its JSON AST (homecontrol <code>spec/rules.md</code> 5).
+	 */
+	public static String expression(Map<String, String> labels, String rule, Object expression) {
+		return RuleText.print(expression, new RuleText.Names() {
+			@Override
+			public String datapoint(String name) {
+				String label = labels.get(name);
+				return label == null || label.equals(name) ? null : format(label, name);
+			}
+
+			@Override
+			public String parameter(String id) {
+				String label = rule == null ? null : labels.get(RuleLoader.parameterDatapointName(rule, id));
+				return label == null ? null : format(label, RuleText.parameterReference(id));
+			}
+		});
 	}
 
 	/**

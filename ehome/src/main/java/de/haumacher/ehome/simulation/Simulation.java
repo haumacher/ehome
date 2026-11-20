@@ -43,6 +43,7 @@ import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
 import de.haumacher.ehome.rules.DatapointModel.Quality;
 import de.haumacher.ehome.rules.Engine;
+import de.haumacher.ehome.rules.Engine.ErrorSite;
 import de.haumacher.ehome.rules.Engine.LogCode;
 import de.haumacher.ehome.rules.Engine.ParameterStatus;
 import de.haumacher.ehome.rules.Engine.RuleStatus;
@@ -53,6 +54,7 @@ import de.haumacher.ehome.rules.RuleLoader.Refusal;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleSet.Level;
 import de.haumacher.ehome.rules.RuleSet.StartReason;
+import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.rules.Scheduler;
 import de.haumacher.ehome.rules.Val;
@@ -181,6 +183,14 @@ public final class Simulation implements AutoCloseable {
 		/** The parameter of the rule with the given ids. */
 		default String parameter(String rule, String id) {
 			return id;
+		}
+
+		/**
+		 * An expression of the rule with the given id, given as its JSON AST (homecontrol
+		 * <code>spec/rules.md</code> 5): the canonical text by default.
+		 */
+		default String expression(String rule, Map<String, Object> expression) {
+			return RuleText.print(expression);
 		}
 	}
 
@@ -503,6 +513,12 @@ public final class Simulation implements AutoCloseable {
 			@Override
 			public void ruleLogged(String rule, LogCode code, Level level, String text) {
 				add(Kind.RULE, rule, code.externalName() + " (" + level.externalName() + "): " + text);
+			}
+
+			@Override
+			public void expressionLogged(String rule, LogCode code, Level level, String text, ErrorSite site) {
+				// The expression and the datapoint without a value by their names (haumacher/ehome #204).
+				add(Kind.RULE, rule, code.externalName() + " (" + level.externalName() + "): " + errorText(rule, site));
 			}
 
 			@Override
@@ -1329,6 +1345,17 @@ public final class Simulation implements AutoCloseable {
 	 */
 	public synchronized void setNames(Names names) {
 		_names = names == null ? Names.IDS : names;
+	}
+
+	/**
+	 * The text of an error of the rule with the given id that names an expression and its datapoint
+	 * without a value (homecontrol <code>spec/rules.md</code> 9.1), with the {@link #names()}:
+	 * <code>Präsenz Flur (1/0/5) and Helligkeit Flur (11/0/6) &lt; 50 – Helligkeit Flur (11/0/6) has
+	 * no value</code>.
+	 */
+	public synchronized String errorText(String rule, ErrorSite site) {
+		Names names = _names;
+		return site.text(expression -> names.expression(rule, expression), names::datapoint);
 	}
 
 	/**

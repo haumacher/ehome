@@ -10,7 +10,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.UnaryOperator;
 
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
@@ -170,6 +172,66 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	/**
+	 * What the last error of a rule names (<code>spec/rules.md</code> 9.1, haumacher/homecontrol#97):
+	 * for <code>conditionNoValue</code>, <code>valueNoValue</code> and <code>evalError</code> the
+	 * expression and its first datapoint without a value.
+	 *
+	 * @param code
+	 *        The code of the entry.
+	 * @param detail
+	 *        The fixed text of the code, for <code>evalError</code> the error.
+	 * @param expression
+	 *        The expression, <code>null</code> after an image swap (a node of the image before).
+	 * @param datapoint
+	 *        The name of the first datapoint of the expression without a value, in the order of its
+	 *        text; <code>null</code> for none.
+	 */
+	public record ErrorSite(LogCode code, String detail, Node expression, String datapoint) {
+
+		/**
+		 * The text of the error with the references by their ids, as the controller's API gives
+		 * it: <code>@presence and @lux < 50 – lux has no value</code>, <code>division by zero in 100
+		 * / @count</code>.
+		 */
+		public String text() {
+			return text(RuleText::print, UnaryOperator.identity());
+		}
+
+		/**
+		 * The text of the error with the given names.
+		 *
+		 * @param expressionText
+		 *        The text of the expression, given as its JSON AST (<code>spec/rules.md</code> 5) in
+		 *        canonical form.
+		 * @param datapointName
+		 *        The text of the datapoint without a value, given its name.
+		 */
+		public String text(Function<Map<String, Object>, String> expressionText, UnaryOperator<String> datapointName) {
+			StringBuilder out = new StringBuilder();
+			if (expression == null) {
+				out.append(detail);
+			} else {
+				if (code == LogCode.EVAL_ERROR) {
+					out.append(detail).append(" in ");
+				}
+				out.append(expressionText.apply(expression.toJson()));
+				if (code != LogCode.EVAL_ERROR && datapoint == null) {
+					out.append(" has no value");
+				}
+			}
+			if (datapoint != null) {
+				out.append(" – ").append(datapointName.apply(datapoint)).append(" has no value");
+			}
+			return out.toString();
+		}
+
+		/** The same after an image swap: the expression of the image before is gone. */
+		ErrorSite swapped(boolean datapointKept) {
+			return new ErrorSite(code, detail, null, datapointKept ? datapoint : null);
+		}
+	}
+
+	/**
 	 * Observes what the engine does. Must not call back into the engine.
 	 */
 	public interface Observer {
@@ -205,6 +267,16 @@ public final class Engine implements DatapointModel.Listener {
 		 */
 		default void loopGuard(String rule, String culprit, int firings) {
 			// Nothing by default.
+		}
+
+		/**
+		 * An entry <code>conditionNoValue</code>, <code>valueNoValue</code> or <code>evalError</code>
+		 * of an expression (<code>spec/rules.md</code> 9.1), in place of
+		 * {@link #ruleLogged(String, LogCode, Level, String)}: as there, and the expression with its
+		 * first datapoint without a value.
+		 */
+		default void expressionLogged(String rule, LogCode code, Level level, String text, ErrorSite site) {
+			ruleLogged(rule, code, level, text);
 		}
 
 		/**
@@ -387,6 +459,9 @@ public final class Engine implements DatapointModel.Listener {
 
 		String _lastErrorText;
 
+		/** The expression and datapoint the last error names, <code>null</code> for none. */
+		ErrorSite _lastErrorSite;
+
 		int _cascadeFirings;
 
 		int _peakCascadeFirings;
@@ -425,6 +500,7 @@ public final class Engine implements DatapointModel.Listener {
 			copy._lastErrorMs = _lastErrorMs;
 			copy._lastErrorCode = _lastErrorCode;
 			copy._lastErrorText = _lastErrorText;
+			copy._lastErrorSite = _lastErrorSite;
 			copy._peakCascadeFirings = _peakCascadeFirings;
 			copy._loopGuards = _loopGuards;
 			return copy;
@@ -702,12 +778,38 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	private void logCode(String ruleId, RuleRuntime runtime, LogCode code, Level level, String detail, String text) {
-		_observer.ruleLogged(ruleId, code, level, text);
+		logCode(ruleId, runtime, code, level, detail, text, null);
+	}
+
+	/**
+	 * An entry of an expression (<code>conditionNoValue</code>, <code>valueNoValue</code>,
+	 * <code>evalError</code>): the rule remembers the expression and its first datapoint without a
+	 * value, which the text names too (<code>spec/rules.md</code> 9.1).
+	 */
+	private void logExpression(int rule, LogCode code, Level level, String detail, Node root, String text) {
+		String datapoint = firstWithoutValue(root);
+		ErrorSite site = new ErrorSite(code, detail, root, datapoint);
+		String full = datapoint == null ? text : text + " – " + datapoint + " has no value";
+		if (_set != null && rule >= 0 && rule < _rules.length) {
+			logCode(_set._rules.get(rule)._id, _rules[rule], code, level, detail, full, site);
+		} else {
+			logCode("-", null, code, level, detail, full, site);
+		}
+	}
+
+	private void logCode(String ruleId, RuleRuntime runtime, LogCode code, Level level, String detail, String text,
+			ErrorSite site) {
+		if (site != null) {
+			_observer.expressionLogged(ruleId, code, level, text, site);
+		} else {
+			_observer.ruleLogged(ruleId, code, level, text);
+		}
 		if (runtime != null && code != LogCode.LOG && level != Level.INFO) {
 			runtime._errors++;
 			runtime._lastErrorMs = _inCascade ? _cascadeMs : _clock.getAsLong();
 			runtime._lastErrorCode = code;
 			runtime._lastErrorText = detail;
+			runtime._lastErrorSite = site;
 		}
 	}
 
@@ -749,6 +851,11 @@ public final class Engine implements DatapointModel.Listener {
 			Rule rule = next._rules.get(r);
 			int o = oldSet != null ? oldSet.findRule(rule._id) : -1;
 			RuleRuntime nr = o >= 0 ? oldRules[o].copy() : new RuleRuntime();
+			if (nr._lastErrorSite != null) {
+				// The expression is the old image's; its datapoint stays if it is still in the model.
+				String datapoint = nr._lastErrorSite.datapoint();
+				nr._lastErrorSite = nr._lastErrorSite.swapped(datapoint != null && _model.get(datapoint) != null);
+			}
 			rules[r] = nr;
 			timers[r] = new TimerRuntime[rule._timers.size()];
 			for (int t = 0; t < timers[r].length; t++) {
@@ -2179,8 +2286,8 @@ public final class Engine implements DatapointModel.Listener {
 					if (!c.has()) {
 						if (_evalError == null && (_flags[root] & NO_VALUE_LOGGED) == 0) {
 							_flags[root] |= NO_VALUE_LOGGED;
-							logRule(r, LogCode.CONDITION_NO_VALUE, Level.WARNING, "condition has no value",
-								"condition has no value: " + reaction._condition);
+							logExpression(r, LogCode.CONDITION_NO_VALUE, Level.WARNING, "condition has no value",
+								reaction._condition, "condition has no value: " + reaction._condition);
 						}
 						continue;
 					}
@@ -2268,7 +2375,7 @@ public final class Engine implements DatapointModel.Listener {
 		if (!v.has()) {
 			if (_evalError == null && (_flags[root] & NO_VALUE_LOGGED) == 0) {
 				_flags[root] |= NO_VALUE_LOGGED;
-				logRule(rule, LogCode.VALUE_NO_VALUE, Level.WARNING, "write value has no value",
+				logExpression(rule, LogCode.VALUE_NO_VALUE, Level.WARNING, "write value has no value", action._expr,
 					"value for '" + name + "' has no value; nothing written");
 			}
 			return;
@@ -2411,7 +2518,7 @@ public final class Engine implements DatapointModel.Listener {
 		if (_evalError != null) {
 			if ((_flags[index] & EVAL_ERROR_LOGGED) == 0) {
 				_flags[index] |= EVAL_ERROR_LOGGED;
-				logRule(rule, LogCode.EVAL_ERROR, Level.ERROR, _evalError, _evalError + " in " + root);
+				logExpression(rule, LogCode.EVAL_ERROR, Level.ERROR, _evalError, root, _evalError + " in " + root);
 			}
 		} else {
 			_flags[index] &= ~EVAL_ERROR_LOGGED;
@@ -2467,6 +2574,24 @@ public final class Engine implements DatapointModel.Listener {
 			v = Val.none(n._type);
 		}
 		return v;
+	}
+
+	/**
+	 * The name of the first datapoint of the expression, in the order of its text, without a value;
+	 * <code>null</code> for none.
+	 */
+	private String firstWithoutValue(Node node) {
+		if (node._kind == Node.Kind.DATAPOINT) {
+			Datapoint datapoint = _model.get(node._name);
+			return datapoint == null || datapoint.quality() != Quality.GOOD ? node._name : null;
+		}
+		for (Node arg : node._args) {
+			String found = firstWithoutValue(arg);
+			if (found != null) {
+				return found;
+			}
+		}
+		return null;
 	}
 
 	private Val datapointValue(String name) {
@@ -3165,7 +3290,12 @@ public final class Engine implements DatapointModel.Listener {
 	 * @param lastErrorCode
 	 *        The code of the last one, <code>null</code> if none.
 	 * @param lastErrorText
-	 *        Its detail.
+	 *        Its text (<code>spec/rules.md</code> 9.1): for <code>conditionNoValue</code>,
+	 *        <code>valueNoValue</code> and <code>evalError</code> the expression and its first
+	 *        datapoint without a value ({@link ErrorSite#text()}), else the code's fixed text.
+	 * @param lastErrorSite
+	 *        What the last error names for a text with other names, <code>null</code> for an error
+	 *        of another code.
 	 * @param lastErrorMs
 	 *        When, on the monotonic clock.
 	 * @param peakCascadeFirings
@@ -3174,8 +3304,8 @@ public final class Engine implements DatapointModel.Listener {
 	 *        How often the loop guard aborted a cascade of the rule.
 	 */
 	public record RuleStatus(int firings, String lastTrigger, long lastTriggerMs, String lastAction, long lastActionMs,
-			int errors, LogCode lastErrorCode, String lastErrorText, long lastErrorMs, int peakCascadeFirings,
-			int loopGuards) {
+			int errors, LogCode lastErrorCode, String lastErrorText, ErrorSite lastErrorSite, long lastErrorMs,
+			int peakCascadeFirings, int loopGuards) {
 		// A value.
 	}
 
@@ -3185,7 +3315,12 @@ public final class Engine implements DatapointModel.Listener {
 	public RuleStatus status(int rule) {
 		RuleRuntime rr = _rules[rule];
 		return new RuleStatus(rr._firings, rr._lastTrigger, rr._lastTriggerMs, rr._lastAction, rr._lastActionMs,
-			rr._errors, rr._lastErrorCode, rr._lastErrorText, rr._lastErrorMs, rr._peakCascadeFirings, rr._loopGuards);
+			rr._errors, rr._lastErrorCode, lastErrorText(rr), rr._lastErrorSite, rr._lastErrorMs, rr._peakCascadeFirings,
+			rr._loopGuards);
+	}
+
+	private static String lastErrorText(RuleRuntime rr) {
+		return rr._lastErrorSite != null ? rr._lastErrorSite.text() : rr._lastErrorText;
 	}
 
 	/**
@@ -3196,7 +3331,7 @@ public final class Engine implements DatapointModel.Listener {
 		RuleRuntime rr = _rules[rule];
 		return "firings " + rr._firings + ", last trigger " + rr._lastTrigger + " at " + rr._lastTriggerMs
 			+ ", last action " + rr._lastAction + " at " + rr._lastActionMs + ", errors " + rr._errors
-			+ (rr._lastErrorCode != null ? ", last error " + rr._lastErrorCode.externalName() + " (" + rr._lastErrorText
+			+ (rr._lastErrorCode != null ? ", last error " + rr._lastErrorCode.externalName() + " (" + lastErrorText(rr)
 				+ ") at " + rr._lastErrorMs : "")
 			+ ", most derived firings in a cascade " + rr._peakCascadeFirings + ", loop guards " + rr._loopGuards;
 	}

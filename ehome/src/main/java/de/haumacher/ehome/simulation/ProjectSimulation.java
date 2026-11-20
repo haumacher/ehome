@@ -463,6 +463,11 @@ public final class ProjectSimulation implements AutoCloseable {
 			public String parameter(String rule, String id) {
 				return DatapointNames.format(labels.get(RuleLoader.parameterDatapointName(rule, id)), id);
 			}
+
+			@Override
+			public String expression(String rule, Map<String, Object> expression) {
+				return DatapointNames.expression(labels, rule, expression);
+			}
 		};
 	}
 
@@ -608,7 +613,8 @@ public final class ProjectSimulation implements AutoCloseable {
 				: status.lastAction() + " (" + s.timeText(status.lastActionMs()) + ")");
 			row.put("errors", Integer.valueOf(status.errors()));
 			row.put("error", status.lastErrorCode() == null ? null : status.lastErrorCode().externalName() + ": "
-				+ status.lastErrorText() + " (" + s.timeText(status.lastErrorMs()) + ")");
+				+ (status.lastErrorSite() == null ? status.lastErrorText() : s.errorText(rule.id(), status.lastErrorSite()))
+				+ " (" + s.timeText(status.lastErrorMs()) + ")");
 			List<String> timers = new ArrayList<>();
 			for (int t = 0; t < rule.timers().size(); t++) {
 				Long remaining = engine.timerRemaining(r, t);

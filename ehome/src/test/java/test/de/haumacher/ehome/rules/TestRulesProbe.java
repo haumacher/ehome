@@ -19,7 +19,9 @@ import de.haumacher.ehome.rules.Astro.GeoLocation;
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.Engine;
+import de.haumacher.ehome.rules.Engine.ErrorSite;
 import de.haumacher.ehome.rules.Engine.LogCode;
+import de.haumacher.ehome.rules.Engine.RuleStatus;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.PosixZone;
 import de.haumacher.ehome.rules.RuleLoader;
@@ -34,6 +36,7 @@ import de.haumacher.ehome.rules.Val.DateTime;
 import de.haumacher.ehome.rules.Val.TimeOfDay;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.rules.Values;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
@@ -278,6 +281,94 @@ public class TestRulesProbe extends TestCase {
 
 		assertNull(refusal(start + "{\"kind\": \"log\", \"level\": \"info\", \"message\": [\"t \", {\"kind\": \"call\", "
 			+ "\"function\": \"toString\", \"args\": [{\"kind\": \"datapoint\", \"name\": \"x\"}]}]}" + end, "x"));
+	}
+
+	/**
+	 * The last error of a rule names its expression and the first datapoint of it without a value
+	 * (homecontrol spec/rules.md 9.1, haumacher/ehome #204): for conditionNoValue, valueNoValue and
+	 * evalError, in the ids as the controller's API gives it and with the names of the simulation
+	 * (DatapointNames); after an image swap the expression of the image before is gone.
+	 */
+	public void testLastErrorNamesTheExpressionAndItsDatapoint() throws Exception {
+		DatapointModel model = new DatapointModel(() -> 0);
+		for (String name : List.of("go", "presence", "light")) {
+			model.add(name, ValueType.fromName("boolean"), true, (datapoint, value) -> true);
+		}
+		for (String name : List.of("lux", "a", "z", "level", "ratio")) {
+			model.add(name, ValueType.fromName("unsigned"), true, (datapoint, value) -> true);
+		}
+		Engine engine = new Engine(model, () -> 0, new ParameterStore(), new Engine.TimeSource() {
+			@Override
+			public DateTime localNow() {
+				return null;
+			}
+
+			@Override
+			public TimeOfDay sunTime(SunEvent event) {
+				return null;
+			}
+		});
+		List<String> logs = new ArrayList<>();
+		engine.setObserver(new Engine.Observer() {
+			@Override
+			public void ruleLogged(String rule, LogCode code, Level level, String text) {
+				logs.add(rule + " " + code.externalName() + ": " + text);
+			}
+		});
+		String onGo = "{\"triggers\": [{\"kind\": \"datapoint\", \"datapoint\": \"go\", \"on\": \"update\"}], ";
+		String condition = "{\"id\": \"cond\", \"name\": \"Cond\", \"parameters\": [{\"id\": \"limit\", \"label\": \"Grenze\", "
+			+ "\"type\": \"integer\", \"default\": 50}], \"reactions\": [" + onGo
+			+ "\"condition\": {\"kind\": \"binary\", \"op\": \"and\", \"left\": {\"kind\": \"datapoint\", \"name\": \"presence\"}, "
+			+ "\"right\": {\"kind\": \"binary\", \"op\": \"<\", \"left\": {\"kind\": \"datapoint\", \"name\": \"lux\"}, "
+			+ "\"right\": {\"kind\": \"parameter\", \"id\": \"limit\"}}}, "
+			+ "\"actions\": [{\"kind\": \"write\", \"datapoint\": \"light\", \"value\": {\"kind\": \"literal\", \"type\": \"boolean\", "
+			+ "\"value\": true}}]}]}";
+		String value = "{\"id\": \"value\", \"name\": \"Value\", \"reactions\": [" + onGo
+			+ "\"actions\": [{\"kind\": \"write\", \"datapoint\": \"level\", \"value\": {\"kind\": \"binary\", \"op\": \"+\", "
+			+ "\"left\": {\"kind\": \"datapoint\", \"name\": \"lux\"}, \"right\": {\"kind\": \"literal\", \"type\": \"integer\", "
+			+ "\"value\": 1}}}]}]}";
+		String eval = "{\"id\": \"eval\", \"name\": \"Eval\", \"reactions\": [" + onGo
+			+ "\"actions\": [{\"kind\": \"write\", \"datapoint\": \"ratio\", \"value\": {\"kind\": \"call\", \"function\": \"coalesce\", "
+			+ "\"args\": [{\"kind\": \"datapoint\", \"name\": \"a\"}, {\"kind\": \"binary\", \"op\": \"/\", \"left\": {\"kind\": "
+			+ "\"literal\", \"type\": \"integer\", \"value\": 10}, \"right\": {\"kind\": \"datapoint\", \"name\": \"z\"}}]}}]}]}";
+		assertNull(engine.load(Json.parse("[" + condition + ", " + value + ", " + eval + "]", 100), id -> false));
+		engine.start(StartReason.BOOT);
+		engine.drain();
+		assertNull(engine.status(0).lastErrorCode());
+
+		model.report("presence", Val.ofBool(true));
+		model.report("z", Val.ofInt(0));
+		model.report("go", Val.ofBool(true));
+		engine.drain();
+		RuleStatus cond = engine.status(0);
+		assertEquals(LogCode.CONDITION_NO_VALUE, cond.lastErrorCode());
+		assertEquals("@presence and @lux < $limit – lux has no value", cond.lastErrorText());
+		assertEquals("@lux + 1 – lux has no value", engine.status(1).lastErrorText());
+		assertEquals(LogCode.EVAL_ERROR, engine.status(2).lastErrorCode());
+		assertEquals("division by zero in coalesce(@a, 10 / @z) – a has no value", engine.status(2).lastErrorText());
+		assertTrue(logs.toString(), logs.stream().anyMatch(line -> line.startsWith("cond conditionNoValue: ")
+			&& line.endsWith(" – lux has no value")));
+
+		// The simulation's names: Name (id), the parameter by its label.
+		Map<String, String> labels = Map.of("presence", "Präsenz", "lux", "Helligkeit", "rule/cond/limit", "Grenze");
+		ErrorSite site = cond.lastErrorSite();
+		assertEquals("Präsenz (presence) and Helligkeit (lux) < Grenze ($limit) – Helligkeit (lux) has no value",
+			site.text(ast -> DatapointNames.expression(labels, "cond", ast),
+				id -> DatapointNames.format(labels.get(id), id)));
+
+		// The first datapoint without a value in the order of the text; a stale one has none.
+		model.report("lux", Val.ofInt(10));
+		model.report("go", Val.ofBool(true));
+		engine.drain();
+		model.reportStale("presence");
+		model.report("go", Val.ofBool(true));
+		engine.drain();
+		assertEquals("@presence and @lux < $limit – presence has no value", engine.status(0).lastErrorText());
+
+		// A swap: the expression was the image's before; the datapoint stays while it is in the model.
+		assertNull(engine.load(Json.parse("[" + value + ", " + condition + "]", 100), id -> false));
+		engine.drain();
+		assertEquals("condition has no value – presence has no value", engine.status(1).lastErrorText());
 	}
 
 	public static Test suite() {

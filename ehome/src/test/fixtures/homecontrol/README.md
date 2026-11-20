@@ -65,6 +65,13 @@ minimum role of a control page, binary format 1.1 with the sections of the anony
 working tree on top of `87a965ad55e3ff873d19f4f9383590f3cf9d9711`), which added the image
 `images/anonymous-pages.json` alone (its `.bin` is compared by
 `test.de.haumacher.ehome.runtime.binary.TestImageCorpus`); the rule and block fixtures did not change.
+Synced again at `02a4b7d17fe0cc21a58d199835bfcffb959c1277` (haumacher/homecontrol#97, haumacher/ehome #204: a rule's last error
+names the expression and its first datapoint without a value, `spec/rules.md` 9.1), which changed the
+rule cases `13-null-condition`, `14-null-stale-known-lastknown`, `15-eval-error-once` and
+`61-sun-position-no-clock` (the log entries `conditionNoValue`, `valueNoValue` and `evalError` with the
+member `datapoint`, `null` for none) and the rule corpus `README.md` (which brought along its section
+"The compiled images" of the binary image round, homecontrol #87); the image and block fixtures did not
+change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 
