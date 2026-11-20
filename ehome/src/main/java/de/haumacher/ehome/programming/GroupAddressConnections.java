@@ -117,7 +117,8 @@ public class GroupAddressConnections {
 	/**
 	 * The device by its name and individual address, e.g. "Tastsensor 3 (1.3.50)"; the stub of a device
 	 * the catalog does not identify without a name by its manufacturer and order number (haumacher/ehome
-	 * #183), e.g. "GIRA 5133 00 (1.1.7)".
+	 * #183), e.g. "GIRA 5133 00 (1.1.7)". A device in no line has no individual address and is named
+	 * alone (haumacher/ehome #203).
 	 */
 	public static String deviceLabel(TLObject device) {
 		if (device == null) {
@@ -132,7 +133,8 @@ public class GroupAddressConnections {
 		} else {
 			name = MetaLabelProvider.INSTANCE.getLabel(device.tValueByName("type"));
 		}
-		return name + " (" + addressText(device) + ")";
+		String address = DownloadImage.individualAddressText(device);
+		return address == null ? name : name + " (" + address + ")";
 	}
 
 	/**
@@ -150,16 +152,13 @@ public class GroupAddressConnections {
 	}
 
 	/**
-	 * The individual address of the device in its notation area.line.device; the device number
-	 * alone where the device is in no line.
+	 * The individual address of the device in its notation area.line.device
+	 * (<code>ehome.physical:BusDevice#individualAddress</code>); "–" for a device in no line, which
+	 * has none (haumacher/ehome #203).
 	 */
 	public static String addressText(TLObject device) {
-		Integer address = DownloadImage.individualAddress(device);
-		if (address == null) {
-			Object number = device.tValueByName("address");
-			return number == null ? "–" : number.toString();
-		}
-		return (address >>> 12) + "." + ((address >>> 8) & 0x0F) + "." + (address & 0xFF);
+		String address = DownloadImage.individualAddressText(device);
+		return address == null ? "–" : address;
 	}
 
 	/**

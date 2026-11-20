@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	haumacher/ehome #203: ehome.physical:BusDevice#address is the device number in the line (0..255), the
+	only part of the individual address that is entered; the individual address (1.3.50) is the derived
+	attribute ehome.physical:BusDevice#individualAddress, computed from the line and area holding the
+	device (empty for a device in no line), shown in view mode only, and the name of a device without
+	one of its own takes it (Device#name). The processors make these model changes, so the automatic
+	model upgrade at startup has nothing left to do.
+
+	After the start, the startup action de.haumacher.ehome.scan.DeviceNumberRepair places each device
+	among the unplaced devices of a project that holds a whole individual address (a record of a device
+	a scan did not identify, which the startup action of Issue_183_Device_stubs did not reach) in the
+	line of its address with its device number, creating line and area where missing; where the line
+	has a device at the number, it stays unplaced with its number and the log names the address it
+	had. Each step is logged.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_203_Device_numbers"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_183_Device_stubs"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<!-- The device number in the line: 0..255. -->
+		<update-annotations name="ehome.physical:BusDevice#address">
+			<annotations>
+				<value-range
+					max="255"
+					min="0"
+				/>
+			</annotations>
+		</update-annotations>
+
+		<!-- The individual address from the line and area holding the device, in view mode only. -->
+		<create-property name="ehome.physical:BusDevice#individualAddress"
+			type="tl.core:String"
+		>
+			<annotations>
+				<storage-algorithm>
+					<query expr="d -> deviceIndividualAddress($d)"/>
+				</storage-algorithm>
+				<dynamic-visibility>
+					<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression"
+						function="d -> editMode -> if($editMode, &quot;hidden&quot;, &quot;read-only&quot;)"
+					/>
+				</dynamic-visibility>
+			</annotations>
+		</create-property>
+		<reorder-part name="ehome.physical:BusDevice#individualAddress"
+			before="location"
+		/>
+
+		<!-- A device without a name of its own is named by type and individual address. -->
+		<update-annotations name="ehome.physical:Device#name">
+			<annotations>
+				<storage-algorithm>
+					<query expr="d -> $d.get(`ehome.physical:BusDevice#title`) || deviceLabel($d)"/>
+				</storage-algorithm>
+			</annotations>
+		</update-annotations>
+	</processors>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.scan.DeviceNumberRepair"/>
+	</startup-actions>
+</migration>

@@ -2396,7 +2396,7 @@ public final class FunctionProposal {
 			}
 			for (TLObject device : devices) {
 				String title = title(device);
-				String address = GroupAddressConnections.addressText(device);
+				String address = addressPart(device);
 				boolean shared = title != null && titles.get(title).intValue() > 1;
 				_devices.put(device, title == null ? address : shared ? title + " " + address : title);
 				if (title == null || shared) {
@@ -2496,7 +2496,7 @@ public final class FunctionProposal {
 			String result = _devices.get(device);
 			if (result == null) {
 				String title = title(device);
-				result = title == null ? GroupAddressConnections.addressText(device) : title;
+				result = title == null ? addressPart(device) : title;
 			}
 			return result;
 		}
@@ -2563,6 +2563,21 @@ public final class FunctionProposal {
 	}
 
 	/**
+	 * The part of a generated name that tells a device apart: its individual address, the device
+	 * number alone for a device in no line. A device in no line has no individual address
+	 * (haumacher/ehome #203); its number keeps the names generated for it, and those of the proposals
+	 * before haumacher/ehome #135, as they were.
+	 */
+	private static String addressPart(TLObject device) {
+		String address = DownloadImage.individualAddressText(device);
+		if (address != null) {
+			return address;
+		}
+		Object number = device.tValueByName("address");
+		return number == null ? "–" : number.toString();
+	}
+
+	/**
 	 * The name of the device proposals before haumacher/ehome #135 used in the language of the
 	 * resources: the one the user gave it, else the name of its product, else its order number,
 	 * else its individual address.
@@ -2582,7 +2597,7 @@ public final class FunctionProposal {
 				return order.toString().trim();
 			}
 		}
-		return GroupAddressConnections.addressText(device);
+		return addressPart(device);
 	}
 
 	/**

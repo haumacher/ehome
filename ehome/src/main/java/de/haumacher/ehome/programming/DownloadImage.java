@@ -149,11 +149,21 @@ public class DownloadImage {
 	}
 
 	/**
-	 * The individual address of a device (<code>ehome.physical:Device</code>): area, line and device
-	 * number in 4, 4 and 8 bits; <code>null</code> if one of them is missing.
+	 * The individual address of a device (<code>ehome.physical:BusDevice</code>): area, line and
+	 * device number in 4, 4 and 8 bits; <code>null</code> for a device in no line, or if one of them
+	 * is missing.
 	 */
 	public static Integer individualAddress(TLObject device) {
 		return DownloadImageBuilder.individualAddress(device);
+	}
+
+	/**
+	 * The individual address of a device in its notation area.line.device (<code>1.3.50</code>):
+	 * the derived attribute <code>ehome.physical:BusDevice#individualAddress</code>;
+	 * <code>null</code> for a device in no line (haumacher/ehome #203).
+	 */
+	public static String individualAddressText(TLObject device) {
+		return DownloadImageBuilder.individualAddressText(device);
 	}
 
 	/**

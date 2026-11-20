@@ -77,6 +77,12 @@ public class GroupAddressFunctions extends GenericMethod {
 		connectionDatapointType(1, true),
 		/** <code>deviceLabel(device)</code>: {@link GroupAddressConnections#deviceLabel(TLObject)}. */
 		deviceLabel(1, true),
+		/**
+		 * <code>deviceIndividualAddress(device)</code>: the individual address of the device
+		 * (<code>1.3.50</code>), <code>null</code> for a device in no line
+		 * ({@link DownloadImage#individualAddressText(TLObject)}, haumacher/ehome #203).
+		 */
+		deviceIndividualAddress(1, true),
 		/** <code>deviceObjects(device)</code>: {@link GroupAddressConnections#objects(TLObject)}. */
 		deviceObjects(1, true),
 		/**
@@ -225,6 +231,8 @@ public class GroupAddressFunctions extends GenericMethod {
 					: GroupAddressConnections.datapointType(obj);
 			case deviceLabel:
 				return GroupAddressConnections.deviceLabel(obj);
+			case deviceIndividualAddress:
+				return DownloadImage.individualAddressText(obj);
 			case deviceObjects:
 				return GroupAddressConnections.objects(obj);
 			case deviceConnectionProblems:

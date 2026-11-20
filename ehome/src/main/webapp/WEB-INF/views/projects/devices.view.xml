@@ -745,7 +745,7 @@
 									</label>
 									<value>if($row.instanceOf(`ehome.physical:BusDevice`), buildingPath($row.get(`ehome.physical:BusDevice#location`)), null)</value>
 								</computed-column>
-								<!-- The individual address: area, area.line, area.line.device; the number alone of a device in no line. -->
+								<!-- The individual address: area, area.line, area.line.device; none for a device in no line (haumacher/ehome #203). -->
 								<computed-column name="address"
 									type="tl.core:String"
 									width="100"
@@ -759,10 +759,8 @@
         toString($row.get(`ehome.physical:Area#address`));
     $row.instanceOf(`ehome.physical:Line`):
         toString($row.container().get(`ehome.physical:Area#address`), ".", $row.get(`ehome.physical:Line#address`));
-    $row.instanceOf(`ehome.physical:BusDevice`) and $row.container().instanceOf(`ehome.physical:Line`):
-        toString($row.container().container().get(`ehome.physical:Area#address`), ".", $row.container().get(`ehome.physical:Line#address`), ".", $row.get(`ehome.physical:BusDevice#address`));
     $row.instanceOf(`ehome.physical:BusDevice`):
-        toString($row.get(`ehome.physical:BusDevice#address`));
+        $row.get(`ehome.physical:BusDevice#individualAddress`);
     default: null;
 }]]></value>
 								</computed-column>
@@ -909,6 +907,7 @@
 								</commands>
 								<field attribute="title"/>
 								<field attribute="address"/>
+								<field attribute="individualAddress"/>
 								<field attribute="manufacturer"/>
 								<field attribute="orderNumber"/>
 								<value-input
@@ -1016,6 +1015,7 @@
 												</commands>
 												<field attribute="title"/>
 												<field attribute="address"/>
+												<field attribute="individualAddress"/>
 												<field attribute="type"/>
 												<field attribute="program"/>
 												<value-input

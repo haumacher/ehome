@@ -380,6 +380,21 @@ abstract by `<update-class abstract="true"/>` right after (checked on a copy of 
 **When fixed:** the migration stays, as migrations do; a later migration creating an abstract class
 can use `abstract="true"` directly.
 
+## Startup actions of a migration are lost when its start fails (TL ticket to be filed)
+
+`MigrationService` commits the migrated data and the new data version first and runs the startup
+actions only afterwards, in `applicationStarted`, for the migrations applied in the same JVM. If that
+start fails after the commit (a service, the action itself, a veto when its transaction commits), the
+next start sees the version as applied and never runs the actions. This is the probable cause of
+the stub that the 1.8.0 installation still had in `Project#unassignedDevices` with its full address
+4359 (haumacher/ehome #203): `DeviceStubMigration`, the action of `Issue_183_Device_stubs`, places
+such records when it runs, on a pre-#183 database too. No workaround. `Issue_203_Device_numbers`
+repairs these records once with its own startup action. A check on every start would scan all
+projects. The ticket could not be filed on 2026-11-20 because the Trac host was not reachable from
+the session.
+
+**When fixed:** nothing to undo; a startup action whose start failed runs at the next start.
+
 ## The model catalog of the assistant at every start (TL #30443)
 
 At every start `LLMProviderService` reads the models.dev snapshot bundled with tl-ai-core

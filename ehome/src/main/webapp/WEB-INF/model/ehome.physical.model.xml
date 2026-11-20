@@ -272,7 +272,7 @@
 		<!--
 			A device on the bus of a project (haumacher/ehome #183): a device of the catalog (Device, with its
 			product and application program) or a device a scan found that the catalog does not identify
-			(DeviceStub). What both have: the name the user gave it, the individual address in its line, the
+			(DeviceStub). What both have: the name the user gave it, the device number in its line, the
 			serial number and the building part it is placed in. A line holds both; what needs a program
 			(parameters, communication objects, programming, the runtime, the monitor) takes a Device.
 		-->
@@ -286,7 +286,7 @@
 				<instance-presentation icon="css:fa-solid fa-mobile-screen-button"/>
 			</annotations>
 			<attributes>
-				<!-- The name the user gave the device; without one, the device is named by type and address. -->
+				<!-- The name the user gave the device; without one, the device is named by type and individual address. -->
 				<property name="title"
 					type="tl.core:String"
 				/>
@@ -309,10 +309,42 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<!-- The device number in its line (the last part of the individual address). -->
+				<!--
+					The device number in its line (the last part of the individual address), the only part of
+					the address that is entered: area and line follow from the line holding the device
+					(haumacher/ehome #203).
+				-->
 				<property name="address"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<value-range
+							max="255"
+							min="0"
+						/>
+					</annotations>
+				</property>
+				<!--
+					The individual address (1.3.50) from the line and area holding the device; empty for a
+					device in no line (de.haumacher.ehome.programming.DownloadImage#individualAddressText,
+					haumacher/ehome #203). Shown in view mode only: what is entered is the device number.
+				-->
+				<property name="individualAddress"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> deviceIndividualAddress($d)]]></expr>
+							</query>
+						</storage-algorithm>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[d -> editMode -> if($editMode, "hidden", "read-only")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</property>
 				<reference name="location"
 					kind="forwards"
 					type="ehome.building:BuildingDefinition"
@@ -417,10 +449,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[d -> $d.get(`ehome.physical:BusDevice#title`) || "{0} ({1})".fill(
-    $d.get(`ehome.physical:Device#type`).label(),
-    $d.get(`ehome.physical:BusDevice#address`).label()
-)]]></expr>
+								<expr><![CDATA[d -> $d.get(`ehome.physical:BusDevice#title`) || deviceLabel($d)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

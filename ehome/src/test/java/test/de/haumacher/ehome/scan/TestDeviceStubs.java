@@ -328,19 +328,18 @@ public class TestDeviceStubs extends BasicTestCase {
 	public void testMigration() throws Exception {
 		TLObject project = TestScanTakeOver.emptyProject("Migrated stubs");
 		try {
-			TLObject line;
-			TLObject placed;
-			TLObject created;
-			TLObject occupied;
-			TLObject unplaced;
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				line = InstallationBuilder.line(project, 1, 1);
-				occupied = DeviceStubs.record(project, device(0x1105, 0x20BD, null));
-				placed = record(project, 0x1107, "000A0476250B");
-				created = record(project, 0x2205, null);
-				unplaced = record(project, 0x1105, null);
-				tx.commit();
-			}
+			// The records hold a whole individual address, which the model refuses since haumacher/ehome #203.
+			List<TLObject> records = TestDeviceNumbers.withoutModelChecks(() -> List.of(
+				InstallationBuilder.line(project, 1, 1),
+				DeviceStubs.record(project, device(0x1105, 0x20BD, null)),
+				TestDeviceNumbers.record(project, 0x1107, "000A0476250B"),
+				TestDeviceNumbers.record(project, 0x2205, null),
+				TestDeviceNumbers.record(project, 0x1105, null)));
+			TLObject line = records.get(0);
+			TLObject occupied = records.get(1);
+			TLObject placed = records.get(2);
+			TLObject created = records.get(3);
+			TLObject unplaced = records.get(4);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				new DeviceStubMigration().perform();
 				tx.commit();
@@ -394,19 +393,6 @@ public class TestDeviceStubs extends BasicTestCase {
 			assign |= ((Element) script).getAttribute("function").startsWith("deviceStubAssign(");
 		}
 		assertTrue(assign);
-	}
-
-	/** A stub as the migration leaves a former record: among the unplaced devices, with the whole address. */
-	private static TLObject record(TLObject project, int address, String serialHex) {
-		TLObject stub = create(DeviceStubs.STUB_TYPE);
-		stub.tUpdateByName("address", Integer.valueOf(address));
-		stub.tUpdateByName("serialNumber", serialHex);
-		stub.tUpdateByName("manufacturerId", Integer.valueOf(GIRA));
-		stub.tUpdateByName("programVersion", "000820BD11");
-		List<TLObject> unassigned = new ArrayList<>(((Project) project).getUnassignedDevices());
-		unassigned.add(stub);
-		((Project) project).setUnassignedDevices(unassigned);
-		return stub;
 	}
 
 	/** A GIRA device found on the bus running the given application number, version 11. */

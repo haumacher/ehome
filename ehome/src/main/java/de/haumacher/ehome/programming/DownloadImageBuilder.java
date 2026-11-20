@@ -21,6 +21,7 @@ import com.top_logic.basic.util.ResKey2;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.CodeSegment;
@@ -41,6 +42,7 @@ import de.haumacher.ehome.model.operational.ResourceLocation;
 import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.model.operational.TableLocation;
 import de.haumacher.ehome.modules.ModuleParts;
+import de.haumacher.ehome.monitor.BusTelegram;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.GroupTables.Association;
 
@@ -79,6 +81,8 @@ import de.haumacher.ehome.programming.GroupTables.Association;
  * </p>
  */
 class DownloadImageBuilder {
+
+	private static final String LINE = "ehome.physical:Line";
 
 	private static final String ADDRESS_TABLE_FORMAT = "AddressTable_Bcu1";
 
@@ -824,14 +828,24 @@ class DownloadImageBuilder {
 	}
 
 	/**
-	 * The individual address of a device: area, line and device number in 4, 4 and 8 bits;
-	 * <code>null</code> if one of them is missing.
+	 * The individual address of a device: area, line and device number in 4, 4 and 8 bits, from the
+	 * line and area holding the device and its device number; <code>null</code> for a device in no
+	 * line, or if one of the numbers is missing.
+	 *
+	 * <p>
+	 * The one computation of the individual address: its text
+	 * ({@link #individualAddressText(TLObject)}) is the derived attribute
+	 * <code>ehome.physical:BusDevice#individualAddress</code> (haumacher/ehome #203).
+	 * </p>
 	 */
 	static Integer individualAddress(TLObject device) {
 		TLObject line = device.tContainer();
-		TLObject area = line == null ? null : line.tContainer();
+		if (line == null || !ExtIds.isA(line, LINE)) {
+			return null;
+		}
+		TLObject area = line.tContainer();
 		Object number = device.tValueByName("address");
-		Object lineNumber = line == null ? null : line.tValueByName("address");
+		Object lineNumber = line.tValueByName("address");
 		Object areaNumber = area == null ? null : area.tValueByName("address");
 		if (!(number instanceof Integer d) || !(lineNumber instanceof Integer l) || !(areaNumber instanceof Integer a)) {
 			return null;
@@ -839,11 +853,18 @@ class DownloadImageBuilder {
 		return Integer.valueOf((a.intValue() & 0x0F) << 12 | (l.intValue() & 0x0F) << 8 | (d.intValue() & 0xFF));
 	}
 
-	private static String describe(TLObject device) {
+	/**
+	 * The individual address of a device in its notation area.line.device (<code>1.3.50</code>);
+	 * <code>null</code> where {@link #individualAddress(TLObject)} has none.
+	 */
+	static String individualAddressText(TLObject device) {
 		Integer address = individualAddress(device);
-		String text = address == null ? "(no address)"
-			: (address >>> 12) + "." + ((address >>> 8) & 0x0F) + "." + (address & 0xFF);
-		return text + " " + Objects.toString(device.tValueByName("extId"), "");
+		return address == null ? null : BusTelegram.individualAddress(address.intValue());
+	}
+
+	private static String describe(TLObject device) {
+		String text = individualAddressText(device);
+		return (text == null ? "(no address)" : text) + " " + Objects.toString(device.tValueByName("extId"), "");
 	}
 
 }
