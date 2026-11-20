@@ -395,6 +395,15 @@ the session.
 
 **When fixed:** nothing to undo; a startup action whose start failed runs at the next start.
 
+## Adding to a reference in the XML import is quadratic (TL ticket to be filed)
+
+`AbstractModelBinding.addValue` (tl-xio) checks `tContains` on the transient list before every add,
+so filling a reference with n values costs n² comparisons. It takes about 3 s of the master-data
+import of the test suites (haumacher/ehome #208, measured by sampling). No workaround. The ticket
+could not be filed on 2026-11-20 because the Trac host was not reachable from the session.
+
+**When fixed:** nothing to undo; the import of master data gets faster.
+
 ## The model catalog of the assistant at every start (TL #30443)
 
 At every start `LLMProviderService` reads the models.dev snapshot bundled with tl-ai-core
