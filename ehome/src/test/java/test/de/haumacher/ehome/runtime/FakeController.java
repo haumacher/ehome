@@ -84,6 +84,13 @@ import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
  */
 public class FakeController {
 
+	static {
+		// Without it, the JDK's server sends the headers of an answer and its body in two TCP segments,
+		// and the client's delayed acknowledgement holds the second one back for 40 ms: every request
+		// of a test took 40 ms (haumacher/ehome #208). Read when the first server is created.
+		System.setProperty("sun.net.httpserver.nodelay", "true");
+	}
+
 	private final HttpServer _server;
 
 	private final String _token;
@@ -150,7 +157,7 @@ public class FakeController {
 	public FakeController(int port, String token, int limit) throws IOException {
 		_token = token;
 		_limit = limit;
-		_server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
+		_server = createServer(port);
 		_server.createContext("/api/image", this::image);
 		_server.createContext("/api/status", this::status);
 		_server.createContext("/fake/refuse-next", this::script);
@@ -161,6 +168,14 @@ public class FakeController {
 		_server.createContext("/api/blocks", this::blocks);
 		_monitor = new FakeMonitorStream(token);
 		_server.start();
+	}
+
+	/**
+	 * A server of the JDK on the given port of <code>127.0.0.1</code> (0 for a free one) that sends
+	 * without delay, for a test answering requests of the app.
+	 */
+	public static HttpServer createServer(int port) throws IOException {
+		return HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
 	}
 
 	/**

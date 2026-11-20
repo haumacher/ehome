@@ -227,6 +227,18 @@
       <scope>test</scope>
     </dependency>
 
+    <!--
+      The timeline of the suite (test.de.haumacher.ehome.TimelineListener, read by bin/slowest-tests.py): a
+      listener of the JUnit platform that surefire runs the suite on. The version is the one surefire
+      brings along; with another one on the class path, surefire would run the suite on that.
+    -->
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <version>1.14.4</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>

@@ -119,13 +119,21 @@ contains, in order:
     root runs the suite of each module (`test.TestAll` plus the conformance checks, once in `ehome/`
     and once in `ehome-virtual/`, each in a JVM and a database of its own). **Budget: both suites
     together at most 95 s; a new test class at most 5 s, or its javadoc names why it needs more.**
-    After the split into modules (haumacher/ehome #28, October 2026) the app's suite took 68 s and
-    the tooling's 24 s (345 tests) at a load average of about 3; the tooling's own database means
-    its tests import their samples once more. After the upgrade to alpha12 (2026-10-30) they took
-    117 s and 37 s (434 tests) at a load average of 8.5, with a foreign process holding 1.5 cores;
-    the budget was not re-measured on a quiet machine. `bin/slowest-tests.py` prints the time of each
-    suite, the total and the 10 slowest tests and classes from the surefire reports; read it
-    after every gate. The cost of a test is its imports: all classes of a module share one database in one JVM,
+    The suites are over it: measured on 2026-11-20 (haumacher/ehome #208, load average 2–3, the
+    shared app on port 8080 running) the app's suite took 164 s (1062 tests) and the tooling's 37 s (60
+    tests), 201 s together, down from 196 s and 48 s by faster imports of program files, no stored
+    interface objects of the virtual KNX server, an HTTP server of the tests without the 40 ms
+    delayed acknowledgement, a shorter interval of the Zigbee live import in its tests, and fewer
+    configurations built by the calculations. 95 s is not reachable without fewer or cheaper
+    imports: about 50 s of the app's suite are ETS imports (each test importing its sample again,
+    mostly `KNX-Testsystem.knxproj` and `Test.knxproj`; most of an import is the merge of the known
+    program and master data), 15 s the Zennio DALI BOX (a 79 MB program), 11 s setups and teardowns
+    outside the test methods (the first knowledge base, the security services), 10 s deletions of
+    projects. Measure a new test against these numbers, not against 95 s. `bin/slowest-tests.py`
+    prints the time of each suite (with the part outside the test methods), the total, the 10
+    slowest tests, the slowest classes by the time of their test methods and by wall time with their
+    setup (from `test-timeline.txt` beside the surefire report, written by
+    `test.de.haumacher.ehome.TimelineListener`); read it after every gate. The cost of a test is its imports: all classes of a module share one database in one JVM,
     the shared data (master data, catalogs, programs) stays, and an import of a sample costs seconds
     per program the first time and about one second after that; deleting shared data costs as much
     as importing it. So a test deletes only its projects, asserts project-relative state or shared
@@ -303,8 +311,8 @@ user edited after the previous import.
 
 ```bash
 ./mvnw checkstyle:check                              # both modules: header, tabs, imports, braces
-./mvnw install -DskipTests=false                     # (clean install after a merge or a version change, §4) both modules, both suites (budget 95 s together); read every "Tests run:" line
-bin/slowest-tests.py                                 # time of each suite, the total and the 10 slowest tests: within budget?
+./mvnw install -DskipTests=false                     # (clean install after a merge or a version change, §4) both modules, both suites (budget 95 s, measured 201 s, §2); read every "Tests run:" line
+bin/slowest-tests.py                                 # time of each suite, the total, the 10 slowest tests and classes (also by wall time): no new class over 5 s?
 git status --short                                   # only the files of this change; no .playwright-mcp, no tmp/
 ```
 

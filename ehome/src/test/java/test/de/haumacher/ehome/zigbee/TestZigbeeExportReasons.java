@@ -5,8 +5,6 @@ package test.de.haumacher.ehome.zigbee;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Locale;
@@ -16,6 +14,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.runtime.FakeController;
 
 import com.sun.net.httpserver.HttpServer;
 import com.top_logic.basic.util.ResKey;
@@ -118,7 +117,7 @@ public class TestZigbeeExportReasons extends BasicTestCase {
 	}
 
 	private static void assertBadAnswer(String de, String en, IntFunction<String> page) throws IOException {
-		HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+		HttpServer server = FakeController.createServer(0);
 		server.createContext("/api/zigbee/export", exchange -> {
 			String query = exchange.getRequestURI().getQuery();
 			int from = Integer.parseInt(query.substring(query.indexOf('=') + 1));

@@ -31,6 +31,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
@@ -134,6 +135,8 @@ public class TestVirtualDeviceInfo extends BasicTestCase {
 			if (controller != null) {
 				controller.stop();
 			}
+			// The connection's writer records the close: waited for, the deletion does not conflict with it.
+			ControllerConnections.awaitKnowledgeBase();
 			SharedData.deleteProjects(List.of(project));
 		}
 	}

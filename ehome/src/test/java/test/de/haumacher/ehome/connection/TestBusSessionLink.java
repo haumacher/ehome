@@ -71,6 +71,8 @@ public class TestBusSessionLink extends BasicTestCase {
 	@Override
 	protected void tearDown() throws Exception {
 		_fake.stop();
+		// The connection's writer records the close: waited for, the deletion does not conflict with it.
+		ControllerConnections.awaitKnowledgeBase();
 		SharedData.deleteProjects(List.of(_project));
 		super.tearDown();
 	}

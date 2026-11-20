@@ -83,6 +83,9 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 	/** The least time between the starts of two imports of one controller. */
 	public static final Duration MIN_INTERVAL = Duration.ofSeconds(2);
 
+	/** The least time between the starts of two imports of one controller, as given to the start. */
+	private static volatile Duration _minInterval = MIN_INTERVAL;
+
 	/** The time {@link #stop()} waits for an interrupted read to end. */
 	private static final Duration STOP_TIMEOUT = Duration.ofSeconds(5);
 
@@ -193,13 +196,30 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 	 * Starts following the controllers' events (at the start of the application; again is harmless).
 	 */
 	public static synchronized void start() {
+		start(MIN_INTERVAL);
+	}
+
+	/**
+	 * Starts as {@link #start()}, with the given least time between the starts of two imports of one
+	 * controller instead of {@link #MIN_INTERVAL}: a test waits for a shorter one (haumacher/ehome
+	 * #208).
+	 */
+	public static synchronized void start(Duration minInterval) {
 		if (!_started) {
+			_minInterval = minInterval;
 			_started = true;
 			_threads = new DaemonThreads("zigbee-live");
 			_executor = Executors.newSingleThreadScheduledExecutor(_threads);
 			ControllerConnections.addListener(INSTANCE);
 			_ticker = _executor.scheduleWithFixedDelay(ZigbeeLive::tick, 1, 1, TimeUnit.SECONDS);
 		}
+	}
+
+	/**
+	 * The least time between the starts of two imports of one controller, as started.
+	 */
+	public static Duration minInterval() {
+		return _minInterval;
 	}
 
 	/**
@@ -399,7 +419,7 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 			long now = System.nanoTime();
 			long delay = DELAY.toNanos();
 			if (state._lastStart != Long.MIN_VALUE) {
-				delay = Math.max(delay, state._lastStart + MIN_INTERVAL.toNanos() - now);
+				delay = Math.max(delay, state._lastStart + _minInterval.toNanos() - now);
 			}
 			ScheduledExecutorService executor = _executor;
 			if (executor == null) {

@@ -5,6 +5,8 @@ package de.haumacher.ehome.virtual.server;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -14,11 +16,15 @@ import java.net.ServerSocket;
 import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import tuwien.auto.calimero.device.ios.InterfaceObject;
+import tuwien.auto.calimero.device.ios.InterfaceObjectServer;
+import tuwien.auto.calimero.device.ios.InterfaceObjectServer.IosResourceHandler;
+import tuwien.auto.calimero.mgmt.Description;
 import tuwien.auto.calimero.mgmt.PropertyAccess.PID;
 import tuwien.auto.calimero.server.gateway.KnxServerGateway;
 import tuwien.auto.calimero.server.gateway.SubnetConnector;
@@ -38,10 +44,11 @@ import de.haumacher.ehome.virtual.I18NConstants;
  *
  * <p>
  * The {@link Launcher} is configured by an XML file (Calimero's server configuration format), which
- * is written into the working directory together with the interface objects the server stores
- * there on shutdown (deleted before every start, so that no state of an earlier run is loaded):
- * the container setup of the server (tunnelling addresses, router object) is not available
- * otherwise.
+ * is written into the working directory: the container setup of the server (tunnelling addresses,
+ * router object) is not available otherwise. The interface objects, which Calimero would store
+ * there on shutdown and load at the next start, are not stored ({@link NotStored}): no state of an
+ * earlier run is loaded, and the server's device memory written byte by byte into an XML file took
+ * a third of a second per shutdown (haumacher/ehome #208).
  * </p>
  */
 public final class KnxServer implements AutoCloseable {
@@ -140,10 +147,12 @@ public final class KnxServer implements AutoCloseable {
 	private void connect() {
 		_thread.start();
 		_subnet = awaitSubnet();
+		InterfaceObjectServer ios = _launcher.getGateway().getServer().getInterfaceObjectServer();
+		ios.setResourceHandler(new NotStored());
 		// By default a TP1 interface without extended frames: the server's own maximum APDU length is
 		// that of its subnet (15), not that of its KNX IP side (254), which a client reads to size the
 		// frames it sends (and with a larger value asks every device for its own maximum first).
-		_launcher.getGateway().getServer().getInterfaceObjectServer().setProperty(InterfaceObject.DEVICE_OBJECT, 1,
+		ios.setProperty(InterfaceObject.DEVICE_OBJECT, 1,
 			PID.MAX_APDULENGTH, 1, 1, (byte) (_maxApdu >>> 8), (byte) _maxApdu);
 		long deadline = System.currentTimeMillis() + TIMEOUT;
 		while (!listening(_endpoint)) {
@@ -299,6 +308,53 @@ public final class KnxServer implements AutoCloseable {
 
 	private static String xml(String text) {
 		return text.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;");
+	}
+
+	/**
+	 * The storage of the interface objects of the server: none. A server starts without the state of
+	 * an earlier run, so what Calimero would save on shutdown is never read.
+	 */
+	private static final class NotStored implements IosResourceHandler {
+
+		@Override
+		public Collection<InterfaceObject> loadInterfaceObjects(String resource) {
+			return Collections.emptyList();
+		}
+
+		@Override
+		public Collection<InterfaceObject> loadInterfaceObjects(InputStream is) {
+			return Collections.emptyList();
+		}
+
+		@Override
+		public void saveInterfaceObjects(String resource, Collection<InterfaceObject> ifObjects) {
+			// Not stored.
+		}
+
+		@Override
+		public void saveInterfaceObjects(OutputStream os, Collection<InterfaceObject> ifObjects) {
+			// Not stored.
+		}
+
+		@Override
+		public void loadProperties(String resource, Collection<Description> descriptions, Collection<byte[]> values) {
+			// Nothing stored.
+		}
+
+		@Override
+		public void loadProperties(Collection<Description> descriptions, Collection<byte[]> values) {
+			// Nothing stored.
+		}
+
+		@Override
+		public void saveProperties(String resource, Collection<Description> descriptions, Collection<byte[]> values) {
+			// Not stored.
+		}
+
+		@Override
+		public void saveProperties(Collection<Description> descriptions, Collection<byte[]> values) {
+			// Not stored.
+		}
 	}
 
 	/**

@@ -329,9 +329,16 @@ public final class DeviceCalculations {
 			List<ParameterView> todo = new ArrayList<>(changed);
 			Set<Bound> done = new LinkedHashSet<>();
 			int runs = 0;
+			// Built again only after a calculation stored a value: the configuration follows the values,
+			// and building it for every changed parameter took seconds for a device of a large program
+			// (haumacher/ehome #208).
+			DeviceConfiguration configuration = null;
 			while (!todo.isEmpty()) {
 				ParameterView view = todo.remove(0);
-				DeviceConfiguration configuration = new DeviceConfiguration(device);
+				if (configuration == null) {
+					configuration = new DeviceConfiguration(device);
+				}
+				boolean stored = false;
 				for (Bound bound : inEffect(configuration)) {
 					if (done.contains(bound)) {
 						continue;
@@ -354,8 +361,12 @@ public final class DeviceCalculations {
 						}
 						before.putIfAbsent(target, current);
 						DeviceSettings.storeComputed(device, target, result.getValue());
+						stored = true;
 						todo.add(target);
 					}
+				}
+				if (stored) {
+					configuration = null;
 				}
 			}
 		} catch (TopLogicException ex) {

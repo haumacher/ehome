@@ -52,8 +52,9 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * imported again on its next event.
  *
  * <p>
- * Takes about 6 s: two reads separated by the live import's own interval ({@link ZigbeeLive#MIN_INTERVAL}),
- * and one more such interval of silence after the disconnect to prove that nothing is read then.
+ * Two reads separated by the live import's interval (here {@link TestZigbeeLive#INTERVAL} instead of
+ * {@link ZigbeeLive#MIN_INTERVAL}), and one more such interval of silence after the disconnect to
+ * prove that nothing is read then.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -76,7 +77,7 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 		super.setUp();
 		_endpoint = new ControllerEndpoint();
 		_fake = new FakeController(TOKEN, 262144);
-		ZigbeeLive.start();
+		ZigbeeLive.start(TestZigbeeLive.INTERVAL);
 	}
 
 	@Override
@@ -151,7 +152,7 @@ public class TestZigbeeLiveProbe extends BasicTestCase {
 			assertNull(ZigbeeLive.deviceState(id, IEEE));
 			assertEquals(text(I18NConstants.DEVICE_PAIRED), ZigbeeStatus.deviceState(device));
 			ZigbeeLive.Read beforeSleep = ZigbeeLive.lastRead(id);
-			Thread.sleep(ZigbeeLive.MIN_INTERVAL.toMillis() + 500);
+			Thread.sleep(ZigbeeLive.minInterval().toMillis() + 500);
 			assertEquals("No read after the disconnect.", 2, exportRequests(link).size());
 			assertSame("No import after the disconnect.", beforeSleep, ZigbeeLive.lastRead(id));
 

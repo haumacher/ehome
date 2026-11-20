@@ -43,6 +43,7 @@ import tuwien.auto.calimero.link.KNXNetworkLinkIP;
 import tuwien.auto.calimero.link.NetworkLinkListener;
 import tuwien.auto.calimero.link.medium.TPSettings;
 
+import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -142,6 +143,8 @@ public class TestVirtualDownloadThroughController extends BasicTestCase {
 			if (controller != null) {
 				controller.stop();
 			}
+			// The connection's writer records the close: waited for, the deletion does not conflict with it.
+			ControllerConnections.awaitKnowledgeBase();
 			SharedData.deleteProjects(List.of(project));
 		}
 	}

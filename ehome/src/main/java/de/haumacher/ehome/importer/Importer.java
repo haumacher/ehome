@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
@@ -271,10 +272,11 @@ public class Importer {
 				_programFiles++;
 				scanModules(context, program);
 				importXml(context, handler, name, new ByteArrayInputStream(program));
-				completeAssigns(program);
-				completeButtons(program);
-				completeRequirements(program);
-				completeChannelNumbers(program);
+				ProgramFacts facts = new ProgramFacts(program);
+				completeAssigns(facts);
+				completeButtons(facts);
+				completeRequirements(facts);
+				completeChannelNumbers(facts);
 				baggage.readProgramReferences(program);
 				_resources.read(program);
 			} else if (name.endsWith(".xml")) {
@@ -388,10 +390,11 @@ public class Importer {
 			try (ImportContext context = newContext()) {
 				scanModules(context, content);
 				importXml(context, handler(), name, new ByteArrayInputStream(content));
-				completeAssigns(content);
-				completeButtons(content);
-				completeRequirements(content);
-				completeChannelNumbers(content);
+				ProgramFacts facts = new ProgramFacts(content);
+				completeAssigns(facts);
+				completeButtons(facts);
+				completeRequirements(facts);
+				completeChannelNumbers(facts);
 				baggage.readProgramReferences(content);
 				_resources.read(content);
 				HiddenProgramValues.reportPending(context);
@@ -502,12 +505,13 @@ public class Importer {
 	 * known programs an earlier import left without them (<code>assignsRead</code> not set), see
 	 * {@link AssignCompletion}; the programs this import created read them themselves.
 	 */
-	private void completeAssigns(byte[] content) throws IOException {
+	private void completeAssigns(ProgramFacts facts) throws IOException {
+		byte[] content = facts.content();
 		if (!mentions(content, ASSIGN_MARKER)) {
 			return;
 		}
 		Document document = null;
-		for (String id : programIds(content)) {
+		for (String id : facts.programIds()) {
 			Program existing = existingProgram(id);
 			if (existing == null || Boolean.TRUE.equals(existing.getAssignsReadOrNull())) {
 				continue;
@@ -537,12 +541,13 @@ public class Importer {
 	 * program file to the known programs an earlier import left without them (<code>buttonsRead</code>
 	 * not set), see {@link ButtonCompletion}; the programs this import created read them themselves.
 	 */
-	private void completeButtons(byte[] content) throws IOException {
+	private void completeButtons(ProgramFacts facts) throws IOException {
+		byte[] content = facts.content();
 		if (!mentions(content, BUTTON_MARKER)) {
 			return;
 		}
 		Document document = null;
-		for (String id : programIds(content)) {
+		for (String id : facts.programIds()) {
 			Program program = existingProgram(id);
 			if (program == null || Boolean.TRUE.equals(program.getButtonsReadOrNull())) {
 				continue;
@@ -574,11 +579,11 @@ public class Importer {
 	 * without their requirements (haumacher/ehome #159, see {@link ExtensionRequirements}); the programs
 	 * this import created read them themselves.
 	 */
-	private void completeRequirements(byte[] content) throws IOException {
-		if (!mentions(content, EXTENSION_MARKER)) {
+	private void completeRequirements(ProgramFacts facts) throws IOException {
+		if (!mentions(facts.content(), EXTENSION_MARKER)) {
 			return;
 		}
-		for (Map.Entry<String, Set<String>> entry : requirements(content).entrySet()) {
+		for (Map.Entry<String, Set<String>> entry : facts.requirements().entrySet()) {
 			Program existing = existingProgram(entry.getKey());
 			if (existing == null || _binding.isCreated(existing)) {
 				continue;
@@ -592,11 +597,11 @@ public class Importer {
 	 * read: a number that is not an integer ("18d") was reported and left out while the number was an
 	 * integer in the model. Only such numbers are looked for, so a file without them costs one scan.
 	 */
-	private void completeChannelNumbers(byte[] content) throws IOException {
-		if (!mentions(content, CHANNEL_MARKER)) {
+	private void completeChannelNumbers(ProgramFacts facts) throws IOException {
+		if (!mentions(facts.content(), CHANNEL_MARKER)) {
 			return;
 		}
-		Map<String, String> numbers = textChannelNumbers(content);
+		Map<String, String> numbers = facts.textChannelNumbers();
 		if (numbers.isEmpty()) {
 			return;
 		}
@@ -612,107 +617,139 @@ public class Importer {
 	}
 
 	/**
-	 * The numbers of the channels of the given program file that are not integers, by the channel's ID.
+	 * What the completions of known programs read from a program file (its program IDs, the
+	 * requirements of its programs, the channel numbers that are not integers), read in one pass when
+	 * the first of them is asked: a program file has megabytes, and each pass of its own cost as much
+	 * as the others together (haumacher/ehome #208).
 	 */
-	private static Map<String, String> textChannelNumbers(byte[] content) throws IOException {
-		Map<String, String> result = new LinkedHashMap<>();
-		try {
-			XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
-				.createXMLStreamReader(new ByteArrayInputStream(content));
+	private static final class ProgramFacts {
+
+		private final byte[] _content;
+
+		/**
+		 * The requirements of each application program (the attributes of
+		 * <code>ApplicationProgram/Static/Extension</code>, see
+		 * {@link PluginRequirements#fromExtension(java.util.function.UnaryOperator)}), by the
+		 * program's ID, in the order of the programs; <code>null</code> before the file is read.
+		 */
+		private Map<String, Set<String>> _requirements;
+
+		/** The numbers of the channels that are not integers, by the channel's ID. */
+		private Map<String, String> _textChannelNumbers;
+
+		ProgramFacts(byte[] content) {
+			_content = content;
+		}
+
+		/**
+		 * The content of the program file.
+		 */
+		byte[] content() {
+			return _content;
+		}
+
+		/**
+		 * The IDs of the application programs of the file, in their order.
+		 */
+		List<String> programIds() throws IOException {
+			return new ArrayList<>(requirements().keySet());
+		}
+
+		/**
+		 * The requirements of each application program of the file, by the program's ID.
+		 */
+		Map<String, Set<String>> requirements() throws IOException {
+			read();
+			return _requirements;
+		}
+
+		/**
+		 * The numbers of the channels of the file that are not integers, by the channel's ID.
+		 */
+		Map<String, String> textChannelNumbers() throws IOException {
+			read();
+			return _textChannelNumbers;
+		}
+
+		private void read() throws IOException {
+			if (_requirements != null) {
+				return;
+			}
+			Map<String, Set<String>> requirements = new LinkedHashMap<>();
+			Map<String, String> numbers = new LinkedHashMap<>();
 			try {
-				while (in.hasNext()) {
-					if (in.next() == XMLStreamConstants.START_ELEMENT && "Channel".equals(in.getLocalName())) {
-						String number = in.getAttributeValue(null, "Number");
-						String id = in.getAttributeValue(null, "Id");
-						if (id != null && number != null && !number.isBlank() && !number.trim().matches("-?[0-9]+")) {
-							result.put(id, number);
+				XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
+					.createXMLStreamReader(new ByteArrayInputStream(_content));
+				try {
+					Deque<String> elements = new ArrayDeque<>();
+					String program = null;
+					while (in.hasNext()) {
+						int event = in.next();
+						if (event == XMLStreamConstants.START_ELEMENT) {
+							String name = in.getLocalName();
+							if ("ApplicationProgram".equals(name)) {
+								program = in.getAttributeValue(null, "Id");
+								requirements.put(program, new LinkedHashSet<>());
+							} else if ("Extension".equals(name) && program != null && "Static".equals(elements.peek())
+								&& elements.size() >= 2 && "ApplicationProgram".equals(List.copyOf(elements).get(1))) {
+								requirements.get(program).addAll(
+									PluginRequirements.fromExtension(attribute -> in.getAttributeValue(null, attribute)));
+							} else if ("Channel".equals(name)) {
+								String number = in.getAttributeValue(null, "Number");
+								String id = in.getAttributeValue(null, "Id");
+								if (id != null && number != null && !number.isBlank()
+									&& !number.trim().matches("-?[0-9]+")) {
+									numbers.put(id, number);
+								}
+							}
+							elements.push(name);
+						} else if (event == XMLStreamConstants.END_ELEMENT) {
+							elements.pop();
 						}
 					}
+				} finally {
+					in.close();
 				}
-			} finally {
-				in.close();
+			} catch (XMLStreamException ex) {
+				throw new ProgramFileException(ex);
 			}
-		} catch (XMLStreamException ex) {
-			throw new ProgramFileException(ex);
+			_requirements = requirements;
+			_textChannelNumbers = numbers;
 		}
-		return result;
-	}
-
-	/**
-	 * The requirements of each application program of the given program file, by the program's ID
-	 * (the attributes of <code>ApplicationProgram/Static/Extension</code>, see
-	 * {@link PluginRequirements#fromExtension(java.util.function.UnaryOperator)}).
-	 */
-	private static Map<String, Set<String>> requirements(byte[] content) throws IOException {
-		Map<String, Set<String>> result = new LinkedHashMap<>();
-		try {
-			XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
-				.createXMLStreamReader(new ByteArrayInputStream(content));
-			try {
-				Deque<String> elements = new ArrayDeque<>();
-				String program = null;
-				while (in.hasNext()) {
-					int event = in.next();
-					if (event == XMLStreamConstants.START_ELEMENT) {
-						String name = in.getLocalName();
-						if ("ApplicationProgram".equals(name)) {
-							program = in.getAttributeValue(null, "Id");
-							result.put(program, new LinkedHashSet<>());
-						} else if ("Extension".equals(name) && program != null && "Static".equals(elements.peek())
-							&& elements.size() >= 2 && "ApplicationProgram".equals(List.copyOf(elements).get(1))) {
-							result.get(program).addAll(
-								PluginRequirements.fromExtension(attribute -> in.getAttributeValue(null, attribute)));
-						}
-						elements.push(name);
-					} else if (event == XMLStreamConstants.END_ELEMENT) {
-						elements.pop();
-					}
-				}
-			} finally {
-				in.close();
-			}
-		} catch (XMLStreamException ex) {
-			throw new ProgramFileException(ex);
-		}
-		return result;
-	}
-
-	/**
-	 * The IDs of the application programs of the given program file, in their order.
-	 */
-	private static List<String> programIds(byte[] content) throws IOException {
-		List<String> result = new ArrayList<>();
-		try {
-			XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
-				.createXMLStreamReader(new ByteArrayInputStream(content));
-			try {
-				while (in.hasNext()) {
-					if (in.next() == XMLStreamConstants.START_ELEMENT
-						&& "ApplicationProgram".equals(in.getLocalName())) {
-						result.add(in.getAttributeValue(null, "Id"));
-					}
-				}
-			} finally {
-				in.close();
-			}
-		} catch (XMLStreamException ex) {
-			throw new ProgramFileException(ex);
-		}
-		return result;
 	}
 
 	/**
 	 * Whether the given content holds the given bytes.
+	 *
+	 * <p>
+	 * A program file has megabytes, and every import of it looks for several markers that mostly do
+	 * not occur (haumacher/ehome #208): the search skips ahead by the Boyer-Moore-Horspool rule, by up
+	 * to the length of the marker per comparison, instead of comparing at every position.
+	 * </p>
 	 */
 	static boolean mentions(byte[] content, byte[] marker) {
-		outer:
-		for (int n = 0, last = content.length - marker.length; n <= last; n++) {
-			for (int k = 0; k < marker.length; k++) {
-				if (content[n + k] != marker[k]) {
-					continue outer;
+		int length = marker.length;
+		if (length == 0) {
+			return true;
+		}
+		int[] shift = new int[256];
+		Arrays.fill(shift, length);
+		for (int k = 0; k < length - 1; k++) {
+			shift[marker[k] & 0xFF] = length - 1 - k;
+		}
+		byte lastByte = marker[length - 1];
+		for (int n = 0, last = content.length - length; n <= last;) {
+			byte current = content[n + length - 1];
+			if (current == lastByte) {
+				int k = length - 2;
+				while (k >= 0 && content[n + k] == marker[k]) {
+					k--;
+				}
+				if (k < 0) {
+					return true;
 				}
 			}
-			return true;
+			n += shift[current & 0xFF];
 		}
 		return false;
 	}

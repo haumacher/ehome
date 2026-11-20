@@ -12,8 +12,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.top_logic.basic.io.binary.BinaryData;
@@ -54,8 +52,6 @@ final class Values {
 		"fullpar", "full,par",
 		"fullgrp", "full,grp",
 		"pargrp", "par,grp");
-
-	private static final Pattern NUMBER_PARTS = Pattern.compile("(\\d+)|(\\D+)");
 
 	private Values() {
 		// Static helpers.
@@ -115,30 +111,70 @@ final class Values {
 	}
 
 	/**
-	 * Compares IDs with the numbers within them by their value.
+	 * Compares IDs with the numbers within them by their value: the IDs are compared run by run (a
+	 * run of digits or a run of other characters), two runs of digits by their value, other runs as
+	 * texts; an ID that ends first comes first.
+	 *
+	 * <p>
+	 * Without a regular expression: the export of a program sorts thousands of IDs (haumacher/ehome
+	 * #208).
+	 * </p>
 	 */
 	static int compareIds(String left, String right) {
 		if (left == null || right == null) {
 			return left == null ? (right == null ? 0 : -1) : 1;
 		}
-		Matcher l = NUMBER_PARTS.matcher(left);
-		Matcher r = NUMBER_PARTS.matcher(right);
+		int l = 0;
+		int r = 0;
 		while (true) {
-			boolean hasLeft = l.find();
-			boolean hasRight = r.find();
+			boolean hasLeft = l < left.length();
+			boolean hasRight = r < right.length();
 			if (!hasLeft || !hasRight) {
 				return Boolean.compare(hasLeft, hasRight);
 			}
+			boolean leftDigits = isDigit(left.charAt(l));
+			boolean rightDigits = isDigit(right.charAt(r));
+			int leftEnd = runEnd(left, l, leftDigits);
+			int rightEnd = runEnd(right, r, rightDigits);
 			int result;
-			if (l.group(1) != null && r.group(1) != null) {
-				result = Long.compare(Long.parseLong(l.group(1)), Long.parseLong(r.group(1)));
+			if (leftDigits && rightDigits) {
+				result = Long.compare(Long.parseLong(left, l, leftEnd, 10), Long.parseLong(right, r, rightEnd, 10));
 			} else {
-				result = l.group().compareTo(r.group());
+				result = compareRegions(left, l, leftEnd, right, r, rightEnd);
 			}
 			if (result != 0) {
 				return result;
 			}
+			l = leftEnd;
+			r = rightEnd;
 		}
+	}
+
+	private static boolean isDigit(char ch) {
+		return ch >= '0' && ch <= '9';
+	}
+
+	/** The end of the run of digits (or of other characters) starting at the given index. */
+	private static int runEnd(String text, int start, boolean digits) {
+		int end = start + 1;
+		while (end < text.length() && isDigit(text.charAt(end)) == digits) {
+			end++;
+		}
+		return end;
+	}
+
+	/** The order of {@link String#compareTo(String)} of the two regions. */
+	private static int compareRegions(String left, int l, int leftEnd, String right, int r, int rightEnd) {
+		int leftLength = leftEnd - l;
+		int rightLength = rightEnd - r;
+		for (int n = 0, length = Math.min(leftLength, rightLength); n < length; n++) {
+			char a = left.charAt(l + n);
+			char b = right.charAt(r + n);
+			if (a != b) {
+				return a - b;
+			}
+		}
+		return leftLength - rightLength;
 	}
 
 	/**

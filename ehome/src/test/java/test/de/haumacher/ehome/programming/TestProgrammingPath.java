@@ -244,6 +244,7 @@ public class TestProgrammingPath extends BasicTestCase {
 			if (foreign != null) {
 				foreign.stop();
 			}
+			ControllerConnections.awaitKnowledgeBase();
 			SharedData.deleteProjects(projects);
 		}
 	}

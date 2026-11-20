@@ -95,16 +95,7 @@ final class ModuleScan {
 	 * name of their element is read without a scan.
 	 */
 	static boolean mentionsModules(byte[] content) {
-		outer:
-		for (int n = 0, last = content.length - MARKER.length; n <= last; n++) {
-			for (int k = 0; k < MARKER.length; k++) {
-				if (content[n + k] != MARKER[k]) {
-					continue outer;
-				}
-			}
-			return true;
-		}
-		return false;
+		return Importer.mentions(content, MARKER);
 	}
 
 	/**

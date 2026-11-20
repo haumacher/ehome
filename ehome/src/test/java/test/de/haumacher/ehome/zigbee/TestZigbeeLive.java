@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -58,12 +59,20 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * </p>
  *
  * <p>
- * Takes about 5 s: the debounce interval of the live import itself ({@link ZigbeeLive#MIN_INTERVAL},
- * 2 s) separates the three reads; the waits are on the outcome, never fixed sleeps longer than that.
+ * The live import runs with a debounce interval of {@link #INTERVAL} instead of its own
+ * ({@link ZigbeeLive#MIN_INTERVAL}, 2 s), which separates the three reads; the waits are on the
+ * outcome, never fixed sleeps longer than that.
  * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestZigbeeLive extends BasicTestCase {
+
+	/**
+	 * The least time between two reads of a controller in the tests of the live import: longer than
+	 * the delay after an event ({@link ZigbeeLive#DELAY}), so that a burst is still one read, and
+	 * shorter than the import's own interval, which the tests would wait for every read.
+	 */
+	static final Duration INTERVAL = Duration.ofMillis(600);
 
 	private static final String TOKEN = "hct_0123456789abcdef0123456789abcdef";
 
@@ -82,7 +91,7 @@ public class TestZigbeeLive extends BasicTestCase {
 		super.setUp();
 		_endpoint = new ControllerEndpoint();
 		_fake = new FakeController(TOKEN, 262144);
-		ZigbeeLive.start();
+		ZigbeeLive.start(INTERVAL);
 	}
 
 	@Override
