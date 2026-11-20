@@ -318,6 +318,34 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 	}
 
 	/**
+	 * Sets the last value of a persisted datapoint from before the reboot (right after the model is
+	 * built, before the rules start; homecontrol <code>hc::DatapointModel::restore</code>): the value
+	 * with quality good, whatever owns the datapoint (<code>persist</code> says the last value counts,
+	 * haumacher/homecontrol#100); the update time stays 0 and no listener is told: the restore is no
+	 * update.
+	 *
+	 * @return Whether the value was restored; <code>false</code> when the datapoint has a value already
+	 *         (a value reported or commanded since the load always wins).
+	 * @throws IllegalArgumentException
+	 *         For an unknown datapoint or a value that does not convert to its type.
+	 */
+	public boolean restore(String name, Val value) {
+		checkNotNotifying();
+		Datapoint datapoint = require(name);
+		if (datapoint._quality != Quality.UNKNOWN) {
+			return false;
+		}
+		Val converted = convert(datapoint, value);
+		if (converted == null) {
+			throw new IllegalArgumentException("A " + value.type() + " value for the " + datapoint._type
+				+ " datapoint '" + name + "'.");
+		}
+		datapoint._value = converted;
+		datapoint._quality = Quality.GOOD;
+		return true;
+	}
+
+	/**
 	 * The technology reports the datapoint stale: an update only when its quality was good.
 	 */
 	public void reportStale(String name) {
