@@ -238,7 +238,8 @@ Today:
   `ehome/src/main/java/de/haumacher/ehome/scan/BusScanner.java:462`); the device stub shows it as
   "Hardware-Typ" (`ehome/src/main/webapp/WEB-INF/views/projects/devices.view.xml:926`).
 - An application program checks it when loading (`LdCtrlCompareProp PropId="78"`, e.g.
-  `InlineData="00000000030D00000000"` in the Gira program of `ehome/samples/KNX-Testsystem.knxproj`);
+  `InlineData="00000000030D00000000"` in the MDT program `M-0083_A-000C-21-83B5` of
+  `ehome/samples/KNX-Testsystem.knxproj`);
   the catalog match uses it only to exclude programs whose application number and version already
   match (`scan/CatalogMatch.java:175-178`).
 
