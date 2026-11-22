@@ -89,6 +89,10 @@ changed the block cases `09-fault-failsafe-restart`, `10-disable-enable-failsafe
 listed fields, the check member `stored`, `records` `{}` as no record; it brought along its section
 "The compiled images" of the binary image round, homecontrol #87); the image and rule fixtures did not
 change.
+Synced again at `69d31f5a059d793fd1285d2cb0eb53d5f7742337` (2026-11-22, haumacher/homecontrol#104),
+which changed `75-house-reboot-managed-state` (checks of the stored records 9 s after each change, before
+the 10 s delay is over) and its row in the block corpus `README.md`; its rules and the compiled image did
+not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 
