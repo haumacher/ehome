@@ -312,6 +312,23 @@ records by the specification's constants, independently of E-Home's encoding) an
 program turned into mask 7.1) equals the plan of the 7.5 program but for the way of the load
 controls, 626 bytes of the image written. **Not verified against a device.**
 
+The tables (haumacher/ehome #219, read-back of a house device of mask 7.1,
+`ehome/src/test/fixtures/readback/Mask0701-1.1.74-*.hex`):
+
+- The first entry of the address table is the program's static data (`FFFF` for Gira's
+  `M-0002_A-A002-13-8DB0`), not the individual address: mask 7.1 does not keep the individual
+  address in the table. The masks' resources decide (`DownloadImage.individualAddressInTable`): the
+  individual address is the first entry where the mask has the resource `IndividualAddress` in memory
+  at that place (BCU 1, BCU 2) or the resource `GroupAddressTableStamp` (mask 7.5, whose stamp covers
+  the table with the individual address the device keeps there); mask 7.1 has neither. The download
+  writes the first entry only where the program's static data does not mask it out, and then the
+  static data, as ETS left it; a comparison of such a device finds the address table identical.
+- The associations: E-Home's order (by object number, the send address first) differs from the one
+  ETS wrote into the device ((3, 1), (1, 8), (4, 1), (2, 8): ETS's order of the connections) only
+  across objects. The device goes through the table, so only the first entry of each object (its send
+  address) matters, which both orders share. A comparison reports the different order as a
+  difference of the association table.
+
 ### The first 7.1 download (the owner runs it)
 
 On the house installation (its only 7.1 devices), every step started by the owner from the UI; no

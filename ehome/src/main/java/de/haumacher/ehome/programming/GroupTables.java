@@ -23,13 +23,14 @@ import java.util.TreeSet;
  * <code>src/test/fixtures/readback/</code>):
  * </p>
  * <ul>
- * <li>Address table (<code>AddressTable_Bcu1</code>): the number of entries including the
- * individual address, the individual address, then the group addresses, two bytes each, most
- * significant byte first, distinct and in ascending order.</li>
+ * <li>Address table (<code>AddressTable_Bcu1</code>): the number of entries including the first
+ * one, the first entry, then the group addresses, two bytes each, most significant byte first,
+ * distinct and in ascending order. The first entry is the individual address on a mask that keeps
+ * it there, else what the program's static data holds there (see below, "The first entry of the
+ * address table").</li>
  * <li>Association table (<code>AssociationTable_M112</code>): the number of associations, then per
- * association the index of the group address in the address table (the individual address being
- * index 0) and the number of the communication object, in ascending order of the object
- * number.</li>
+ * association the index of the group address in the address table (the first entry being index 0)
+ * and the number of the communication object, in ascending order of the object number.</li>
  * <li>Object table (<code>GroupObjectTable_M112</code>, {@link ObjectTableFormat#M112}): the number
  * of objects, the address of the RAM flags (two bytes), then four bytes per object: the address of
  * its value (two bytes), the configuration byte, the type (size) byte. ETS takes the table from the
@@ -37,6 +38,42 @@ import java.util.TreeSet;
  * association the type byte from the size of the object's reference in effect (a parameter may
  * decide it).</li>
  * </ul>
+ *
+ * <h2>The first entry of the address table</h2>
+ * <p>
+ * The download never writes the individual address: only the programming of the individual address
+ * does. Whether the device keeps it in the first entry of the address table, the master data of the
+ * mask say (<code>knx_master.xml</code>, {@link DownloadImage#individualAddressInTable(de.haumacher.ehome.model.operational.MaskVersion, int)}):
+ * </p>
+ * <ul>
+ * <li>BCU 1 and BCU 2 (masks 0010 to 0013, 0020, 0021, 0025): the mask's resource
+ * <code>IndividualAddress</code> lies in memory right after the count of the address table (0117,
+ * the table at 0116).</li>
+ * <li>BIM M112 with download stamps (masks 0705, 2705, 5705): the mask has the resource
+ * <code>GroupAddressTableStamp</code>, the stamp of the address table, whose checksum covers the
+ * table as the device holds it, the individual address in the first entry. Verified: the devices
+ * of the test system (mask 0705) hold their individual address there, ETS does not write it (the
+ * programs' static data mask it out, ETS writes the count and the group addresses only,
+ * <code>ets6-download-1.3.5.txt</code>), and the checksum of the stamp ETS wrote covers it.</li>
+ * <li>Every other mask, among them 0700, 0701 and 0310: the mask names neither, nothing in its
+ * resources places the individual address in the table. The first entry is the program's static
+ * data. Verified on a device of mask 0701 (the read-back <code>Mask0701-1.1.74-*.hex</code>): it
+ * holds <code>FFFF</code> there, the static data of its program, and answers at its individual
+ * address all the same.</li>
+ * </ul>
+ *
+ * <h2>The order of the associations</h2>
+ * <p>
+ * ETS writes the associations of the devices of mask 0705 in ascending order of the object number,
+ * E-Home's order. The device of mask 0701 holds the ones ETS wrote in another order, neither by
+ * object nor by address ((3, 1), (1, 8), (4, 1), (2, 8): object 1 sends to address 3 and receives
+ * 4, object 8 sends to 1 and receives 2), and runs with it: its mask does not search the table by
+ * an order, it goes through it. For such a lookup only the order within an object matters, its
+ * first entry being the address it sends to; E-Home's order keeps it (send address first) and
+ * differs from ETS's only across objects, so the device runs E-Home's table the same. E-Home keeps
+ * its order on every mask: it is the order ETS writes on mask 0705, whose devices are verified with
+ * it, and one order for all masks needs no rule per mask that no master data would ground.
+ * </p>
  *
  * <h2>BCU 1 (mask 0012)</h2>
  * <p>
@@ -170,8 +207,8 @@ public class GroupTables {
 	 * An association of a group address with a communication object.
 	 *
 	 * @param addressIndex
-	 *        The index of the group address in the address table, from 1 (index 0 is the individual
-	 *        address).
+	 *        The index of the group address in the address table, from 1 (index 0 is the first entry,
+	 *        no group address).
 	 * @param objectNumber
 	 *        The number of the communication object.
 	 * @param send
@@ -191,19 +228,21 @@ public class GroupTables {
 	/**
 	 * The address table.
 	 *
-	 * @param individualAddress
-	 *        The individual address of the device (area, line and device number in 4, 4 and 8 bits).
+	 * @param firstEntry
+	 *        The first entry: the individual address of the device (area, line and device number in 4,
+	 *        4 and 8 bits) on a mask that keeps it in the table, else the program's static data there
+	 *        ({@link DownloadImage#individualAddressInTable(de.haumacher.ehome.model.operational.MaskVersion, int)}).
 	 * @param groupAddresses
 	 *        The group addresses in the order of {@link #addressOrder(Collection)}.
 	 */
-	public static byte[] addressTable(int individualAddress, List<Integer> groupAddresses) {
+	public static byte[] addressTable(int firstEntry, List<Integer> groupAddresses) {
 		int entries = groupAddresses.size() + 1;
 		if (entries > 255) {
 			throw new IllegalArgumentException("Too many group addresses: " + groupAddresses.size());
 		}
 		byte[] result = new byte[1 + 2 * entries];
 		result[0] = (byte) entries;
-		put16(result, 1, individualAddress);
+		put16(result, 1, firstEntry);
 		int position = 3;
 		for (int address : groupAddresses) {
 			put16(result, position, address);

@@ -1,0 +1,2 @@
+# Read-back of a device of mask 0701 (BIM M112 7.1) at 1.1.74, program M-0002_A-A002-13-8DB0 (Gira, version 00 02 A0 02 13), loaded by ETS: memory 4000, the group address table (5 entries: the first FFFF, then 9/0/14, 9/0/17, 10/0/2, 10/0/10) and the two bytes after it. Taken 2026-11-22 with the read-out of E-Home (haumacher/ehome #193, #219); addresses only.
+4000: 05 FF FF 48 0E 48 11 50 02 50 0A 00 00

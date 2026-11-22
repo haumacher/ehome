@@ -61,7 +61,9 @@ import de.haumacher.ehome.programming.GroupTables.Association;
  * bits of the parameters in effect (its mask); not verified, the router could not be read
  * back.</li>
  * <li>The segments of the address and association tables are written as the tables, not as their
- * static data (a template of the manufacturer).</li>
+ * static data (a template of the manufacturer). The first entry of the address table is the
+ * individual address where the device's mask keeps it there, else the static data
+ * ({@link #individualAddressInTable(MaskVersion, int)}).</li>
  * <li>With dynamic table management the association table follows the address table directly
  * (the device's table pointer then points there).</li>
  * <li>The object table is the static data with the configuration bytes computed from the flags of
@@ -85,6 +87,12 @@ class DownloadImageBuilder {
 	private static final String LINE = "ehome.physical:Line";
 
 	private static final String ADDRESS_TABLE_FORMAT = "AddressTable_Bcu1";
+
+	/** The mask's resource of the individual address in memory (BCU 1, BCU 2). */
+	private static final String INDIVIDUAL_ADDRESS = "IndividualAddress";
+
+	/** The mask's resource of the stamp of the group address table (BIM M112 with download stamps). */
+	private static final String ADDRESS_TABLE_STAMP = "GroupAddressTableStamp";
 
 	/** The format of the association table of BCU 2, with a reserved place per object ({@link GroupTables#associationSlots(Collection, int)}). */
 	private static final String ASSOCIATION_TABLE_BCU2 = "AssociationTable_Bcu2";
@@ -343,13 +351,23 @@ class DownloadImageBuilder {
 			_image.addProblem(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_ADDRESS);
 			return;
 		}
-		byte[] addressTable = GroupTables.addressTable(individualAddress.intValue(), addresses);
 		Integer addressStart = start(addressLocation, "GroupAddressTable");
 		if (addressStart == null) {
 			_image.addProblem(I18NConstants.IMAGE_ADDRESS_TABLE_PLACE);
 			return;
 		}
+		// The first entry: the individual address where the mask keeps it in the table, else the
+		// program's static data (haumacher/ehome #219).
+		boolean keepsAddress = individualAddressInTable(_program.getMask(), addressStart.intValue());
+		Integer staticEntry = keepsAddress ? null : staticFirstEntry(addressLocation);
+		int firstEntry = keepsAddress || staticEntry == null ? individualAddress.intValue() : staticEntry.intValue();
+		byte[] addressTable = GroupTables.addressTable(firstEntry, addresses);
 		byte[] addressMask = mask(addressLocation, addressTable.length);
+		if (!keepsAddress && staticEntry == null) {
+			// Neither the device's nor static data: the download leaves the first entry as it is.
+			addressMask[1] = 0;
+			addressMask[2] = 0;
+		}
 		boolean addressCombined = combined(addressLocation);
 		if (addressCombined) {
 			fixedPlace("GroupAddressTable", addressStart);
@@ -385,6 +403,48 @@ class DownloadImageBuilder {
 			pointer("GroupAssociationTablePtr", associationStart);
 			patch(associationLocation.getSegment(), associationBlock);
 		}
+	}
+
+	/**
+	 * Whether a device of the given mask keeps its individual address in the first entry of its group
+	 * address table (see {@link GroupTables}): the mask has the resource <code>IndividualAddress</code>
+	 * in memory at the place of the first entry (BCU 1, BCU 2), or the resource
+	 * <code>GroupAddressTableStamp</code>, the stamp of the address table, whose checksum covers the
+	 * table as the device holds it (BIM M112 with download stamps, mask 0705).
+	 *
+	 * @param tableAddress
+	 *        The address of the group address table.
+	 */
+	static boolean individualAddressInTable(MaskVersion mask, int tableAddress) {
+		if (mask == null) {
+			return false;
+		}
+		for (MaskResource resource : mask.getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if (ADDRESS_TABLE_STAMP.equals(resource.getName())) {
+				return true;
+			}
+			if (INDIVIDUAL_ADDRESS.equals(resource.getName()) && location != null && location.getAddressSpace() != null
+				&& "StandardMemory".equals(location.getAddressSpace().getName()) && location.getStartAddress() != null
+				&& location.getStartAddress().intValue() == tableAddress + 1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The first entry of the address table in the program's static data, <code>null</code> if the
+	 * program has no static data there.
+	 */
+	private static Integer staticFirstEntry(TableLocation location) {
+		byte[] data = location == null || location.getSegment() == null ? null
+			: ParameterEncoding.toBytes(location.getSegment().getData());
+		int offset = location == null ? 0 : value(location.getOffset());
+		if (data == null || offset + 3 > data.length) {
+			return null;
+		}
+		return Integer.valueOf((data[offset + 1] & 0xFF) << 8 | (data[offset + 2] & 0xFF));
 	}
 
 	/**
@@ -430,7 +490,7 @@ class DownloadImageBuilder {
 	 * of the mask of the address table: only the programming of the individual address writes it.
 	 */
 	private void excludeIndividualAddress(int tableAddress, byte[] mask) {
-		MaskResource resource = memoryResourceOf("IndividualAddress");
+		MaskResource resource = memoryResourceOf(INDIVIDUAL_ADDRESS);
 		if (resource == null) {
 			return;
 		}

@@ -7,6 +7,8 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -16,6 +18,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.basic.Logger;
+import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -24,8 +27,13 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.programming.GroupTables;
+import de.haumacher.ehome.programming.ParameterEncoding;
 import de.haumacher.ehome.programming.download.DeviceComparison;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -57,6 +65,8 @@ import de.haumacher.ehome.programming.download.Operation;
  * states in memory; a device whose load states are not loaded refuses it before anything is
  * written.</li>
  * <li>The comparison reads the load states of all four load state machines from memory.</li>
+ * <li>The tables of a device of mask 7.1 as ETS loaded them (haumacher/ehome #219): the first entry of
+ * the address table is the program's static data, not the individual address.</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -116,6 +126,9 @@ public class TestMask71Download extends SharedProjectTestCase {
 			checkReadOut(device, plan, mock);
 			checkDeviceInfo(mock);
 			checkStateNotFollowing(plan);
+			checkFirstEntry(DeviceConfiguration.program(device(reference, ACTUATOR)).getMask(),
+				DeviceConfiguration.program(device).getMask());
+			checkReadBackTables(device);
 		} finally {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				for (TLObject p : _projects) {
@@ -393,6 +406,73 @@ public class TestMask71Download extends SharedProjectTestCase {
 			"readMemory B6EA 1", "readMemory B6EA 1", "readMemory B6EA 1", "readMemory B6EA 1"), mock.calls());
 		assertEquals(List.of(250, 250, 250), sleeps);
 		assertEquals(1, mock.writes());
+	}
+
+	/**
+	 * The first entry of the address table per mask, from the masks' resources (haumacher/ehome #219):
+	 * mask 7.5 keeps the individual address there (resource <code>GroupAddressTableStamp</code>), mask
+	 * 7.1 does not (neither that resource nor <code>IndividualAddress</code>).
+	 */
+	private static void checkFirstEntry(MaskVersion mask75, MaskVersion mask71) {
+		assertEquals(0x0705, mask75.getNumber());
+		assertTrue(DownloadImage.individualAddressInTable(mask75, 0x4000));
+		assertFalse(DownloadImage.individualAddressInTable(mask71, 0x4000));
+	}
+
+	/**
+	 * The tables of a device of mask 7.1 in the state ETS loaded into it (haumacher/ehome #219, the
+	 * read-back <code>Mask0701-1.1.74-*.hex</code>): the program's static data of the address table
+	 * as the device's program M-0002_A-A002-13-8DB0 has it (<code>FF FF FF 00 ...</code>, without a
+	 * mask), the device wired as its tables say.
+	 *
+	 * <ul>
+	 * <li>The address table is the device's bytes, its first entry the static data <code>FFFF</code>,
+	 * not the individual address 1.3.5; written (the static data has no mask) and compared: the
+	 * comparison of the device with the plan finds the address table identical.</li>
+	 * <li>The association table holds the device's associations, the first entry of each object (its
+	 * send address) the device's, in E-Home's order (by object number) instead of ETS's.</li>
+	 * </ul>
+	 */
+	private static void checkReadBackTables(TLObject device) throws Exception {
+		byte[][] addressTable = TestDownloadImage.readBack("Mask0701-1.1.74-4000.hex");
+		byte[][] associationTable = TestDownloadImage.readBack("Mask0701-1.1.74-4200.hex");
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			Program program = DeviceConfiguration.program(device);
+			Segment segment = program.getAddressTable().getSegment();
+			byte[] data = new byte[ParameterEncoding.toBytes(segment.getData()).length];
+			data[0] = (byte) 0xFF;
+			data[1] = (byte) 0xFF;
+			data[2] = (byte) 0xFF;
+			segment.setData(BinaryDataFactory.createBinaryData(data));
+			segment.setMask(null);
+			TestDownloadImage.rewire(device, addressTable, associationTable);
+
+			DownloadImage image = DownloadImage.compute(device);
+			assertEquals(image.dump(), List.of(), image.getProblems());
+			Block addresses = image.getAddressTable();
+			int length = 1 + 2 * (addressTable[1][0] & 0xFF);
+			assertEquals("05ffff480e48115002500a", hex(addresses.data()));
+			assertEquals(hex(Arrays.copyOf(addressTable[1], length)), hex(addresses.data()));
+			assertEquals("ffffffffffffffffffffff", hex(addresses.mask()));
+
+			byte[] device71 = Arrays.copyOf(associationTable[1], 1 + 2 * (associationTable[1][0] & 0xFF));
+			byte[] computed = image.getAssociationTable().data();
+			assertEquals("040301040101080208", hex(computed));
+			List<GroupTables.Association> expected = GroupTables.associations(device71, false);
+			List<GroupTables.Association> actual = GroupTables.associations(computed, false);
+			assertEquals(new HashSet<>(expected), new HashSet<>(actual));
+
+			DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+			MockDevice mock = mask71Device().setMemory(0x4000, addressTable[1]);
+			DeviceComparison.Result result = DeviceComparison.compare(program, plan, mock, (number, count, block) -> {
+				// No progress.
+			});
+			DeviceComparison.BlockResult compared = result.blocks().stream()
+				.filter(b -> b.address() == addresses.address() && b.length() == addresses.data().length).findFirst()
+				.orElseThrow();
+			assertEquals(addresses.data().length, compared.compared());
+			assertTrue(compared.differences().toString(), compared.identical());
+		}
 	}
 
 	/**
