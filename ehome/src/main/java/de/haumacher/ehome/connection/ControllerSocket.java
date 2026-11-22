@@ -128,8 +128,8 @@ public class ControllerSocket implements ControllerConnection.Peer {
 	public void onClose(Session session, CloseReason reason) {
 		if (_connection != null) {
 			String phrase = reason.getReasonPhrase();
-			_connection.closed("closed (" + reason.getCloseCode().getCode()
-				+ (phrase == null || phrase.isBlank() ? "" : " " + phrase) + ")");
+			int code = reason.getCloseCode().getCode();
+			_connection.closed("closed (" + code + (phrase == null || phrase.isBlank() ? "" : " " + phrase) + ")", code);
 		}
 	}
 

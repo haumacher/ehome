@@ -245,6 +245,11 @@ public class SocketBusLink implements BusLink, ControllerConnections.Listener {
 		if (_connection == connection) {
 			_connection = null;
 		}
+		if (connection.isPaused()) {
+			// A planned pause of a few seconds (homecontrol #112): no problem; the monitor subscribes again
+			// when the controller is back.
+			return;
+		}
 		_problem = "The controller " + description() + " is not connected to E-Home (" + reason
 			+ "); waiting for it to connect again.";
 		notifyState();

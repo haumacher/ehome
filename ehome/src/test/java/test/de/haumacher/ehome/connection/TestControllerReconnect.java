@@ -67,6 +67,43 @@ public class TestControllerReconnect extends BasicTestCase {
 	}
 
 	/**
+	 * The controller pauses its connection for a fetch of its own (homecontrol #112, close code 4000): no
+	 * problem for the group monitor, which subscribes again when the controller is back; an unplanned
+	 * end is a problem as before.
+	 */
+	public void testPauseIsNoProblem() throws Exception {
+		TLObject project = ControllerEndpoint.project("Pause test");
+		FakeBusController first = FakeBusController.connect(project, "homecontrol-pause", true);
+		FakeBusController again = null;
+		String id = first.connection().controllerId();
+		SocketBusLink monitor = SocketBusLink.open("homecontrol-pause", id, Duration.ofSeconds(5));
+		try {
+			await(() -> first.messages().stream().anyMatch(FakeBusController::monitorSubscription));
+			first.pause();
+			assertTrue(first.connection().isPaused());
+			assertNull(ControllerConnections.get(id));
+			assertNull(monitor.problem());
+
+			again = first.reconnect();
+			FakeBusController current = again;
+			await(() -> current.messages().stream().anyMatch(FakeBusController::monitorSubscription));
+			assertNull(monitor.problem());
+
+			again.disconnect("closed (1006)");
+			assertFalse(again.connection().isPaused());
+			await(() -> monitor.problem() != null);
+		} finally {
+			monitor.close();
+			if (again != null) {
+				again.stop();
+			}
+			first.stop();
+			ControllerConnections.awaitKnowledgeBase();
+			SharedData.deleteProjects(List.of(project));
+		}
+	}
+
+	/**
 	 * Nothing goes out on a connection before it is accepted: a send there is a programming error.
 	 */
 	public void testNoSendBeforeReady() throws Exception {

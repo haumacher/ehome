@@ -177,6 +177,13 @@ not authenticate in time; the container closes a socket idle for 90 s (the contr
 - A running group monitor re-subscribes with `since` set to the last sequence number it received;
   if the controller's ring buffer no longer reaches back, the monitor shows the reset, otherwise
   it continues without a gap. While the controller is away, the monitor shows the interruption.
+- A controller pauses its connection for a fetch of its own when its memory holds no second TLS
+  session beside E-Home's (homecontrol #112, its `spec/api.md` "A pause for a fetch"): it closes with
+  the close code 4000 and the reason `fetch` and connects again at once, at the latest after 60 s, at
+  most once in 10 minutes, never while a request, a bus session or an offered key is in progress.
+  E-Home takes it as planned (`ControllerConnection#isPaused()`): the log says `paused its connection
+  for a fetch` instead of `disconnected`, and the group monitor shows no interruption; it subscribes
+  again when the controller is back.
 - A request in flight when the socket closes fails with "the connection to the controller was
   closed"; it is not repeated.
 - A forgotten controller is refused (`ehome.unknown_controller`) and must be enrolled again with a

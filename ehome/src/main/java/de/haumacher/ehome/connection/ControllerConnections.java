@@ -523,7 +523,13 @@ public final class ControllerConnections {
 			// Replaced by a newer connection, which is the controller's state now.
 			return;
 		}
-		Logger.info("Controller " + connection.controllerId() + " disconnected: " + reason, ControllerConnections.class);
+		if (connection.isPaused()) {
+			// Planned (homecontrol #112): the controller fetches something of its own and connects again at once.
+			Logger.info("Controller " + connection.controllerId() + " paused its connection for a fetch: " + reason,
+				ControllerConnections.class);
+		} else {
+			Logger.info("Controller " + connection.controllerId() + " disconnected: " + reason, ControllerConnections.class);
+		}
 		Instant now = Instant.now();
 		execute(() -> store(connection.controllerId(), now, null, null));
 		for (Listener listener : LISTENERS) {

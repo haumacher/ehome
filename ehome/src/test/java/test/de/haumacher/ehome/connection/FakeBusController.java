@@ -298,6 +298,16 @@ public class FakeBusController implements ControllerConnection.Peer {
 	}
 
 	/**
+	 * Ends the connection with the controller's planned pause (close code
+	 * {@link ControllerConnection#CLOSE_PAUSE} "fetch", homecontrol #112).
+	 */
+	public void pause() throws Exception {
+		_session = false;
+		_replies.submit(() -> _connection.closed("closed (4000 fetch)", ControllerConnection.CLOSE_PAUSE))
+			.get(5, TimeUnit.SECONDS);
+	}
+
+	/**
 	 * Waits until the answers given so far are delivered.
 	 */
 	public void sync() throws Exception {

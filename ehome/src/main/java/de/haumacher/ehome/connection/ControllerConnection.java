@@ -95,6 +95,12 @@ public final class ControllerConnection {
 	/** Close code: a policy violation (a refused authentication). */
 	public static final int CLOSE_POLICY = 1008;
 
+	/**
+	 * Close code of the controller: a planned pause of its connection for a fetch of its own (homecontrol
+	 * #112, <code>spec/api.md</code>, "A pause for a fetch"); the controller connects again at once.
+	 */
+	public static final int CLOSE_PAUSE = 4000;
+
 	/** The largest request body sent inline in the request message. */
 	public static final int MAX_INLINE_BODY = 4096;
 
@@ -200,6 +206,9 @@ public final class ControllerConnection {
 	private final long _opened = System.nanoTime();
 
 	private volatile State _state = State.CHALLENGED;
+
+	/** The controller closed for a planned pause ({@link #CLOSE_PAUSE}). */
+	private volatile boolean _paused;
 
 	private volatile String _installation;
 
@@ -352,6 +361,14 @@ public final class ControllerConnection {
 	 */
 	public Instant since() {
 		return _since;
+	}
+
+	/**
+	 * Whether the controller ended the connection for a planned pause ({@link #CLOSE_PAUSE}): no failure,
+	 * it connects again at once.
+	 */
+	public boolean isPaused() {
+		return _paused;
 	}
 
 	/**
@@ -1016,6 +1033,17 @@ public final class ControllerConnection {
 	 * The transport ended (the controller closed, the network failed, the server closed it).
 	 */
 	public void closed(String reason) {
+		closed(reason, 0);
+	}
+
+	/**
+	 * The transport ended with the close code the controller sent (0: none known).
+	 * {@link #CLOSE_PAUSE} is a planned pause ({@link #isPaused()}).
+	 */
+	public void closed(String reason, int code) {
+		if (code == CLOSE_PAUSE) {
+			_paused = true;
+		}
 		State before;
 		synchronized (this) {
 			before = _state;
