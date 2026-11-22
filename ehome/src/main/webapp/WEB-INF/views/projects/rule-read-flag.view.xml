@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog choosing the object that answers the reads of a group address the rule reads, on which
+	several objects send, none with the read flag (haumacher/ehome #216,
+	de.haumacher.ehome.runtime.RuleReads). On a group address exactly one object answers a read, so
+	the user picks one: "Set read flag" sets the read flag of the chosen object
+	(ruleReadChoose), which the device takes with its next download; on an address that has an
+	object with the read flag already, it sets none.
+
+	"rule" carries the rule; the table lists the sending objects of each such address.
+-->
+<view>
+	<channels>
+		<channel name="rule"/>
+		<channel name="candidate"/>
+	</channels>
+	<window width="720px">
+		<title>
+			<en>Choose the object answering reads</en>
+			<de>Objekt für Leseanfragen wählen</de>
+		</title>
+		<inset>
+			<table
+				observed-types="ehome.physical:Connector,ehome.physical:Connection"
+				selection="candidate"
+			>
+				<inputs>
+					<input channel="rule"/>
+				</inputs>
+				<columns>
+					<computed-column name="address"
+						type="tl.core:String"
+					>
+						<label>
+							<en>Group address</en>
+							<de>Gruppenadresse</de>
+						</label>
+						<value>$row.get(`ehome.physical:Connection#target`).label()</value>
+					</computed-column>
+					<computed-column name="object"
+						type="tl.core:String"
+					>
+						<label>
+							<en>Object</en>
+							<de>Objekt</de>
+						</label>
+						<value>connectionLabel($row)</value>
+					</computed-column>
+				</columns>
+				<rows>if($rule == null, [], ruleReadChoices($rule))</rows>
+			</table>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check2-square"
+					inputs="candidate, rule"
+				>
+					<label>
+						<en>Set read flag</en>
+						<de>Lesen-Flag setzen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$rule"
+							type="ehome.runtime:Rule"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="ruleReadChoose($candidate)"/>
+						<with-result>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

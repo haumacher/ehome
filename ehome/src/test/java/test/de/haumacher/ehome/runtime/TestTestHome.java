@@ -26,6 +26,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
@@ -38,9 +39,12 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleImport;
+import de.haumacher.ehome.runtime.RuleReads;
+import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.simulation.KnxBinding;
 import de.haumacher.ehome.simulation.ProjectSimulation;
@@ -121,7 +125,26 @@ public class TestTestHome extends BasicTestCase {
 			ImageReport report = image.validate();
 			assertTrue(report.toString(), report.isValid());
 			assertEquals(List.of(), report.getNotes());
-			assertEquals(List.of(), image.getNotes());
+			// The datapoints the rules read that nobody can be asked for after a restart (haumacher/ehome
+			// #216): each key is the only object sending on its address, without the read flag (fixable);
+			// on the addresses of the actuator's inputs and of the alarm object of the push button sensor
+			// no object sends, and none has the read flag.
+			List<String> reads = new ArrayList<>();
+			for (RuleReads.Problem problem : RuleReads.problems(project)) {
+				reads.add(GroupAddressIds.datapointId(problem.address()) + " " + problem.cause());
+			}
+			assertEquals(List.of("0/0/46 NOT_SENDING", "0/0/1 NO_READ_FLAG", "0/0/2 NO_READ_FLAG",
+				"0/0/3 NO_READ_FLAG", "0/0/4 NO_READ_FLAG", "0/0/48 NOT_SENDING", "0/0/29 NOT_SENDING",
+				"0/0/40 NOT_SENDING", "0/0/6 NO_READ_FLAG"), reads);
+			// One object at most answers the reads of an address.
+			for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
+				assertTrue(GroupAddressIds.datapointId(address), RuleReads.readers(address).size() <= 1);
+			}
+			List<String> notes = new ArrayList<>();
+			for (RuleReads.Problem problem : RuleReads.problems(project)) {
+				notes.add(Resources.getInstance().getString(problem.message()));
+			}
+			assertEquals(notes, image.getNotes());
 			roundTrip(image.getJson(), sample);
 			simulate(project);
 		} finally {

@@ -291,8 +291,9 @@ public class TestControlPages extends BasicTestCase {
 		assertFalse("A project without pages has no ui: the controller shows its overview.",
 			before.getJson().containsKey("ui"));
 		assertTrue(before.validate().toString(), before.validate().isValid());
-		// The address without a datapoint type, as always.
-		assertEquals(before.getNotes().toString(), 1, before.getNotes().size());
+		// The address without a datapoint type, as always, and the temperature the rule reads, which no
+		// object sends (haumacher/ehome #216).
+		assertEquals(before.getNotes().toString(), 2, before.getNotes().size());
 
 		buildPages();
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
@@ -585,7 +586,9 @@ public class TestControlPages extends BasicTestCase {
 		Map<?, ?> chart = (Map<?, ?>) ((Map<?, ?>) elements(ui, 1, 0).get(0)).get("chart");
 		assertEquals(2, ((List<?>) chart.get("series")).size());
 		assertEquals(1, ((List<?>) chart.get("references")).size());
-		assertEquals(before, image.getNotes());
+		// The note of the deleted rule's read (haumacher/ehome #216) is gone.
+		assertEquals(2, before.size());
+		assertEquals(before.subList(0, 1), image.getNotes());
 	}
 
 	public void testEditing() throws Exception {

@@ -40,6 +40,14 @@
 	list, asking for the fields that define it, a name or label empty (haumacher/ehome #205); nothing
 	is stored before "Create". A new timeline is asked for its first day plan. A reaction, which has
 	no value of its own, is added at once.
+
+	The tab "Rule" names the datapoints the rule reads that nobody can be asked for after a restart
+	(haumacher/ehome #216, de.haumacher.ehome.runtime.RuleReads): the only object sending on the address
+	has no read flag, several send on it and none has the read flag, an object has the read flag without
+	sending on it, an object is connected without sending on it, or no object sends on it. Exactly one
+	object answers the reads of a group address: "Set read flag" sets the flag of the only sender,
+	"Choose the object answering reads" (projects/rule-read-flag.view.xml) the one the user picks among
+	several senders; the devices take it with their next download.
 -->
 <view>
 	<channels>
@@ -74,6 +82,16 @@
 		<derived-channel name="exitList"
 			expr="'exit'"
 			inputs="state"
+		/>
+		<!--
+			The datapoints the selected rule reads that nobody can be asked for after a restart, with what
+			is wrong (haumacher/ehome #216); a change of a connection, a flag, a parameter of a device, a
+			setting of an address or an expression recomputes it.
+		-->
+		<derived-channel name="readProblems"
+			expr="if($rule == null, null, ruleReadProblems($rule))"
+			inputs="rule"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting,ehome.logical:GroupAddress,ehome.runtime:Reaction,ehome.runtime:MatchTrigger,ehome.runtime:SilenceTrigger,ehome.runtime:WriteAction,ehome.runtime:SetParameterAction,ehome.runtime:LogAction,ehome.runtime:StartTimerAction,ehome.runtime:RestartTimerAction,ehome.runtime:RuleTimer"
 		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"
@@ -230,18 +248,96 @@
 									<en>Rule</en>
 									<de>Regel</de>
 								</title>
-								<form
-									input="rule"
-									with-inset="true"
-								>
-									<field attribute="name"/>
-									<field attribute="identifier"/>
-									<field attribute="order"/>
-									<field attribute="enabled"/>
-									<field attribute="enabledAdjustable"/>
-									<field attribute="initialState"/>
-									<field attribute="description"/>
-								</form>
+								<stack>
+									<visible-if
+										expr="$readProblems != null"
+										input="readProblems"
+									>
+										<inset>
+											<text
+												input="readProblems"
+												tone="warning"
+											/>
+										</inset>
+									</visible-if>
+									<form
+										input="rule"
+										with-inset="true"
+									>
+										<commands>
+											<!--
+												Sets the read flag of the only object that sends without it on a datapoint the rule
+												reads (haumacher/ehome #216): a setting of the device, downloaded with its next download.
+											-->
+											<generic-command
+												image="css:bi bi-check2-square"
+												inputs="rule"
+												placement="TOOLBAR"
+											>
+												<label>
+													<en>Set read flag</en>
+													<de>Lesen-Flag setzen</de>
+												</label>
+												<tooltip>
+													<en>Sets the read flag of the only object that sends without it on a datapoint the rule reads, so that the controller can ask for the value after a restart. The device takes the flag with its next download.</en>
+													<de>Setzt das Lesen-Flag des einzigen Objekts, das ohne es auf einem Datenpunkt sendet, den die Regel liest, damit der Controller den Wert nach einem Neustart abfragen kann. Das Gerät übernimmt das Flag mit seinem nächsten Download.</de>
+												</tooltip>
+												<access>
+													<operation name="Write"
+														object="$rule"
+														type="ehome.runtime:Rule"
+													/>
+												</access>
+												<executability>
+													<null-input-disabled/>
+													<visible-if expr="$rule != null and ruleReadFixable($rule)"/>
+												</executability>
+												<with-transaction>
+													<execute-script function="ruleReadFix($rule)"/>
+												</with-transaction>
+											</generic-command>
+											<!--
+												Where several objects send on a datapoint the rule reads, none with the read flag, the
+												user picks the one that answers reads (haumacher/ehome #216).
+											-->
+											<generic-command
+												image="css:bi bi-ui-radios"
+												inputs="rule"
+												placement="TOOLBAR"
+											>
+												<label>
+													<en>Choose the object answering reads</en>
+													<de>Objekt für Leseanfragen wählen</de>
+												</label>
+												<tooltip>
+													<en>Several objects send on a datapoint the rule reads, none with the read flag. Exactly one of them may answer reads: the chosen one gets the read flag with the next download of its device.</en>
+													<de>Mehrere Objekte senden auf einem Datenpunkt, den die Regel liest, keines mit dem Lesen-Flag. Genau eines von ihnen darf Leseanfragen beantworten: Das gewählte erhält das Lesen-Flag mit dem nächsten Download seines Geräts.</de>
+												</tooltip>
+												<access>
+													<operation name="Write"
+														object="$rule"
+														type="ehome.runtime:Rule"
+													/>
+												</access>
+												<executability>
+													<null-input-disabled/>
+													<visible-if expr="$rule != null and !ruleReadChoices($rule).isEmpty()"/>
+												</executability>
+												<open-dialog
+													bind-input-to="rule"
+													dialog-view="projects/rule-read-flag.view.xml"
+												/>
+											</generic-command>
+										</commands>
+										<field attribute="name"/>
+										<field attribute="identifier"/>
+										<field attribute="order"/>
+										<field attribute="enabled"/>
+										<field attribute="enabledAdjustable"/>
+										<field attribute="initialState"/>
+										<field attribute="description"/>
+									</form>
+								</stack>
 							</panel>
 						</tab>
 						<tab id="reactions"

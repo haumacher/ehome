@@ -177,7 +177,36 @@ public class RuleFunctions extends GenericMethod {
 		 * <code>ruleAdd(draft)</code>: stores the draft of a create dialog at its place, with the values
 		 * the dialog shows ({@link RuleDrafts#add(TLObject)}); must run in a transaction.
 		 */
-		ruleAdd(1, false);
+		ruleAdd(1, false),
+		/**
+		 * <code>ruleReadProblems(rule)</code>: the datapoints the rule reads that nobody can be asked
+		 * for after a restart, with what is wrong, one line each; <code>null</code> for none
+		 * ({@link RuleReads#text(TLObject)}, haumacher/ehome #216).
+		 */
+		ruleReadProblems(1, true),
+		/**
+		 * <code>ruleReadFixable(rule)</code>: whether the only object sending on a datapoint the rule
+		 * reads has no read flag ({@link RuleReads#fixable(TLObject)}).
+		 */
+		ruleReadFixable(1, true),
+		/**
+		 * <code>ruleReadFix(rule)</code>: sets the read flag of the only object sending on a datapoint
+		 * the rule reads, where it has none, for the next download of its device; the number of objects
+		 * changed ({@link RuleReads#fix(TLObject)}).
+		 */
+		ruleReadFix(1, false),
+		/**
+		 * <code>ruleReadChoices(rule)</code>: the connections of the objects sending on a datapoint the
+		 * rule reads on which several objects send, none with the read flag; the user picks the one
+		 * that answers reads ({@link RuleReads#choices(TLObject)}).
+		 */
+		ruleReadChoices(1, true),
+		/**
+		 * <code>ruleReadChoose(connection)</code>: sets the read flag of the object of the connection,
+		 * where it sends on the address and no object there has the read flag yet; 1 if set, else 0
+		 * ({@link RuleReads#choose(TLObject)}).
+		 */
+		ruleReadChoose(1, false);
 
 		private final int _arity;
 
@@ -234,7 +263,8 @@ public class RuleFunctions extends GenericMethod {
 				return Boolean.FALSE;
 			}
 			return _function == Function.ruleList || _function == Function.ruleDatapoints
-				|| _function == Function.ruleSuggestions || _function == Function.ruleOptions ? List.of() : null;
+				|| _function == Function.ruleSuggestions || _function == Function.ruleOptions
+				|| _function == Function.ruleReadChoices ? List.of() : null;
 		}
 		switch (_function) {
 			case ruleSummary:
@@ -274,6 +304,16 @@ public class RuleFunctions extends GenericMethod {
 				return RuleDrafts.owner(obj);
 			case ruleAdd:
 				return RuleDrafts.add(obj);
+			case ruleReadProblems:
+				return RuleReads.text(obj);
+			case ruleReadFixable:
+				return Boolean.valueOf(RuleReads.fixable(obj));
+			case ruleReadFix:
+				return SearchExpression.toNumber(RuleReads.fix(obj));
+			case ruleReadChoices:
+				return RuleReads.choices(obj);
+			case ruleReadChoose:
+				return SearchExpression.toNumber(RuleReads.choose(obj));
 			default:
 				return null;
 		}

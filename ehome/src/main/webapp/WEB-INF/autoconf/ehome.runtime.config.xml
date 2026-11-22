@@ -177,6 +177,12 @@
 					<method name="ruleDraftTitle" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleDraftOwner" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleAdd" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The datapoints a rule reads that nobody can be asked for after a restart, and the fix of their read flags (haumacher/ehome #216). -->
+					<method name="ruleReadProblems" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleReadFixable" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleReadFix" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleReadChoices" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleReadChoose" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The control pages (haumacher/ehome #72, de.haumacher.ehome.runtime.PageFunctions). -->
 					<method name="pageOptions" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
 					<method name="pageChildren" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>

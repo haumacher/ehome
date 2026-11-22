@@ -2574,6 +2574,36 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey VALUE_DOWN;
 
+	/**
+	 * @en Rule "{0}" reads "{1}", which nobody can be asked for after a restart: the object "{2}" of "{3}" sends on it without the read flag.
+	 */
+	public static ResKey4 RULE_READS_NO_READ_FLAG__RULE_DATAPOINT_OBJECT_DEVICE;
+
+	/**
+	 * @en Rule "{0}" reads "{1}", which nobody can be asked for after a restart: the object "{2}" of "{3}" is connected to it but does not send on it.
+	 */
+	public static ResKey4 RULE_READS_NOT_SENDING__RULE_DATAPOINT_OBJECT_DEVICE;
+
+	/**
+	 * @en Rule "{0}" reads "{1}", which nobody can be asked for after a restart: no object of the project sends on it.
+	 */
+	public static ResKey2 RULE_READS_NO_OBJECT__RULE_DATAPOINT;
+
+	/**
+	 * @en Rule "{0}" reads "{1}", which nobody can be asked for after a restart: the objects {2} send on it, none with the read flag; one of them must answer reads.
+	 */
+	public static ResKey3 RULE_READS_SEVERAL_SENDERS__RULE_DATAPOINT_OBJECTS;
+
+	/**
+	 * @en Rule "{0}" reads "{1}", which nobody can be asked for after a restart: the object "{2}" of "{3}" has the read flag but does not send on it.
+	 */
+	public static ResKey4 RULE_READS_READ_FLAG_NOT_SENDING__RULE_DATAPOINT_OBJECT_DEVICE;
+
+	/**
+	 * @en "{0}" of "{1}"
+	 */
+	public static ResKey2 RULE_READS_OBJECT__OBJECT_DEVICE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

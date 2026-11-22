@@ -94,7 +94,8 @@ import de.haumacher.ehome.rules.Schedule;
  * </ul>
  *
  * <p>
- * A group address without a datapoint type is left out and named in the {@link #getNotes() notes}.
+ * A group address without a datapoint type is left out and named in the {@link #getNotes() notes};
+ * so is each datapoint a rule reads that nobody can be asked for after a restart ({@link RuleReads}).
  * Which object of the project a path of the image stands for is answered by
  * {@link #elementAt(String)}, so a refusal of the image is shown against the project.
  * </p>
@@ -918,6 +919,10 @@ public final class RuntimeImage {
 		if (rules != null) {
 			_json.put("rules", rules);
 			_json.put("rules", normalized(rules, schedules));
+			// The datapoints the rules read that nobody can be asked for after a restart (haumacher/ehome #216).
+			for (RuleReads.Problem problem : RuleReads.problems(project, rules)) {
+				_notes.add(message(problem.message()));
+			}
 		}
 	}
 
