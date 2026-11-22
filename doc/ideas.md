@@ -276,3 +276,21 @@ Proposed:
 
 Open: nesting of conditional actions (proposed: up to depth 4); keeping the guard of a transition
 (proposed: yes, it decides whether the state changes).
+
+## Chart editor: finding datapoints by unit and room, the right axis preset
+
+Asked how to configure a chart with several values ("alle Temperaturkurven" or "die Temperatur und
+den Ventilstand (2 Achsen)"), the user, after being shown that it exists: "lassen wir erst mal so wie
+es ist."
+
+Today:
+- A chart's series are added several at a time in the dialog `projects/page-choose.view.xml` (table
+  with multi-selection, `:48`; columns name, type, id in the image, value type, history, `:54-104`);
+  each series has its axis, label and consolidation (`ChartSeries`,
+  `ehome/src/main/webapp/WEB-INF/model/ehome.runtime.model.xml:4104`), the chart its bounds per axis
+  and reference lines.
+
+Proposed, not decided:
+- (a) Columns DPT/unit and room in the dialog, to sort and filter e.g. all "9.001 / °C".
+- (b) The axis preset when adding: with two different units in a chart, the series of the second
+  unit go to the right axis; a third unit gets no preset.
