@@ -117,19 +117,19 @@ contains, in order:
 - **The build discipline block** (the point is not wasting runs, not avoiding them):
   - The test gate is **one command and fast**: `./mvnw test -DskipTests=false` in the repository
     root runs the suite of each module (`test.TestAll` plus the conformance checks, once in `ehome/`
-    and once in `ehome-virtual/`, each in a JVM and a database of its own). **Budget: both suites
-    together at most 95 s; a new test class at most 5 s, or its javadoc names why it needs more.**
-    The suites are over it: measured on 2026-11-20 (haumacher/ehome #208, load average 2–3, the
-    shared app on port 8080 running) the app's suite took 164 s (1062 tests) and the tooling's 37 s (60
-    tests), 201 s together, down from 196 s and 48 s by faster imports of program files, no stored
-    interface objects of the virtual KNX server, an HTTP server of the tests without the 40 ms
-    delayed acknowledgement, a shorter interval of the Zigbee live import in its tests, and fewer
-    configurations built by the calculations. 95 s is not reachable without fewer or cheaper
-    imports: about 50 s of the app's suite are ETS imports (each test importing its sample again,
-    mostly `KNX-Testsystem.knxproj` and `Test.knxproj`; most of an import is the merge of the known
-    program and master data), 15 s the Zennio DALI BOX (a 79 MB program), 11 s setups and teardowns
-    outside the test methods (the first knowledge base, the security services), 10 s deletions of
-    projects. Measure a new test against these numbers, not against 95 s. `bin/slowest-tests.py`
+    and once in `ehome-virtual/`, each in a JVM and a database of its own). **Budget: the app's suite at most 150 s, the tooling's at most 36 s,
+    on a quiet machine (load 3–4); a new test class at most 5 s, or its javadoc names why it needs
+    more.** Measured on 2026-11-22 after haumacher/ehome #213: 147 s (1092 tests) and 35 s (63
+    tests), 182 s together, down from 186 s and 37 s by a re-import of a known program that costs
+    what is new (the master-data comparison remembered by the bytes of `knx_master.xml`, the parts
+    of a known program remembered per revision, one scan of a program file) and one import of the
+    sample projects that tests only read (`SharedData.sharedProject`, CLAUDE.md). The earlier budget
+    of 95 s together is out of reach with the present tests: about 30 s of the app's suite are ETS
+    imports (337, a re-import of a known program about 90 ms) of fixtures the tests change, the rest
+    is the tests themselves (`TestZennioDaliBox` 14 s, `TestRoundTrip` 10 s, `TestSecurityCoverage`
+    8.5 s) and about 19 s of setups and teardowns in both suites. A test that only reads a sample
+    project uses `SharedData.sharedProject` (extending `SharedProjectTestCase`) instead of importing
+    it. Measure a new test against these numbers, not against 95 s. `bin/slowest-tests.py`
     prints the time of each suite (with the part outside the test methods), the total, the 10
     slowest tests, the slowest classes by the time of their test methods and by wall time with their
     setup (from `test-timeline.txt` beside the surefire report, written by

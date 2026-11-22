@@ -234,6 +234,16 @@ public class JoiningModelBinding implements ModelBinding {
 	}
 
 	/**
+	 * The object the import created under the given ID, <code>null</code> if it created none: an
+	 * existing object known under the ID is not looked for, and does not count as found (see
+	 * {@link #getResolved()}).
+	 */
+	public Object created(String id) {
+		Object result = lookup(id);
+		return result != null && isCreated(result) ? result : null;
+	}
+
+	/**
 	 * Whether the given object was created by the import of the given context, see
 	 * {@link #isCreated(Object)}; <code>false</code> if the context has no {@link JoiningModelBinding}.
 	 */
@@ -352,6 +362,17 @@ public class JoiningModelBinding implements ModelBinding {
 	 */
 	public void register(Object value, String id) {
 		put(id, value);
+	}
+
+	/**
+	 * Makes the existing object with the given key known under the given ID, unless the import knows
+	 * an object under the ID already; the object is resolved when the import asks for the ID (see
+	 * {@link #register(Object, String)}).
+	 */
+	public void registerKey(ObjectKey key, String id) {
+		if (id != null) {
+			_ids.putIfAbsent(id, key);
+		}
 	}
 
 	/**

@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
@@ -149,6 +150,11 @@ public class Importer {
 	 */
 	private static final String SCHEMA_NAMESPACE = "http://knx.org/xml/project/";
 
+	/**
+	 * The entry of an archive holding the master data.
+	 */
+	private static final String MASTER_DATA_ENTRY = "knx_master.xml";
+
 	private JoiningModelBinding _binding;
 
 	private Set<String> _manufacturers = new LinkedHashSet<>();
@@ -170,16 +176,7 @@ public class Importer {
 	 */
 	private List<TLObject> _replacedBaggage = List.of();
 
-	/** The beginning of an <code>Assign</code> element in a program file. */
-	private static final byte[] ASSIGN_MARKER = "<Assign ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-
-	private static final byte[] BUTTON_MARKER = "<Button ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-
-	private static final byte[] CHANNEL_MARKER = "<Channel ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-
 	private static final String CHANNEL_TYPE = "ehome.operational:Channel";
-
-	private static final byte[] EXTENSION_MARKER = "<Extension ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
 	/**
 	 * The languages of the application programs the last import read.
@@ -280,7 +277,7 @@ public class Importer {
 				baggage.readProgramReferences(program);
 				_resources.read(program);
 			} else if (name.endsWith(".xml")) {
-				importXml(context, handler, name, entryIn);
+				importEntry(context, handler, name, entryIn);
 			} else if (isProjectArchive(name, path)) {
 				// ETS 5/6: the project part is an archive of its own (protected by the project
 				// password or not). It is opened at once (or was opened when the contents were
@@ -339,7 +336,7 @@ public class Importer {
 					continue;
 				}
 				if (name.endsWith(".xml")) {
-					importXml(shared, handler, name, entryIn);
+					importEntry(shared, handler, name, entryIn);
 				}
 			}
 		}
@@ -507,7 +504,7 @@ public class Importer {
 	 */
 	private void completeAssigns(ProgramFacts facts) throws IOException {
 		byte[] content = facts.content();
-		if (!mentions(content, ASSIGN_MARKER)) {
+		if (!facts.scan().mentionsAssigns() || facts.complete(Program::getAssignsReadOrNull)) {
 			return;
 		}
 		Document document = null;
@@ -543,7 +540,7 @@ public class Importer {
 	 */
 	private void completeButtons(ProgramFacts facts) throws IOException {
 		byte[] content = facts.content();
-		if (!mentions(content, BUTTON_MARKER)) {
+		if (!facts.scan().mentionsButtons() || facts.complete(Program::getButtonsReadOrNull)) {
 			return;
 		}
 		Document document = null;
@@ -580,7 +577,8 @@ public class Importer {
 	 * this import created read them themselves.
 	 */
 	private void completeRequirements(ProgramFacts facts) throws IOException {
-		if (!mentions(facts.content(), EXTENSION_MARKER)) {
+		if (!facts.scan().mentionsExtensions()
+			|| facts.complete(program -> _binding.isCreated(program) ? Boolean.TRUE : program.getRequirementsReadOrNull())) {
 			return;
 		}
 		for (Map.Entry<String, Set<String>> entry : facts.requirements().entrySet()) {
@@ -595,10 +593,11 @@ public class Importer {
 	/**
 	 * Gives the channels of known programs the numbers an import before haumacher/ehome #162 could not
 	 * read: a number that is not an integer ("18d") was reported and left out while the number was an
-	 * integer in the model. Only such numbers are looked for, so a file without them costs one scan.
+	 * integer in the model. Only such numbers are looked for, so a file without them costs the scan of its
+	 * bytes (see {@link ProgramFileScan}).
 	 */
 	private void completeChannelNumbers(ProgramFacts facts) throws IOException {
-		if (!mentions(facts.content(), CHANNEL_MARKER)) {
+		if (!facts.scan().mentionsChannels() || !facts.scan().mayHaveTextChannelNumbers()) {
 			return;
 		}
 		Map<String, String> numbers = facts.textChannelNumbers();
@@ -637,8 +636,40 @@ public class Importer {
 		/** The numbers of the channels that are not integers, by the channel's ID. */
 		private Map<String, String> _textChannelNumbers;
 
+		/** The scan of the bytes of the file, <code>null</code> before it is asked for. */
+		private ProgramFileScan _scan;
+
 		ProgramFacts(byte[] content) {
 			_content = content;
+		}
+
+		/**
+		 * The scan of the bytes of the program file, which tells whether the file must be read for
+		 * a completion.
+		 */
+		ProgramFileScan scan() {
+			if (_scan == null) {
+				_scan = ProgramFileScan.scan(_content);
+			}
+			return _scan;
+		}
+
+		/**
+		 * Whether every application program of the file that exists has the given flag set: then a
+		 * completion the flag records has nothing to do, without reading the file.
+		 */
+		boolean complete(Function<Program, Boolean> flag) {
+			List<String> ids = scan().getProgramIds();
+			if (ids == null) {
+				return false;
+			}
+			for (String id : ids) {
+				Program existing = existingProgram(id);
+				if (existing != null && !Boolean.TRUE.equals(flag.apply(existing))) {
+					return false;
+				}
+			}
+			return true;
 		}
 
 		/**
@@ -765,6 +796,26 @@ public class Importer {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Imports an XML entry of an archive (not a program file); the master data with the fingerprint of
+	 * their content, by which the decisions about their known objects are remembered (see
+	 * {@link MasterDataUpdates#setSource(byte[])}).
+	 */
+	private void importEntry(ImportContext context, Handler handler, String name, InputStream content)
+			throws XMLStreamException, IOException {
+		if (!MASTER_DATA_ENTRY.equals(name)) {
+			importXml(context, handler, name, content);
+			return;
+		}
+		byte[] masterData = content.readAllBytes();
+		_updates.setSource(masterData);
+		try {
+			importXml(context, handler, name, new ByteArrayInputStream(masterData));
+		} finally {
+			_updates.setSource(null);
+		}
 	}
 
 	private void importXml(ImportContext context, Handler handler, String name, InputStream content)

@@ -11,9 +11,9 @@ import java.util.HexFormat;
 import java.util.List;
 
 import junit.framework.Test;
-import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.basic.Logger;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -60,7 +60,7 @@ import de.haumacher.ehome.programming.download.Operation;
  * </ul>
  */
 @SuppressWarnings("javadoc")
-public class TestMask71Download extends BasicTestCase {
+public class TestMask71Download extends SharedProjectTestCase {
 
 	/** The actuator 1.3.5 in both projects. */
 	private static final String ACTUATOR = "P-0563-0_DI-3";
@@ -103,7 +103,7 @@ public class TestMask71Download extends BasicTestCase {
 
 	public void testDownload() throws Exception {
 		TLObject project = importProject("src/test/fixtures/TestMask71.knxproj");
-		TLObject reference = importProject("samples/KNX-Testsystem.knxproj");
+		TLObject reference = sharedProject("samples/KNX-Testsystem.knxproj");
 		try {
 			TLObject device = device(project, ACTUATOR);
 			checkMask(DeviceConfiguration.program(device).getMask());

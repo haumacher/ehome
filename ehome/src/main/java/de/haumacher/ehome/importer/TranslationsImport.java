@@ -48,7 +48,10 @@ import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
  * The translations of an application program of the import (a translation unit named by its ID)
  * record their languages in the program; those of a known program set only the texts of the
  * languages it lacks, see {@link ProgramLanguages}, and the texts of the parts the import added to it
- * (see {@link CompleteModules}).
+ * (see {@link CompleteModules}). The translations of a language a known program has look up only the
+ * parts the import added, not the program's other parts, whose lookup would make all parts of the
+ * program known to the import (see {@link SharedObjects}): an import of a known program costs what it
+ * adds.
  * </p>
  */
 public class TranslationsImport<C extends TranslationsImport.Config<?>> extends ConfiguredImportHandler<C> {
@@ -144,8 +147,16 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 						program = programs == null ? null : programs.get(in.getAttributeValue(null, "RefId"));
 						break;
 					case TRANSLATION_ELEMENT:
-						Object obj = context.resolveObjectBackwards(this, in.getLocation(),
-							in.getAttributeValue(null, "RefId"));
+						String ref = in.getAttributeValue(null, "RefId");
+						Object obj;
+						if (program != null && locale != null && !program.lacks(locale)) {
+							// A known program that has the language gets texts only for the parts the
+							// import added to it: its other parts are not looked up (haumacher/ehome #213).
+							JoiningModelBinding binding = context.get(JoiningModelBinding.PROPERTY);
+							obj = binding == null ? null : binding.created(ref);
+						} else {
+							obj = context.resolveObjectBackwards(this, in.getLocation(), ref);
+						}
 						target = obj instanceof TLObject tlObject ? tlObject : null;
 						break;
 					case TRANSLATION:

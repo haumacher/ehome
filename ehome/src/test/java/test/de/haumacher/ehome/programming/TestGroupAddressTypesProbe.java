@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Set;
 
 import junit.framework.Test;
-import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
@@ -34,13 +34,20 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * addresses.
  */
 @SuppressWarnings("javadoc")
-public class TestGroupAddressTypesProbe extends BasicTestCase {
+public class TestGroupAddressTypesProbe extends SharedProjectTestCase {
 
 	public void testProbe() throws Exception {
 		for (String sample : List.of("src/test/fixtures/TestDetails.knxproj", "samples/EHomeDemo.knxproj")) {
+			// The demo is shared by the tests that read it, the fixture is imported here.
+			boolean shared = sample.startsWith("samples/");
 			List<TLObject> before = instances("ehome.project:Project");
-			importSample(sample);
-			List<TLObject> projects = SharedData.newProjects(before);
+			List<TLObject> projects;
+			if (shared) {
+				projects = List.of(sharedProject(sample));
+			} else {
+				importSample(sample);
+				projects = SharedData.newProjects(before);
+			}
 			try {
 				TLObject project = projects.get(0);
 				List<TLObject> addresses = SharedData.within("ehome.logical:GroupAddress", projects);
@@ -61,7 +68,9 @@ public class TestGroupAddressTypesProbe extends BasicTestCase {
 				}
 				assertEquals(sample, untyped, new HashSet<>(leaves(project)));
 			} finally {
-				SharedData.deleteProjects(projects);
+				if (!shared) {
+					SharedData.deleteProjects(projects);
+				}
 			}
 		}
 	}

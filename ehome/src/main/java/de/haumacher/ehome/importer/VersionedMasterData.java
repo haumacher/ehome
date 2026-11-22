@@ -16,6 +16,7 @@ import com.top_logic.basic.config.annotation.DefaultContainer;
 import com.top_logic.basic.config.annotation.Mandatory;
 import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.TagName;
+import com.top_logic.basic.xml.XMLStreamUtil;
 import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
@@ -33,6 +34,8 @@ import com.top_logic.xio.importer.handlers.Handler;
  * ID, which {@link MasterDataUpdates} compares with the known object at the end of the import: master data of
  * a higher version than the known object's update it in place, other master data keep it and report
  * a warning if they define it differently. References to the ID always resolve to the known object.
+ * A known object an earlier comparison with the same master data decided is kept without reading its
+ * definition (see {@link MasterDataUpdates#decided}).
  * </p>
  *
  * <p>
@@ -93,13 +96,18 @@ public class VersionedMasterData<C extends VersionedMasterData.Config<?>> extend
 		Integer version = version(context.getVarOrNull(VERSION_VAR));
 		MasterDataUpdates.Position position = MasterDataUpdates.position(in.getLocation());
 		Object known = id == null ? null : context.resolveObjectBackwards(this, in.getLocation(), id);
+		String versionAttribute = getConfig().getVersionAttribute();
+		if (known instanceof TLObject knownObject
+			&& MasterDataUpdates.get(context).decided(knownObject, id, versionAttribute, version, position)) {
+			XMLStreamUtil.skipUpToMatchingEndTag(in);
+			return knownObject;
+		}
 
 		Object result = known == null ? importContents(context, in)
 			: MasterDataUpdates.get(context).importCandidate(() -> importContents(context, in));
 		if (!(result instanceof TLObject imported)) {
 			return known != null ? known : result;
 		}
-		String versionAttribute = getConfig().getVersionAttribute();
 		if (known instanceof TLObject knownObject) {
 			MasterDataUpdates.get(context).add(knownObject, imported, id, versionAttribute, version, position);
 			return knownObject;

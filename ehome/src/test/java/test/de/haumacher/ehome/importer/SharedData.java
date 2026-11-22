@@ -10,15 +10,18 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -28,10 +31,23 @@ import java.util.zip.ZipOutputStream;
 
 import junit.framework.Assert;
 
+import com.top_logic.dob.identifier.ObjectKey;
+import com.top_logic.knowledge.event.ChangeSet;
+import com.top_logic.knowledge.event.ItemChange;
+import com.top_logic.knowledge.event.ItemEvent;
+import com.top_logic.knowledge.event.ItemUpdate;
+import com.top_logic.knowledge.objects.KnowledgeItem;
+import com.top_logic.knowledge.objects.identifier.ObjectBranchId;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.service.UpdateEvent;
+import com.top_logic.knowledge.service.event.CommitChecker;
+import com.top_logic.knowledge.service.event.CommitVetoException;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
+import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
@@ -55,11 +71,262 @@ import de.haumacher.ehome.model.operational.MaskVersion;
  * versions of the master data of one file, and <code>TestRoundTrip.clearData()</code> (the only full
  * deletion) for the round trip, which compares an export with the original file.
  * </p>
+ *
+ * <p>
+ * A test that only reads its project uses a project imported once per database and file,
+ * {@link #sharedProject(String)}, instead of importing the file itself (haumacher/ehome #213): the
+ * project exists from the first test asking for it to the end of the database, and no test changes or
+ * deletes it. A guard of the database refuses every commit that touches a shared project, and the test
+ * that tried it fails (see {@link SharedProjectTestCase}). A test that changes its project imports its
+ * own and deletes it.
+ * </p>
  */
 public final class SharedData {
 
 	private SharedData() {
 		// Static helpers.
+	}
+
+	/** The type of the projects. */
+	private static final String PROJECT = "ehome.project:Project";
+
+	/**
+	 * A project imported once into a database, by its key and the revision it was created in.
+	 */
+	private record Shared(KnowledgeBase kb, ObjectKey key, long created) {
+		// Pure data.
+	}
+
+	/** The shared projects, by the file they are imported from. */
+	private static final Map<String, Shared> SHARED = new HashMap<>();
+
+	/** The guard of the shared projects in the current database, <code>null</code> before the first. */
+	private static Guard _guard;
+
+	/** The number of commits refused by the guards of all databases so far. */
+	private static int _vetoes;
+
+	/** The last change refused, <code>null</code> before the first. */
+	private static String _lastChange;
+
+	/**
+	 * The project imported from the given ETS project file for the tests that only read it: imported
+	 * on the first call in the current database, the same project on every later call.
+	 *
+	 * <p>
+	 * It is imported lazily, so that it exists only after <code>TestRoundTrip</code>, which empties the
+	 * E-Home data of the database before its samples (see <code>TestRoundTrip.clearData()</code>), and
+	 * only in a database that has tests using it. Its objects (the project and everything it is
+	 * composed of, transitively) are guarded: the database refuses a commit that creates, changes or
+	 * deletes one of them, or that creates, changes or deletes any object with a value naming one of
+	 * them (a new part names its container, a link names its ends). The commit fails with a
+	 * {@link CommitVetoException}, and the test with it, or, if the test does not see the failure, by
+	 * {@link SharedProjectTestCase}. So no test changes the project, and every test reads it as
+	 * imported.
+	 * </p>
+	 *
+	 * <p>
+	 * The guard is complete: a change of the stored project is a commit, every commit passes the
+	 * commit checkers of the database with all its created, changed and deleted objects and their
+	 * values, and a change of the project either changes or deletes one of its objects (known by their
+	 * keys after the import), or creates, changes or deletes an object with a value naming one of them.
+	 * </p>
+	 */
+	public static synchronized TLObject sharedProject(String file) throws Exception {
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		Shared shared = SHARED.get(file);
+		TLObject project = shared == null ? null : resolve(kb, shared);
+		if (project != null) {
+			return project;
+		}
+		if (shared != null) {
+			// A new database: the projects and the guard of the former one are forgotten.
+			SHARED.clear();
+			if (_guard != null) {
+				_guard.clear();
+			}
+		}
+		List<TLObject> before = instances(PROJECT);
+		TestEtsImport.importSample(file);
+		List<TLObject> created = newProjects(before);
+		Assert.assertEquals("Projects imported from " + file + ".", 1, created.size());
+		project = created.get(0);
+		SHARED.put(file, new Shared(kb, project.tId(), project.tHandle().getCreateCommitNumber()));
+		guard(kb).protect(project);
+		return project;
+	}
+
+	private static TLObject resolve(KnowledgeBase kb, Shared shared) {
+		if (shared.kb() != kb) {
+			return null;
+		}
+		KnowledgeItem item = kb.resolveObjectKey(shared.key());
+		if (item == null || item.getCreateCommitNumber() != shared.created()) {
+			return null;
+		}
+		TLObject result = item.getWrapper();
+		return result != null && result.tValid() ? result : null;
+	}
+
+	private static Guard guard(KnowledgeBase kb) {
+		if (_guard == null || _guard.getKnowledgeBase() != kb) {
+			_guard = new Guard(kb);
+			kb.addCommitChecker(_guard);
+		}
+		return _guard;
+	}
+
+	/**
+	 * The number of commits refused so far because they touched a shared project, see
+	 * {@link #sharedProject(String)}.
+	 */
+	public static synchronized int sharedProjectVetoes() {
+		return _vetoes;
+	}
+
+	/**
+	 * The last change of a shared project refused, <code>null</code> if none was.
+	 */
+	public static synchronized String lastSharedProjectChange() {
+		return _lastChange;
+	}
+
+	private static synchronized void refused(String change) {
+		_vetoes++;
+		_lastChange = change;
+	}
+
+	/**
+	 * Refuses every commit that touches one of the objects of the shared projects, see
+	 * {@link SharedData#sharedProject(String)}.
+	 */
+	private static final class Guard implements CommitChecker {
+
+		private final KnowledgeBase _kb;
+
+		private final Set<ObjectBranchId> _protected = ConcurrentHashMap.newKeySet();
+
+		Guard(KnowledgeBase kb) {
+			_kb = kb;
+		}
+
+		KnowledgeBase getKnowledgeBase() {
+			return _kb;
+		}
+
+		void clear() {
+			_protected.clear();
+		}
+
+		/**
+		 * Guards the given project and everything it is composed of.
+		 */
+		void protect(TLObject project) {
+			for (TLObject obj : composition(project)) {
+				_protected.add(ObjectBranchId.toObjectBranchId(obj.tId()));
+			}
+		}
+
+		@Override
+		public void checkCommit(UpdateEvent event) throws CommitVetoException {
+			if (_protected.isEmpty()) {
+				return;
+			}
+			ChangeSet changes = event.getChanges();
+			String touched = touched(changes.getCreations(), "created");
+			if (touched == null) {
+				touched = touched(changes.getUpdates(), "changed");
+			}
+			if (touched == null) {
+				touched = touched(changes.getDeletions(), "deleted");
+			}
+			if (touched != null) {
+				refused(touched);
+				throw new CommitVetoException("A test changed a shared project (SharedData.sharedProject): "
+					+ touched, event, this);
+			}
+		}
+
+		private String touched(List<? extends ItemEvent> events, String kind) {
+			for (ItemEvent evt : events) {
+				if (_protected.contains(evt.getObjectId())) {
+					return kind + " " + evt.getObjectId();
+				}
+				if (evt instanceof ItemChange change) {
+					String value = referring(change.getValues());
+					if (value == null && change instanceof ItemUpdate update) {
+						value = referring(update.getOldValues());
+					}
+					if (value != null) {
+						return kind + " " + evt.getObjectId() + " referring to " + value;
+					}
+				}
+			}
+			return null;
+		}
+
+		private String referring(Map<String, Object> values) {
+			if (values == null) {
+				return null;
+			}
+			for (Map.Entry<String, Object> entry : values.entrySet()) {
+				ObjectBranchId id = id(entry.getValue());
+				if (id != null && _protected.contains(id)) {
+					return id + " by " + entry.getKey();
+				}
+			}
+			return null;
+		}
+
+		private static ObjectBranchId id(Object value) {
+			if (value instanceof ObjectBranchId id) {
+				return id;
+			}
+			if (value instanceof ObjectKey key) {
+				return ObjectBranchId.toObjectBranchId(key);
+			}
+			if (value instanceof KnowledgeItem item) {
+				return ObjectBranchId.toObjectBranchId(item.tId());
+			}
+			return null;
+		}
+	}
+
+	/**
+	 * The given object and every object it is composed of, transitively.
+	 */
+	public static List<TLObject> composition(TLObject root) {
+		List<TLObject> result = new ArrayList<>();
+		Map<TLClass, List<TLReference>> composites = new HashMap<>();
+		Deque<TLObject> todo = new ArrayDeque<>();
+		todo.add(root);
+		while (!todo.isEmpty()) {
+			TLObject obj = todo.removeFirst();
+			result.add(obj);
+			TLClass type = (TLClass) obj.tType();
+			for (TLReference reference : composites.computeIfAbsent(type, SharedData::compositeReferences)) {
+				Object value = obj.tValue(reference);
+				if (value instanceof Iterable<?> parts) {
+					for (Object part : parts) {
+						todo.add((TLObject) part);
+					}
+				} else if (value != null) {
+					todo.add((TLObject) value);
+				}
+			}
+		}
+		return result;
+	}
+
+	private static List<TLReference> compositeReferences(TLClass type) {
+		List<TLReference> result = new ArrayList<>();
+		for (TLStructuredTypePart part : type.getAllParts()) {
+			if (part instanceof TLReference reference && reference.isComposite() && !reference.isBackwards()
+				&& !reference.isDerived()) {
+				result.add(reference);
+			}
+		}
+		return result;
 	}
 
 	/**
@@ -68,7 +335,7 @@ public final class SharedData {
 	public static List<TLObject> newProjects(Collection<TLObject> before) {
 		Set<TLObject> known = new HashSet<>(before);
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject project : instances("ehome.project:Project")) {
+		for (TLObject project : instances(PROJECT)) {
 			if (!known.contains(project)) {
 				result.add(project);
 			}

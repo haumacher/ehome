@@ -3,22 +3,17 @@
  */
 package test.de.haumacher.ehome.programming;
 
-import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
-import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import junit.framework.Test;
-import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.basic.Logger;
-import com.top_logic.knowledge.service.PersistencyLayer;
-import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
@@ -40,50 +35,38 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * what the device holds, parameters included.
  */
 @SuppressWarnings("javadoc")
-public class TestTestsystemImage extends BasicTestCase {
+public class TestTestsystemImage extends SharedProjectTestCase {
 
 	public void testImages() throws Exception {
-		List<TLObject> before = instances("ehome.project:Project");
-		importSample("samples/KNX-Testsystem.knxproj");
-		List<TLObject> projects = new ArrayList<>(instances("ehome.project:Project"));
-		projects.removeAll(before);
-		assertEquals(1, projects.size());
-		TLObject project = projects.get(0);
-		try {
-			Map<Integer, TLObject> devices = devicesByAddress(project);
-			assertEquals(3, devices.size());
-			// The actuator at 1.3.5 and the Tastsensor at 1.3.50.
-			compare(devices.get(5), "DI-2-1.3.5", List.of("0700", "0784", "4000", "4201", "4400", "44EC"));
-			// Segment 454E of the Tastsensor (the download marker and the state of the dismantling
-			// alarm) is loaded with SegFlags 0: ETS does not write it, the device holds zeros where
-			// the image would write the marker. Its load step is the only one without the flag 0x80
-			// among the segments with data.
-			compare(devices.get(50), "DI-3-1.3.50",
-				List.of("0700", "4000", "40F3", "41E5", "435C", "4369", "436F", "4439", "444E"));
-			assertEquals(List.of(0x454E), unflaggedSegments(devices.get(50)));
-			// ETS's own record of what it loaded into the Tastsensor.
-			DownloadImage image = DownloadImage.compute(devices.get(50));
-			Map<Integer, byte[]> loaded = EtsLoadedImage.records("samples/KNX-Testsystem.knxproj", "P-0563/0.xml", "P-0563-0_DI-2");
-			assertFalse(loaded.isEmpty());
-			int bytes = 0;
-			for (Map.Entry<Integer, byte[]> record : loaded.entrySet()) {
-				byte[] expected = record.getValue();
-				for (int n = 0; n < expected.length; n++) {
-					int at = record.getKey() + n;
-					Integer computed = image.byteAt(at);
-					assertNotNull(String.format("The image writes nothing at %04X.", at), computed);
-					assertEquals(String.format("ETS loaded image at %04X", at), expected[n] & 0xFF, computed.intValue());
-					bytes++;
-				}
-			}
-			Logger.info("Tastsensor: " + bytes + " bytes of the ETS loaded image equal the computed image.",
-				TestTestsystemImage.class);
-		} finally {
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tDelete();
-				tx.commit();
+		TLObject project = sharedProject("samples/KNX-Testsystem.knxproj");
+		Map<Integer, TLObject> devices = devicesByAddress(project);
+		assertEquals(3, devices.size());
+		// The actuator at 1.3.5 and the Tastsensor at 1.3.50.
+		compare(devices.get(5), "DI-2-1.3.5", List.of("0700", "0784", "4000", "4201", "4400", "44EC"));
+		// Segment 454E of the Tastsensor (the download marker and the state of the dismantling
+		// alarm) is loaded with SegFlags 0: ETS does not write it, the device holds zeros where
+		// the image would write the marker. Its load step is the only one without the flag 0x80
+		// among the segments with data.
+		compare(devices.get(50), "DI-3-1.3.50",
+			List.of("0700", "4000", "40F3", "41E5", "435C", "4369", "436F", "4439", "444E"));
+		assertEquals(List.of(0x454E), unflaggedSegments(devices.get(50)));
+		// ETS's own record of what it loaded into the Tastsensor.
+		DownloadImage image = DownloadImage.compute(devices.get(50));
+		Map<Integer, byte[]> loaded = EtsLoadedImage.records("samples/KNX-Testsystem.knxproj", "P-0563/0.xml", "P-0563-0_DI-2");
+		assertFalse(loaded.isEmpty());
+		int bytes = 0;
+		for (Map.Entry<Integer, byte[]> record : loaded.entrySet()) {
+			byte[] expected = record.getValue();
+			for (int n = 0; n < expected.length; n++) {
+				int at = record.getKey() + n;
+				Integer computed = image.byteAt(at);
+				assertNotNull(String.format("The image writes nothing at %04X.", at), computed);
+				assertEquals(String.format("ETS loaded image at %04X", at), expected[n] & 0xFF, computed.intValue());
+				bytes++;
 			}
 		}
+		Logger.info("Tastsensor: " + bytes + " bytes of the ETS loaded image equal the computed image.",
+			TestTestsystemImage.class);
 	}
 
 	/**

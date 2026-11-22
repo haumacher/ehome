@@ -3,7 +3,6 @@
  */
 package test.de.haumacher.ehome.catalog;
 
-import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
@@ -14,9 +13,9 @@ import java.util.Map;
 import java.util.Set;
 
 import junit.framework.Test;
-import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -40,7 +39,7 @@ import de.haumacher.ehome.model.operational.Program;
  * the Tastsensor of <code>samples/Test.knxproj</code> grouped by the page they are placed on, in the
  * order of the structure, the ones placed nowhere last, and the filter.
  */
-public class TestProgramPages extends BasicTestCase {
+public class TestProgramPages extends SharedProjectTestCase {
 
 	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O000A";
 
@@ -48,6 +47,7 @@ public class TestProgramPages extends BasicTestCase {
 
 	public void testTastsensor() throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		sharedProject("samples/Test.knxproj");
 		List<TLObject> projectsBefore = new ArrayList<>(instances("ehome.project:Project"));
 		TLContext context = TLContext.getContext();
 		Person before = context.getPerson();
@@ -55,7 +55,6 @@ public class TestProgramPages extends BasicTestCase {
 		// The page titles are derived attributes, read with the rights of the reading user.
 		context.setPerson(PersonManager.getManager().getRoot());
 		try {
-			importSample("samples/Test.knxproj");
 			Program program = (Program) instances("ehome.operational:Program").stream()
 				.filter(p -> PROGRAM.equals(((Program) p).getExtId())).findFirst().get();
 			checkPages(program);

@@ -3,8 +3,14 @@
  */
 package de.haumacher.ehome.importer;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.stream.Location;
@@ -15,6 +21,7 @@ import com.top_logic.basic.col.TypedAnnotatable.Property;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.xml.log.XMLStreamLog;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
@@ -29,6 +36,16 @@ import com.top_logic.xio.importer.binding.ImportContext;
  * <p>
  * The import creates the definition of known master data as a transient candidate (see
  * {@link #importCandidate(Candidate)}), which is compared with the known object and never stored.
+ * </p>
+ *
+ * <p>
+ * A comparison that keeps the known object is remembered (haumacher/ehome #213): an import of the
+ * same master data (the same bytes, see {@link #setSource(byte[])}) into the same state of the known
+ * object (its identity, the revision of its last change and the version it records) comes to the same
+ * decision, so it neither creates the candidate nor compares (see {@link #decided}); only the message
+ * of the comparison is repeated. The known object changes only by master data of a higher version,
+ * which this class updates together with the version the object records, so a changed object is
+ * never decided by an earlier comparison.
  * </p>
  *
  * @see VersionedMasterData
@@ -50,9 +67,37 @@ public class MasterDataUpdates {
 	 *        Where the master data define the object, for the messages.
 	 */
 	private record Pending(TLObject known, TLObject candidate, String id, String versionAttribute, Integer version,
-			Location position) {
+			Location position, Comparison comparison, Boolean decided) {
 		// Pure data.
 	}
+
+	/**
+	 * A comparison of a known object with the definition of master data that keep it: the known
+	 * object in a state (its key, the revision of its last change and the version it records), and
+	 * the master data (their version and the fingerprint of their file).
+	 */
+	private record Comparison(ObjectKey known, long revision, Integer knownVersion, String id, Integer version,
+			String source) {
+		// Pure data.
+	}
+
+	/** The most comparisons remembered, see {@link #COMPARED}. */
+	private static final int COMPARED_LIMIT = 10_000;
+
+	/**
+	 * The decisions of earlier comparisons that kept the known object: whether the master data define
+	 * it alike, by the {@link Comparison}; the oldest are forgotten beyond {@link #COMPARED_LIMIT}.
+	 */
+	private static final Map<Comparison, Boolean> COMPARED =
+		Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+			@Override
+			protected boolean removeEldestEntry(Map.Entry<Comparison, Boolean> eldest) {
+				return size() > COMPARED_LIMIT;
+			}
+		});
+
+	/** The fingerprint of the master data being read, <code>null</code> if not known. */
+	private String _source;
 
 	private static final String NAME_ATTRIBUTE = "name";
 
@@ -76,6 +121,60 @@ public class MasterDataUpdates {
 			throw new IllegalStateException("No master data updates in the import context.");
 		}
 		return result;
+	}
+
+	/**
+	 * Sets the content of the master data file read next, whose fingerprint identifies its
+	 * definitions in the decisions remembered; <code>null</code> after the file, or for master data
+	 * whose content is not known, whose known objects are always compared.
+	 */
+	public void setSource(byte[] content) {
+		_source = content == null ? null : fingerprint(content);
+	}
+
+	private static String fingerprint(byte[] content) {
+		try {
+			return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+		} catch (NoSuchAlgorithmException ex) {
+			// Every Java platform has SHA-256.
+			throw new IllegalStateException(ex);
+		}
+	}
+
+	/**
+	 * Whether the given known object is decided by an earlier comparison with the same master data
+	 * (see {@link #setSource(byte[])}): if so, the import keeps it without reading its definition
+	 * into a candidate, and the decision is reported at the end of the import as if compared.
+	 *
+	 * @param versionAttribute
+	 *        The attribute of the known object recording the version of its master data.
+	 * @param version
+	 *        The version of the master data being imported, <code>null</code> if not known.
+	 */
+	public boolean decided(TLObject known, String id, String versionAttribute, Integer version, Location position) {
+		Comparison comparison = comparison(known, id, versionAttribute, version);
+		Boolean same = comparison == null ? null : COMPARED.get(comparison);
+		if (same == null) {
+			return false;
+		}
+		_pending.add(new Pending(known, null, id, versionAttribute, version, position, comparison, same));
+		return true;
+	}
+
+	/**
+	 * The comparison of the given known object with the master data being read, if it is to be
+	 * remembered: only one that keeps the object (the master data have no higher version than the
+	 * object's) of master data whose content is known; <code>null</code> otherwise.
+	 */
+	private Comparison comparison(TLObject known, String id, String versionAttribute, Integer version) {
+		if (_source == null || version == null || id == null || known.tTransient()) {
+			return null;
+		}
+		Integer knownVersion = (Integer) known.tValueByName(versionAttribute);
+		if (knownVersion == null || version.intValue() > knownVersion.intValue()) {
+			return null;
+		}
+		return new Comparison(known.tId(), known.tHandle().getLastUpdate(), knownVersion, id, version, _source);
 	}
 
 	/**
@@ -113,7 +212,8 @@ public class MasterDataUpdates {
 	 */
 	public void add(TLObject known, TLObject candidate, String id, String versionAttribute, Integer version,
 			Location position) {
-		_pending.add(new Pending(known, candidate, id, versionAttribute, version, position));
+		_pending.add(new Pending(known, candidate, id, versionAttribute, version, position,
+			comparison(known, id, versionAttribute, version), null));
 	}
 
 	/**
@@ -139,7 +239,15 @@ public class MasterDataUpdates {
 			Integer knownVersion = (Integer) known.tValueByName(versionAttribute);
 			Integer version = pending.version();
 			Set<String> ignored = Set.of(versionAttribute);
-			boolean same = merge.equal(known, candidate, ignored);
+			boolean same;
+			if (candidate == null) {
+				same = pending.decided().booleanValue();
+			} else {
+				same = merge.equal(known, candidate, ignored);
+				if (pending.comparison() != null) {
+					COMPARED.put(pending.comparison(), Boolean.valueOf(same));
+				}
+			}
 			boolean newer = version != null && (knownVersion == null || version.intValue() > knownVersion.intValue());
 			if (newer) {
 				if (!same) {

@@ -5,9 +5,11 @@ package de.haumacher.ehome.importer;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +49,15 @@ import de.haumacher.ehome.model.operational.Program;
  * {@link #lookup(Location, String)}), not all of them at the start of every import, as one index of
  * <code>&lt;resolve-existing&gt;</code> would.
  * </p>
+ *
+ * <p>
+ * Walking the parts of a program costs as much as a further import of a project file otherwise
+ * (haumacher/ehome #213). The IDs of the parts a walk found are remembered by their keys, per program
+ * and the revision of its last change, so that a later import of the same program makes them known
+ * without the walk (resolving each only when asked for). The parts of a program are never changed
+ * under their IDs; an ID the remembered parts do not hold, or whose part no longer exists, walks the
+ * program as before, so a part added or removed since is found as without the index.
+ * </p>
  */
 final class SharedObjects implements IdLookup {
 
@@ -63,8 +74,33 @@ final class SharedObjects implements IdLookup {
 	 */
 	private final Map<String, ObjectKey> _programs = new HashMap<>();
 
-	/** The IDs of the programs whose parts are known already. */
+	/** The IDs of the programs whose parts are known already by a walk. */
 	private final Set<String> _loaded = new HashSet<>();
+
+	/** The IDs of the programs whose remembered parts are known already, see {@link #PARTS}. */
+	private final Set<String> _indexed = new HashSet<>();
+
+	/**
+	 * A program in the state of its last change.
+	 */
+	private record ProgramState(ObjectKey program, long revision) {
+		// Pure data.
+	}
+
+	/** The most programs whose parts are remembered, see {@link #PARTS}. */
+	private static final int PARTS_LIMIT = 32;
+
+	/**
+	 * The keys of the parts of the programs walked, by their IDs, per program; the programs walked
+	 * longest ago are forgotten beyond {@link #PARTS_LIMIT}.
+	 */
+	private static final Map<ProgramState, Map<String, ObjectKey>> PARTS =
+		Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+			@Override
+			protected boolean removeEldestEntry(Map.Entry<ProgramState, Map<String, ObjectKey>> eldest) {
+				return size() > PARTS_LIMIT;
+			}
+		});
 
 	/** The composite references of a class, by the class. */
 	private final Map<TLClass, List<TLReference>> _compositeParts = new HashMap<>();
@@ -98,7 +134,7 @@ final class SharedObjects implements IdLookup {
 			String prefix = id.substring(0, index);
 			ObjectKey key = _programs.get(prefix);
 			if (key != null) {
-				if (!_loaded.add(prefix)) {
+				if (_loaded.contains(prefix)) {
 					return null;
 				}
 				KnowledgeItem item = PersistencyLayer.getKnowledgeBase().resolveObjectKey(key);
@@ -106,14 +142,32 @@ final class SharedObjects implements IdLookup {
 				if (program == null || !program.tValid()) {
 					return null;
 				}
-				registerParts(program);
+				ProgramState state = new ProgramState(key, item.getLastUpdate());
+				if (_indexed.add(prefix)) {
+					Map<String, ObjectKey> parts = PARTS.get(state);
+					if (parts != null) {
+						parts.forEach((partId, part) -> _binding.registerKey(part, partId));
+						Object result = _binding.resolveObject(null, location, id);
+						if (result != null) {
+							return result;
+						}
+					}
+				}
+				_loaded.add(prefix);
+				PARTS.put(state, registerParts(program));
 				return _binding.resolveObject(null, location, id);
 			}
 		}
 		return null;
 	}
 
-	private void registerParts(TLObject program) {
+	/**
+	 * Makes the parts of the given program known under their IDs.
+	 *
+	 * @return The keys of the parts, by their IDs.
+	 */
+	private Map<String, ObjectKey> registerParts(TLObject program) {
+		Map<String, ObjectKey> result = new HashMap<>();
 		Deque<TLObject> todo = new ArrayDeque<>();
 		todo.add(program);
 		while (!todo.isEmpty()) {
@@ -123,6 +177,7 @@ final class SharedObjects implements IdLookup {
 				String id = ((Externalized) obj).getExtId();
 				if (id != null) {
 					_binding.register(obj, id);
+					result.put(id, obj.tId());
 				}
 			}
 			for (TLReference reference : compositeParts(type)) {
@@ -136,6 +191,7 @@ final class SharedObjects implements IdLookup {
 				}
 			}
 		}
+		return result;
 	}
 
 	private List<TLReference> compositeParts(TLClass type) {

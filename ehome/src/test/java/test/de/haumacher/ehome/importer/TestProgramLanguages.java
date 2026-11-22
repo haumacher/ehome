@@ -124,6 +124,60 @@ public class TestProgramLanguages extends BasicTestCase {
 	}
 
 	/**
+	 * A known program imported again: in a language it has, its texts and parts stay as they are; in
+	 * a language it lacks, it gains the texts of that language on its parts (haumacher/ehome #213).
+	 * The second import of the program in English finds its parts by the IDs an earlier walk of the
+	 * program remembered (the first one is rolled back).
+	 */
+	public void testReimport() throws Exception {
+		importProduct(A);
+		Map<String, String> german = texts(GERMAN_FIRST);
+		Map<String, Long> parts = parts(GERMAN_FIRST);
+
+		// Again in German: nothing to add, nothing duplicated.
+		assertEquals(Map.of(), importProduct(A).getAddedLanguages());
+		assertEquals("de", program(GERMAN_FIRST).getLanguages());
+		assertEquals(german, texts(GERMAN_FIRST));
+		assertEquals(parts, parts(GERMAN_FIRST));
+
+		// In English, rolled back: the program stays as it is.
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		Importer rolledBack = new Importer(new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false));
+		try (InputStream in = new FileInputStream(B); Transaction tx = kb.beginTransaction()) {
+			rolledBack.importProductData(in);
+			assertEquals("de en", program(GERMAN_FIRST).getLanguages());
+		}
+		assertEquals("de", program(GERMAN_FIRST).getLanguages());
+		assertEquals(german, texts(GERMAN_FIRST));
+
+		// In English: the English texts on the parts of the known program.
+		assertEquals(Map.of(GERMAN_FIRST, Set.of(Locale.ENGLISH)), added(importProduct(B)));
+		assertEquals("de en", program(GERMAN_FIRST).getLanguages());
+		assertEquals(expected(GERMAN_FIRST), texts(GERMAN_FIRST));
+		assertEquals(parts, parts(GERMAN_FIRST));
+
+		// Both again: nothing more.
+		assertEquals(Map.of(), importProduct(B).getAddedLanguages());
+		assertEquals(Map.of(), importProduct(A).getAddedLanguages());
+		assertEquals(expected(GERMAN_FIRST), texts(GERMAN_FIRST));
+		assertEquals(parts, parts(GERMAN_FIRST));
+	}
+
+	/**
+	 * The number of parts of the given program, per type: each part exists once.
+	 */
+	private static Map<String, Long> parts(String program) {
+		Map<String, Long> result = new LinkedHashMap<>();
+		for (String type : List.of("Parameter", "ParameterView", "EnumerationValue", "Port", "Channel",
+			"ParameterGroup")) {
+			String typeName = "ehome.operational:" + type;
+			result.put(type, instances(typeName).stream()
+				.filter(obj -> String.valueOf(((Externalized) obj).getExtId()).startsWith(program + "_")).count());
+		}
+		return result;
+	}
+
+	/**
 	 * The texts both files give each program: German, and English with the en-US translation
 	 * "Switch-on delay" replacing the English text "Delay".
 	 */

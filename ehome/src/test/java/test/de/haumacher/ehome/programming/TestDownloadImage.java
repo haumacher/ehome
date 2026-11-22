@@ -3,7 +3,6 @@
  */
 package test.de.haumacher.ehome.programming;
 
-import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.io.File;
@@ -22,9 +21,9 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import junit.framework.Test;
-import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.basic.Logger;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
@@ -86,7 +85,7 @@ import de.haumacher.ehome.programming.ParameterEncoding;
  * </ul>
  */
 @SuppressWarnings("javadoc")
-public class TestDownloadImage extends BasicTestCase {
+public class TestDownloadImage extends SharedProjectTestCase {
 
 	private static final File READBACK = new File("src/test/fixtures/readback");
 
@@ -99,28 +98,13 @@ public class TestDownloadImage extends BasicTestCase {
 	private List<TLObject> _projects;
 
 	public void testImages() throws Exception {
-		// The tests share one database: both projects may be known already, both imports reuse them.
-		List<TLObject> before = instances("ehome.project:Project");
-		importSample("samples/Test.knxproj");
-		importSample("samples/EHomeDemo.knxproj");
-		_projects = new ArrayList<>(instances("ehome.project:Project"));
-		_projects.removeAll(before);
-		try {
-			checkSensorAgainstLoadedImage();
-			checkDemoTables();
-			checkActuatorAgainstReadBack();
-			checkSensorAgainstReadBack();
-			checkTestProject();
-			checkRouter();
-		} finally {
-			KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-			try (Transaction tx = kb.beginTransaction()) {
-				for (TLObject project : _projects) {
-					project.tDelete();
-				}
-				tx.commit();
-			}
-		}
+		_projects = List.of(sharedProject("samples/Test.knxproj"), sharedProject("samples/EHomeDemo.knxproj"));
+		checkSensorAgainstLoadedImage();
+		checkDemoTables();
+		checkActuatorAgainstReadBack();
+		checkSensorAgainstReadBack();
+		checkTestProject();
+		checkRouter();
 	}
 
 	/**

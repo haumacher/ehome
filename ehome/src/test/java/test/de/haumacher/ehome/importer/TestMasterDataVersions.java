@@ -157,6 +157,30 @@ public class TestMasterDataVersions extends BasicTestCase {
 	}
 
 	/**
+	 * Old master data imported again after new ones: each import keeps the mask versions and repeats
+	 * the warning, also when the decision is the one remembered from the first comparison
+	 * (haumacher/ehome #213); the new ones again change nothing.
+	 */
+	public void testOlderKeepsAgain() throws Exception {
+		importSample(NEW);
+		Map<String, String> fromNew = dumps();
+		Map<String, MaskVersion> before = masks();
+		int parts = parts();
+
+		List<ResKey> first = masterDataMessages(importSample(OLD));
+		assertEquals(1, first.size());
+		for (int n = 0; n < 2; n++) {
+			assertEquals(first, masterDataMessages(importSample(OLD)));
+			assertEquals(fromNew, dumps());
+			assertEquals(before, masks());
+			assertEquals(parts, parts());
+		}
+		assertEquals(List.of(), masterDataMessages(importSample(NEW)));
+		assertEquals(fromNew, dumps());
+		assertEquals(Map.of("MV-FFF1", 1002, "MV-FFF2", 1002), versions());
+	}
+
+	/**
 	 * The same master data twice: nothing changes and nothing is reported.
 	 */
 	public void testSameTwice() throws Exception {

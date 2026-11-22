@@ -3,9 +3,6 @@
  */
 package test.de.haumacher.ehome.scan;
 
-import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
-import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
-
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
@@ -15,10 +12,9 @@ import java.util.Set;
 
 import junit.framework.Test;
 
-import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
-import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.importer.SharedProjectTestCase;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -51,44 +47,34 @@ import de.haumacher.ehome.scan.ScanTarget;
  * </p>
  */
 @SuppressWarnings("javadoc")
-public class TestScanCandidates extends BasicTestCase {
+public class TestScanCandidates extends SharedProjectTestCase {
 
 	private static final int TASTSENSOR = 0x1332;
 
 	public void testProjectEditionWins() throws Exception {
-		List<TLObject> before = instances("ehome.project:Project");
-		try {
-			importSample("samples/KNX-Testsystem.knxproj");
-			List<TLObject> ets4 = SharedData.newProjects(before);
-			assertEquals(1, ets4.size());
-			List<TLObject> both = new ArrayList<>(instances("ehome.project:Project"));
-			importSample("samples/KNX-Testsystem-ETS6.knxproj");
-			List<TLObject> ets6 = SharedData.newProjects(both);
-			assertEquals(1, ets6.size());
+		List<TLObject> ets4 = List.of(sharedProject("samples/KNX-Testsystem.knxproj"));
+		List<TLObject> ets6 = List.of(sharedProject("samples/KNX-Testsystem-ETS6.knxproj"));
 
-			// The Tastsensor 1.3.50 as a scan reads it: manufacturer 0008, application 10D7 version 11.
-			FoundDevice found = new FoundDevice(TASTSENSOR, FoundDevice.Source.BUS, 0x0705, 0x08, null,
-				HexFormat.of().parseHex("000810d711"), null, null, List.of(), List.of());
+		// The Tastsensor 1.3.50 as a scan reads it: manufacturer 0008, application 10D7 version 11.
+		FoundDevice found = new FoundDevice(TASTSENSOR, FoundDevice.Source.BUS, 0x0705, 0x08, null,
+			HexFormat.of().parseHex("000810d711"), null, null, List.of(), List.of());
 
-			// The catalog alone offers both editions: a choice.
-			CatalogMatch.Match catalog = CatalogMatch.match(found);
-			assertEquals(CatalogMatch.Kind.CHOICE, catalog.kind());
-			assertTrue(catalog.candidates().stream().map(c -> c.program().getExtId()).distinct().count() >= 2);
+		// The catalog alone offers both editions: a choice.
+		CatalogMatch.Match catalog = CatalogMatch.match(found);
+		assertEquals(CatalogMatch.Kind.CHOICE, catalog.kind());
+		assertTrue(catalog.candidates().stream().map(c -> c.program().getExtId()).distinct().count() >= 2);
 
-			// Each project decides for the edition its device 1.3.50 runs.
-			Program program4 = program(ets4.get(0));
-			Program program6 = program(ets6.get(0));
-			assertNotSame(program4, program6);
-			assertUnique(CatalogMatch.match(ets4.get(0), found), program4);
-			assertUnique(CatalogMatch.match(ets6.get(0), found), program6);
+		// Each project decides for the edition its device 1.3.50 runs.
+		Program program4 = program(ets4.get(0));
+		Program program6 = program(ets6.get(0));
+		assertNotSame(program4, program6);
+		assertUnique(CatalogMatch.match(ets4.get(0), found), program4);
+		assertUnique(CatalogMatch.match(ets6.get(0), found), program6);
 
-			// A device at another address of the project does not decide.
-			FoundDevice elsewhere = new FoundDevice(0x1333, FoundDevice.Source.BUS, 0x0705, 0x08, null,
-				HexFormat.of().parseHex("000810d711"), null, null, List.of(), List.of());
-			assertEquals(CatalogMatch.Kind.CHOICE, CatalogMatch.match(ets4.get(0), elsewhere).kind());
-		} finally {
-			SharedData.deleteProjects(SharedData.newProjects(before));
-		}
+		// A device at another address of the project does not decide.
+		FoundDevice elsewhere = new FoundDevice(0x1333, FoundDevice.Source.BUS, 0x0705, 0x08, null,
+			HexFormat.of().parseHex("000810d711"), null, null, List.of(), List.of());
+		assertEquals(CatalogMatch.Kind.CHOICE, CatalogMatch.match(ets4.get(0), elsewhere).kind());
 	}
 
 	public void testSummaryCountsChoices() {
