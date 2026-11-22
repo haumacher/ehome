@@ -46,6 +46,8 @@ public class TestImportCacheProbe extends BasicTestCase {
 
 	public void testEditedPartBetweenImports() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
+		Parameter edited = null;
+		ResKey original = null;
 		try {
 			importProject(DETAILS);
 			importProject(DETAILS); // the second import remembers the parts of the known program
@@ -62,9 +64,11 @@ public class TestImportCacheProbe extends BasicTestCase {
 			assertNotNull("A parameter of " + programId, victim);
 			String victimId = victim.getExtId();
 			KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-			ResKey edited = ResKey.text("Edited by the user");
+			ResKey userText = ResKey.text("Edited by the user");
+			edited = victim;
+			original = victim.getDescription();
 			try (Transaction tx = kb.beginTransaction()) {
-				victim.setDescription(edited);
+				victim.setDescription(userText);
 				tx.commit();
 			}
 
@@ -83,6 +87,13 @@ public class TestImportCacheProbe extends BasicTestCase {
 			}
 			SharedData.assertOnce(PROGRAM, List.of(programId));
 		} finally {
+			if (edited != null && edited.tValid()) {
+				// The program is shared: later tests read its texts.
+				try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+					edited.setDescription(original);
+					tx.commit();
+				}
+			}
 			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 	}
