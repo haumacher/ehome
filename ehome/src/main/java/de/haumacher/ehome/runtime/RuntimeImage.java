@@ -121,6 +121,14 @@ public final class RuntimeImage {
 	public static final String SCHEMA_VERSION_ANONYMOUS_PAGES = "1.8";
 
 	/**
+	 * The version of the schema of an image with an initial value of an application datapoint
+	 * (homecontrol <code>spec/runtime-image.md</code> 3.3, haumacher/ehome #217): the datapoint member
+	 * <code>initial</code>, binary format 1.2. Every application datapoint without a Zigbee function
+	 * has one.
+	 */
+	public static final String SCHEMA_VERSION_INITIAL_VALUES = "1.9";
+
+	/**
 	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote
 	 * (homecontrol <code>spec/runtime-image.md</code> 3.5, 1.4; haumacher/ehome #70): the toggle a press,
 	 * on and off, dim up and down, the dim stop a release.
@@ -233,6 +241,7 @@ public final class RuntimeImage {
 		if (automation) {
 			result.ui(project);
 		}
+		result.schemaVersion();
 		result._text = Json.writeCompact(result._json);
 		return result;
 	}
@@ -1048,7 +1057,6 @@ public final class RuntimeImage {
 
 	// ---- control pages -----------------------------------------------------------------------
 
-	@SuppressWarnings("unchecked")
 	private void ui(TLObject project) {
 		Set<String> parameters = new HashSet<>();
 		for (RuleLoader.ParameterDatapoint datapoint : RuleLoader.parameterDatapoints(_json.get("rules"))) {
@@ -1088,9 +1096,20 @@ public final class RuntimeImage {
 			ui.put("pages", pages);
 			_json.put("ui", ui);
 			_uiSources.putAll(export.getSources());
-			if (ImageCompiler.formatMinor(_json) > 0) {
-				((Map<String, Object>) _json.get("image")).put("schemaVersion", SCHEMA_VERSION_ANONYMOUS_PAGES);
-			}
+		}
+	}
+
+	/**
+	 * The schema the image is written in: the oldest whose members it uses
+	 * ({@link #SCHEMA_VERSION_INITIAL_VALUES}, {@link #SCHEMA_VERSION_ANONYMOUS_PAGES}), so an image
+	 * without them stays the image it was.
+	 */
+	@SuppressWarnings("unchecked")
+	private void schemaVersion() {
+		int minor = ImageCompiler.formatMinor(_json);
+		if (minor > 0) {
+			((Map<String, Object>) _json.get("image")).put("schemaVersion",
+				minor >= 2 ? SCHEMA_VERSION_INITIAL_VALUES : SCHEMA_VERSION_ANONYMOUS_PAGES);
 		}
 	}
 

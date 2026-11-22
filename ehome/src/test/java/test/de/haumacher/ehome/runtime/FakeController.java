@@ -107,7 +107,7 @@ public class FakeController {
 
 	private int _nextStatus;
 
-	private String _format = "1.0";
+	private String _format = "1.2";
 
 	private Map<String, Object> _nextBody;
 
@@ -518,7 +518,8 @@ public class FakeController {
 	/**
 	 * The format of the binary runtime image the fake reports it reads (<code>device.format</code> of
 	 * <code>/api/status</code>, <code>format</code> of its <code>auth</code>): <code>null</code> as a
-	 * firmware up to 1.2, which read JSON images and reports none; by default 1.0.
+	 * firmware up to 1.2, which read JSON images and reports none; by default 1.2, the newest (the initial
+	 * values of the application datapoints, haumacher/ehome #217).
 	 */
 	public synchronized String getFormat() {
 		return _format;

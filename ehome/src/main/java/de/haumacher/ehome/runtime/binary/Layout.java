@@ -25,10 +25,14 @@ public final class Layout {
 
 	/**
 	 * The newest minor version of the format this layout describes (1.1: the anonymous pages,
-	 * homecontrol #91, haumacher/ehome #184). An image is written in the oldest minor version that has
-	 * its sections: 0 without the anonymous pages.
+	 * homecontrol #91, haumacher/ehome #184; 1.2: the initial values of datapoints, homecontrol #107,
+	 * haumacher/ehome #217). An image is written in the oldest minor version that has what it uses: 2
+	 * with an initial value, else 1 with the anonymous pages, else 0.
 	 */
-	public static final int MINOR = 1;
+	public static final int MINOR = 2;
+
+	/** The bit of a datapoint's <code>init</code>: its <code>initial</code> names its initial value (9.7). */
+	public static final int INIT_INITIAL = 0x01;
 
 	/** The newest format version this layout describes, as the controller reports it. */
 	public static final String FORMAT = MAJOR + "." + MINOR;
@@ -295,7 +299,8 @@ public final class Layout {
 		table(SETTINGS, "settings", 32, true, "tz:0:STR", "ntp:4:STR", "flags:8:U8", "elev:12:I32", "lat:16:F64",
 			"lon:24:F64");
 		table(DATAPOINTS, "datapoints", 24, false, "name:0:STR", "label:4:LABEL", "unit:8:STR", "type:12:U8",
-			"flags:13:U8", "owner:14:U8", "ownerIndex:16:U16", "ownerMember:18:U16", "history:20:U16");
+			"flags:13:U8", "owner:14:U8", "init:15:U8", "ownerIndex:16:U16", "ownerMember:18:U16", "history:20:U16",
+			"initial:22:U16");
 		table(LOCATIONS, "locations", 12, false, "id:0:STR", "label:4:LABEL", "parent:8:U16", "kind:10:U8");
 		table(FUNCTIONS, "functions", 28, false, "id:0:STR", "label:4:LABEL", "unit:8:STR", "room:12:U16",
 			"firstRole:14:U16", "kind:16:U8", "scene:17:U8", "roleCount:18:U8", "presses:20:RAW6");

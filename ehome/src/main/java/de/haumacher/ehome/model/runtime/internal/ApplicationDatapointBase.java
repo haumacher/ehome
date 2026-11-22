@@ -79,6 +79,33 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	String IDENTIFIER_ATTR = "identifier";
 
 	/**
+	 * Part <code>initial</code> of <code>ApplicationDatapoint</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String INITIAL_ATTR = "initial";
+
+	/**
+	 * Part <code>initialNeutral</code> of <code>ApplicationDatapoint</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String INITIAL_NEUTRAL_ATTR = "initialNeutral";
+
+	/**
+	 * Part <code>initialValue</code> of <code>ApplicationDatapoint</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String INITIAL_VALUE_ATTR = "initialValue";
+
+	/**
 	 * Part <code>label</code> of <code>ApplicationDatapoint</code>
 	 * 
 	 * <p>
@@ -248,6 +275,41 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	 */
 	default void setIdentifier(String newValue) {
 		tUpdateByName(IDENTIFIER_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #INITIAL_ATTR}.
+	 */
+	default String getInitial() {
+		return (String) tValueByName(INITIAL_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #INITIAL_ATTR}.
+	 */
+	default void setInitial(String newValue) {
+		tUpdateByName(INITIAL_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #INITIAL_NEUTRAL_ATTR}.
+	 */
+	default String getInitialNeutral() {
+		return (String) tValueByName(INITIAL_NEUTRAL_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #INITIAL_VALUE_ATTR}.
+	 */
+	default String getInitialValue() {
+		return (String) tValueByName(INITIAL_VALUE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #INITIAL_VALUE_ATTR}.
+	 */
+	default void setInitialValue(String newValue) {
+		tUpdateByName(INITIAL_VALUE_ATTR, newValue);
 	}
 
 	/**

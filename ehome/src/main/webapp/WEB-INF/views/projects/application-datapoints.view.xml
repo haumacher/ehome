@@ -11,6 +11,8 @@
 	(project.view.xml, haumacher/ehome #115): the values of the whole project, not of one rule. The history of a datapoint (haumacher/ehome #73) is derived
 	from the charts of the control pages unless it is set by hand ("Set history by hand", "Derive
 	history").
+	The initial value (haumacher/ehome #217) is entered as a literal of the rule language of the datapoint's
+	type; while it is empty, the field shows the type's neutral value, which then applies.
 	"New" opens the create dialog projects/create-part.view.xml (haumacher/ehome #91): id, label and
 	type; nothing is stored before "Create".
 -->
@@ -237,6 +239,7 @@
 						<field attribute="type"/>
 						<field attribute="writable"/>
 						<field attribute="persist"/>
+						<field attribute="initial"/>
 						<field attribute="unit"/>
 						<field attribute="historyEffective"/>
 						<field attribute="historyDerived"/>

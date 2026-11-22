@@ -23,6 +23,7 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.annotate.TLConstraints;
 import com.top_logic.model.annotate.util.ConstraintCheck;
+import com.top_logic.model.fallback.StorageWithFallback;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
@@ -310,7 +311,9 @@ final class AutomationChange {
 	 */
 	private void take(TLObject old, TLObject replacement, Set<TLObject> removed) {
 		for (TLStructuredTypePart part : replacement.tType().getAllParts()) {
-			if (part.isDerived() || KEPT.contains(part.getName())) {
+			if (part.isDerived() || part.getStorageImplementation() instanceof StorageWithFallback
+				|| KEPT.contains(part.getName())) {
+				// An attribute with a fallback is taken through the attribute storing its value.
 				continue;
 			}
 			Object value = replacement.tValue(part);

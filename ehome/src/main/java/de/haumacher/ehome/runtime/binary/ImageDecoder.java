@@ -445,7 +445,7 @@ public final class ImageDecoder {
 			|| owner == ImageCompiler.OWNER_EXTERNAL || (owner == ImageCompiler.OWNER_SCHEDULER && i(dp, "ownerMember") == 0);
 	}
 
-	private List<Object> datapoints() {
+	private List<Object> datapoints() throws DecodeException {
 		List<Map<String, Object>> knx = table(Layout.KNX_BINDINGS);
 		List<Map<String, Object>> addresses = table(Layout.KNX_ADDRESSES);
 		List<Map<String, Object>> listen = table(Layout.KNX_LISTEN);
@@ -537,6 +537,10 @@ public final class ImageDecoder {
 			}
 			if ((flags & ImageCompiler.VIRTUAL) != 0) {
 				json.put("virtual", new LinkedHashMap<>());
+				if ((i(dp, "init") & Layout.INIT_INITIAL) != 0) {
+					// The initial value (9.7, format 1.2): the constant in the source's literal form.
+					json.put("initial", Values.toJson(constant(i(dp, "initial"))));
+				}
 			}
 			result.add(json);
 		}

@@ -53,6 +53,19 @@ final class ImageWriter {
 	 *        The private installation key (its seed, 64 hex digits) to sign with, <code>null</code> for
 	 *        an unsigned image.
 	 */
+	/** Whether a datapoint of the tables has an initial value (9.7, format 1.2). */
+	private static boolean hasInitial(SortedMap<Integer, List<Map<String, Object>>> tables) {
+		List<Map<String, Object>> datapoints = tables.get(Integer.valueOf(Layout.DATAPOINTS));
+		if (datapoints != null) {
+			for (Map<String, Object> rec : datapoints) {
+				if (rec.get("init") instanceof Number init && (init.intValue() & Layout.INIT_INITIAL) != 0) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	static byte[] write(SortedMap<Integer, List<Map<String, Object>>> tables, Map<Integer, byte[]> byteSections,
 			String seed) {
 		// The strings: every string reference and every tag and text of a label, sorted bytewise.
@@ -138,8 +151,10 @@ final class ImageWriter {
 		ByteBuffer out = ByteBuffer.allocate(total).order(ByteOrder.LITTLE_ENDIAN);
 		out.put(0, Layout.MAGIC);
 		out.putShort(4, (short) Layout.MAJOR);
-		// Format 1.1 only for an image with its sections (spec/runtime-image.md 8): the anonymous pages.
-		out.putShort(6, (short) (byteSections.containsKey(Integer.valueOf(Layout.UI_ANONYMOUS)) ? 1 : 0));
+		// The oldest minor version with what the image uses (spec/runtime-image.md 8): 1.2 an initial
+		// value of a datapoint, 1.1 the sections of the anonymous pages.
+		out.putShort(6, (short) (hasInitial(tables) ? 2
+			: byteSections.containsKey(Integer.valueOf(Layout.UI_ANONYMOUS)) ? 1 : 0));
 		out.putInt(8, total);
 		out.putInt(16, signed ? Layout.FLAG_SIGNED : 0);
 		out.putShort(20, (short) Layout.HEADER_SIZE);

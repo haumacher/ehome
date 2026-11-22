@@ -1418,6 +1418,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey IMAGE_KNX_OR_ZIGBEE;
 
 	/**
+	 * @en Only an application datapoint has an initial value.
+	 */
+	public static ResKey IMAGE_INITIAL_WITHOUT_VIRTUAL;
+
+	/**
+	 * @en The initial value is not a value of the type {0}.
+	 */
+	public static ResKey1 IMAGE_INITIAL_NOT_OF_TYPE__TYPE;
+
+	/**
+	 * @en The initial value is not a value of the type {0}: {1}
+	 */
+	public static ResKey2 INITIAL_VALUE_INVALID__TYPE_REASON;
+
+	/**
 	 * @en A datapoint is either knx or virtual.
 	 */
 	public static ResKey IMAGE_KNX_OR_VIRTUAL;

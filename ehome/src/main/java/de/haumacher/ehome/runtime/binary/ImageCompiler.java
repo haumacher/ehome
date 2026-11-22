@@ -207,6 +207,9 @@ public final class ImageCompiler {
 
 		int _history = Layout.NONE;
 
+		/** The constant of the initial value (9.7, format 1.2), {@link Layout#NONE} without. */
+		int _initial = Layout.NONE;
+
 		final Map<?, ?> _source;
 
 		Dp(String name, String type, Map<?, ?> source) {
@@ -348,6 +351,9 @@ public final class ImageCompiler {
 			}
 			if (virtual) {
 				flags |= VIRTUAL;
+				if (dp.containsKey("initial")) {
+					result._initial = initialConstant(dp, _dps.size());
+				}
 			}
 			result._flags = flags;
 			add(result);
@@ -462,6 +468,20 @@ public final class ImageCompiler {
 		return index.intValue();
 	}
 
+	/**
+	 * Appends the initial value of the declared datapoint as a constant (9.7, 9.14): the literal value
+	 * of the expression type its type is read as. The constants of the initial values come first, in
+	 * datapoint order (9.18).
+	 */
+	private int initialConstant(Map<?, ?> dp, int index) {
+		ValueType type = ValueType.fromName(string(dp.get("type")));
+		Values.Literal literal = type == null ? null : Values.fromJson(type.expressionType(), dp.get("initial"));
+		if (literal == null || !literal.isOk() || Values.convertForDatapoint(literal.value(), type) == null) {
+			throw new CompileException("datapoints[" + index + "].initial", "not a value of type " + dp.get("type"));
+		}
+		return constant(literal.value());
+	}
+
 	private void datapointRecords() {
 		List<Map<String, Object>> records = table(Layout.DATAPOINTS);
 		for (Dp dp : _dps) {
@@ -475,6 +495,10 @@ public final class ImageCompiler {
 			rec.put("ownerIndex", Integer.valueOf(dp._ownerIndex));
 			rec.put("ownerMember", Integer.valueOf(dp._ownerMember));
 			rec.put("history", Integer.valueOf(dp._history));
+			if (dp._initial != Layout.NONE) {
+				rec.put("init", Integer.valueOf(Layout.INIT_INITIAL));
+				rec.put("initial", Integer.valueOf(dp._initial));
+			}
 			records.add(rec);
 		}
 	}
@@ -1636,10 +1660,16 @@ public final class ImageCompiler {
 
 	/**
 	 * The minor version of the binary format the image of the given source is written in (section 8):
-	 * 1 with a control page of minimum role <code>anonymous</code> (3.9, I12, homecontrol #91,
-	 * haumacher/ehome #184), else 0.
+	 * 2 with an initial value of a datapoint (3.3, homecontrol #107, haumacher/ehome #217), else 1 with
+	 * a control page of minimum role <code>anonymous</code> (3.9, I12, homecontrol #91, haumacher/ehome
+	 * #184), else 0.
 	 */
 	public static int formatMinor(Map<?, ?> source) {
+		for (Map<?, ?> dp : maps(source.get("datapoints"))) {
+			if (dp.containsKey("virtual") && dp.containsKey("initial")) {
+				return 2;
+			}
+		}
 		return anonymousPages(source).isEmpty() ? 0 : 1;
 	}
 

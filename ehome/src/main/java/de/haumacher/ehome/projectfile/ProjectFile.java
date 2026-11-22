@@ -8,6 +8,7 @@ import java.util.Set;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.fallback.StorageWithFallback;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.ProjectParts;
@@ -100,7 +101,9 @@ import de.haumacher.ehome.modules.ModuleParts;
  * </p>
  *
  * <p>
- * <b>Left out</b> ({@link #leftOut(TLStructuredTypePart)}): the members (accounts of this
+ * <b>Left out</b> ({@link #leftOut(TLStructuredTypePart)}): the derived attributes and those with a
+ * fallback (an application datapoint's <code>initial</code>: the attribute storing the value entered
+ * travels), the members (accounts of this
  * installation), the presets applied to the devices and those of the functions and controls (presets of
  * this installation's device templates; the values they set travel as the devices' settings), the marks
  * of the derivation (haumacher/ehome #147), the secrets (the installation keys, the
@@ -261,11 +264,13 @@ public final class ProjectFile {
 	}
 
 	/**
-	 * Whether the given attribute is never written: a derived attribute, a backward reference, a
-	 * secret or operating history.
+	 * Whether the given attribute is never written: a derived attribute, an attribute with a fallback
+	 * (the attribute storing its value travels itself), a backward reference, a secret or operating
+	 * history.
 	 */
 	public static boolean leftOut(TLStructuredTypePart part) {
-		if (part.isDerived() || part instanceof TLReference reference && reference.isBackwards()) {
+		if (part.isDerived() || part.getStorageImplementation() instanceof StorageWithFallback
+			|| part instanceof TLReference reference && reference.isBackwards()) {
 			return true;
 		}
 		String owner = TLModelUtil.qualifiedName(part.getDefinition().getOwner());

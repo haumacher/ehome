@@ -300,7 +300,8 @@ public class TestControlPages extends BasicTestCase {
 		ImageReport report = image.validate();
 		assertTrue(report.toString(), report.isValid());
 		assertEquals(before.getNotes(), image.getNotes());
-		assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+		assertEquals(RuntimeImage.SCHEMA_VERSION_INITIAL_VALUES,
+			((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 		assertEquals(Json.write(Json.parse(PAGES, 100)), Json.write(image.getJson().get("ui")));
 
 		// The chart of the amendment, exactly.
@@ -327,20 +328,23 @@ public class TestControlPages extends BasicTestCase {
 
 	/**
 	 * The minimum role of a page (haumacher/ehome #184, homecontrol #91): a new page is one of
-	 * <code>operator</code> and its image has no section of the anonymous pages (format 1.0, schema
-	 * 1.7, as before); a page set to <code>anonymous</code> brings the sections <code>ui.anonymous</code>
-	 * (its pages alone), <code>ui.anonymous.datapoints</code> (exactly what they show, operated unless
-	 * read only) and <code>ui.anonymous.functions</code>, in format 1.1 and schema 1.8.
+	 * <code>operator</code> and its image has no section of the anonymous pages; a page set to
+	 * <code>anonymous</code> brings the sections <code>ui.anonymous</code> (its pages alone),
+	 * <code>ui.anonymous.datapoints</code> (exactly what they show, operated unless read only) and
+	 * <code>ui.anonymous.functions</code>. The project has an application datapoint, whose initial
+	 * value makes every image of it one of format 1.2 and schema 1.9 (haumacher/ehome #217); the corpus
+	 * image <code>anonymous-pages.json</code> has the sections in format 1.1.
 	 */
 	public void testAnonymousPages() throws Exception {
 		buildPages();
 		assertEquals("operator", _evening.getMinimumRole().getName());
 		assertFalse(Pages.isAnonymous(_climate));
 		RuntimeImage operators = RuntimeImage.build(_project, 1, NOW);
-		assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) operators.getJson().get("image")).get("schemaVersion"));
+		assertEquals(RuntimeImage.SCHEMA_VERSION_INITIAL_VALUES,
+			((Map<?, ?>) operators.getJson().get("image")).get("schemaVersion"));
 		assertEquals(Json.write(Json.parse(PAGES, 100)), Json.write(operators.getJson().get("ui")));
 		Binary none = new Binary(operators.compile(null));
-		assertEquals(0, none.minor());
+		assertEquals(2, none.minor());
 		assertNull(none.section(Layout.UI_ANONYMOUS));
 		assertNull(none.section(Layout.UI_ANONYMOUS_DATAPOINTS));
 		assertNull(none.section(Layout.UI_ANONYMOUS_FUNCTIONS));
@@ -350,14 +354,14 @@ public class TestControlPages extends BasicTestCase {
 		setRole(_evening, "anonymous");
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
 		assertTrue(image.validate().toString(), image.validate().isValid());
-		assertEquals(RuntimeImage.SCHEMA_VERSION_ANONYMOUS_PAGES,
+		assertEquals(RuntimeImage.SCHEMA_VERSION_INITIAL_VALUES,
 			((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 		List<?> pages = (List<?>) ((Map<?, ?>) image.getJson().get("ui")).get("pages");
 		assertEquals("anonymous", ((Map<?, ?>) pages.get(0)).get("minimumRole"));
 		assertFalse(((Map<?, ?>) pages.get(1)).containsKey("minimumRole"));
 		byte[] bytes = image.compile(null);
 		Binary binary = new Binary(bytes);
-		assertEquals(1, binary.minor());
+		assertEquals(2, binary.minor());
 		assertEquals(onlyPages(image.getJson(), 0), binary.text(Layout.UI_ANONYMOUS));
 		// The datapoint the functions command is also shown read only: operated.
 		assertEquals(Map.of("1/0/1", Boolean.TRUE, "holiday", Boolean.TRUE, "rule/heat/setpoint", Boolean.TRUE,
@@ -373,7 +377,7 @@ public class TestControlPages extends BasicTestCase {
 		setRole(_climate, "anonymous");
 		image = RuntimeImage.build(_project, 1, NOW);
 		binary = new Binary(image.compile(null));
-		assertEquals(1, binary.minor());
+		assertEquals(2, binary.minor());
 		assertEquals(onlyPages(image.getJson(), 1), binary.text(Layout.UI_ANONYMOUS));
 		assertEquals(Map.of("1/0/1", Boolean.TRUE, "1/3/1", Boolean.FALSE, "1/3/5", Boolean.FALSE, "1/1/7",
 			Boolean.FALSE, "rule/heat/setpoint", Boolean.FALSE), binary.anonymousDatapoints());

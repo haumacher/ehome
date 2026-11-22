@@ -25,6 +25,7 @@ import de.haumacher.ehome.rules.RuleLoader.LoadException;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.rules.ValueType;
+import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.ImageReport.Kind;
 import de.haumacher.ehome.runtime.Json.JsonException;
 import de.haumacher.ehome.zigbee.ZigbeeFunctionTable;
@@ -64,9 +65,10 @@ public final class ImageValidator {
 	 * number, a dimmer with its switching command alone, rules writing an application datapoint that is
 	 * not writable, haumacher/ehome #134, #136, #138; 1.7: the timelines of rules with states, the
 	 * labels of states, the datapoints of the rules' states, haumacher/ehome #140; 1.8: the minimum
-	 * role of a control page, homecontrol #91, haumacher/ehome #184).
+	 * role of a control page, homecontrol #91, haumacher/ehome #184; 1.9: the initial value of an
+	 * application datapoint, homecontrol #107, haumacher/ehome #217).
 	 */
-	public static final int SCHEMA_MINOR = 8;
+	public static final int SCHEMA_MINOR = 9;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -1041,6 +1043,16 @@ public final class ImageValidator {
 			// A value of the application: rules write it also when it is not writable (1.6).
 			_application.add(Integer.valueOf(index));
 		}
+		if (dp.containsKey("initial")) {
+			// The initial value (schema 1.9, spec/runtime-image.md 3.3, haumacher/ehome #217).
+			enter(".initial");
+			if (!hasVirtual) {
+				refuse("only a datapoint with virtual has an initial value", I18NConstants.IMAGE_INITIAL_WITHOUT_VIRTUAL);
+			} else if (type != null && !initialFits(dp.get("initial"), type)) {
+				refuse("not a value of type " + type, I18NConstants.IMAGE_INITIAL_NOT_OF_TYPE__TYPE.fill(type));
+			}
+			leave();
+		}
 		if (dp.containsKey("zigbee")) {
 			enter(".zigbee");
 			if (hasVirtual) {
@@ -1349,6 +1361,20 @@ public final class ImageValidator {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Whether the JSON value is a literal value (<code>spec/rules.md</code> 3.1) of the expression type
+	 * the value type is read as and converts exactly into the value type: an initial value
+	 * (<code>spec/runtime-image.md</code> 3.3).
+	 */
+	public static boolean initialFits(Object json, String type) {
+		ValueType valueType = ValueType.fromName(type);
+		if (valueType == null) {
+			return false;
+		}
+		Values.Literal literal = Values.fromJson(valueType.expressionType(), json);
+		return literal.isOk() && Values.convertForDatapoint(literal.value(), valueType) != null;
 	}
 
 	/** A valid Zigbee binding of the datapoint with the given index. */

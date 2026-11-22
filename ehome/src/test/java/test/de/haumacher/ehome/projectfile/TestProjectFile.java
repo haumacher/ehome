@@ -61,6 +61,7 @@ import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.HistoryArchive;
 import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.BlockParameter;
 import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.model.runtime.ObjectFollower;
@@ -68,6 +69,7 @@ import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileExport;
+import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.GroupAddressIds;
@@ -75,6 +77,7 @@ import de.haumacher.ehome.runtime.IdRenames;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Pages;
+import de.haumacher.ehome.runtime.ValueTypes;
 import de.haumacher.ehome.runtime.ProposeIdentifiersAction;
 import de.haumacher.ehome.runtime.RuleImport;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
@@ -185,6 +188,13 @@ public class TestProjectFile extends BasicTestCase {
 
 			assertEquals(Json.write(image), Json.write(RuntimeImage.build(copy, 1, TIME).getJson()));
 			assertEquals(dump, dump(copy));
+			// The initial value set in setUp travels, each datapoint keeps exactly its entered one.
+			for (ApplicationDatapoint original : ((Project) project).getApplicationDatapoints()) {
+				ApplicationDatapoint copied = ((Project) copy).getApplicationDatapoints().stream()
+					.filter(a -> a.getIdentifier().equals(original.getIdentifier())).findFirst().orElseThrow();
+				assertEquals(original.getIdentifier(), original.getInitialValue(), copied.getInitialValue());
+			}
+			assertTrue(((Project) copy).getApplicationDatapoints().stream().anyMatch(a -> "true".equals(a.getInitialValue())));
 			assertNull(((Project) copy).getInstallationKey());
 			Controller controller = ((Project) copy).getController();
 			assertNotNull(controller);
@@ -296,6 +306,12 @@ public class TestProjectFile extends BasicTestCase {
 			BlockInstances.bind(BlockInstances.port(block, "window"),
 				project.getApplicationDatapoints().stream().findFirst().orElseThrow());
 			((BlockParameter) BlockInstances.parameter(block, "comfort")).setValue(Double.valueOf(21.5));
+
+			// An application datapoint with an initial value of its own (haumacher/ehome #217); the others
+			// keep the neutral one, which the file must not write as if entered.
+			ApplicationDatapoint withInitial = project.getApplicationDatapoints().stream()
+				.filter(a -> ValueTypes.BOOLEAN.equals(ApplicationDatapoints.valueType(a))).findFirst().orElseThrow();
+			withInitial.setInitialValue("true");
 
 			// A page with a datapoint, a rule's switch and a chart of the temperature.
 			TLObject page = Pages.insert(project, null, Pages.PAGE, null);

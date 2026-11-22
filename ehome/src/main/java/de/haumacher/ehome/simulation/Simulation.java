@@ -435,6 +435,19 @@ public final class Simulation implements AutoCloseable {
 		for (KnxBinding.Mapping mapping : mappings) {
 			_binding.bind(mapping);
 		}
+		// The initial values of the application datapoints (homecontrol spec/runtime-image.md 3.3, schema
+		// 1.9, haumacher/ehome #217): a simulation starts without persisted values, so each datapoint
+		// with one starts with it, with quality good, before the rules start, as on the controller.
+		for (Object item : datapoints) {
+			Map<?, ?> dp = (Map<?, ?>) item;
+			if (dp.containsKey("virtual") && dp.containsKey("initial")) {
+				ValueType type = ValueType.fromName((String) dp.get("type"));
+				Values.Literal initial = Values.fromJson(type.expressionType(), dp.get("initial"));
+				if (initial.isOk()) {
+					_model.restore((String) dp.get("id"), initial.value());
+				}
+			}
+		}
 		if (_timeMaster != null) {
 			for (TimeMaster.Member member : _timeMaster.members()) {
 				_model.add(member.datapoint(), member.type(), false, _timeMaster);

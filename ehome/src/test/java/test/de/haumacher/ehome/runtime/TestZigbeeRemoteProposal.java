@@ -142,10 +142,10 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 			assertEquals(1, refused.getRefusals().size());
 			assertEquals("functions[0].presses", refused.getRefusals().get(0).path());
 			assertEquals("malformed: unknown member 'longPress'", refused.getRefusals().get(0).reason());
-			((Map<String, Object>) changed.get("image")).put("schemaVersion", "1.9");
+			((Map<String, Object>) changed.get("image")).put("schemaVersion", "1.10");
 			refused = ImageValidator.validate(Json.write(changed));
-			assertEquals("malformed: unknown member 'longPress' (the image's schema 1.9 is newer than this firmware "
-				+ "reads, up to 1.8: update the firmware)", refused.getRefusals().get(0).reason());
+			assertEquals("malformed: unknown member 'longPress' (the image's schema 1.10 is newer than this firmware "
+				+ "reads, up to 1.9: update the firmware)", refused.getRefusals().get(0).reason());
 
 			// Dismissed: it stays away, also after the export is imported again.
 			TLObject dismissal;

@@ -42,14 +42,18 @@ import de.haumacher.ehome.model.runtime.Rule;
 import de.haumacher.ehome.model.runtime.WeeklySchedule;
 import de.haumacher.ehome.model.runtime.WriteAction;
 
+import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
+import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleFunctions;
+import de.haumacher.ehome.runtime.RuleImport;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
+import de.haumacher.ehome.runtime.binary.ImageDecoder;
 
 /**
  * Application datapoints (haumacher/ehome #59): datapoints of the runtime image owned by no
@@ -143,15 +147,16 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(4, datapoints.size());
 			assertEquals("1/0/1", ((Map<?, ?>) datapoints.get(0)).get("id"));
 			assertEquals(map("id", "holiday", "label", map("de", "Urlaub", "en", "Holiday"), "type", "boolean",
-				"writable", Boolean.TRUE, "persist", Boolean.TRUE, "virtual", Map.of()), datapoints.get(1));
+				"writable", Boolean.TRUE, "persist", Boolean.TRUE, "virtual", Map.of(), "initial", Boolean.FALSE),
+				datapoints.get(1));
 			Map<?, ?> exportedMorning = (Map<?, ?>) datapoints.get(2);
-			assertEquals(List.of("id", "label", "type", "virtual"), List.copyOf(exportedMorning.keySet()));
+			assertEquals(List.of("id", "label", "type", "virtual", "initial"), List.copyOf(exportedMorning.keySet()));
 			assertEquals("schedule.morning", exportedMorning.get("id"));
 			assertEquals(Map.of("en", "Morning", "de", "Morgen"), exportedMorning.get("label"));
 			assertEquals(map("id", "value1", "label", Map.of("en", "Counter", "de", "Zähler"),
 				"type", "unsigned", "unit", "x", "writable", Boolean.TRUE,
-				"history", map("retention", Long.valueOf(3600), "spacing", Long.valueOf(60)), "virtual", Map.of()),
-				datapoints.get(3));
+				"history", map("retention", Long.valueOf(3600), "spacing", Long.valueOf(60)), "virtual", Map.of(),
+				"initial", Long.valueOf(0)), datapoints.get(3));
 			assertSame(holiday, image.elementAt("datapoints[1].id"));
 			assertEquals("schedule.morning", ((Map<?, ?>) ((List<?>) image.getJson().get("schedules")).get(0)).get("output"));
 
@@ -226,6 +231,130 @@ public class TestApplicationDatapoints extends BasicTestCase {
 				dpt.tDelete();
 				tx.commit();
 			}
+		}
+	}
+
+	/**
+	 * The initial value of an application datapoint (haumacher/ehome #217, homecontrol
+	 * <code>spec/runtime-image.md</code> 3.3, schema 1.9): entered as a literal of the rule language of
+	 * its type and checked at the field; while none is entered the type's neutral value applies. The
+	 * image carries it for every application datapoint (schema 1.9, binary format 1.2), through the
+	 * binary image and back; a change of the type that the entered value does not fit is refused; the
+	 * import of an image's datapoints takes it back where it is not the neutral value.
+	 */
+	public void testInitialValues() throws Exception {
+		Project project;
+		ApplicationDatapoint flag;
+		ApplicationDatapoint setpoint;
+		ApplicationDatapoint wake;
+		ApplicationDatapoint step;
+		ApplicationDatapoint mode;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			project = create("ehome.project:Project");
+			project.setName("Initial values");
+			project.setExtId("P-TEST-217");
+			flag = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			flag.setIdentifier("sonnenschutz");
+			flag.setWritable(true);
+			flag.setPersist(true);
+			setpoint = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			setpoint.setIdentifier("setpoint");
+			setpoint.setType(valueType("real"));
+			setpoint.setInitialValue("21.5");
+			wake = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			wake.setIdentifier("wake");
+			wake.setType(valueType("timeOfDay"));
+			wake.setInitialValue("06:30");
+			step = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			step.setIdentifier("step");
+			step.setType(valueType("controlled"));
+			step.setInitialValue("controlled(true, 3)");
+			mode = (ApplicationDatapoint) RuleFunctions.create(project, "applicationDatapoints",
+				runtime("ApplicationDatapoint"));
+			mode.setIdentifier("mode");
+			mode.setType(valueType("enumeration"));
+			tx.commit();
+		}
+		Project other = null;
+		try {
+			// The field: the value entered, else the type's neutral value.
+			assertEquals("false", flag.getInitial());
+			assertEquals("0", mode.getInitial());
+			assertEquals("21.5", setpoint.getInitial());
+
+			// The image: every application datapoint has its initial value, schema 1.9, format 1.2.
+			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
+			ImageReport report = image.validate();
+			assertTrue(report.toString(), report.isValid());
+			assertEquals("1.9", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+			List<?> datapoints = (List<?>) image.getJson().get("datapoints");
+			assertEquals(Boolean.FALSE, ((Map<?, ?>) datapoints.get(0)).get("initial"));
+			assertEquals(Double.valueOf(21.5), ((Map<?, ?>) datapoints.get(1)).get("initial"));
+			assertEquals(map("control", Boolean.TRUE, "value", Long.valueOf(3)), ((Map<?, ?>) datapoints.get(3)).get("initial"));
+			assertEquals(Long.valueOf(0), ((Map<?, ?>) datapoints.get(4)).get("initial"));
+			byte[] binary = image.compile(null);
+			assertEquals(2, ImageDecoder.header(binary).minor());
+			List<?> decoded = (List<?>) ImageDecoder.decode(binary).get("datapoints");
+			for (int n = 0; n < datapoints.size(); n++) {
+				Map<?, ?> exported = (Map<?, ?>) datapoints.get(n);
+				Map<?, ?> back = (Map<?, ?>) decoded.get(n);
+				assertEquals(exported.get("id").toString(), Json.write(exported.get("initial")), Json.write(back.get("initial")));
+			}
+			// A controller reading format 1.1 cannot take it (homecontrol spec/runtime-image.md 11).
+			assertNotNull(Deployer.formatRefusal("1.1", "C", 2));
+			assertNull(Deployer.formatRefusal("1.2", "C", 2));
+
+			// At the field: a literal of the datapoint's type.
+			Resources resources = Resources.getInstance();
+			RuleForm form = new RuleForm(setpoint);
+			form.set("initial", "21");
+			assertEquals(List.of(), form.errors("initial"));
+			form.set("initial", "warm");
+			assertEquals(1, form.errors("initial").size());
+			form.set("initial", "06:30");
+			assertEquals(List.of(resources.getString(I18NConstants.INITIAL_VALUE_INVALID__TYPE_REASON.fill("real",
+				"syntax error at character 1: a real literal expected, not a timeOfDay literal"))), form.errors("initial"));
+			RuleForm stepForm = new RuleForm(step);
+			stepForm.set("initial", "controlled(true, 300)");
+			assertEquals(1, stepForm.errors("initial").size());
+
+			// The import of the image's datapoints takes the entered values back, not the neutral ones.
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				other = create("ehome.project:Project");
+				other.setName("Initial values, imported");
+				other.setExtId("P-TEST-217-B");
+				new RuleImport().importDatapoints(other, datapoints);
+				tx.commit();
+			}
+			List<TLObject> imported = ApplicationDatapoints.of(other);
+			assertEquals(5, imported.size());
+			assertNull(((ApplicationDatapoint) imported.get(0)).getInitialValue());
+			assertEquals("21.5", ((ApplicationDatapoint) imported.get(1)).getInitialValue());
+			assertEquals("06:30", ((ApplicationDatapoint) imported.get(2)).getInitialValue());
+			assertEquals("controlled(true, 3)", ((ApplicationDatapoint) imported.get(3)).getInitialValue());
+			assertNull(((ApplicationDatapoint) imported.get(4)).getInitialValue());
+
+			// An entered value the type no longer takes: the change of the type is refused on commit.
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				setpoint.setType(valueType("unsigned"));
+				tx.commit();
+				fail("The initial value 21.5 is no unsigned value.");
+			} catch (TopLogicException ex) {
+				// Expected.
+			}
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				setpoint.setType(valueType("unsigned"));
+				setpoint.setInitialValue("21");
+				tx.commit();
+			}
+			assertEquals(Long.valueOf(21),
+				((Map<?, ?>) ((List<?>) RuntimeImage.build(project, 2, NOW).getJson().get("datapoints")).get(1)).get("initial"));
+		} finally {
+			SharedData.deleteProjects(other == null ? List.of(project) : List.of(project, other));
 		}
 	}
 

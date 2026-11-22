@@ -174,6 +174,18 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeUnitProblem,
 		/**
+		 * <code>runtimeInitialProblem(text, datapoint)</code>: why the text cannot be the initial value
+		 * of the application datapoint ({@link ApplicationDatapoints#initialProblem(Object, Object)},
+		 * haumacher/ehome #217); <code>null</code> for an empty text or one that can.
+		 */
+		runtimeInitialProblem,
+		/**
+		 * <code>runtimeInitialNeutral(datapoint)</code>: the neutral value of the application
+		 * datapoint's type, its initial value while none is entered
+		 * ({@link ApplicationDatapoints#neutralInitial(String)}, haumacher/ehome #217).
+		 */
+		runtimeInitialNeutral,
+		/**
 		 * <code>datapointWritable(address)</code>: whether the datapoint of the group address is
 		 * writable in the runtime image ({@link DatapointSettings#writable(TLObject)}).
 		 */
@@ -278,6 +290,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return LabelLimit.problem(argument, arguments[1]);
 			case runtimeUnitProblem:
 				return problem(argument, ApplicationDatapoints::unitProblem);
+			case runtimeInitialProblem:
+				return ApplicationDatapoints.initialProblem(argument, arguments[1]);
 			default:
 				break;
 		}
@@ -286,6 +300,9 @@ public class RuntimeFunctions extends GenericMethod {
 		}
 		Resources resources = Resources.getInstance();
 		switch (_function) {
+			case runtimeInitialNeutral:
+				return ApplicationDatapoints.isApplicationDatapoint(obj)
+					? ApplicationDatapoints.neutralInitial(ApplicationDatapoints.valueType(obj)) : null;
 			case controllerTokenHint: {
 				Object token = ((Controller) obj).getToken();
 				return resources.getString(token == null || token.toString().isBlank() ? I18NConstants.TOKEN_NOT_SET
@@ -558,6 +575,7 @@ public class RuntimeFunctions extends GenericMethod {
 			int arity = _function == Function.runtimeTimeMasterProblem ? 3
 				: _function == Function.runtimeDatapointIdProblem || _function == Function.runtimeParameterIdProblem
 					|| _function == Function.groupAddressIdentifierProblem || _function == Function.runtimeLabelProblem
+					|| _function == Function.runtimeInitialProblem
 					|| _function == Function.redeploymentVeto || _function == Function.redeploymentConfirmation ? 2
 					: 1;
 			checkArgs(expr, args, arity, arity);

@@ -1622,6 +1622,27 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
+	 * Lookup {@link ApplicationDatapoint#INITIAL_ATTR} of {@link ApplicationDatapoint}.
+	 */
+	public static com.top_logic.model.TLProperty getInitialApplicationDatapointAttr() {
+		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.INITIAL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ApplicationDatapoint#INITIAL_NEUTRAL_ATTR} of {@link ApplicationDatapoint}.
+	 */
+	public static com.top_logic.model.TLProperty getInitialNeutralApplicationDatapointAttr() {
+		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.INITIAL_NEUTRAL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ApplicationDatapoint#INITIAL_VALUE_ATTR} of {@link ApplicationDatapoint}.
+	 */
+	public static com.top_logic.model.TLProperty getInitialValueApplicationDatapointAttr() {
+		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.INITIAL_VALUE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ApplicationDatapoint#LABEL_ATTR} of {@link ApplicationDatapoint}.
 	 */
 	public static com.top_logic.model.TLProperty getLabelApplicationDatapointAttr() {

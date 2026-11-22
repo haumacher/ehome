@@ -1340,6 +1340,51 @@
 				<property name="persist"
 					type="tl.core:Boolean"
 				/>
+				<!--
+					The initial value (haumacher/ehome #217, homecontrol spec/runtime-image.md 3.3, schema 1.9): the
+					value the controller gives the datapoint after a start or a new image while it has none (a
+					persisted value wins), a literal of the rule language of the datapoint's type (true, 21.5,
+					06:30, "Text", controlled(true, 3)). Edits initialValue; while it is empty, the type's neutral
+					value initialNeutral applies. Not for a datapoint bound to a Zigbee function.
+				-->
+				<property name="initial"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<fallback-storage
+								fallback-attribute="initialNeutral"
+								storage-attribute="initialValue"
+							/>
+						</storage-algorithm>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeInitialProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#zigbeeFunction`) == null, null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</property>
+				<!-- The initial value entered (a literal of the rule language); empty: the type's neutral value applies. -->
+				<property name="initialValue"
+					type="tl.core:String"
+				/>
+				<!-- The neutral value of the datapoint's type, its initial value while none is entered: false, 0, 0.0, "", 00:00, 1970-01-01, the first element 0. -->
+				<property name="initialNeutral"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[dp -> runtimeInitialNeutral($dp)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<!-- The unit the controller shows (at most 15 bytes). -->
 				<property name="unit"
 					type="tl.core:String"

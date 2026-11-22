@@ -230,7 +230,7 @@ public final class RuleImport {
 	 * Adds the application datapoints of the given datapoints of an image (the member
 	 * <code>datapoints</code>) behind the application datapoints of the project, as
 	 * {@link ApplicationDatapoints#json(TLObject)} writes them: the id, the label, the value type, the
-	 * unit, the flags writable and persist, the history. What the image derives (<code>transmit</code>,
+	 * unit, the flags writable and persist, the history, the initial value. What the image derives (<code>transmit</code>,
 	 * <code>readOnStart</code>) is not stored.
 	 *
 	 * <ul>
@@ -324,6 +324,13 @@ public final class RuleImport {
 		}
 		if (Boolean.TRUE.equals(json.get("persist"))) {
 			result.setPersist(true);
+		}
+		if (json.containsKey("virtual") && json.get("initial") != null) {
+			// The initial value (schema 1.9): entered where it is not the type's neutral value.
+			String initial = ApplicationDatapoints.initialLiteral(json.get("initial"), typeName.toString());
+			if (initial != null && !initial.equals(ApplicationDatapoints.neutralInitial(typeName.toString()))) {
+				result.setInitialValue(initial);
+			}
 		}
 		if (json.get("history") instanceof Map<?, ?> history) {
 			// The image states the history: it becomes the datapoint's own, set by hand (haumacher/ehome #73).
