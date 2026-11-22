@@ -8,9 +8,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import com.top_logic.basic.Logger;
 
@@ -60,6 +62,7 @@ public class TraceRecorder implements AutoCloseable {
 	 */
 	public synchronized void record(TraceEntry entry) {
 		_entries.add(entry);
+		notifyAll();
 		if (_out != null) {
 			try {
 				_out.append(TraceFormat.format(entry)).append('\n');
@@ -77,6 +80,27 @@ public class TraceRecorder implements AutoCloseable {
 	 */
 	public synchronized List<TraceEntry> entries() {
 		return new ArrayList<>(_entries);
+	}
+
+	/**
+	 * Waits until the services recorded fulfill the given condition: it is checked now and after
+	 * each service recorded.
+	 *
+	 * @param limit
+	 *        How long to wait at most.
+	 * @return Whether the condition holds; <code>false</code> if it did not within the limit.
+	 */
+	public synchronized boolean await(Predicate<List<TraceEntry>> condition, Duration limit)
+			throws InterruptedException {
+		long deadline = System.nanoTime() + limit.toNanos();
+		while (!condition.test(_entries)) {
+			long rest = deadline - System.nanoTime();
+			if (rest <= 0) {
+				return false;
+			}
+			wait(Math.max(1, rest / 1_000_000));
+		}
+		return true;
 	}
 
 	/**

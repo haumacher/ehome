@@ -120,6 +120,7 @@ public class TestVirtualDeviceProbe extends BasicTestCase {
 					assertTrue(name + ": " + result.failure(), result.success());
 				}
 			});
+			VirtualTesting.awaitConnectionEnded(running);
 		} finally {
 			manager.stop();
 		}

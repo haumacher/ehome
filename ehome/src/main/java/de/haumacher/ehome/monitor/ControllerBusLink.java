@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -28,8 +29,10 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 import com.top_logic.basic.Logger;
+import com.top_logic.basic.util.ResKey;
 
 import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
@@ -99,6 +102,24 @@ public class ControllerBusLink implements BusLink {
 		}
 	}
 
+	/**
+	 * Thrown when the controller does not answer a step of the connection in time: the step, in the
+	 * reader's language.
+	 */
+	static final class Unanswered extends IOException {
+
+		private final ResKey _step;
+
+		Unanswered(ResKey step, Throwable cause) {
+			super(DownloadPlan.english(step), cause);
+			_step = step;
+		}
+
+		ResKey step() {
+			return _step;
+		}
+	}
+
 	private final String _name;
 
 	private final ControllerClient _client;
@@ -162,12 +183,13 @@ public class ControllerBusLink implements BusLink {
 			result.connect();
 		} catch (Refused ex) {
 			result.close();
-			throw new BusException("The controller " + result.description() + " refused the connection: "
-				+ ex.getMessage(), ex);
+			throw new BusException(I18NConstants.ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL
+				.fill(result.description(), I18NConstants.ERROR_CONTROLLER_REFUSED__REASON.fill(ex.getMessage())), ex);
 		} catch (IOException ex) {
 			result.close();
-			throw new BusException("No connection to the controller " + result.description() + ": " + ex.getMessage(),
-				ex);
+			Object detail = ex instanceof Unanswered unanswered ? unanswered.step() : ex.getMessage();
+			throw new BusException(
+				I18NConstants.ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL.fill(result.description(), detail), ex);
 		}
 		if (pingMillis > 0) {
 			result._ping = result._executor.scheduleWithFixedDelay(result::ping, pingMillis, pingMillis,
@@ -338,11 +360,12 @@ public class ControllerBusLink implements BusLink {
 		Connection connection = new Connection();
 		long timeout = _client.timeout().toMillis();
 		// The step a timeout names: the WebSocket handshake, or the answer to the subscription.
-		String step = "the WebSocket handshake of " + uri;
+		ResKey step =
+			I18NConstants.ERROR_HANDSHAKE_UNANSWERED__ADDRESS_MILLIS.fill(uri.toString(), String.valueOf(timeout));
 		try {
 			connection._socket = _http.newWebSocketBuilder().connectTimeout(_client.timeout())
 				.buildAsync(uri, connection).get(timeout, TimeUnit.MILLISECONDS);
-			step = "the subscription to the monitor stream";
+			step = I18NConstants.ERROR_SUBSCRIPTION_UNANSWERED__MILLIS.fill(String.valueOf(timeout));
 			Map<String, Object> answer = connection._subscribed.get(timeout, TimeUnit.MILLISECONDS);
 			_connection = connection;
 			if (answer.get("next") instanceof Number next && _next < 0) {
@@ -360,7 +383,7 @@ public class ControllerBusLink implements BusLink {
 			throw new IOException(ex.getCause() == null ? ex.getMessage() : ex.getCause().getMessage(), ex);
 		} catch (TimeoutException ex) {
 			connection.close();
-			throw new IOException("The controller did not answer " + step + " within " + timeout + " ms.", ex);
+			throw new Unanswered(step, ex);
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
 			connection.close();
@@ -607,11 +630,12 @@ public class ControllerBusLink implements BusLink {
 
 		volatile WebSocket _socket;
 
+		/** Sends the messages of this connection one after another. */
+		private volatile WebSocketSender _sender;
+
 		final CompletableFuture<Map<String, Object>> _subscribed = new CompletableFuture<>();
 
 		private final StringBuilder _text = new StringBuilder();
-
-		private final Object _sendLock = new Object();
 
 		/** Batches received before the connection became the current one. */
 		private final List<Object[]> _early = new ArrayList<>();
@@ -621,11 +645,25 @@ public class ControllerBusLink implements BusLink {
 		@Override
 		public void onOpen(WebSocket webSocket) {
 			_socket = webSocket;
+			_sender = new WebSocketSender(webSocket);
 			webSocket.request(1);
 			Map<String, Object> auth = new LinkedHashMap<>();
 			auth.put("type", "auth");
 			auth.put("token", _client.token() == null ? "" : _client.token());
-			webSocket.sendText(Json.write(auth), true);
+			sendBeforeSubscribed(Json.write(auth));
+		}
+
+		/**
+		 * Sends a message of the authentication or the subscription: when sending fails, connecting
+		 * fails.
+		 */
+		private void sendBeforeSubscribed(String text) {
+			_sender.send(text).whenComplete((socket, error) -> {
+				if (error != null) {
+					_subscribed.completeExceptionally(
+						error instanceof CompletionException && error.getCause() != null ? error.getCause() : error);
+				}
+			});
 		}
 
 		@Override
@@ -717,7 +755,7 @@ public class ControllerBusLink implements BusLink {
 			if (next >= 0) {
 				message.put("since", Long.valueOf(next));
 			}
-			_socket.sendText(Json.write(message), true);
+			sendBeforeSubscribed(Json.write(message));
 		}
 
 		private void monitor(Map<String, Object> message) {
@@ -764,18 +802,17 @@ public class ControllerBusLink implements BusLink {
 		}
 
 		/**
-		 * Sends a message, waiting until the previous one is sent (a {@link WebSocket} takes one at a
-		 * time).
+		 * Sends a message, after the ones sent before ({@link WebSocketSender}), and waits until it is
+		 * sent.
 		 */
 		void send(String text) throws IOException {
 			WebSocket socket = _socket;
-			if (socket == null || socket.isOutputClosed()) {
+			WebSocketSender sender = _sender;
+			if (socket == null || sender == null || socket.isOutputClosed()) {
 				throw new IOException("The connection is closed.");
 			}
 			try {
-				synchronized (_sendLock) {
-					socket.sendText(text, true).get(_client.timeout().toMillis(), TimeUnit.MILLISECONDS);
-				}
+				sender.send(text).get(_client.timeout().toMillis(), TimeUnit.MILLISECONDS);
 			} catch (ExecutionException | TimeoutException ex) {
 				throw new IOException("Sending to the controller failed: " + ex.getMessage(), ex);
 			} catch (InterruptedException ex) {

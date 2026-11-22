@@ -140,15 +140,20 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 			return;
 		}
 		BusLink link;
-		try {
-			if (client.connection() != null) {
+		if (client.connection() != null) {
+			try {
 				link = SocketBusLink.open(name, client.connection().controllerId(), client.timeout());
-			} else {
-				link = ControllerBusLink.open(name, client);
+			} catch (BusException ex) {
+				throw new TopLogicException(I18NConstants.ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL
+					.fill(description(), BusException.reason(ex)), ex);
 			}
-		} catch (BusException ex) {
-			throw new TopLogicException(
-				I18NConstants.ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL.fill(description(), ex.getMessage()), ex);
+		} else {
+			try {
+				link = ControllerBusLink.open(name, client);
+			} catch (BusException ex) {
+				// Names the controller already.
+				throw new TopLogicException(ex.getErrorKey(), ex);
+			}
 		}
 		monitor.refresh(ProjectIndex.of(monitor.getProject()));
 		monitor.connect(link);

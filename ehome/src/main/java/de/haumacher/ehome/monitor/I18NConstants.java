@@ -261,6 +261,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL;
 
 	/**
+	 * @en The controller refused the connection: {0}
+	 */
+	public static ResKey1 ERROR_CONTROLLER_REFUSED__REASON;
+
+	/**
+	 * @en The controller did not answer the WebSocket handshake of {0} within {1} ms.
+	 */
+	public static ResKey2 ERROR_HANDSHAKE_UNANSWERED__ADDRESS_MILLIS;
+
+	/**
+	 * @en The controller did not answer the subscription to the monitor stream within {0} ms.
+	 */
+	public static ResKey1 ERROR_SUBSCRIPTION_UNANSWERED__MILLIS;
+
+	/**
 	 * @en Connected to the controller {0} (its tunnel sends as {1}), {2} telegrams received.
 	 */
 	public static ResKey3 STATUS_CONTROLLER_CONNECTED__CONTROLLER_ADDRESS_COUNT;

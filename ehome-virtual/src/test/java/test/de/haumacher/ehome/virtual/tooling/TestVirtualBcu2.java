@@ -114,6 +114,7 @@ public class TestVirtualBcu2 extends BasicTestCase {
 					assertTrue(name + ": " + result.failure(), result.success());
 				}
 			});
+			VirtualTesting.awaitConnectionEnded(running);
 		} finally {
 			manager.stop();
 		}

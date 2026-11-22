@@ -9,13 +9,17 @@ import java.io.Reader;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Duration;
+import java.util.List;
 
 import test.de.haumacher.ehome.simulation.LoopbackEndpoints;
 
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.settings.OperatorSettings;
 import de.haumacher.ehome.virtual.server.Endpoint;
+import de.haumacher.ehome.virtual.tooling.server.TransportTiming;
 import de.haumacher.ehome.virtual.tooling.server.VirtualInterface;
+import de.haumacher.ehome.virtual.tooling.trace.TraceEntry;
 import de.haumacher.ehome.virtual.tooling.trace.TraceFormat;
 import de.haumacher.ehome.virtual.tooling.trace.TraceStore;
 import de.haumacher.ehome.virtual.tooling.VirtualInterfaceManager;
@@ -93,13 +97,71 @@ public class VirtualTesting {
 	 * Waits (at most 10 s) until the device has received the given service.
 	 */
 	public static void awaitService(VirtualInterface running, String service) throws InterruptedException {
-		long deadline = System.currentTimeMillis() + 10_000;
-		while (running.recorder().entries().stream().noneMatch(e -> e.incoming() && service.equals(e.service()))) {
-			if (System.currentTimeMillis() > deadline) {
-				throw new AssertionError("The device did not receive " + service + ".");
-			}
-			Thread.sleep(20);
+		if (!running.recorder().await(entries -> entries.stream().anyMatch(e -> e.incoming() && service.equals(e.service())),
+			AWAIT_LIMIT)) {
+			throw new AssertionError("The device did not receive " + service + ".");
 		}
 	}
+
+	/**
+	 * Waits (at most 10 s) until the last connection of the device has ended: the trace holds a
+	 * disconnect after its last connect, the device's or the tool's.
+	 *
+	 * <p>
+	 * The tool sends its disconnect without waiting for its confirmation (after a restart, or when it
+	 * closes the connection) and closes its tunnel; the frame travels through the server to the
+	 * device asynchronously. An interface stopped before it arrived loses it, and the trace would end
+	 * without it.
+	 * </p>
+	 */
+	public static void awaitConnectionEnded(VirtualInterface running) throws InterruptedException {
+		if (!running.recorder().await(VirtualTesting::connectionEnded, AWAIT_LIMIT)) {
+			throw new AssertionError("The connection to the device did not end.");
+		}
+	}
+
+	/**
+	 * Waits (at most 10 s) until the last connection of the device has ended
+	 * ({@link #awaitConnectionEnded(VirtualInterface)}) and, for a device that ends the connection
+	 * after a restart ({@link TransportTiming#disconnectOnRestart()}), until its own disconnect after
+	 * the last restart is recorded: the tool's disconnect may come first.
+	 */
+	public static void awaitConnectionEnded(VirtualInterface running, TransportTiming timing)
+			throws InterruptedException {
+		if (!running.recorder().await(entries -> connectionEnded(entries, timing.disconnectOnRestart()), AWAIT_LIMIT)) {
+			throw new AssertionError("The connection to the device did not end.");
+		}
+	}
+
+	/**
+	 * Whether the trace holds a disconnect after its last connect.
+	 */
+	static boolean connectionEnded(List<TraceEntry> entries) {
+		return connectionEnded(entries, false);
+	}
+
+	/**
+	 * Whether the trace holds a disconnect after its last connect and, if the device ends the
+	 * connection after a restart, the device's disconnect after a restart of that connection.
+	 */
+	static boolean connectionEnded(List<TraceEntry> entries, boolean deviceDisconnectsOnRestart) {
+		boolean ended = false;
+		boolean deviceEnded = false;
+		for (int n = entries.size() - 1; n >= 0; n--) {
+			TraceEntry entry = entries.get(n);
+			String service = entry.service();
+			if (TraceEntry.T_DISCONNECT.equals(service)) {
+				ended = true;
+				deviceEnded |= entry.outgoing();
+			} else if (entry.incoming() && TraceEntry.RESTART.equals(service)) {
+				return ended && (!deviceDisconnectsOnRestart || deviceEnded);
+			} else if (TraceEntry.T_CONNECT.equals(service)) {
+				return ended;
+			}
+		}
+		return ended;
+	}
+
+	private static final Duration AWAIT_LIMIT = Duration.ofSeconds(10);
 
 }

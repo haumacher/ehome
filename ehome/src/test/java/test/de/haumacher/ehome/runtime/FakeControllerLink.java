@@ -28,6 +28,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import de.haumacher.ehome.connection.Signatures;
+import de.haumacher.ehome.monitor.WebSocketSender;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
 
@@ -114,7 +115,8 @@ public class FakeControllerLink implements WebSocket.Listener {
 
 	private final List<Map<String, Object>> _received = new ArrayList<>();
 
-	private WebSocket _socket;
+	/** Sends the messages of the socket one after another, as the JDK's socket requires. */
+	private volatile WebSocketSender _sender;
 
 	private String _mac;
 
@@ -158,7 +160,7 @@ public class FakeControllerLink implements WebSocket.Listener {
 	 * <code>refused</code> message.
 	 */
 	public Map<String, Object> connect(URI socket) throws Exception {
-		_socket = _http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(5)).buildAsync(socket, this)
+		_http.newWebSocketBuilder().connectTimeout(Duration.ofSeconds(5)).buildAsync(socket, this)
 			.get(5, TimeUnit.SECONDS);
 		return _outcome.get(10, TimeUnit.SECONDS);
 	}
@@ -256,16 +258,14 @@ public class FakeControllerLink implements WebSocket.Listener {
 	 * Sends a text message as it is.
 	 */
 	public void sendText(String text) throws Exception {
-		synchronized (this) {
-			_socket.sendText(text, true).get(5, TimeUnit.SECONDS);
-		}
+		_sender.send(text).get(5, TimeUnit.SECONDS);
 	}
 
 	/**
 	 * Closes the WebSocket normally and waits for E-Home's close.
 	 */
 	public void close() throws Exception {
-		_socket.sendClose(WebSocket.NORMAL_CLOSURE, "bye").get(5, TimeUnit.SECONDS);
+		_sender.close(WebSocket.NORMAL_CLOSURE, "bye").get(5, TimeUnit.SECONDS);
 		_closed.get(5, TimeUnit.SECONDS);
 		_executor.shutdownNow();
 	}
@@ -279,6 +279,7 @@ public class FakeControllerLink implements WebSocket.Listener {
 
 	@Override
 	public void onOpen(WebSocket webSocket) {
+		_sender = new WebSocketSender(webSocket);
 		webSocket.request(1);
 	}
 
@@ -364,7 +365,11 @@ public class FakeControllerLink implements WebSocket.Listener {
 				if (key != null) {
 					auth.put("key", Signatures.fingerprint(key));
 				}
-				webSocket.sendText(Json.compact(auth), true);
+				_sender.send(Json.compact(auth)).whenComplete((sent, error) -> {
+					if (error != null) {
+						_outcome.completeExceptionally(error);
+					}
+				});
 				return;
 			}
 			case "ready":
@@ -496,10 +501,17 @@ public class FakeControllerLink implements WebSocket.Listener {
 		try {
 			if (stream || bytes.length > MAX_TEXT_BODY) {
 				head.put("length", Integer.valueOf(bytes.length));
-				_socket.sendText(Json.compact(head), true).get(5, TimeUnit.SECONDS);
-				for (int offset = 0; offset < bytes.length; offset += STREAM_PIECE) {
-					int length = Math.min(STREAM_PIECE, bytes.length - offset);
-					_socket.sendBinary(ByteBuffer.wrap(bytes, offset, length), true).get(5, TimeUnit.SECONDS);
+				List<CompletableFuture<WebSocket>> sends = new ArrayList<>();
+				// The binary frames follow their head without another message in between.
+				synchronized (_sender) {
+					sends.add(_sender.send(Json.compact(head)));
+					for (int offset = 0; offset < bytes.length; offset += STREAM_PIECE) {
+						int length = Math.min(STREAM_PIECE, bytes.length - offset);
+						sends.add(_sender.sendBinary(ByteBuffer.wrap(bytes, offset, length)));
+					}
+				}
+				for (CompletableFuture<WebSocket> send : sends) {
+					send.get(5, TimeUnit.SECONDS);
 				}
 			} else {
 				String text = Json.compact(head);
@@ -509,8 +521,7 @@ public class FakeControllerLink implements WebSocket.Listener {
 				} catch (JsonException ex) {
 					json = "null";
 				}
-				_socket.sendText(text.substring(0, text.length() - 1) + ",\"body\":" + json + "}", true)
-					.get(5, TimeUnit.SECONDS);
+				_sender.send(text.substring(0, text.length() - 1) + ",\"body\":" + json + "}").get(5, TimeUnit.SECONDS);
 			}
 		} catch (Exception ex) {
 			throw new IllegalStateException(ex);

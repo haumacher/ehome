@@ -193,6 +193,7 @@ public class TestVirtualDownload extends BasicTestCase {
 					assertTrue(name + ": " + result.failure(), result.success());
 				}
 			});
+			VirtualTesting.awaitConnectionEnded(running, timing);
 		} finally {
 			manager.stop();
 		}
@@ -374,6 +375,13 @@ public class TestVirtualDownload extends BasicTestCase {
 	/**
 	 * After each restart, the connection ends at once (haumacher/ehome #30): by E-Home right after
 	 * the device's acknowledgement, or by the device; no wait for an idle timeout.
+	 *
+	 * <p>
+	 * A device that ends the connection after a restart sends its disconnect after its
+	 * acknowledgement of the restart; E-Home ends the connection as well when it receives the
+	 * acknowledgement. The two disconnects cross: either may be recorded first. A device that does not
+	 * end the connection sends no disconnect, E-Home's ends it.
+	 * </p>
 	 */
 	static void assertRestartEndsAtOnce(String name, List<TraceEntry> entries, TransportTiming timing) {
 		int restarts = 0;
@@ -383,15 +391,29 @@ public class TestVirtualDownload extends BasicTestCase {
 				continue;
 			}
 			restarts++;
-			TraceEntry end = null;
+			TraceEntry byDevice = null;
+			TraceEntry byTool = null;
 			for (TraceEntry entry : entries.subList(n + 1, entries.size())) {
-				if (TraceEntry.T_DISCONNECT.equals(entry.service())) {
-					end = entry;
+				if (entry.incoming() && TraceEntry.T_CONNECT.equals(entry.service())) {
 					break;
 				}
+				if (TraceEntry.T_DISCONNECT.equals(entry.service())) {
+					if (entry.outgoing()) {
+						byDevice = byDevice == null ? entry : byDevice;
+					} else {
+						byTool = byTool == null ? entry : byTool;
+					}
+				}
 			}
-			assertNotNull(name + ": no disconnect after the restart", end);
-			assertEquals(name + ": who ends the connection", timing.disconnectOnRestart(), end.outgoing());
+			TraceEntry end;
+			if (timing.disconnectOnRestart()) {
+				assertNotNull(name + ": the device did not end the connection after the restart", byDevice);
+				end = byDevice;
+			} else {
+				assertNull(name + ": the device ended the connection after the restart", byDevice);
+				assertNotNull(name + ": no disconnect after the restart", byTool);
+				end = byTool;
+			}
 			long millis = java.time.Duration.between(restart.time(), end.time()).toMillis();
 			assertTrue(name + ": the connection ended " + millis + " ms after the restart", millis < 2000);
 		}
