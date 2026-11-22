@@ -362,6 +362,8 @@ public class SimulationTools {
 				entry.put("firings", Integer.valueOf(status.firings()));
 				if (status.errors() > 0) {
 					entry.put("errors", Integer.valueOf(status.errors()));
+					// The last error is a problem only until its site ran cleanly (spec/rules.md 9.1).
+					entry.put("problem", Boolean.valueOf(status.problem()));
 				}
 				rules.add(entry);
 			}

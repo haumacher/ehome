@@ -615,6 +615,10 @@ public final class ProjectSimulation implements AutoCloseable {
 			row.put("error", status.lastErrorCode() == null ? null : status.lastErrorCode().externalName() + ": "
 				+ (status.lastErrorSite() == null ? status.lastErrorText() : s.errorText(rule.id(), status.lastErrorSite()))
 				+ " (" + s.timeText(status.lastErrorMs()) + ")");
+			// A resolved last error is history, no problem (homecontrol spec/rules.md 9.1, #114).
+			row.put("problem", Boolean.valueOf(status.problem()));
+			row.put("resolved", status.lastErrorCode() == null || !status.resolved() ? null
+				: s.timeText(status.resolvedMs()));
 			List<String> timers = new ArrayList<>();
 			for (int t = 0; t < rule.timers().size(); t++) {
 				Long remaining = engine.timerRemaining(r, t);

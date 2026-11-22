@@ -19,7 +19,8 @@
 
 	- Rules: per rule the diagnostics of the engine - enabled, state, firings, last trigger and last action
 	with their simulated times, errors and the last error, the remaining time of its timers and the values
-	of its parameters (* an override).
+	of its parameters (* an override). The last error is a problem (in the error color) until its place ran
+	without it again; then it is history and "Resolved" says when (homecontrol spec/rules.md 9.1, #114).
 	- Parameters: every parameter of every rule (the enable switch included) with its value, default and
 	whether it is an override; "Set" and "Reset" change the selected one as a controller's UI does. The
 	overrides are stored with the rules of the project (simulationValue, simulationEnabled) and are the values
@@ -493,6 +494,7 @@
 										<value>$row['parameters']</value>
 									</computed-column>
 									<computed-column name="errors"
+										cell-role="$row['problem'] ? 'error' : null"
 										type="tl.core:Integer"
 										width="80"
 									>
@@ -503,6 +505,7 @@
 										<value>$row['errors']</value>
 									</computed-column>
 									<computed-column name="error"
+										cell-role="$row['problem'] ? 'error' : null"
 										type="tl.core:String"
 										width="300"
 									>
@@ -511,6 +514,16 @@
 											<de>Letzter Fehler</de>
 										</label>
 										<value>$row['error']</value>
+									</computed-column>
+									<computed-column name="resolved"
+										type="tl.core:String"
+										width="120"
+									>
+										<label>
+											<en>Resolved</en>
+											<de>Behoben</de>
+										</label>
+										<value>$row['resolved']</value>
 									</computed-column>
 								</columns>
 								<rows>$state['rules']</rows>

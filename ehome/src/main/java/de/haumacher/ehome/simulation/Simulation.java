@@ -538,6 +538,12 @@ public final class Simulation implements AutoCloseable {
 			}
 
 			@Override
+			public void errorResolved(String rule, LogCode code) {
+				// The last error is history from now on (homecontrol spec/rules.md 9.1, #114).
+				add(Kind.RULE, rule, code.externalName() + " resolved");
+			}
+
+			@Override
 			public void ruleCommanded(String rule, Datapoint datapoint, Val value) {
 				add(Kind.COMMAND, rule, "write " + _names.datapoint(datapoint.name()) + " = " + Values.format(value));
 			}

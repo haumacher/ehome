@@ -290,6 +290,14 @@ public final class Engine implements DatapointModel.Listener {
 		default void timelineSwitched(String rule, String state, boolean evaluation) {
 			// Nothing by default.
 		}
+
+		/**
+		 * The last error of the rule, of the given code, is resolved (<code>spec/rules.md</code> 9.1,
+		 * homecontrol #114): its site ran without the problem; it is history from now on.
+		 */
+		default void errorResolved(String rule, LogCode code) {
+			// Nothing by default.
+		}
 	}
 
 	/**
@@ -462,6 +470,24 @@ public final class Engine implements DatapointModel.Listener {
 		/** The expression and datapoint the last error names, <code>null</code> for none. */
 		ErrorSite _lastErrorSite;
 
+		/**
+		 * The reaction (index in the rule) the last error was logged in; -1: outside a reaction, or
+		 * the error is one of a silence trigger ({@link #_lastErrorSilence}). The site of an error
+		 * without an expression (<code>spec/rules.md</code> 9.1).
+		 */
+		int _lastErrorReaction = -1;
+
+		/** The silence trigger (index in the set) whose refusal is the last error, -1 for none. */
+		int _lastErrorSilence = -1;
+
+		/**
+		 * The last error is history (<code>spec/rules.md</code> 9.1, homecontrol #114): its site ran
+		 * without the problem afterwards, at {@link #_resolvedMs}.
+		 */
+		boolean _resolved;
+
+		long _resolvedMs;
+
 		int _cascadeFirings;
 
 		int _peakCascadeFirings;
@@ -501,6 +527,8 @@ public final class Engine implements DatapointModel.Listener {
 			copy._lastErrorCode = _lastErrorCode;
 			copy._lastErrorText = _lastErrorText;
 			copy._lastErrorSite = _lastErrorSite;
+			copy._resolved = _resolved;
+			copy._resolvedMs = _resolvedMs;
 			copy._peakCascadeFirings = _peakCascadeFirings;
 			copy._loopGuards = _loopGuards;
 			return copy;
@@ -616,6 +644,15 @@ public final class Engine implements DatapointModel.Listener {
 	private Astro.SunPosition _sun;
 
 	private int _currentRule;
+
+	/**
+	 * The reaction (index in {@link #_currentRule}) being processed, -1 outside one: the site of an
+	 * error logged meanwhile that has no expression (<code>spec/rules.md</code> 9.1).
+	 */
+	private int _currentReaction = -1;
+
+	/** A problem occurred in the current reaction, logged or not (the "once" rules): it did not run cleanly. */
+	private boolean _reactionProblem;
 
 	private long _timerSequence;
 
@@ -804,13 +841,66 @@ public final class Engine implements DatapointModel.Listener {
 		} else {
 			_observer.ruleLogged(ruleId, code, level, text);
 		}
+		if (code != LogCode.LOG && level != Level.INFO) {
+			_reactionProblem = true;
+		}
 		if (runtime != null && code != LogCode.LOG && level != Level.INFO) {
 			runtime._errors++;
+			runtime._resolved = false;
+			// The site of an error without an expression: the reaction of the rule being processed, if any.
+			boolean inReaction = _currentReaction >= 0 && _rules != null && _currentRule >= 0
+				&& _currentRule < _rules.length && _rules[_currentRule] == runtime;
+			runtime._lastErrorReaction = inReaction ? _currentReaction : -1;
+			runtime._lastErrorSilence = -1;
 			runtime._lastErrorMs = _inCascade ? _cascadeMs : _clock.getAsLong();
 			runtime._lastErrorCode = code;
 			runtime._lastErrorText = detail;
 			runtime._lastErrorSite = site;
 		}
+	}
+
+	/**
+	 * The expression <code>root</code> evaluated without an error and, with <code>value</code>, with a
+	 * value: the rule's last error at this site is resolved (<code>spec/rules.md</code> 9.1).
+	 */
+	private void siteClean(int rule, Node root, boolean value) {
+		if (_rules == null || rule < 0 || rule >= _rules.length || root == null) {
+			return;
+		}
+		RuleRuntime rr = _rules[rule];
+		if (rr._lastErrorCode != null && !rr._resolved && rr._lastErrorSite != null
+			&& rr._lastErrorSite.expression() == root && (value || rr._lastErrorCode == LogCode.EVAL_ERROR)) {
+			resolve(rule);
+		}
+	}
+
+	/**
+	 * Reaction <code>reaction</code> of the rule ran without a problem: the rule's last error without
+	 * an expression, logged in this reaction or outside any, is resolved (<code>spec/rules.md</code>
+	 * 9.1).
+	 */
+	private void reactionClean(int rule, int reaction) {
+		if (_rules == null || rule < 0 || rule >= _rules.length) {
+			return;
+		}
+		RuleRuntime rr = _rules[rule];
+		// An error with an expression is resolved by its expression only (siteClean()), one of a silence
+		// trigger by its arming (armSilence()).
+		if (rr._lastErrorCode != null && !rr._resolved && !hasExpression(rr) && rr._lastErrorSilence < 0
+			&& (rr._lastErrorReaction == reaction || rr._lastErrorReaction < 0)) {
+			resolve(rule);
+		}
+	}
+
+	private static boolean hasExpression(RuleRuntime rr) {
+		return rr._lastErrorSite != null && rr._lastErrorSite.expression() != null;
+	}
+
+	private void resolve(int rule) {
+		RuleRuntime rr = _rules[rule];
+		rr._resolved = true;
+		rr._resolvedMs = _inCascade ? _cascadeMs : _clock.getAsLong();
+		_observer.errorResolved(_set._rules.get(rule)._id, rr._lastErrorCode);
 	}
 
 	// ---- Loading and swapping ---------------------------------------------------------------
@@ -856,6 +946,10 @@ public final class Engine implements DatapointModel.Listener {
 				String datapoint = nr._lastErrorSite.datapoint();
 				nr._lastErrorSite = nr._lastErrorSite.swapped(datapoint != null && _model.get(datapoint) != null);
 			}
+			// The reaction and silence trigger of the last error are the old image's: unresolved, it is
+			// resolved by the next reaction of the rule that runs cleanly (spec 9.1).
+			nr._lastErrorReaction = -1;
+			nr._lastErrorSilence = -1;
 			rules[r] = nr;
 			timers[r] = new TimerRuntime[rule._timers.size()];
 			for (int t = 0; t < timers[r].length; t++) {
@@ -1548,8 +1642,16 @@ public final class Engine implements DatapointModel.Listener {
 					"silence duration has no value or lies outside 100ms..30d",
 					"silence trigger of '" + trigger._name + "' not armed: the duration "
 						+ (d.has() ? Values.durationText(d.integer()) : "none") + " is not in 100ms..30d");
+				// Its site is the silence trigger: resolved when it arms (spec 9.1).
+				_rules[rule]._lastErrorSilence = index;
 			}
 			return;
+		}
+		if (silence._refusedLogged) {
+			RuleRuntime rr = _rules[rule];
+			if (rr._lastErrorCode != null && !rr._resolved && rr._lastErrorSilence == index) {
+				resolve(rule);
+			}
 		}
 		silence._refusedLogged = false;
 		silence._armed = true;
@@ -2268,10 +2370,15 @@ public final class Engine implements DatapointModel.Listener {
 			rr._lastTrigger = describe(first, rule, e);
 			_currentRule = r;
 
-			for (Reaction reaction : rule._reactions) {
+			for (int i = 0; i < rule._reactions.size(); i++) {
+				Reaction reaction = rule._reactions.get(i);
 				if (!inFrom(reaction, rr)) {
 					continue;
 				}
+				// The site of the problems of this reaction (spec 9.1): one that runs without any resolves
+				// the rule's last error logged in it.
+				_currentReaction = i;
+				_reactionProblem = false;
 				boolean active = false;
 				for (int k = 0; k < reaction._triggers.size() && !active; k++) {
 					active = triggerMatches(reaction._triggers.get(k), r, e);
@@ -2284,6 +2391,7 @@ public final class Engine implements DatapointModel.Listener {
 					Val c = evaluate(reaction._condition, r);
 					int root = reaction._condition._root;
 					if (!c.has()) {
+						_reactionProblem = true;
 						if (_evalError == null && (_flags[root] & NO_VALUE_LOGGED) == 0) {
 							_flags[root] |= NO_VALUE_LOGGED;
 							logExpression(r, LogCode.CONDITION_NO_VALUE, Level.WARNING, "condition has no value",
@@ -2292,18 +2400,26 @@ public final class Engine implements DatapointModel.Listener {
 						continue;
 					}
 					_flags[root] &= ~NO_VALUE_LOGGED;
+					siteClean(r, reaction._condition, true);
 					satisfied = c.bool();
 				}
 				if (satisfied) {
 					if (reaction._to >= 0) {
 						transition(r, reaction._to, reaction._actions);
+						if (!_reactionProblem) {
+							reactionClean(r, i);
+						}
 						break;
 					}
 					runActions(r, reaction._actions);
 				} else {
 					runActions(r, reaction._elseActions);
 				}
+				if (!_reactionProblem) {
+					reactionClean(r, i);
+				}
 			}
+			_currentReaction = -1;
 		}
 
 		for (Integer root : matched) {
@@ -2373,6 +2489,7 @@ public final class Engine implements DatapointModel.Listener {
 		int root = action._expr._root;
 		String name = action._datapoint;
 		if (!v.has()) {
+			_reactionProblem = true;
 			if (_evalError == null && (_flags[root] & NO_VALUE_LOGGED) == 0) {
 				_flags[root] |= NO_VALUE_LOGGED;
 				logExpression(rule, LogCode.VALUE_NO_VALUE, Level.WARNING, "write value has no value", action._expr,
@@ -2381,6 +2498,7 @@ public final class Engine implements DatapointModel.Listener {
 			return;
 		}
 		_flags[root] &= ~NO_VALUE_LOGGED;
+		siteClean(rule, action._expr, true);
 		Datapoint datapoint = _model.get(name);
 		if (datapoint == null) {
 			logRule(rule, LogCode.WRITE_REFUSED, Level.ERROR, "datapoint not in the model",
@@ -2418,6 +2536,7 @@ public final class Engine implements DatapointModel.Listener {
 			reason = "the technology refused";
 		}
 		if (reason != null) {
+			_reactionProblem = true;
 			if (!_readRefusedLogged[action._index]) {
 				_readRefusedLogged[action._index] = true;
 				logRule(rule, LogCode.READ_REFUSED, Level.WARNING, reason, "read of '" + name + "' refused: " + reason);
@@ -2516,12 +2635,14 @@ public final class Engine implements DatapointModel.Listener {
 		Val v = eval(root, rule);
 		int index = root._root;
 		if (_evalError != null) {
+			_reactionProblem = true;
 			if ((_flags[index] & EVAL_ERROR_LOGGED) == 0) {
 				_flags[index] |= EVAL_ERROR_LOGGED;
 				logExpression(rule, LogCode.EVAL_ERROR, Level.ERROR, _evalError, root, _evalError + " in " + root);
 			}
 		} else {
 			_flags[index] &= ~EVAL_ERROR_LOGGED;
+			siteClean(rule, root, false);
 		}
 		return v;
 	}
@@ -3298,6 +3419,11 @@ public final class Engine implements DatapointModel.Listener {
 	 *        of another code.
 	 * @param lastErrorMs
 	 *        When, on the monotonic clock.
+	 * @param resolved
+	 *        Whether the last error is history (<code>spec/rules.md</code> 9.1, homecontrol #114):
+	 *        its site ran without the problem afterwards. While not, the last error is a problem.
+	 * @param resolvedMs
+	 *        When it was resolved, on the monotonic clock; meaningful only if <code>resolved</code>.
 	 * @param peakCascadeFirings
 	 *        The most derived firings of the rule in one cascade.
 	 * @param loopGuards
@@ -3305,8 +3431,12 @@ public final class Engine implements DatapointModel.Listener {
 	 */
 	public record RuleStatus(int firings, String lastTrigger, long lastTriggerMs, String lastAction, long lastActionMs,
 			int errors, LogCode lastErrorCode, String lastErrorText, ErrorSite lastErrorSite, long lastErrorMs,
-			int peakCascadeFirings, int loopGuards) {
-		// A value.
+			boolean resolved, long resolvedMs, int peakCascadeFirings, int loopGuards) {
+
+		/** Whether the rule has a problem: a last error that is not resolved. */
+		public boolean problem() {
+			return lastErrorCode != null && !resolved;
+		}
 	}
 
 	/**
@@ -3315,8 +3445,8 @@ public final class Engine implements DatapointModel.Listener {
 	public RuleStatus status(int rule) {
 		RuleRuntime rr = _rules[rule];
 		return new RuleStatus(rr._firings, rr._lastTrigger, rr._lastTriggerMs, rr._lastAction, rr._lastActionMs,
-			rr._errors, rr._lastErrorCode, lastErrorText(rr), rr._lastErrorSite, rr._lastErrorMs, rr._peakCascadeFirings,
-			rr._loopGuards);
+			rr._errors, rr._lastErrorCode, lastErrorText(rr), rr._lastErrorSite, rr._lastErrorMs, rr._resolved,
+			rr._resolvedMs, rr._peakCascadeFirings, rr._loopGuards);
 	}
 
 	private static String lastErrorText(RuleRuntime rr) {
@@ -3332,7 +3462,7 @@ public final class Engine implements DatapointModel.Listener {
 		return "firings " + rr._firings + ", last trigger " + rr._lastTrigger + " at " + rr._lastTriggerMs
 			+ ", last action " + rr._lastAction + " at " + rr._lastActionMs + ", errors " + rr._errors
 			+ (rr._lastErrorCode != null ? ", last error " + rr._lastErrorCode.externalName() + " (" + lastErrorText(rr)
-				+ ") at " + rr._lastErrorMs : "")
+				+ ") at " + rr._lastErrorMs + (rr._resolved ? ", resolved at " + rr._resolvedMs : "") : "")
 			+ ", most derived firings in a cascade " + rr._peakCascadeFirings + ", loop guards " + rr._loopGuards;
 	}
 
