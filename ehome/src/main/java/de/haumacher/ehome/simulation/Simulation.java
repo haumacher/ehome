@@ -234,7 +234,10 @@ public final class Simulation implements AutoCloseable {
 	/** The store of the parameter overrides, also the blocks'. */
 	private final ParameterStore _store;
 
-	/** The state records of the blocks, kept across runs of the project's simulation. */
+	/**
+	 * The state records of the blocks (their managed state, homecontrol <code>spec/blocks.md</code>
+	 * B4), kept across runs of the project's simulation.
+	 */
 	private BlockRuntime.RecordStore _records = new BlockRuntime.MemoryRecords();
 
 	/** The block runtime, <code>null</code> before {@link #start()}. */
@@ -656,6 +659,11 @@ public final class Simulation implements AutoCloseable {
 			@Override
 			public void blockCommanded(String block, Datapoint datapoint, Val value) {
 				add(Kind.COMMAND, "block " + block, "write " + _names.datapoint(datapoint.name()) + " = " + Values.format(value));
+			}
+
+			@Override
+			public void runtimeLogged(Level level, String text) {
+				add(Kind.RULE, "blocks", level.externalName() + ": " + text);
 			}
 		});
 		_blockRuntime.adopt(set);

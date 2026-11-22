@@ -159,10 +159,10 @@ public final class HeatingCurve extends BlockType {
 			Port.diagnostic("outsideFiltered", PortType.REAL, "Filtered outside temperature", "°C", null, null),
 			Port.diagnostic("state", PortType.ENUMERATION, "State", "", Double.valueOf(0), Double.valueOf(4))),
 		params(),
-		List.of(new Field("filtered", true, 0), new Field("hasFiltered", true, 0), new Field("aboveFor", true, 0),
-			new Field("derivedSummer", true, 0), new Field("lastStep", false, 0), new Field("frostOn", false, 0),
+		List.of(new Field("filtered", false, 0), new Field("hasFiltered", false, 0), new Field("aboveFor", false, 0),
+			new Field("derivedSummer", false, 0), new Field("lastStep", false, 0), new Field("frostOn", false, 0),
 			new Field("hasSent", false, 0), new Field("sentFlow", false, 0), new Field("sentSummer", false, 0)),
-		List.of(), 60000, 1800000);
+		List.of(), 60000);
 
 	private static List<Param> params() {
 		List<Param> result = new ArrayList<>();

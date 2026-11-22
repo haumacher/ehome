@@ -67,7 +67,7 @@ public class TestBlockCorpus extends TestCase {
 			indexed.add(matcher.group(1) + ".json");
 		}
 		Set<String> present = new TreeSet<>(Arrays.asList(CORPUS.list((dir, name) -> name.endsWith(".json"))));
-		assertEquals("The index lists the 74 cases of homecontrol #60 to #65.", 74, indexed.size());
+		assertEquals("The index lists the 75 cases of homecontrol #60 to #65 and #102.", 75, indexed.size());
 		assertEquals("The copy holds exactly the cases of the corpus index.", indexed, present);
 	}
 

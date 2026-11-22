@@ -168,11 +168,11 @@ public final class HeatingDemand extends BlockType {
 			real("maxOffset", "Highest offset", "K", 5, 0, 20, 0.5),
 			new Param("staleInput", ParamType.ENUMERATION, "Input not good", "", 0, null, null, 0,
 				List.of(new Choice(0, "ignore", "Ignore"), new Choice(1, "full", "Count as fully open")), false)),
-		List.of(new Field("offset", true, 0), new Field("lastStep", false, 0), new Field("lastLevel", false, 0),
+		List.of(new Field("offset", false, 0), new Field("lastStep", false, 0), new Field("lastLevel", false, 0),
 			new Field("heat", false, 0), new Field("switchedAt", false, 0), new Field("hasSwitched", false, 0),
 			new Field("hasSent", false, 0), new Field("sentRequest", false, 0), new Field("sentPump", false, 0),
 			new Field("sentLevel", false, 0), new Field("sentOffset", false, 0)),
-		List.of("wake"), 60000, 600000);
+		List.of("wake"), 60000);
 
 	private static Param real(String id, String label, String unit, double def, double min, double max, double step) {
 		return new Param(id, ParamType.REAL, label, unit, def, Double.valueOf(min), Double.valueOf(max), step,

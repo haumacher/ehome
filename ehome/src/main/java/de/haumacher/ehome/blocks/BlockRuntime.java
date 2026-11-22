@@ -44,17 +44,26 @@ import de.haumacher.ehome.rules.Values;
 /**
  * The block runtime (homecontrol <code>spec/blocks.md</code>): holds the compiled instances and
  * their runtime (state records, parameter values, timers, the period grid, the diagnostics), owns
- * the mirror datapoints <code>block/&lt;id&gt;/&lt;x&gt;</code>, persists the state records in a
- * {@link RecordStore} and the parameter overrides in the {@link ParameterStore} of the rule
- * parameters (under <code>@&lt;blockId&gt;</code>), and is called by the rule {@link Engine} inside
- * its cascades ({@link Engine.BlockHost}): after the rules for every event, for its timers and
- * periods ordered with the rule timers, and after the rules' start cascades. A port of homecontrol
- * <code>core/src/blocks/block_runtime.cpp</code>.
+ * the mirror datapoints <code>block/&lt;id&gt;/&lt;x&gt;</code>, persists the managed state of the
+ * records in a {@link RecordStore} when it changes (<code>spec/blocks.md</code> B4) and the parameter
+ * overrides in the {@link ParameterStore} of the rule parameters (under <code>@&lt;blockId&gt;</code>),
+ * and is called by the rule {@link Engine} inside its cascades ({@link Engine.BlockHost}): after the
+ * rules for every event, for its timers and periods ordered with the rule timers, and after the
+ * rules' start cascades. A port of homecontrol <code>core/src/blocks/block_runtime.cpp</code>.
  */
 public final class BlockRuntime implements Engine.BlockHost {
 
 	/** The name of the technology that owns the mirrors. */
 	public static final String TECHNOLOGY_NAME = "blocks";
+
+	/**
+	 * How long a changed record waits before it is written: as a rule state (<code>spec/blocks.md</code>
+	 * B4, <code>spec/rules.md</code> 8.4).
+	 */
+	public static final long RECORD_DELAY_MS = 10000;
+
+	/** The window of the guard of <code>spec/blocks.md</code> B13. */
+	private static final long GUARD_WINDOW_MS = 3600000;
 
 	/** Kinds of {@link #blockEvent(int, int, int, boolean)}. */
 	private static final int PARAMETER_CHANGED = 0;
@@ -189,6 +198,14 @@ public final class BlockRuntime implements Engine.BlockHost {
 		default void loopGuard(String block, String culprit, int firings) {
 			// Nothing by default.
 		}
+
+		/**
+		 * A log line of the runtime without a code (the device's info and warning lines): a record
+		 * deleted or rewritten at the load, the guard of <code>spec/blocks.md</code> B13.
+		 */
+		default void runtimeLogged(Level level, String text) {
+			// Nothing by default.
+		}
 	}
 
 	/**
@@ -267,8 +284,8 @@ public final class BlockRuntime implements Engine.BlockHost {
 		/** A persisted field differs from the stored record. */
 		boolean _dirty;
 
-		/** Written since the boot: the next write waits for the interval. */
-		boolean _writtenOnce;
+		/** While dirty: when the record is written (the change + {@link #RECORD_DELAY_MS}). */
+		long _dueMs;
 
 		double[] _state;
 
@@ -298,8 +315,6 @@ public final class BlockRuntime implements Engine.BlockHost {
 		long _periodNext;
 
 		boolean _periodArmed;
-
-		long _lastWriteMs;
 
 		int _cascadeCalls;
 
@@ -350,6 +365,18 @@ public final class BlockRuntime implements Engine.BlockHost {
 	private Set<String> _interest = new HashSet<>();
 
 	private boolean _booted;
+
+	/** The times of the last {@link Manifest#RECORD_WRITES_PER_HOUR} writes, a ring (the guard of B13). */
+	private final long[] _writeTimes = new long[Manifest.RECORD_WRITES_PER_HOUR];
+
+	private int _writeNext;
+
+	/** The ring's entries in use (up to {@link Manifest#RECORD_WRITES_PER_HOUR}). */
+	private int _writeRing;
+
+	private boolean _guardLogged;
+
+	private long _guardLoggedMs;
 
 	/**
 	 * Creates a runtime on the engine (it becomes the engine's {@link Engine.BlockHost}).
@@ -451,78 +478,144 @@ public final class BlockRuntime implements Engine.BlockHost {
 			}
 		}
 		System.arraycopy(in._state, 0, in._stored, 0, in._state.length);
+		int unmanaged = 0;
+		for (String id : record.fields().keySet()) {
+			int f = m.field(id);
+			unmanaged += f < 0 || !m.state().get(f).persist() ? 1 : 0;
+		}
+		if (unmanaged > 0) {
+			// A record of an older firmware with fields that are not managed state (any more): written
+			// again with the managed fields alone, once (spec/blocks.md 8.1).
+			_observer.runtimeLogged(Level.INFO, spec.id() + ": " + unmanaged
+				+ " fields of the state record are not managed state; the record is written without them");
+			writeRecord(block);
+		}
 		return true;
 	}
 
 	private void recordChanged(int block) {
 		Instance in = _instances[block];
 		Manifest m = _set.at(block).manifest();
-		if (in._status == Status.FAULT || !m.persists()) {
+		if (in._status == Status.FAULT || !m.persists() || in._dirty || !differs(block)) {
+			// A pending write takes the latest values: the first change fixes its time.
 			return;
 		}
-		for (int f = 0; f < m.state().size() && !in._dirty; f++) {
+		in._dirty = true;
+		in._dueMs = _clock.getAsLong() + RECORD_DELAY_MS;
+		checkGuard();
+	}
+
+	/** Whether a managed field differs from the stored record. */
+	private boolean differs(int block) {
+		Instance in = _instances[block];
+		Manifest m = _set.at(block).manifest();
+		for (int f = 0; f < m.state().size(); f++) {
 			if (m.state().get(f).persist()
 				&& Double.doubleToRawLongBits(in._state[f]) != Double.doubleToRawLongBits(in._stored[f])) {
-				in._dirty = true;
+				return true;
 			}
 		}
+		return false;
 	}
 
 	private void writeRecord(int block) {
 		Instance in = _instances[block];
 		BlockSpec spec = _set.at(block);
 		in._dirty = false;
-		in._lastWriteMs = _clock.getAsLong();
-		in._writtenOnce = true;
+		// The guard counts every write.
+		_writeTimes[_writeNext] = _clock.getAsLong();
+		_writeNext = (_writeNext + 1) % Manifest.RECORD_WRITES_PER_HOUR;
+		_writeRing += _writeRing < Manifest.RECORD_WRITES_PER_HOUR ? 1 : 0;
 		_records.write(spec.id(), new StateRecord(spec.manifest().type(), spec.manifest().major(),
 			persisted(spec.manifest(), in._state)));
 		System.arraycopy(in._state, 0, in._stored, 0, in._state.length);
 	}
 
 	/**
-	 * The shortest interval between two writes of an instance's record (<code>spec/blocks.md</code>
-	 * B13): <code>max(persistEvery, n × 120 s)</code>, <code>n</code> the instances with persistent
-	 * state.
+	 * When the guard of <code>spec/blocks.md</code> B13 lets the next write through, 0 for now: at most
+	 * {@link Manifest#RECORD_WRITES_PER_HOUR} writes in any hour.
 	 */
-	private long persistInterval(int block) {
-		int persisting = 0;
-		for (BlockSpec spec : _set.specs()) {
-			persisting += spec.manifest().persists() ? 1 : 0;
+	private long guardFreeAt() {
+		if (_writeRing < Manifest.RECORD_WRITES_PER_HOUR) {
+			return 0;
 		}
-		long paced = persisting * 3600000L / Manifest.RECORD_WRITES_PER_HOUR;
-		return Math.max(_set.at(block).manifest().persistEveryMs(), paced);
+		// Once the ring is full, _writeNext is the oldest of the last writes.
+		return _writeTimes[_writeNext] + GUARD_WINDOW_MS;
 	}
 
-	@Override
-	public long persistDeadline() {
+	/** The earliest due time of a pending record, {@link Long#MAX_VALUE} for none. */
+	private long earliestDue() {
 		long earliest = Long.MAX_VALUE;
-		for (int b = 0; b < _instances.length; b++) {
-			Instance in = _instances[b];
+		for (Instance in : _instances) {
 			if (in._dirty && in._status != Status.FAULT) {
-				long due = in._writtenOnce ? in._lastWriteMs + persistInterval(b) : 0;
-				earliest = Math.min(earliest, due);
+				earliest = Math.min(earliest, in._dueMs);
 			}
 		}
 		return earliest;
 	}
 
 	@Override
+	public long persistDeadline() {
+		long earliest = earliestDue();
+		return earliest == Long.MAX_VALUE ? earliest : Math.max(earliest, guardFreeAt());
+	}
+
+	@Override
 	public void persistDue(long now) {
 		for (int b = 0; b < _instances.length; b++) {
 			Instance in = _instances[b];
-			if (in._dirty && in._status != Status.FAULT
-				&& (!in._writtenOnce || in._lastWriteMs + persistInterval(b) <= now)) {
-				writeRecord(b);
+			if (!in._dirty || in._status == Status.FAULT || in._dueMs > now) {
+				continue;
 			}
+			if (!differs(b)) {
+				// Changed back before the write: the store holds it already.
+				in._dirty = false;
+				continue;
+			}
+			if (guardFreeAt() > now) {
+				// checkGuard() waits for the guard (and says so).
+				break;
+			}
+			writeRecord(b);
+		}
+		checkGuard();
+	}
+
+	/**
+	 * Logs when the guard of <code>spec/blocks.md</code> B13 holds the next due record (a warning, at
+	 * most once an hour); {@link #persistDeadline()} waits for it.
+	 */
+	private void checkGuard() {
+		long earliest = earliestDue();
+		if (earliest == Long.MAX_VALUE) {
+			return;
+		}
+		long freeAt = guardFreeAt();
+		if (freeAt <= earliest) {
+			return;
+		}
+		long now = _clock.getAsLong();
+		if (!_guardLogged || now - _guardLoggedMs >= GUARD_WINDOW_MS) {
+			// Once an hour at most.
+			_guardLogged = true;
+			_guardLoggedMs = now;
+			_observer.runtimeLogged(Level.WARNING, "the block state records were written "
+				+ Manifest.RECORD_WRITES_PER_HOUR + " times within the hour (spec/blocks.md B13): the next write waits "
+				+ (freeAt - Math.max(now, earliest) + 999) / 1000
+				+ " s; a block type keeps a field as managed state that changes all the time");
 		}
 	}
 
-	/** Writes every due record now (an orderly reboot). */
+	/** Writes every due record now (an orderly reboot), regardless of the guard. */
 	public void flush() {
 		for (int b = 0; b < _instances.length; b++) {
 			Instance in = _instances[b];
 			if (in._dirty && in._status != Status.FAULT) {
-				writeRecord(b);
+				if (differs(b)) {
+					writeRecord(b);
+				} else {
+					in._dirty = false;
+				}
 			}
 		}
 	}
@@ -583,8 +676,6 @@ public final class BlockRuntime implements Engine.BlockHost {
 				if (oi._status == Status.FAULT && same) {
 					// A faulted instance starts from its persisted record, as a restart (spec/blocks.md B11).
 					in._restored = loadRecord(i);
-					in._writtenOnce = oi._writtenOnce;
-					in._lastWriteMs = oi._lastWriteMs;
 					in._wasFault = true;
 				} else if (same) {
 					// The same type and major version: the record in RAM, by field id (spec/blocks.md 8.1).
@@ -595,9 +686,8 @@ public final class BlockRuntime implements Engine.BlockHost {
 							in._stored[f] = oi._stored[of];
 						}
 					}
-					in._dirty = oi._dirty;
-					in._lastWriteMs = oi._lastWriteMs;
-					in._writtenOnce = oi._writtenOnce;
+					in._dirty = oi._dirty && m.persists();
+					in._dueMs = oi._dueMs;
 					in._restored = true;
 				} else {
 					log(i, LogCode.STATE_RESET, Level.WARNING, "the block type changed from " + om.type() + " "
@@ -763,10 +853,15 @@ public final class BlockRuntime implements Engine.BlockHost {
 			int p = _set.at(b).manifest().param(parameter);
 			return p >= 0 && _instances[b]._overridden[p];
 		});
+		// The records kept: those of the current instances whose type has managed state. The record of
+		// an instance whose type keeps none (a record of an older firmware, spec/blocks.md 8.1) is
+		// deleted like an orphan, without stateReset.
 		for (String block : _records.blocks()) {
 			int b = _set.find(block);
 			if (b < 0 || !_set.at(b).manifest().persists()) {
 				_records.remove(block);
+				_observer.runtimeLogged(Level.INFO, "deleted the state record of " + block + ": "
+					+ (b < 0 ? "no such block" : "its block type keeps no managed state"));
 			}
 		}
 	}

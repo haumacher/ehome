@@ -248,7 +248,7 @@ public final class SunShading extends BlockType {
 			new Field("manualDay", false, -1), new Field("manualSeen", false, -1), new Field("holding", false, 0),
 			new Field("due", false, 0), new Field("movedAt", false, -1), new Field("sentPosition", false, -1),
 			new Field("sentSlat", false, -1), new Field("sentUpDown", false, -1)),
-		List.of("wake"), 60000, 0);
+		List.of("wake"), 60000);
 
 	private static List<Param> params() {
 		List<Param> result = new ArrayList<>();

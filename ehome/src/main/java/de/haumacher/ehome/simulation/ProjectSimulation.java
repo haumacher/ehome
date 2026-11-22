@@ -196,8 +196,8 @@ public final class ProjectSimulation implements AutoCloseable {
 			GroupDevice input = new GroupDevice("E-Home input", INPUT_ADDRESS);
 			installation.attach(input);
 			simulation = new Simulation(image.getJson(), startUtc, store);
-			// The blocks' state records survive a restart of the simulation (an orderly reboot of the
-			// controller), not a restart of E-Home.
+			// The blocks' state records (their managed state, homecontrol spec/blocks.md B4) survive a
+			// restart of the simulation (an orderly reboot of the controller), not a restart of E-Home.
 			simulation.setRecords(RECORDS.computeIfAbsent(project.tId(), id -> new BlockRuntime.MemoryRecords()));
 			simulation.setLanguage(Resources.getInstance().getLocale().getLanguage());
 			simulation.setNames(timelineNames(project));

@@ -290,15 +290,15 @@ public final class RoomController extends BlockType {
 				Double.valueOf(86399), 60, List.of(), false),
 			duration("protectionDuration", "Valve protection duration", "min", 5 * MINUTE, MINUTE, 30 * MINUTE,
 				MINUTE)),
-		List.of(new Field("integral", true, 0), new Field("filtered", false, 0), new Field("hasFiltered", false, 0),
+		List.of(new Field("integral", false, 0), new Field("filtered", false, 0), new Field("hasFiltered", false, 0),
 			new Field("lastStep", false, 0), new Field("lastSetpoint", false, 0),
 			new Field("hasLastSetpoint", false, 0), new Field("lastKp", false, 0), new Field("hasLastKp", false, 0),
 			new Field("windowActive", false, 0), new Field("boostUntil", false, 0),
-			new Field("protectionUntil", false, 0), new Field("protectedOn", true, 0),
+			new Field("protectionUntil", false, 0), new Field("protectedOn", false, 0),
 			new Field("cycleStart", false, 0), new Field("hasCycle", false, 0), new Field("lastState", false, 0),
 			new Field("sentValve", false, 0), new Field("hasSent", false, 0), new Field("sentAt", false, 0),
 			new Field("switchOn", false, 0), new Field("demandOn", false, 0)),
-		List.of("window", "pwm"), 60000, 600000);
+		List.of("window", "pwm"), 60000);
 
 	private static Param real(String id, String label, String unit, double def, double min, double max, double step,
 			boolean adjustable) {

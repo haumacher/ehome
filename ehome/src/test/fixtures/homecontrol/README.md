@@ -77,6 +77,18 @@ restored persisted value is good after a reboot, for every technology, `spec/rul
 which added the rule case `102-persisted-value-reboot` (with the datapoint member `persist`) and changed
 the rule corpus `README.md` (the member `persist` and the step `reboot`); the image and block fixtures
 did not change.
+Synced again at `dd11feab5aa0f1455fea1560154984d5fdec9f49` (2026-11-20, haumacher/homecontrol#102,
+haumacher/ehome #210: only managed block state is persisted, written 10 s after it changes, no
+`persistEvery`, `spec/blocks.md` B4, B13, 8.1; the copied files are those of
+`c1d835b22fe5cc89664058edc42dcbff08e7a6d5`, dd11fea added only the compiled image of case 75), which
+changed the block cases `09-fault-failsafe-restart`, `10-disable-enable-failsafe`,
+`12-image-swap-drops-state`, `15-persistence-reboot`, `25-room-integral-reboot`,
+`30-demand-offset-persist`, `35-curve-filter-persist`, `36-curve-summer-switch`,
+`50-shading-min-interval-reboot`, `59-house-reboot-since` and `71-pv-failsafe-swap-reboot`, added
+`75-house-reboot-managed-state` and changed the block corpus `README.md` (records holding exactly the
+listed fields, the check member `stored`, `records` `{}` as no record; it brought along its section
+"The compiled images" of the binary image round, homecontrol #87); the image and rule fixtures did not
+change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

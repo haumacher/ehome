@@ -612,7 +612,11 @@ public class TestRuleCorpus extends TestCase {
 			return true;
 		}
 
-		/** README "persisted": a state record <code>block/&lt;id&gt;</code> written as the device writes it. */
+		/**
+		 * README "persisted": a state record <code>block/&lt;id&gt;</code> in the device's format holding
+		 * exactly the listed fields, as this or an older firmware wrote it (one may hold fields that are
+		 * not managed state, homecontrol #102).
+		 */
 		private void persistRecord(String id, Map<?, ?> record) {
 			int[] version = BlockSet.parseVersion((String) record.get("version"));
 			BlockType type = ConformanceBlock.CORPUS_REGISTRY.find((String) record.get("type"), version[0]);
@@ -622,13 +626,10 @@ public class TestRuleCorpus extends TestCase {
 			Map<String, Double> fields = new LinkedHashMap<>();
 			Manifest m = type.manifest();
 			for (Map.Entry<?, ?> field : ((Map<?, ?>) record.get("fields")).entrySet()) {
-				int f = m.field((String) field.getKey());
-				if (f < 0) {
+				if (m.field((String) field.getKey()) < 0) {
 					throw new AssertionError("No state field " + field.getKey());
 				}
-				if (m.state().get(f).persist()) {
-					fields.put((String) field.getKey(), Double.valueOf(((Number) field.getValue()).doubleValue()));
-				}
+				fields.put((String) field.getKey(), Double.valueOf(((Number) field.getValue()).doubleValue()));
 			}
 			_blockRecords.write(id, new StateRecord(m.type(), m.major(), fields));
 		}
@@ -748,9 +749,18 @@ public class TestRuleCorpus extends TestCase {
 			}
 		}
 
-		/** The complete set of persisted records (README "records"), after an orderly shutdown's writes. */
-		private void compareRecords(Map<?, ?> expected, String where) {
-			_blockRuntime.flush();
+		/**
+		 * The complete set of persisted records (README "records"), after an orderly shutdown's writes,
+		 * or with <code>stored</code> of a check the records listed as the store holds them now.
+		 *
+		 * @param complete
+		 *        README "records": after the writes of an orderly shutdown, and no other record may be
+		 *        stored; else README "stored": as stored, only the listed blocks compared.
+		 */
+		private void compareRecords(Map<?, ?> expected, String where, boolean complete) {
+			if (complete && _blockRuntime != null) {
+				_blockRuntime.flush();
+			}
 			Set<String> expectedIds = new TreeSet<>();
 			for (Map.Entry<?, ?> entry : expected.entrySet()) {
 				String id = (String) entry.getKey();
@@ -776,6 +786,14 @@ public class TestRuleCorpus extends TestCase {
 							+ ", expected " + want.get(field.getKey()));
 					}
 				}
+				for (Object field : want.keySet()) {
+					if (!record.fields().containsKey(field)) {
+						_failures.add(where + ": the record of " + id + " lacks " + field);
+					}
+				}
+			}
+			if (!complete) {
+				return;
 			}
 			for (String id : _blockRecords.blocks()) {
 				if (!expectedIds.contains(id)) {
@@ -1201,7 +1219,10 @@ public class TestRuleCorpus extends TestCase {
 				compareBlocks(blocks, where);
 			}
 			if (expected.get("records") instanceof Map<?, ?> records) {
-				compareRecords(records, where);
+				compareRecords(records, where, true);
+			}
+			if (expected.get("stored") instanceof Map<?, ?> stored) {
+				compareRecords(stored, where, false);
 			}
 			if (expected.get("persisted") instanceof Map<?, ?> persisted) {
 				Map<String, Val> stored = _store.overrides();

@@ -3,6 +3,7 @@
  */
 package test.de.haumacher.ehome.simulation;
 
+import java.util.Collection;
 import java.util.Map;
 
 import junit.framework.Test;
@@ -20,8 +21,9 @@ import de.haumacher.ehome.simulation.Simulation;
 /**
  * The simulation runs the blocks of an image (haumacher/ehome #75): a room controller without a
  * sensor value puts its valve at the fallback position, regulates once the temperature is reported,
- * takes a change of its comfort setpoint through its datapoint at once, and keeps its integral across
- * a restart of the simulation (an orderly reboot: the records are written when it stops). The
+ * takes a change of its comfort setpoint through its datapoint at once, and starts fresh after a
+ * restart of the simulation (an orderly reboot): its integral is internal state, which no record
+ * keeps (homecontrol #102, <code>spec/blocks.md</code> B4); the override survives. The
  * semantics in detail are pinned by the block corpus ({@link test.de.haumacher.ehome.blocks.TestBlockCorpus}).
  */
 @SuppressWarnings("javadoc")
@@ -63,13 +65,99 @@ public class TestSimulationBlocks extends TestCase {
 			integral = simulation.blocks().state(b)[0];
 			assertTrue("The integral grew: " + integral, integral > 0);
 		}
-		// A restart: the integral comes from the record written when the simulation stopped.
+		assertTrue("The room controller keeps no managed state: no record.", records.blocks().isEmpty());
+		// A restart: the integral starts again from 0.
 		try (Simulation simulation = new Simulation((Map<?, ?>) Json.parse(IMAGE, 100), START, store)) {
 			simulation.setRecords(records);
 			assertNull(simulation.start());
 			int b = simulation.blocks().set().find("wz");
-			assertEquals(integral, simulation.blocks().state(b)[0], 0.0);
+			assertEquals(0.0, simulation.blocks().state(b)[0], 0.0);
 			assertEquals("The override survives.", Val.ofReal(18), simulation.value("block/wz/comfort"));
+		}
+	}
+
+	private static final String HOUSE = "{\"settings\": {\"tz\": \"UTC0\"},"
+		+ " \"datapoints\": [{\"id\": \"hb\", \"type\": \"boolean\", \"writable\": true, \"virtual\": {}},"
+		+ "  {\"id\": \"nb\", \"type\": \"boolean\", \"writable\": true, \"virtual\": {}}],"
+		+ " \"blocks\": [{\"id\": \"hm\", \"type\": \"org.homecontrol.house-mode\", \"version\": \"1.0\","
+		+ "  \"label\": \"House\", \"inputs\": {\"homeButton\": \"hb\", \"nightButton\": \"nb\"}}]}";
+
+	/**
+	 * The house mode's managed state (homecontrol <code>spec/blocks.md</code> B4, B13, 8.1): its record
+	 * is written 10 s after a change of the mode and not before; the guard holds a 31st write within
+	 * the hour until the hour of the first has passed, with a warning, and then writes the latest
+	 * state once.
+	 */
+	public void testManagedStateRecord() throws Exception {
+		CountingRecords records = new CountingRecords();
+		try (Simulation simulation = new Simulation((Map<?, ?>) Json.parse(HOUSE, 100), START, new ParameterStore())) {
+			simulation.setRecords(records);
+			assertNull(simulation.start());
+			// The start sets since: the first record is due 10 s later.
+			simulation.advance(9_999);
+			assertNull("Not before 10 s.", records.read("hm"));
+			simulation.advance(1);
+			assertEquals(1, records._writes);
+			assertEquals(Double.valueOf(0), records.read("hm").fields().get("mode"));
+			assertEquals(Double.valueOf(START / 60), records.read("hm").fields().get("since"));
+			// Presses every 20 s, night and home in turn: each changes the mode, each record is written
+			// 10 s later; the periods in between write nothing.
+			for (int press = 1; press <= 29; press++) {
+				simulation.advance(10_000);
+				press(simulation, press % 2 == 1 ? "nb" : "hb");
+				simulation.advance(9_999);
+				assertEquals("Press " + press + ": not yet written.", press, records._writes);
+				simulation.advance(1);
+				assertEquals("Press " + press + ": written.", press + 1, records._writes);
+				assertEquals(Double.valueOf(press % 2 == 1 ? 2 : 0), records.read("hm").fields().get("mode"));
+			}
+			// 30 writes within the hour (the first at 10 s): the next waits until 3 610 s.
+			simulation.advance(10_000);
+			press(simulation, "hb");
+			assertEquals(Val.ofEnum(0), simulation.value("block/hm/mode"));
+			simulation.advance(3_609_999 - 600_000);
+			assertEquals("Held by the guard.", 30, records._writes);
+			assertEquals(Double.valueOf(2), records.read("hm").fields().get("mode"));
+			simulation.advance(1);
+			assertEquals("Written once the hour of the first write has passed.", 31, records._writes);
+			assertEquals(Double.valueOf(0), records.read("hm").fields().get("mode"));
+			long warnings = simulation.timeline().stream()
+				.filter(entry -> entry.source().equals("blocks") && entry.text().contains("spec/blocks.md B13")).count();
+			assertEquals("One warning.", 1, warnings);
+		}
+	}
+
+	private static void press(Simulation simulation, String button) {
+		assertEquals(CommandStatus.OK, simulation.command(button, Val.ofBool(false)));
+		assertEquals(CommandStatus.OK, simulation.command(button, Val.ofBool(true)));
+	}
+
+	/** A {@link BlockRuntime.MemoryRecords} that counts the writes. */
+	private static final class CountingRecords implements BlockRuntime.RecordStore {
+
+		private final BlockRuntime.MemoryRecords _records = new BlockRuntime.MemoryRecords();
+
+		int _writes;
+
+		@Override
+		public BlockRuntime.StateRecord read(String block) {
+			return _records.read(block);
+		}
+
+		@Override
+		public void write(String block, BlockRuntime.StateRecord record) {
+			_writes++;
+			_records.write(block, record);
+		}
+
+		@Override
+		public void remove(String block) {
+			_records.remove(block);
+		}
+
+		@Override
+		public Collection<String> blocks() {
+			return _records.blocks();
 		}
 	}
 

@@ -11,8 +11,8 @@ import de.haumacher.ehome.rules.ValueType;
 
 /**
  * The manifest of a block type (homecontrol <code>spec/blocks.md</code> 3): its ports, parameters,
- * state fields, timers, period and persistence interval. A port of homecontrol
- * <code>core/include/hc/blocks/block_type.h</code>.
+ * state fields (those marked <code>persist</code> are the managed state, B4), timers and period. A
+ * port of homecontrol <code>core/include/hc/blocks/block_type.h</code>.
  *
  * @param type
  *        The reverse-DNS id of the type (<code>org.homecontrol.room-controller</code>).
@@ -34,11 +34,9 @@ import de.haumacher.ehome.rules.ValueType;
  *        The ids of the type's one-shot timers.
  * @param periodMs
  *        The interval of the <code>period()</code> calls, 0 for none.
- * @param persistEveryMs
- *        The shortest interval between two writes of the state record.
  */
 public record Manifest(String type, int major, int minor, String label, String description, List<Port> ports,
-		List<Param> params, List<Field> state, List<String> timers, long periodMs, long persistEveryMs) {
+		List<Param> params, List<Field> state, List<String> timers, long periodMs) {
 
 	/** The value types of a port (<code>spec/blocks.md</code> B6). */
 	public enum PortType {
@@ -331,7 +329,9 @@ public record Manifest(String type, int major, int minor, String label, String d
 	 * @param id
 	 *        The identifier.
 	 * @param persist
-	 *        Whether the field is persisted.
+	 *        Whether the field is managed state (<code>spec/blocks.md</code> B4): kept in the record
+	 *        across a reboot, written when it changes. Only what a restart would lose and the inputs
+	 *        do not give back (the house mode's mode).
 	 * @param initial
 	 *        The initial value.
 	 */
@@ -366,7 +366,7 @@ public record Manifest(String type, int major, int minor, String label, String d
 	/** The bytes of a persisted record. */
 	public static final int MAX_RECORD_BYTES = 512;
 
-	/** Record writes per hour, of all instances together (<code>spec/blocks.md</code> B13). */
+	/** The guard of <code>spec/blocks.md</code> B13: at most this many record writes in any hour, in all. */
 	public static final int RECORD_WRITES_PER_HOUR = 30;
 
 	/** The longest block id. */
@@ -415,7 +415,7 @@ public record Manifest(String type, int major, int minor, String label, String d
 		return timers.indexOf(id);
 	}
 
-	/** Whether any state field persists. */
+	/** Whether any state field persists (the type has managed state). */
 	public boolean persists() {
 		for (Field f : state) {
 			if (f.persist()) {
@@ -446,9 +446,6 @@ public record Manifest(String type, int major, int minor, String label, String d
 		}
 		if (periodMs != 0 && (periodMs < 1000 || periodMs > 86400000)) {
 			return "the period is not 1 s .. 1 d";
-		}
-		if (persists() && (persistEveryMs < 60000 || persistEveryMs > 86400000)) {
-			return "persistEvery is not 1 min .. 1 d";
 		}
 		Set<String> namespace = new HashSet<>();
 		for (int i = 0; i < ports.size() + params.size(); i++) {

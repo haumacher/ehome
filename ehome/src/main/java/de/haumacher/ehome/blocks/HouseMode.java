@@ -22,8 +22,9 @@ import de.haumacher.ehome.rules.Values;
  * The house mode <code>org.homecontrol.house-mode</code> 1.0 (homecontrol <code>spec/blocks.md</code>
  * 19): home, away, night or vacation from presence, push buttons, the morning and evening of schedule
  * entries and a vacation switch; the mode as a KNX HVAC mode for the room controllers and as booleans;
- * persisted across a reboot. A literal port of homecontrol <code>core/src/blocks/house_mode.cpp</code>,
- * in IEEE 754 doubles in the order the specification writes it (<code>spec/blocks.md</code> 13).
+ * the mode kept across a reboot (managed state, B4). A literal port of homecontrol
+ * <code>core/src/blocks/house_mode.cpp</code>, in IEEE 754 doubles in the order the specification
+ * writes it (<code>spec/blocks.md</code> 13).
  */
 public final class HouseMode extends BlockType {
 
@@ -158,7 +159,7 @@ public final class HouseMode extends BlockType {
 			new Field("absentSince", false, -1), new Field("armed", false, 1), new Field("awaySeen", false, -1),
 			new Field("nightSeen", false, -1), new Field("homeSeen", false, -1), new Field("lastMorning", false, -1),
 			new Field("lastEvening", false, -1), new Field("sentMode", false, -1), new Field("sentSince", false, -1)),
-		List.of("away"), 60000, 60000);
+		List.of("away"), 60000);
 
 	private static Port in(String id, String label, int multiple, InputTrigger trigger) {
 		return Port.in(id, PortType.BOOLEAN, label, "", false, multiple,

@@ -89,8 +89,8 @@ public final class ConformanceBlock extends BlockType {
 					0, List.of(), true));
 		_manifest = new Manifest("org.homecontrol.conformance", second ? 2 : 1, second ? 0 : 1, "Conformance",
 			"spec/blocks.md 15", ports, params,
-			List.of(new Field("count", true, 0), new Field("ticks", true, 0), new Field("pulseOn", false, 0)),
-			List.of("t"), 10000, 60000);
+			List.of(new Field("count", false, 0), new Field("ticks", false, 0), new Field("pulseOn", false, 0)),
+			List.of("t"), 10000);
 	}
 
 	@Override

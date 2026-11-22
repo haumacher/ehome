@@ -129,7 +129,7 @@ public final class PvSurplus extends BlockType {
 
 	private static final Manifest MANIFEST = new Manifest(TYPE, 1, 0, "PV surplus control",
 		"Up to two loads in the order of their priority from the PV surplus, behind the battery; forced by a deadline",
-		ports(), params(), fields(), List.of(), 30000, 600000);
+		ports(), params(), fields(), List.of(), 30000);
 
 	private static List<Port> ports() {
 		List<Port> ports = new ArrayList<>();
@@ -214,13 +214,13 @@ public final class PvSurplus extends BlockType {
 
 	private static List<Field> fields() {
 		List<Field> fields = new ArrayList<>(List.of(new Field("lastStep", false, 0), new Field("filtered", false, 0),
-			new Field("hasFiltered", false, 0), new Field("day", true, -1), new Field("dayStart", false, 0),
+			new Field("hasFiltered", false, 0), new Field("day", false, -1), new Field("dayStart", false, 0),
 			new Field("hasSent", false, 0), new Field("sentLoadPower", false, 0)));
 		for (int k = 1; k <= LOADS; k++) {
 			fields.add(new Field("level" + k, false, 0));
 			fields.add(new Field("switchedAt" + k, false, -1));
-			fields.add(new Field("run" + k, true, 0));
-			fields.add(new Field("energy" + k, true, 0));
+			fields.add(new Field("run" + k, false, 0));
+			fields.add(new Field("energy" + k, false, 0));
 		}
 		return List.copyOf(fields);
 	}
@@ -266,7 +266,7 @@ public final class PvSurplus extends BlockType {
 		double[] s = cx.state();
 		double now = cx.now();
 		if (!(restored && (reason == StartReason.IMAGE || reason == StartReason.ENABLE))) {
-			// A record from flash: its monotonic times are gone (D11).
+			// A boot or a restart: the record starts fresh (D11).
 			s[S_LAST_STEP] = now;
 			s[S_DAY_START] = now;
 		}
