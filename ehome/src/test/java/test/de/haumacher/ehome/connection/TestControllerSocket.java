@@ -139,6 +139,12 @@ public class TestControllerSocket extends BasicTestCase {
 			await(() -> link.getReceived().stream().anyMatch(m -> "subscribe".equals(m.get("type"))));
 			ControllerConnection connection = ControllerConnections.get(id);
 			assertNotNull(connection);
+			// The connection is stored after "subscribe" went out (ControllerConnections.announce), so
+			// the store may still be queued when the link sees "subscribe".
+			await(() -> {
+				ControllerConnections.refetch();
+				return controller.getFirmwareVersion() != null;
+			});
 			ControllerConnections.awaitKnowledgeBase();
 			assertEquals("0.1.0-fake", controller.getFirmwareVersion());
 			assertEquals("fake123", controller.getFirmwareBuild());
