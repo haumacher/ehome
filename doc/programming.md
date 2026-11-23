@@ -65,9 +65,9 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   written again completely and verified as before. A genuine answer of the device (a short read, a
   verification differing) still fails as before.
 - "Herunterladen": asks for confirmation naming the device, its address and the path ("über Gateway
-  192.168.178.81:3671" or "über Controller homecontrol-f883ec"), then runs
-  the plan with progress, and reports success (operations, duration) or the failing operation with
-  the device's answer. On success the device records the download (`loaded`, `lastDownload`) and,
+  192.168.178.81:3671" or "über Controller homecontrol-f883ec"), then appends the device to the
+  project's queue (below), which runs the plan with progress in its row and keeps the report: success
+  (operations, duration) or the failing operation with the device's answer. On success the device records the download (`loaded`, `lastDownload`) and,
   for a full download, the revision of the project data the plan was computed from
   (`downloadRevision`): the device's state in that revision is what the real device holds. The tab
   "Geänderte Werte" lists the changes since (values and connections, grouped by page, with
@@ -120,31 +120,47 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   state over.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
-- Several devices one after another (haumacher/ehome #200): in the toolbar of the tree of the devices,
-  "Programmieren" for the devices of the selection (an area, a line or a building part stands for its
-  devices; stubs without a program are left out) and "Alle mit Änderungen" for every device of the
-  project with `downloadPending` open the dialog "Geräte programmieren"
-  (`projects/download-queue.view.xml`). It lists the devices by individual address, each with "Nur
-  Parameter" preset as the single download presets it (`parametersOnlyByDefault`: a device whose
-  program is not loaded gets the full download), changeable per row while the device waits and its
-  program allows it, or for all waiting devices at once ("Alle vollständig", "Alle nur Parameter").
-  "Starten" asks for a confirmation (number of devices, path, how many of each kind) and works through
-  the waiting devices as one job (`DownloadQueue`, `DownloadQueueJob`): strictly one after another on
-  the project's path, one connection and one device at a time, each download planned, vetoed,
-  performed and recorded exactly as a single one (`DownloadRecord`). Each row shows its state (Wartet,
-  Läuft with the operation, Fertig with operations and duration, Fehlgeschlagen with the reason,
-  Storniert, Abgebrochen with the operation it stopped before); a failure does not stop the queue, and a
-  device not reached keeps its pending state. "Stornieren" takes the selected waiting devices out,
-  "Alle wartenden stornieren" all of them, untouched; "Abbrechen" stops the running download before
-  its next operation and the queue goes on; the cancel of the job's display aborts the running download
-  and cancels the waiting ones. The queue is runtime state of the dialog (no model); the job holds the
-  dialog open until it ends. The commands check Write on the project, whose devices they all are.
-- The downloads of a project run one at a time (`DownloadLock`, haumacher/ehome #200): a single
-  download of any kind and the queue hold the project's lock while they run; another download of the
-  project is refused with what holds it ("Der Download in … läuft", "Die Programmierung von n Geräten
-  des Projekts läuft"), as the veto of its command (the channel `busState` follows the lock) and at the
-  start of the job. Comparison, read-out and device info do not take the lock (they never write);
-  through a controller they are refused anyway while a bus session is open.
+- The downloads of a project go through one queue (haumacher/ehome #200, #218): `DownloadQueue`,
+  runtime state of the project in the app (no model; a restart discards it, the devices keep their
+  pending state), the same for every session. A background task of the app works through it
+  (`SchedulerService`, not a job of a view), so the user keeps working: strictly one device after
+  another on the project's path, one connection at a time, each download vetoed, planned, performed
+  and recorded exactly as a single one (`DownloadRecord`), in a sub-session derived from the request
+  that enqueued it (the user who enqueued it). A failure does not stop the queue; a device not reached
+  keeps its pending state. Each entry shows the device, the kind ("Vollständig", "Nur Parameter") and
+  its state (Wartet, Läuft with the operation, Fertig with operations and duration, Fehlgeschlagen
+  with the reason, Storniert, Abgebrochen with the operation it stopped before); "Bericht" opens the
+  report of a finished download (`projects/programming-report.view.xml`).
+- Every tab "Programmierung" shows the project's queue below its own commands
+  (`projects/download-queue.view.xml`, following the queue through the source channel
+  `DownloadQueueSource`): "Alle mit Änderungen" appends every device of the project with
+  `downloadPending`, whatever is selected, each kind preset by its state (`parametersOnlyByDefault`);
+  "Stornieren" takes the selected waiting entries out, "Alle wartenden stornieren" all of them,
+  untouched; "Abbrechen" stops the running download before its next operation and the queue goes on;
+  "Erledigte entfernen" removes the done, failed, cancelled and aborted entries, which stay until then.
+  Every member of the project sees the queue; the commands changing it check Write on the project.
+- The tab "Programmierung" exists for every selection in the tree of the devices standing for devices:
+  a device (`projects/device-programming.view.xml`), and a multi-selection, an area, a line, a building
+  part or "Ohne Standort", each standing for its devices with a program (stubs are left out;
+  `projects/devices-programming.view.xml`). An area, a line and a building part get a tab bar with
+  their form first and "Programmierung" second. There the devices are listed by individual address,
+  each with "Nur Parameter" preset as the single download presets it (a device whose program is not
+  loaded gets the full download), changeable per row where its program allows it, or for all at once
+  ("Alle vollständig", "Alle nur Parameter"); "Programmieren" asks for a confirmation (number of
+  devices, path, how many of each kind) and appends them to the queue (`DownloadSelection`). The tree's
+  toolbar has no programming commands.
+- Append, don't refuse: "Programmieren", "Alle mit Änderungen" and "Herunterladen" of a device append
+  at the end while the queue runs. A device already waiting is not enqueued a second time: a request
+  for the full download raises its entry of "Nur Parameter" to the full one (which covers the
+  parameters), a request for "Nur Parameter" leaves a waiting full one as it is; "Herunterladen" of a
+  device waiting with a download covering it is disabled with that reason. A device whose download runs
+  no longer waits and is enqueued anew.
+- While the worker runs, it holds the project's `DownloadLock`: the jobs writing outside the queue
+  ("Physikalische Adresse programmieren", the download with E-Home's module layout, "Wiederherstellen")
+  are refused meanwhile with "Die Geräte werden programmiert.", as the veto of their command (the
+  channel `busState` follows the lock) and at the start of the job; while one of them runs, the queue
+  waits for it instead of failing. Comparison, read-out and device info do not take the lock (they
+  never write); through a controller they are refused anyway while a bus session is open.
 - One job of the tab at a time (haumacher/ehome #161): its progress is shown with the device it was
   started for only (the channel `jobDevice`), and the commands of every device say "Der Auftrag für …
   läuft noch" while it runs. The vetoes of the commands read runtime state no model event reflects
@@ -504,7 +520,7 @@ Start with the actuator 1.3.5: no stamps, no skipped step, the hardware type che
 5. Actuator → "Programmierung" → "Mit dem Gerät vergleichen": every block identical.
 6. Read the plan; then "Herunterladen", confirm the dialog naming 1.3.5 and 192.168.178.81:3671.
    The download takes about 20-40 s. During it, the actuator does not switch.
-7. The report says success; compare again: every block identical. Switch a channel on the bus
+7. The row of the actuator in the queue says "Fertig" ("Bericht" shows the report); compare again: every block identical. Switch a channel on the bus
    (wall switch or ETS group monitor) to see the actuator work.
 8. Change a parameter in E-Home (e.g. a channel's operating mode), download, observe the changed
    behavior on the bus (acceptance of #7).

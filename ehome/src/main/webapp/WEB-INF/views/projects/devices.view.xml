@@ -14,9 +14,12 @@
 	"Scan the bus" opens the scan of the bus behind the project's path (projects/scan.view.xml,
 	haumacher/ehome #9, #180); a line selected in the tree fills its field "Line".
 
-	"Program" programs the devices of the selected nodes one after another (an area, a line or a building
-	part stands for its devices), "All with changes" those of the project needing a download
-	(projects/download-queue.view.xml, haumacher/ehome #200).
+	The tab "Programming" exists for every selection standing for devices (haumacher/ehome #200, #218): a
+	device (projects/device-programming.view.xml), and a multi-selection, an area, a line, a building part or
+	"No location", each standing for its devices (projects/devices-programming.view.xml). An area, a line and
+	a building part show their form as the first tab, "Programming" as the second; a multi-selection and "No
+	location" show "Programming" alone. Every tab "Programming" shows the project's queue of downloads
+	(projects/download-queue.view.xml), which a background task works through while the user goes on.
 
 	Besides the import and the bus scan, a device is planned here (haumacher/ehome #104): "New",
 	"Device" plans one from the catalog in the selected line (projects/create-device.view.xml), and
@@ -69,6 +72,11 @@
 			expr="if($treeSelection.size() == 1, $treeSelection.singleElement(), null)"
 			inputs="treeSelection"
 			reverse="$value"
+		/>
+		<!-- What the details show: "several" for a multi-selection, else the single selected node. -->
+		<derived-channel name="detail"
+			expr="if($treeSelection.size() > 1, 'several', $selected)"
+			inputs="treeSelection, selected"
 		/>
 		<!-- The selected node deleted by "Delete": an area, a line or a device (a stub as well), not a building part. -->
 		<derived-channel name="selectedNode"
@@ -432,86 +440,6 @@
 								/>
 							</open-dialog>
 						</generic-command>
-						<!--
-							The programming of several devices one after another (haumacher/ehome #200,
-							projects/download-queue.view.xml): the devices of the selected nodes (the devices below a
-							selected area, line or building part count), or those of the project needing a download.
-						-->
-						<generic-command
-							image="css:bi bi-download"
-							inputs="project, treeSelection"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Program</en>
-								<de>Programmieren</de>
-							</label>
-							<tooltip>
-								<en>Downloads into the selected devices one after another, each fully or the parameters only; an area, a line or a building part stands for its devices.</en>
-								<de>Lädt nacheinander in die gewählten Geräte, jedes vollständig oder nur die Parameter; ein Bereich, eine Linie oder ein Gebäudeteil steht für seine Geräte.</de>
-							</tooltip>
-							<access>
-								<operation name="Write"
-									object="$project"
-									type="ehome.project:Project"
-								/>
-							</access>
-							<executability>
-								<null-input-disabled/>
-								<disabled-if expr="downloadQueueSelectVeto(downloadQueueDevices($project, $treeSelection))"/>
-							</executability>
-							<execute-script function="downloadQueueNew($project, downloadQueueDevices($project, $treeSelection))">
-								<with-result>
-									<open-dialog
-										bind-input-to="queue"
-										dialog-view="projects/download-queue.view.xml"
-									>
-										<bind
-											channel="project"
-											to="project"
-										/>
-									</open-dialog>
-								</with-result>
-							</execute-script>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-cloud-download"
-							inputs="project"
-							observed-types="ehome.physical:Device"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>All with changes</en>
-								<de>Alle mit Änderungen</de>
-							</label>
-							<tooltip>
-								<en>Downloads into every device of the project that needs a download, one after another, each fully or the parameters only.</en>
-								<de>Lädt nacheinander in jedes Gerät des Projekts, das einen Download braucht, jedes vollständig oder nur die Parameter.</de>
-							</tooltip>
-							<access>
-								<operation name="Write"
-									object="$project"
-									type="ehome.project:Project"
-								/>
-							</access>
-							<executability>
-								<null-input-disabled/>
-								<disabled-if expr="downloadQueuePendingVeto($project)"/>
-							</executability>
-							<execute-script function="downloadQueueNew($project, downloadQueuePending($project))">
-								<with-result>
-									<open-dialog
-										bind-input-to="queue"
-										dialog-view="projects/download-queue.view.xml"
-									>
-										<bind
-											channel="project"
-											to="project"
-										/>
-									</open-dialog>
-								</with-result>
-							</execute-script>
-						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
 							inputs="selectedNode"
@@ -778,60 +706,151 @@
 						<en>Details</en>
 						<de>Details</de>
 					</title>
-					<switch input="selected">
-						<case test="$selected.instanceOf(`ehome.physical:Area`) or $selected.instanceOf(`ehome.physical:Line`)">
-							<form
-								input="selected"
-								with-inset="true"
+					<switch input="detail">
+						<!-- Several selected nodes: the programming of their devices (haumacher/ehome #218). -->
+						<case test="$detail == 'several' or $detail == 'noLocation'">
+							<tab-bar id="selection-tabs"
+								active-tab="selection-programming"
 							>
-								<field attribute="name"/>
-								<field attribute="address"/>
-								<field attribute="extId"/>
-							</form>
+								<tabs>
+									<tab id="selection-programming"
+										icon="css:bi bi-cpu"
+									>
+										<label>
+											<en>Programming</en>
+											<de>Programmierung</de>
+										</label>
+										<view-ref view="projects/devices-programming.view.xml">
+											<bind
+												channel="project"
+												to="project"
+											/>
+											<bind
+												channel="nodes"
+												to="treeSelection"
+											/>
+										</view-ref>
+									</tab>
+								</tabs>
+							</tab-bar>
+						</case>
+						<case test="$detail.instanceOf(`ehome.physical:Area`) or $detail.instanceOf(`ehome.physical:Line`)">
+							<tab-bar id="node-tabs"
+								active-tab="node"
+							>
+								<tabs>
+									<tab id="node"
+										icon="css:bi bi-info-circle"
+									>
+										<label>
+											<en>Data</en>
+											<de>Daten</de>
+										</label>
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="name"/>
+											<field attribute="address"/>
+											<field attribute="extId"/>
+										</form>
+									</tab>
+									<tab id="node-programming"
+										icon="css:bi bi-cpu"
+									>
+										<label>
+											<en>Programming</en>
+											<de>Programmierung</de>
+										</label>
+										<view-ref view="projects/devices-programming.view.xml">
+											<bind
+												channel="project"
+												to="project"
+											/>
+											<bind
+												channel="nodes"
+												to="treeSelection"
+											/>
+										</view-ref>
+									</tab>
+								</tabs>
+							</tab-bar>
 						</case>
 						<!-- A building part (structure by building part), read-only: parts are edited in the tab Buildings. -->
-						<case test="$selected.instanceOf(`ehome.building:BuildingDefinition`)">
-							<inset>
-								<fields>
-									<value-input
-										readonly="true"
-										type="tl.core:String"
-										value="partName"
+						<case test="$detail.instanceOf(`ehome.building:BuildingDefinition`)">
+							<tab-bar id="part-tabs"
+								active-tab="part"
+							>
+								<tabs>
+									<tab id="part"
+										icon="css:bi bi-info-circle"
 									>
 										<label>
-											<en>Name</en>
-											<de>Name</de>
+											<en>Building part</en>
+											<de>Gebäudeteil</de>
 										</label>
-									</value-input>
-									<value-input
-										readonly="true"
-										type="tl.core:String"
-										value="partType"
+										<inset>
+											<fields>
+												<value-input
+													readonly="true"
+													type="tl.core:String"
+													value="partName"
+												>
+													<label>
+														<en>Name</en>
+														<de>Name</de>
+													</label>
+												</value-input>
+												<value-input
+													readonly="true"
+													type="tl.core:String"
+													value="partType"
+												>
+													<label>
+														<en>Type</en>
+														<de>Typ</de>
+													</label>
+												</value-input>
+												<value-input
+													readonly="true"
+													type="tl.core:String"
+													value="partPath"
+												>
+													<label>
+														<en>Path</en>
+														<de>Pfad</de>
+													</label>
+												</value-input>
+											</fields>
+										</inset>
+									</tab>
+									<tab id="part-programming"
+										icon="css:bi bi-cpu"
 									>
 										<label>
-											<en>Type</en>
-											<de>Typ</de>
+											<en>Programming</en>
+											<de>Programmierung</de>
 										</label>
-									</value-input>
-									<value-input
-										readonly="true"
-										type="tl.core:String"
-										value="partPath"
-									>
-										<label>
-											<en>Path</en>
-											<de>Pfad</de>
-										</label>
-									</value-input>
-								</fields>
-							</inset>
+										<view-ref view="projects/devices-programming.view.xml">
+											<bind
+												channel="project"
+												to="project"
+											/>
+											<bind
+												channel="nodes"
+												to="treeSelection"
+											/>
+										</view-ref>
+									</tab>
+								</tabs>
+							</tab-bar>
 						</case>
 						<!--
 							The stub of a device a scan found that the catalog does not identify (haumacher/ehome #183): no
 							tab bar, as parameters, objects and programming need a program; its data, what it told about
 							itself, and "Assign".
 						-->
-						<case test="$selected.instanceOf(`ehome.physical:DeviceStub`)">
+						<case test="$detail.instanceOf(`ehome.physical:DeviceStub`)">
 							<form
 								input="selected"
 								with-inset="true"
@@ -929,7 +948,7 @@
 								<field attribute="extId"/>
 							</form>
 						</case>
-						<case test="$selected.instanceOf(`ehome.physical:Device`)">
+						<case test="$detail.instanceOf(`ehome.physical:Device`)">
 							<!--
 								A device: its data, its configuration by the structure of its program, its
 								communication objects with their group addresses, and the values the project

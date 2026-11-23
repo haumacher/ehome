@@ -18,18 +18,21 @@
 	  device (projects/restore-snapshot.view.xml, RestoreJob, haumacher/ehome #194).
 	- Device info asks the device who it is and in what state, beside the project's values
 	  (DeviceInfoJob, projects/device-info.view.xml, haumacher/ehome #175); it never writes.
-	- Download runs the plan after a confirmation naming the device, its address and the path (gateway
-	  or controller). "Parameters only" (channel parametersOnly, haumacher/ehome #195) chooses the download of
-	  the parameters and tables without the program's code; it is set for a device holding the program
-	  of its last download (ProgrammingFunctions.parametersOnlyByDefault) and decides the plan shown, the
-	  veto, the confirmation and the job (DownloadJob parameters-choice).
+	- Download appends the device to the project's queue of downloads after a confirmation naming the device,
+	  its address and the path (gateway or controller); the queue (projects/download-queue.view.xml, below the
+	  panels, haumacher/ehome #218) works through it in the background, one device after another, and keeps
+	  its outcome and report. "Parameters only" (channel parametersOnly, haumacher/ehome #195) chooses the
+	  download of the parameters and tables without the program's code; it is set for a device holding the
+	  program of its last download (ProgrammingFunctions.parametersOnlyByDefault) and decides the plan shown,
+	  the veto and the confirmation. A device waiting in the queue already is not appended again, unless the
+	  full download is asked for a device waiting with the parameters only, which raises its entry.
 	- Write address writes the individual address into the one device in programming mode.
 	Both writing commands are disabled, with the reason, unless the configuration variable
 	tl_ehome_programming_write_enabled is true (de.haumacher.ehome.programming.download.CalimeroWriter,
 	de.haumacher.ehome.settings.OperatorSettings), whatever the path. Unless the installation reaches local
 	networks (tl_ehome_local_network), a gateway is refused with that reason; the controller stays
 	available, and "Choose the gateway" offers only it then.
-	The commands run as jobs (DownloadJob, CompareJob, ReadOutJob, DeviceInfoJob) with their progress shown here, and end with
+	The other commands run as jobs (DownloadJob for the address and the layout, CompareJob, ReadOutJob, DeviceInfoJob) with their progress shown here, and end with
 	the report (projects/programming-report.view.xml), which replaces the progress display; a job
 	that fails keeps its display with the error. One job of the tab at a time: its progress is shown
 	with the device it was started for (jobDevice), and the commands of all devices are disabled with
@@ -60,6 +63,12 @@
 			update-interval="500"
 		>
 			<source class="de.haumacher.ehome.programming.download.BusStateSource"/>
+		</source-channel>
+		<!-- Changes with every change of the project's queue of downloads (DownloadQueueSource, haumacher/ehome #218). -->
+		<source-channel name="queueState"
+			update-interval="250"
+		>
+			<source class="de.haumacher.ehome.programming.download.DownloadQueueSource"/>
 		</source-channel>
 		<!-- The path to the bus: "Gateway <address>" or "Controller <name>" (ProgrammingFunctions busPath). -->
 		<derived-channel name="gateway"
@@ -326,9 +335,13 @@
 						</with-result>
 					</start-job>
 				</generic-command>
+				<!--
+					The download (full or the parameters only) is an entry of the project's queue (haumacher/ehome #218,
+					projects/download-queue.view.xml below): appended at its end, worked through in the background.
+				-->
 				<generic-command
 					image="css:bi bi-download"
-					inputs="device, parametersOnly, busState, programmingJob, jobDevice"
+					inputs="device, parametersOnly, busState, queueState"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					placement="TOOLBAR"
 				>
@@ -337,8 +350,8 @@
 						<de>Herunterladen</de>
 					</label>
 					<tooltip>
-						<en>Writes the application, the parameters and the group addresses into the device at its individual address (a new device gets its address first). With "Parameters only", the parameters and the group addresses without the program's code, into a device holding the program. The device does not work until the download is complete, which takes seconds to minutes.</en>
-						<de>Schreibt Applikation, Parameter und Gruppenadressen in das Gerät mit seiner physikalischen Adresse (ein neues Gerät erhält zuerst seine Adresse). Mit „Nur Parameter“ die Parameter und Gruppenadressen ohne den Code des Programms, in ein Gerät, das das Programm hält. Das Gerät arbeitet erst wieder, wenn der Download abgeschlossen ist; das dauert Sekunden bis Minuten.</de>
+						<en>Appends the download into the device to the project's queue: the application, the parameters and the group addresses, written at its individual address (a new device gets its address first). With "Parameters only", the parameters and the group addresses without the program's code, into a device holding the program. The device does not work until the download is complete, which takes seconds to minutes.</en>
+						<de>Reiht den Download in das Gerät in die Warteschlange des Projekts ein: Applikation, Parameter und Gruppenadressen, geschrieben unter seiner physikalischen Adresse (ein neues Gerät erhält zuerst seine Adresse). Mit „Nur Parameter“ die Parameter und Gruppenadressen ohne den Code des Programms, in ein Gerät, das das Programm hält. Das Gerät arbeitet erst wieder, wenn der Download abgeschlossen ist; das dauert Sekunden bis Minuten.</de>
 					</tooltip>
 					<access>
 						<operation name="Write"
@@ -348,34 +361,10 @@
 					</access>
 					<executability>
 						<null-input-disabled/>
-						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
-						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
 						<disabled-if expr="downloadVeto($device, $parametersOnly)"/>
 					</executability>
 					<confirm expr="downloadConfirmation($device, $parametersOnly)"/>
-					<!-- The job's progress is shown with this device only. -->
-					<write-channel name="jobDevice"/>
-					<start-job
-						cancelable="false"
-						job="programmingJob"
-						update-interval="200"
-					>
-						<inputs>
-							<input channel="parametersOnly"/>
-							<input channel="device"/>
-						</inputs>
-						<body class="de.haumacher.ehome.programming.download.DownloadJob"
-							parameters-choice="true"
-						/>
-						<with-result>
-							<open-dialog
-								bind-input-to="report"
-								dialog-view="projects/programming-report.view.xml"
-							/>
-							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
-							<write-channel name="programmingJob" clear="true"/>
-						</with-result>
-					</start-job>
+					<execute-script function="downloadQueueEnqueueDevice($device, $parametersOnly)"/>
 				</generic-command>
 				<!--
 					A full download replacing the device's layout of its dynamic modules (haumacher/ehome #119): only
@@ -807,5 +796,11 @@
 				</table>
 			</inset>
 		</panel>
+		<view-ref view="projects/download-queue.view.xml">
+			<bind
+				channel="project"
+				to="project"
+			/>
+		</view-ref>
 	</stack>
 </view>

@@ -943,11 +943,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 LOCK_DOWNLOAD__DEVICE;
 
 	/**
-	 * @en The programming of {0} devices of the project is running.
-	 */
-	public static ResKey1 LOCK_QUEUE__COUNT;
-
-	/**
 	 * @en The devices are being programmed.
 	 */
 	public static ResKey QUEUE_RUNNING;
@@ -993,16 +988,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 QUEUE_ABORTED_AT__NUMBER_COUNT;
 
 	/**
-	 * @en Download into {0}
-	 */
-	public static ResKey1 QUEUE_PROGRESS_STARTING__DEVICE;
-
-	/**
-	 * @en {0}: operation {1} of {2}: {3}
-	 */
-	public static ResKey4 QUEUE_PROGRESS__DEVICE_NUMBER_COUNT_TEXT;
-
-	/**
 	 * @en The device no longer exists.
 	 */
 	public static ResKey QUEUE_DEVICE_DELETED;
@@ -1023,9 +1008,39 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 QUEUE_FAILED__NUMBER_OPERATION_REASON;
 
 	/**
-	 * @en Programmed: {0}, failed: {1}, cancelled: {2}, aborted: {3}.
+	 * @en The device waits in the queue already.
 	 */
-	public static ResKey4 QUEUE_SUMMARY__DONE_FAILED_CANCELLED_ABORTED;
+	public static ResKey QUEUE_DEVICE_WAITS;
+
+	/**
+	 * @en The account that enqueued the download no longer exists.
+	 */
+	public static ResKey QUEUE_PERSON_DELETED;
+
+	/**
+	 * @en Select one device whose download has ended.
+	 */
+	public static ResKey QUEUE_NO_REPORT;
+
+	/**
+	 * @en No program of these devices allows a download of the parameters only.
+	 */
+	public static ResKey QUEUE_NO_CHOICE;
+
+	/**
+	 * @en No download has ended.
+	 */
+	public static ResKey QUEUE_NOTHING_FINISHED;
+
+	/**
+	 * @en Full
+	 */
+	public static ResKey QUEUE_KIND_FULL;
+
+	/**
+	 * @en Parameters only
+	 */
+	public static ResKey QUEUE_KIND_PARAMETERS;
 
 	/**
 	 * @en Waiting

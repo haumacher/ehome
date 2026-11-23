@@ -4,6 +4,7 @@
 package de.haumacher.ehome.programming.download;
 
 import java.util.List;
+import java.util.Map;
 
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.config.InstantiationContext;
@@ -18,20 +19,20 @@ import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
-import de.haumacher.ehome.view.JobInputs;
-
 /**
- * The work of the download command of a device (<code>&lt;start-job&gt;</code> body): plans the
- * download, connects to the bus on the project's {@link BusPath} (its gateway or its controller) through
- * {@link CalimeroWriter}, performs the plan with
- * progress per operation, and records it at the device on success.
+ * The work of the commands of the tab "Programming" of a device writing outside the project's
+ * {@link DownloadQueue} (<code>&lt;start-job&gt;</code> body): the individual address
+ * ({@link DownloadPlan.Kind#ADDRESS}) and the full download replacing the layout of the device's
+ * modules ({@link DownloadPlan.Kind#LAYOUT}). Plans the download, connects to the bus on the project's
+ * {@link BusPath} (its gateway or its controller) through {@link CalimeroWriter}, performs the plan
+ * with progress per operation, and records it at the device on success.
  *
  * <p>
- * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}). With
- * {@link Config#getParametersChoice()}, the input before it says whether the download writes the
- * parameters only ({@link DownloadPlan.Kind#PARAMETERS}, haumacher/ehome #195). The result is a
- * {@link ProgrammingReport}. A refusal (writing switched off, no gateway or controller, a plan with problems, no
- * connection) fails the job with its reason; a failure of the device is the report's outcome.
+ * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}).
+ * The result is a {@link ProgrammingReport}. A refusal (writing switched off, no gateway or
+ * controller, a plan with problems, no connection, another download of the project running) fails the
+ * job with its reason; a failure of the device is the report's outcome. The full download and the one
+ * of the parameters only are entries of the {@link DownloadQueue} (haumacher/ehome #218).
  * </p>
  */
 public class DownloadJob implements JobBody {
@@ -51,19 +52,9 @@ public class DownloadJob implements JobBody {
 		@Name("kind")
 		@FormattedDefault("FULL")
 		DownloadPlan.Kind getKind();
-
-		/**
-		 * Whether the job has two inputs, the first one (a Boolean) saying whether the download writes
-		 * the parameters only, the second the device; <code>true</code> there makes a download of the
-		 * {@link #getKind() kind} {@link DownloadPlan.Kind#FULL} one of the parameters only.
-		 */
-		@Name("parameters-choice")
-		boolean getParametersChoice();
 	}
 
 	private final DownloadPlan.Kind _kind;
-
-	private final boolean _parametersChoice;
 
 	/**
 	 * Creates a {@link DownloadJob} from configuration.
@@ -71,18 +62,11 @@ public class DownloadJob implements JobBody {
 	@CalledByReflection
 	public DownloadJob(InstantiationContext context, Config config) {
 		_kind = config.getKind();
-		_parametersChoice = config.getParametersChoice();
 	}
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		TLObject device = ProgrammingFunctions.device(arguments);
-		DownloadPlan.Kind kind = _kind;
-		if (_parametersChoice && kind == DownloadPlan.Kind.FULL
-			&& Boolean.TRUE.equals(JobInputs.of(arguments, 2).get(0))) {
-			kind = DownloadPlan.Kind.PARAMETERS;
-		}
-		return download(job, device, kind);
+		return download(job, ProgrammingFunctions.device(arguments), _kind);
 	}
 
 	/**
@@ -121,7 +105,16 @@ public class DownloadJob implements JobBody {
 			throw new TopLogicException(I18NConstants.ERROR_CONNECTION__PATH_DETAIL.fill(gatewayText, ex.getErrorKey()), ex);
 		}
 		job.progress(result.done(), result.count());
+		return report(plan, result, gatewayText);
+	}
 
+	/**
+	 * The report of a download performed (or failed) through the given path to the bus: the failing
+	 * operation with the device's answer and the steps not executed.
+	 *
+	 * @return The report ({@link ProgrammingReport#toMap(ResKey, boolean)}).
+	 */
+	public static Map<String, Object> report(DownloadPlan plan, DownloadExecutor.Result result, String gatewayText) {
 		ProgrammingReport report = new ProgrammingReport();
 		if (!result.success()) {
 			report.add("error", I18NConstants.LEVEL_FAILURE, result.failed().step(),

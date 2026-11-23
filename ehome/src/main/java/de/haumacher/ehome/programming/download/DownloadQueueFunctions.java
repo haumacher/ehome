@@ -24,17 +24,19 @@ import com.top_logic.util.Resources;
 import de.haumacher.ehome.programming.BuildingDevices;
 
 /**
- * The TL-Script functions of the programming of several devices (haumacher/ehome #200,
+ * The TL-Script functions of the programming of several devices and of the project's queue of
+ * downloads (haumacher/ehome #200, #218; <code>projects/devices-programming.view.xml</code>,
  * <code>projects/download-queue.view.xml</code>): the devices of a selection in the tree of the
- * devices or those of the project needing a download, the {@link DownloadQueue} of them, its entries
- * as rows, and the commands on it.
+ * devices or those of the project needing a download, the {@link DownloadSelection} of them with the
+ * kind per row, the project's {@link DownloadQueue} with its entries as rows, and the commands on
+ * both.
  *
  * <p>
  * Each is registered in <code>ehomeConf.config.xml</code> under the name of its {@link Function}
- * constant with the {@link Builder} of this class. The functions changing the queue (the kind of an
- * entry, cancel, abort) change runtime state only, no model; they return the queue's
- * {@link DownloadQueue#version() version}, which the view writes into a channel the cells of its
- * table follow.
+ * constant with the {@link Builder} of this class. The functions changing a selection or the queue
+ * change runtime state only, no model; those of a selection return its
+ * {@link DownloadSelection#version() version}, which the view writes into a channel the cells of its
+ * table follow; the queue's changes reach the views through {@link DownloadQueueSource}.
  * </p>
  */
 public class DownloadQueueFunctions extends GenericMethod {
@@ -49,51 +51,71 @@ public class DownloadQueueFunctions extends GenericMethod {
 		 * building part, "No location"), each once, in the order of their individual addresses.
 		 */
 		downloadQueueDevices(2, true),
-		/**
-		 * <code>downloadQueuePending(project)</code>: the devices of the project needing a download
-		 * (<code>Device#downloadPending</code>), in the order of their individual addresses.
-		 */
-		downloadQueuePending(1, true),
-		/** <code>downloadQueueSelectVeto(devices)</code>: why no programming can be started for them, or nothing. */
-		downloadQueueSelectVeto(1, true),
-		/** <code>downloadQueuePendingVeto(project)</code>: why "All with changes" is disabled, or nothing. */
-		downloadQueuePendingVeto(1, true),
-		/** <code>downloadQueueNew(project, devices)</code>: a new queue of the devices, each kind preset. */
-		downloadQueueNew(2, true),
-		/** <code>downloadQueueEntries(queue)</code>: the entries, as the rows of the table. */
-		downloadQueueEntries(1, true),
-		/** <code>downloadQueueDevice(entry)</code>: the device of the entry, as address and name. */
+		/** <code>downloadSelection(project, devices)</code>: a new selection of the devices, each kind preset. */
+		downloadSelection(2, true),
+		/** <code>downloadSelectionRows(selection)</code>: the rows of the selection. */
+		downloadSelectionRows(1, true),
+		/** <code>downloadSelectionSetAll(selection, parametersOnly)</code>: chooses the kind of every row. */
+		downloadSelectionSetAll(2, false),
+		/** <code>downloadSelectionChooseVeto(selection)</code>: why no kind can be chosen, or nothing. */
+		downloadSelectionChooseVeto(1, true),
+		/** <code>downloadSelectionVeto(selection)</code>: why "Program" is disabled, or nothing. */
+		downloadSelectionVeto(1, true),
+		/** <code>downloadSelectionConfirmation(selection)</code>: the question before "Program". */
+		downloadSelectionConfirmation(1, true),
+		/** <code>downloadSelectionEnqueue(selection)</code>: appends the rows to the project's queue. */
+		downloadSelectionEnqueue(1, false),
+		/** <code>downloadQueueDevice(row)</code>: the device of a row or an entry, as address and name. */
 		downloadQueueDevice(1, true),
-		/** <code>downloadQueueParametersOnly(entry)</code>: whether the entry downloads the parameters only. */
+		/** <code>downloadQueueParametersOnly(row)</code>: whether the row or entry downloads the parameters only. */
 		downloadQueueParametersOnly(1, true),
-		/** <code>downloadQueueCanChoose(entry)</code>: whether the kind of the entry can be changed. */
+		/** <code>downloadQueueKind(row)</code>: the kind of the download of a row or an entry, as text. */
+		downloadQueueKind(1, true),
+		/** <code>downloadQueueCanChoose(row)</code>: whether the kind of the row can be changed. */
 		downloadQueueCanChoose(1, true),
-		/** <code>downloadQueueSetParametersOnly(entry, value)</code>: chooses the kind of a waiting entry. */
+		/** <code>downloadQueueSetParametersOnly(row, value)</code>: chooses the kind of a row. */
 		downloadQueueSetParametersOnly(2, false),
+		/** <code>downloadQueueEntries(project)</code>: the entries of the project's queue, as rows. */
+		downloadQueueEntries(1, true),
 		/** <code>downloadQueueState(entry)</code>: what became of the entry, as text. */
 		downloadQueueState(1, true),
 		/** <code>downloadQueueStateRole(entry)</code>: the color role of the state. */
 		downloadQueueStateRole(1, true),
 		/** <code>downloadQueueDetails(entry)</code>: progress, outcome or reason, as text. */
 		downloadQueueDetails(1, true),
-		/** <code>downloadQueueSetAll(queue, parametersOnly)</code>: chooses the kind of every waiting entry. */
-		downloadQueueSetAll(2, false),
-		/** <code>downloadQueueChooseVeto(queue)</code>: why no kind can be chosen any more, or nothing. */
-		downloadQueueChooseVeto(1, true),
-		/** <code>downloadQueueStartVeto(queue)</code>: why the queue cannot start, or nothing. */
-		downloadQueueStartVeto(1, true),
-		/** <code>downloadQueueConfirmation(queue)</code>: the question before the start. */
-		downloadQueueConfirmation(1, true),
-		/** <code>downloadQueueCancel(queue, selection)</code>: cancels the selected waiting entries. */
+		/** <code>downloadQueueReport(selected)</code>: the report of the one selected finished entry, or nothing. */
+		downloadQueueReport(1, true),
+		/** <code>downloadQueueReportVeto(selected)</code>: why no report can be shown, or nothing. */
+		downloadQueueReportVeto(1, true),
+		/**
+		 * <code>downloadQueuePending(project)</code>: the devices of the project needing a download
+		 * (<code>Device#downloadPending</code>), in the order of their individual addresses.
+		 */
+		downloadQueuePending(1, true),
+		/** <code>downloadQueuePendingVeto(project)</code>: why "All with changes" is disabled, or nothing. */
+		downloadQueuePendingVeto(1, true),
+		/** <code>downloadQueuePendingConfirmation(project)</code>: the question before "All with changes". */
+		downloadQueuePendingConfirmation(1, true),
+		/** <code>downloadQueueEnqueuePending(project)</code>: appends the devices needing a download, each kind preset. */
+		downloadQueueEnqueuePending(1, false),
+		/** <code>downloadQueueEnqueueDevice(device, parametersOnly)</code>: appends the download of one device. */
+		downloadQueueEnqueueDevice(2, false),
+		/** <code>downloadQueueCancel(project, selected)</code>: cancels the selected waiting entries. */
 		downloadQueueCancel(2, false),
-		/** <code>downloadQueueCancelVeto(queue, selection)</code>: why no selected entry can be cancelled, or nothing. */
+		/** <code>downloadQueueCancelVeto(project, selected)</code>: why no selected entry can be cancelled, or nothing. */
 		downloadQueueCancelVeto(2, true),
-		/** <code>downloadQueueCancelAll(queue)</code>: cancels every waiting entry. */
+		/** <code>downloadQueueCancelAll(project)</code>: cancels every waiting entry. */
 		downloadQueueCancelAll(1, false),
-		/** <code>downloadQueueAbort(queue)</code>: aborts the download running. */
+		/** <code>downloadQueueCancelAllVeto(project)</code>: why no entry can be cancelled, or nothing. */
+		downloadQueueCancelAllVeto(1, true),
+		/** <code>downloadQueueAbort(project)</code>: aborts the download running. */
 		downloadQueueAbort(1, false),
-		/** <code>downloadQueueAbortVeto(queue)</code>: why no download can be aborted, or nothing. */
-		downloadQueueAbortVeto(1, true);
+		/** <code>downloadQueueAbortVeto(project)</code>: why no download can be aborted, or nothing. */
+		downloadQueueAbortVeto(1, true),
+		/** <code>downloadQueueClear(project)</code>: removes the finished entries. */
+		downloadQueueClear(1, false),
+		/** <code>downloadQueueClearVeto(project)</code>: why no entry can be removed, or nothing. */
+		downloadQueueClearVeto(1, true);
 
 		private final int _arity;
 
@@ -153,17 +175,36 @@ public class DownloadQueueFunctions extends GenericMethod {
 		switch (_function) {
 			case downloadQueueDevices:
 				return devices(first instanceof TLObject project ? project : null, second);
-			case downloadQueuePending:
-				return first instanceof TLObject project ? DownloadQueue.pendingDevices(project) : List.of();
-			case downloadQueueSelectVeto:
-				return first instanceof Collection<?> devices && !devices.isEmpty() ? null : I18NConstants.QUEUE_NO_DEVICES;
-			case downloadQueuePendingVeto:
-				return first instanceof TLObject project && !DownloadQueue.pendingDevices(project).isEmpty() ? null
-					: I18NConstants.QUEUE_NONE_PENDING;
-			case downloadQueueNew:
-				return first instanceof TLObject project ? new DownloadQueue(project, objects(second)) : null;
+			case downloadSelection:
+				return first instanceof TLObject project && project.tValid() ? new DownloadSelection(project, objects(second))
+					: null;
+			case downloadQueueReport:
+				return entry(first) instanceof DownloadQueue.Entry entry ? entry.report() : null;
+			case downloadQueueReportVeto:
+				return entry(first) instanceof DownloadQueue.Entry entry && entry.report() != null ? null
+					: I18NConstants.QUEUE_NO_REPORT;
 			default:
 				break;
+		}
+		if (first instanceof DownloadSelection selection) {
+			return selection(selection, second);
+		}
+		if (first instanceof DownloadSelection.Row row) {
+			switch (_function) {
+				case downloadQueueDevice:
+					return row.label();
+				case downloadQueueParametersOnly:
+					return Boolean.valueOf(row.parametersOnly());
+				case downloadQueueKind:
+					return text(kind(row.parametersOnly()));
+				case downloadQueueCanChoose:
+					return Boolean.valueOf(row.canChoose());
+				case downloadQueueSetParametersOnly:
+					row.setParametersOnly(Boolean.TRUE.equals(second));
+					return SearchExpression.toNumber(row.selection().version());
+				default:
+					return null;
+			}
 		}
 		if (first instanceof DownloadQueue.Entry entry) {
 			switch (_function) {
@@ -171,11 +212,10 @@ public class DownloadQueueFunctions extends GenericMethod {
 					return entry.label();
 				case downloadQueueParametersOnly:
 					return Boolean.valueOf(entry.parametersOnly());
+				case downloadQueueKind:
+					return text(kind(entry.parametersOnly()));
 				case downloadQueueCanChoose:
-					return Boolean.valueOf(entry.canChoose() && DownloadQueue.allowsParametersOnly(entry.device()));
-				case downloadQueueSetParametersOnly:
-					entry.setParametersOnly(Boolean.TRUE.equals(second));
-					return version(entry.queue());
+					return Boolean.FALSE;
 				case downloadQueueState:
 					return text(state(entry.state()));
 				case downloadQueueStateRole:
@@ -186,35 +226,102 @@ public class DownloadQueueFunctions extends GenericMethod {
 					return null;
 			}
 		}
-		if (!(first instanceof DownloadQueue queue)) {
+		if (!(first instanceof TLObject object) || !object.tValid()) {
 			return null;
 		}
+		if (_function == Function.downloadQueueEnqueueDevice) {
+			DownloadQueue.of(object).enqueue(object, Boolean.TRUE.equals(second));
+			return null;
+		}
+		return project(object, second);
+	}
+
+	private Object selection(DownloadSelection selection, Object second) {
+		switch (_function) {
+			case downloadSelectionRows:
+				return selection.rows();
+			case downloadSelectionSetAll:
+				selection.setParametersOnly(Boolean.TRUE.equals(second));
+				return SearchExpression.toNumber(selection.version());
+			case downloadSelectionChooseVeto:
+				return selection.rows().stream().anyMatch(DownloadSelection.Row::canChoose) ? null
+					: I18NConstants.QUEUE_NO_CHOICE;
+			case downloadSelectionVeto: {
+				if (selection.rows().isEmpty()) {
+					return I18NConstants.QUEUE_NO_DEVICES;
+				}
+				return DownloadQueue.enqueueVeto(selection.project());
+			}
+			case downloadSelectionConfirmation: {
+				long parameters = selection.parametersOnlyCount();
+				int count = selection.rows().size();
+				return I18NConstants.QUEUE_CONFIRM__COUNT_PATH_FULL_PARAMETERS.fill(count,
+					BusPath.describe(selection.project()), count - parameters, parameters);
+			}
+			case downloadSelectionEnqueue:
+				selection.enqueue();
+				return SearchExpression.toNumber(selection.version());
+			default:
+				return null;
+		}
+	}
+
+	private Object project(TLObject project, Object second) {
+		DownloadQueue queue = DownloadQueue.find(project);
 		switch (_function) {
 			case downloadQueueEntries:
-				return queue.entries();
-			case downloadQueueSetAll:
-				queue.setParametersOnly(Boolean.TRUE.equals(second));
-				return version(queue);
-			case downloadQueueChooseVeto:
-				return queue.entries(DownloadQueue.State.WAITING).isEmpty() ? I18NConstants.QUEUE_NOTHING_WAITS : null;
-			case downloadQueueStartVeto:
-				return queue.startVeto();
-			case downloadQueueConfirmation:
-				return confirmation(queue);
+				return queue == null ? List.of() : queue.entries();
+			case downloadQueuePending:
+				return DownloadQueue.pendingDevices(project);
+			case downloadQueuePendingVeto: {
+				if (DownloadQueue.pendingDevices(project).isEmpty()) {
+					return I18NConstants.QUEUE_NONE_PENDING;
+				}
+				return DownloadQueue.enqueueVeto(project);
+			}
+			case downloadQueuePendingConfirmation: {
+				List<TLObject> pending = DownloadQueue.pendingDevices(project);
+				long parameters = pending.stream()
+					.filter(d -> DownloadQueue.allowsParametersOnly(d) && ProgrammingFunctions.parametersOnlyByDefault(d))
+					.count();
+				return I18NConstants.QUEUE_CONFIRM__COUNT_PATH_FULL_PARAMETERS.fill(pending.size(),
+					BusPath.describe(project), pending.size() - parameters, parameters);
+			}
+			case downloadQueueEnqueuePending:
+				DownloadQueue.of(project).enqueue(DownloadQueue.pendingDevices(project),
+					d -> Boolean.valueOf(ProgrammingFunctions.parametersOnlyByDefault(d)));
+				return null;
 			case downloadQueueCancel:
-				queue.cancel(entries(queue, second));
-				return version(queue);
+				if (queue != null) {
+					queue.cancel(entries(queue, second));
+				}
+				return null;
 			case downloadQueueCancelVeto:
-				return entries(queue, second).stream().anyMatch(e -> e.state() == DownloadQueue.State.WAITING) ? null
-					: I18NConstants.QUEUE_NOTHING_SELECTED_WAITS;
+				return queue != null && entries(queue, second).stream().anyMatch(e -> e.state() == DownloadQueue.State.WAITING)
+					? null : I18NConstants.QUEUE_NOTHING_SELECTED_WAITS;
 			case downloadQueueCancelAll:
-				queue.cancelWaiting();
-				return version(queue);
+				if (queue != null) {
+					queue.cancelWaiting();
+				}
+				return null;
+			case downloadQueueCancelAllVeto:
+				return queue != null && !queue.entries(DownloadQueue.State.WAITING).isEmpty() ? null
+					: I18NConstants.QUEUE_NOTHING_WAITS;
 			case downloadQueueAbort:
-				queue.abortRunning();
-				return version(queue);
+				if (queue != null) {
+					queue.abortRunning();
+				}
+				return null;
 			case downloadQueueAbortVeto:
-				return queue.current() == null ? I18NConstants.QUEUE_NOTHING_RUNS : null;
+				return queue != null && queue.current() != null ? null : I18NConstants.QUEUE_NOTHING_RUNS;
+			case downloadQueueClear:
+				if (queue != null) {
+					queue.clearFinished();
+				}
+				return null;
+			case downloadQueueClearVeto:
+				return queue != null && queue.entries().stream().anyMatch(e -> e.state().isFinal()) ? null
+					: I18NConstants.QUEUE_NOTHING_FINISHED;
 			default:
 				return null;
 		}
@@ -283,6 +390,21 @@ public class DownloadQueueFunctions extends GenericMethod {
 		return result;
 	}
 
+	/**
+	 * The one entry of the given selection of the table of the queue, <code>null</code> for none or
+	 * several.
+	 */
+	private static DownloadQueue.Entry entry(Object selection) {
+		if (selection instanceof DownloadQueue.Entry entry) {
+			return entry;
+		}
+		if (selection instanceof Collection<?> collection && collection.size() == 1
+			&& collection.iterator().next() instanceof DownloadQueue.Entry entry) {
+			return entry;
+		}
+		return null;
+	}
+
 	private static List<DownloadQueue.Entry> entries(DownloadQueue queue, Object selection) {
 		Collection<?> selected = selection instanceof Collection<?> collection ? collection
 			: selection == null ? Set.of() : Set.of(selection);
@@ -295,15 +417,8 @@ public class DownloadQueueFunctions extends GenericMethod {
 		return result;
 	}
 
-	private static Long version(DownloadQueue queue) {
-		return Long.valueOf(queue.version());
-	}
-
-	private static ResKey confirmation(DownloadQueue queue) {
-		List<DownloadQueue.Entry> waiting = queue.entries(DownloadQueue.State.WAITING);
-		long parameters = waiting.stream().filter(DownloadQueue.Entry::parametersOnly).count();
-		return I18NConstants.QUEUE_CONFIRM__COUNT_PATH_FULL_PARAMETERS.fill(waiting.size(),
-			BusPath.describe(queue.project()), waiting.size() - parameters, parameters);
+	private static ResKey kind(boolean parametersOnly) {
+		return parametersOnly ? I18NConstants.QUEUE_KIND_PARAMETERS : I18NConstants.QUEUE_KIND_FULL;
 	}
 
 	private static ResKey state(DownloadQueue.State state) {

@@ -173,29 +173,39 @@
 					<method name="layoutConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="busPath" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="controllerBusState" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
-					<!-- The programming of several devices one after another (de.haumacher.ehome.programming.download.DownloadQueueFunctions, haumacher/ehome #200): one builder, the function by its name. -->
+					<!-- The programming of several devices and the project's queue of downloads (de.haumacher.ehome.programming.download.DownloadQueueFunctions, haumacher/ehome #200, #218): one builder, the function by its name. -->
 					<method name="downloadQueueDevices" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueuePending" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueSelectVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueuePendingVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueNew" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueEntries" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelection" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelectionRows" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelectionSetAll" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelectionChooseVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelectionVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelectionConfirmation" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadSelectionEnqueue" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueDevice" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueParametersOnly" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueKind" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueCanChoose" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueSetParametersOnly" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueEntries" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueState" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueStateRole" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueDetails" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueSetAll" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueChooseVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueStartVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
-					<method name="downloadQueueConfirmation" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueReport" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueReportVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueuePending" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueuePendingVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueuePendingConfirmation" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueEnqueuePending" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueEnqueueDevice" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueCancel" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueCancelVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueCancelAll" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueCancelAllVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueAbort" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<method name="downloadQueueAbortVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueClear" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
+					<method name="downloadQueueClearVeto" class="de.haumacher.ehome.programming.download.DownloadQueueFunctions$Builder"/>
 					<!-- The snapshots of a device (de.haumacher.ehome.programming.download.SnapshotFunctions, haumacher/ehome #193): one builder, the function by its name. -->
 					<method name="deviceSnapshots" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
 					<method name="snapshotCompare" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The tab "Programming" of a selection standing for several devices in the tree of the devices
+	(projects/devices.view.xml, haumacher/ehome #218): a multi-selection, an area, a line, a building part or
+	"No location", each node standing for the devices with a program among and below it
+	(downloadQueueDevices). It lists these devices by individual address, each with "Parameters only" preset
+	as the single download presets it (parametersOnlyByDefault: a device whose program is not loaded gets the
+	full download), changeable per row where the device's program allows it, or for all at once ("All full",
+	"All parameters only"). "Program" appends them to the project's queue (projects/download-queue.view.xml
+	below), which works through them in the background.
+
+	"nodes" is the selection in the tree, "project" its project. "selection" is a
+	de.haumacher.ehome.programming.download.DownloadSelection, runtime state of this tab (no model), built
+	anew for another selection; the functions downloadSelection* and downloadQueue* are
+	de.haumacher.ehome.programming.download.DownloadQueueFunctions. The commands choosing the kinds return
+	the selection's version, written into "changes", which the cells of the table follow.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="nodes"/>
+		<!-- The devices the selection stands for; recomputed when a device of the project changes. -->
+		<derived-channel name="devices"
+			expr="downloadQueueDevices($project, $nodes)"
+			inputs="project, nodes"
+			observed-types="ehome.physical:Device,ehome.physical:Line,ehome.physical:Area,ehome.building:BuildingDefinition"
+		/>
+		<derived-channel name="selection"
+			expr="downloadSelection($project, $devices)"
+			inputs="project, devices"
+		/>
+		<!-- The version of the selection after a command chose a kind. -->
+		<channel name="changes"/>
+		<!-- Re-decides "Program" when the state of the path to the bus changes (BusStateSource). -->
+		<source-channel name="busState"
+			update-interval="500"
+		>
+			<source class="de.haumacher.ehome.programming.download.BusStateSource"/>
+		</source-channel>
+		<derived-channel name="gateway"
+			expr='#("Path to the bus: {0}"@en, "Weg zum Bus: {0}"@de).fill(if(busPath($project) == null, "-", busPath($project))).localize()'
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
+	</channels>
+	<stack gap="default">
+		<panel>
+			<title>
+				<en>Devices</en>
+				<de>Geräte</de>
+			</title>
+			<commands>
+				<generic-command
+					image="css:bi bi-download"
+					inputs="selection, project, busState, changes"
+					observed-types="ehome.project:Project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Program</en>
+						<de>Programmieren</de>
+					</label>
+					<tooltip>
+						<en>Appends the devices to the project's queue, each as chosen: everything, or the parameters only. The queue downloads into them one after another through the project's gateway or controller. A device does not work until its download is complete.</en>
+						<de>Reiht die Geräte in die Warteschlange des Projekts ein, jedes wie gewählt: alles oder nur die Parameter. Die Warteschlange lädt nacheinander über das Gateway oder den Controller des Projekts in sie. Ein Gerät arbeitet erst wieder, wenn sein Download abgeschlossen ist.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="downloadSelectionVeto($selection)"/>
+					</executability>
+					<confirm expr="downloadSelectionConfirmation($selection)"/>
+					<execute-script function="downloadSelectionEnqueue($selection)">
+						<with-result>
+							<write-channel name="changes"/>
+						</with-result>
+					</execute-script>
+				</generic-command>
+				<generic-command
+					clique="more"
+					image="css:bi bi-box-seam"
+					inputs="selection, project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>All full</en>
+						<de>Alle vollständig</de>
+					</label>
+					<tooltip>
+						<en>Every device gets the full download: the program, the parameters and the group addresses.</en>
+						<de>Jedes Gerät erhält den vollständigen Download: Programm, Parameter und Gruppenadressen.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<execute-script function="downloadSelectionSetAll($selection, false)">
+						<with-result>
+							<write-channel name="changes"/>
+						</with-result>
+					</execute-script>
+				</generic-command>
+				<generic-command
+					clique="more"
+					image="css:bi bi-sliders"
+					inputs="selection, project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>All parameters only</en>
+						<de>Alle nur Parameter</de>
+					</label>
+					<tooltip>
+						<en>Every device whose program allows it gets the download of the parameters and the group addresses without the program's code.</en>
+						<de>Jedes Gerät, dessen Programm es zulässt, erhält den Download der Parameter und Gruppenadressen ohne den Code des Programms.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="downloadSelectionChooseVeto($selection)"/>
+					</executability>
+					<execute-script function="downloadSelectionSetAll($selection, true)">
+						<with-result>
+							<write-channel name="changes"/>
+						</with-result>
+					</execute-script>
+				</generic-command>
+			</commands>
+			<inset>
+				<stack gap="default">
+					<text input="gateway"/>
+					<table edit-in-place="true">
+						<inputs>
+							<input channel="selection"/>
+						</inputs>
+						<columns>
+							<computed-column name="device"
+								type="tl.core:String"
+								width="320"
+							>
+								<label>
+									<en>Device</en>
+									<de>Gerät</de>
+								</label>
+								<value>downloadQueueDevice($row)</value>
+							</computed-column>
+							<!-- The kind of the download: changeable where the device's program allows the parameters only. -->
+							<computed-column name="parametersOnly"
+								type="tl.core:Boolean"
+								width="140"
+							>
+								<label>
+									<en>Parameters only</en>
+									<de>Nur Parameter</de>
+								</label>
+								<inputs>
+									<input channel="changes"/>
+								</inputs>
+								<value>downloadQueueParametersOnly($row)</value>
+								<can-update>downloadQueueCanChoose($row)</can-update>
+								<update>downloadQueueSetParametersOnly($row, $value)</update>
+							</computed-column>
+						</columns>
+						<rows>if($selection == null, [], downloadSelectionRows($selection))</rows>
+					</table>
+				</stack>
+			</inset>
+		</panel>
+		<view-ref view="projects/download-queue.view.xml">
+			<bind
+				channel="project"
+				to="project"
+			/>
+		</view-ref>
+	</stack>
+</view>

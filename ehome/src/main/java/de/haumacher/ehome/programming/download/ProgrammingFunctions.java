@@ -69,8 +69,9 @@ public class ProgrammingFunctions extends GenericMethod {
 		/** <code>downloadImageDump(device)</code>: the download image as HTML (a preformatted text). */
 		downloadImageDump,
 		/**
-		 * <code>downloadVeto(device, parametersOnly?)</code>: why the download command is disabled, or
-		 * nothing; also while another download of the project runs ({@link DownloadLock}).
+		 * <code>downloadVeto(device, parametersOnly?)</code>: why the download command, which enqueues
+		 * the download in the project's {@link DownloadQueue}, is disabled, or nothing; also while the
+		 * device waits in the queue for a download covering this one (haumacher/ehome #218).
 		 */
 		downloadVeto,
 		/** <code>addressVeto(device)</code>: why the address command is disabled, or nothing. */
@@ -169,7 +170,7 @@ public class ProgrammingFunctions extends GenericMethod {
 					: "<pre>" + TagUtil.encodeXML(plan.getImage().dump(Resources.getInstance())) + "</pre>";
 			}
 			case downloadVeto:
-				return lockedOr(device, () -> downloadVeto(device, kind));
+				return waitingOr(device, kind, () -> downloadVeto(device, kind));
 			case addressVeto:
 				return lockedOr(device, () -> downloadVeto(device, DownloadPlan.Kind.ADDRESS));
 			case compareVeto:
@@ -272,6 +273,17 @@ public class ProgrammingFunctions extends GenericMethod {
 			return I18NConstants.ERROR_REFUSED__PROBLEMS.fill(String.join(" ", problems));
 		}
 		return null;
+	}
+
+	/**
+	 * Why the download of the given kind into the device is not enqueued: the device waits in the
+	 * project's {@link DownloadQueue} for a download covering it ({@link DownloadQueue#waitingVeto(TLObject, boolean)}),
+	 * else the given veto.
+	 */
+	private static ResKey waitingOr(TLObject device, DownloadPlan.Kind kind, Supplier<ResKey> veto) {
+		DownloadQueue queue = DownloadQueue.find(device);
+		ResKey waiting = queue == null ? null : queue.waitingVeto(device, kind == DownloadPlan.Kind.PARAMETERS);
+		return waiting != null ? waiting : veto.get();
 	}
 
 	/**

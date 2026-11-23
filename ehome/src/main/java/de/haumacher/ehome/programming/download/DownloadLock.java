@@ -13,10 +13,11 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
 /**
- * The downloads of a project run one at a time (haumacher/ehome #200): a single download (every kind
- * of {@link DownloadJob}) and the programming of several devices ({@link DownloadQueue}) hold the
- * project's lock while they write over the project's path to the bus; another one is refused with
- * what holds the lock, never queued behind it.
+ * The downloads of a project run one at a time (haumacher/ehome #200, #218): the worker of the
+ * project's {@link DownloadQueue} (the full download and the one of the parameters only) and the jobs
+ * writing outside it (the address and the layout of the modules, {@link DownloadJob}; a restore,
+ * {@link RestoreJob}) hold the project's lock while they write over the project's path to the bus. A
+ * job is refused with what holds the lock; the queue's worker waits for the lock instead.
  *
  * <p>
  * The lock lives in this application (runtime state, no model): it serializes the downloads of all
@@ -48,7 +49,14 @@ public final class DownloadLock implements AutoCloseable {
 	 *         With the reason of the holder, if a download of the project runs.
 	 */
 	public static DownloadLock acquire(TLObject object, ResKey holder) {
-		Object key = key(object);
+		return acquireKey(key(object), holder);
+	}
+
+	/**
+	 * Takes the lock of the project with the given key (its identity, {@link DownloadQueue#key(TLObject)}),
+	 * without access to the knowledge base, as {@link #acquire(TLObject, ResKey)} does.
+	 */
+	static DownloadLock acquireKey(Object key, ResKey holder) {
 		ResKey running = HELD.putIfAbsent(key, holder);
 		if (running != null) {
 			throw new TopLogicException(running);

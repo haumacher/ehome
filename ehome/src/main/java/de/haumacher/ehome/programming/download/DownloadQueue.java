@@ -5,17 +5,27 @@ package de.haumacher.ehome.programming.download;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.TimeZone;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-import com.top_logic.basic.AbortExecutionException;
 import com.top_logic.basic.Logger;
+import com.top_logic.basic.sched.SchedulerService;
+import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.base.context.TLSubSessionContext;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.layout.provider.MetaLabelProvider;
-import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.TLContextManager;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.model.operational.Program;
@@ -24,24 +34,42 @@ import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 
 /**
- * The programming of several devices of a project one after another (haumacher/ehome #200): a list of
- * devices, each with the kind of its download (full, or the parameters only, haumacher/ehome #195),
- * worked through by {@link #run(JobMonitor, Opener)} strictly in order over the project's path to the
- * bus, one connection and one device at a time.
+ * The downloads of a project, one device after another (haumacher/ehome #200, #218): one queue per
+ * project, runtime state of this application (no model), shown in the tab "Programming" of every
+ * selection in the tree of the devices.
  *
  * <p>
- * The queue is runtime state of the view that shows it (no model): each {@link Entry} says what
- * became of its device (waiting, running with its progress, done, failed with the reason, cancelled,
- * aborted). A waiting entry is cancelled ({@link #cancel(Collection)}, {@link #cancelWaiting()})
- * without touching its device; the running one is aborted ({@link #abortRunning()}) before its next
- * operation, as a cancel of the job aborts it, and the queue goes on with the next device. A failure
- * does not stop the queue. Each download is performed and recorded as a single one
- * ({@link DownloadService}, {@link DownloadRecord}); a device not reached keeps its pending state.
+ * Each {@link Entry} is a device with the kind of its download (full, or the parameters only,
+ * haumacher/ehome #195) and what became of it (waiting, running with its progress, done, failed with
+ * the reason, cancelled, aborted). {@link #enqueue(TLObject, boolean)} appends a device at the end and
+ * starts the worker if none runs; the worker is a background task of the application (not a job of
+ * a view), so the user keeps working, and works through the waiting entries strictly in order, one
+ * connection and one device at a time, each download vetoed, planned, performed and recorded as a
+ * single one ({@link DownloadService}, {@link DownloadRecord}). A failure does not stop the queue; a
+ * device not reached keeps its pending state.
  * </p>
  *
  * <p>
- * While it runs, the queue holds the project's {@link DownloadLock}: a single download of the
- * project is refused meanwhile, and the queue does not start while one runs.
+ * A device waiting already is not enqueued a second time: a request for the full download raises a
+ * waiting entry of the parameters only to the full one, which covers the parameters; a request for the
+ * parameters only leaves a waiting full one as it is. A device whose download runs no longer waits and
+ * is enqueued anew. A waiting entry is cancelled ({@link #cancel(Collection)},
+ * {@link #cancelWaiting()}) without touching its device; the running one is aborted
+ * ({@link #abortRunning()}) before its next operation, and the queue goes on with the next device.
+ * Finished entries stay until {@link #clearFinished()}.
+ * </p>
+ *
+ * <p>
+ * Each download runs in a sub-session derived from the one of the request that enqueued it, with the
+ * user who enqueued it. While the worker runs, it holds the project's {@link DownloadLock}, so that the
+ * jobs writing outside the queue (the address, the layout of the modules, a restore) are refused
+ * meanwhile; while one of those runs, the worker waits for it.
+ * </p>
+ *
+ * <p>
+ * Every change of a queue is announced to the listeners ({@link #addListener(Consumer)}) with the key
+ * of its project ({@link #key(TLObject)}), which {@link DownloadQueueSource} passes to the views
+ * showing the queue of that project.
  * </p>
  */
 public class DownloadQueue {
@@ -61,6 +89,14 @@ public class DownloadQueue {
 	 * The connection over the project's path to the bus ({@link BusPath#of(TLObject)}).
 	 */
 	public static final Opener BUS = (device, plan) -> CalimeroWriter.open(BusPath.of(device), plan.getIndividualAddress());
+
+	/** How long the worker waits before it tries again to take a lock held by another download. */
+	private static final long LOCK_RETRY_MILLIS = 250;
+
+	/** The queues of the projects, by the key of the project ({@link #key(TLObject)}). */
+	private static final Map<Object, DownloadQueue> QUEUES = new ConcurrentHashMap<>();
+
+	private static final List<Consumer<Object>> LISTENERS = new CopyOnWriteArrayList<>();
 
 	/**
 	 * What became of an entry.
@@ -96,6 +132,15 @@ public class DownloadQueue {
 
 		private final String _label;
 
+		/** Who enqueued the download, <code>null</code> without a person (a test in the system context). */
+		private final Person _person;
+
+		/** The language of the texts the download writes (its report), the one of the person enqueuing it. */
+		private final Locale _locale;
+
+		/** The time zone of the person enqueuing the download. */
+		private final TimeZone _timeZone;
+
 		private boolean _parametersOnly;
 
 		private State _state = State.WAITING;
@@ -106,12 +151,17 @@ public class DownloadQueue {
 
 		private ResKey _details;
 
+		private Map<String, Object> _report;
+
 		private volatile boolean _abort;
 
-		Entry(TLObject device, boolean parametersOnly) {
+		Entry(TLObject device, boolean parametersOnly, Person person, Locale locale, TimeZone timeZone) {
 			_device = device;
 			_label = DownloadQueue.label(device);
 			_parametersOnly = parametersOnly;
+			_person = person;
+			_locale = locale;
+			_timeZone = timeZone;
 		}
 
 		/**
@@ -171,6 +221,17 @@ public class DownloadQueue {
 		}
 
 		/**
+		 * The report of the finished download ({@link ProgrammingReport#toMap(ResKey, boolean)}), as
+		 * the single download shows it; <code>null</code> before the download ended and for an entry
+		 * refused, cancelled or aborted.
+		 */
+		public Map<String, Object> report() {
+			synchronized (DownloadQueue.this) {
+				return _report;
+			}
+		}
+
+		/**
 		 * The operations performed of the download, while it runs and after.
 		 */
 		public int done() {
@@ -188,25 +249,6 @@ public class DownloadQueue {
 			}
 		}
 
-		/**
-		 * Whether the kind can still be chosen: the entry waits.
-		 */
-		public boolean canChoose() {
-			return state() == State.WAITING;
-		}
-
-		/**
-		 * Chooses the kind of the download of a waiting entry; does nothing for another.
-		 */
-		public void setParametersOnly(boolean parametersOnly) {
-			synchronized (DownloadQueue.this) {
-				if (_state == State.WAITING) {
-					_parametersOnly = parametersOnly;
-					_version++;
-				}
-			}
-		}
-
 		void progress(int done, int count, ResKey details) {
 			synchronized (DownloadQueue.this) {
 				_done = done;
@@ -214,14 +256,17 @@ public class DownloadQueue {
 				_details = details;
 				_version++;
 			}
+			changed();
 		}
 
-		void finish(State state, ResKey details) {
+		void finish(State state, ResKey details, Map<String, Object> report) {
 			synchronized (DownloadQueue.this) {
 				_state = state;
 				_details = details;
+				_report = report;
 				_version++;
 			}
+			changed();
 		}
 
 		@Override
@@ -248,7 +293,13 @@ public class DownloadQueue {
 
 	private final TLObject _project;
 
-	private final List<Entry> _entries;
+	private final Object _key;
+
+	private final Opener _opener;
+
+	private final Executor _executor;
+
+	private final List<Entry> _entries = new ArrayList<>();
 
 	private boolean _running;
 
@@ -257,23 +308,63 @@ public class DownloadQueue {
 	private long _version;
 
 	/**
-	 * Creates a {@link DownloadQueue} of the given devices of the project, in the order of their
-	 * individual addresses, each preset with the kind of download its state suggests
-	 * ({@link ProgrammingFunctions#parametersOnlyByDefault(TLObject)}).
+	 * Creates a {@link DownloadQueue} of the given project.
 	 *
-	 * @throws IllegalArgumentException
-	 *         If a device is not one of the project.
+	 * <p>
+	 * The application has one queue per project ({@link #of(TLObject)}); a test creates its own with
+	 * its own connections and worker threads.
+	 * </p>
+	 *
+	 * @param opener
+	 *        How a download connects to its device: {@link #BUS} over the project's path to the bus.
+	 * @param executor
+	 *        Where the worker runs.
 	 */
-	public DownloadQueue(TLObject project, Collection<? extends TLObject> devices) {
+	public DownloadQueue(TLObject project, Opener opener, Executor executor) {
 		_project = project;
-		List<Entry> entries = new ArrayList<>();
-		for (TLObject device : sorted(devices)) {
-			if (BusPath.project(device) != project) {
-				throw new IllegalArgumentException("The device " + device + " is not one of the project " + project + ".");
-			}
-			entries.add(new Entry(device, ProgrammingFunctions.parametersOnlyByDefault(device)));
-		}
-		_entries = Collections.unmodifiableList(entries);
+		_key = key(project);
+		_opener = opener;
+		_executor = executor;
+	}
+
+	/**
+	 * The queue of the project of the given object (a device or the project), created on first use.
+	 */
+	public static DownloadQueue of(TLObject object) {
+		TLObject project = BusPath.project(object);
+		return QUEUES.computeIfAbsent(key(project),
+			key -> new DownloadQueue(project, BUS, task -> SchedulerService.getInstance().execute(task)));
+	}
+
+	/**
+	 * The queue of the project of the given object (a device or the project), <code>null</code> if the
+	 * project has none yet.
+	 */
+	public static DownloadQueue find(TLObject object) {
+		return object == null || !object.tValid() ? null : QUEUES.get(key(object));
+	}
+
+	/**
+	 * The key of the project of the given object (a device or the project), by which the listeners
+	 * are told which queue changed.
+	 */
+	public static Object key(TLObject object) {
+		return BusPath.project(object).tId();
+	}
+
+	/**
+	 * Calls the given listener with the key of the project ({@link #key(TLObject)}) whenever a queue
+	 * or one of its entries changes, from the thread changing it.
+	 */
+	public static void addListener(Consumer<Object> listener) {
+		LISTENERS.add(listener);
+	}
+
+	/**
+	 * Removes a listener added by {@link #addListener(Consumer)}.
+	 */
+	public static void removeListener(Consumer<Object> listener) {
+		LISTENERS.remove(listener);
 	}
 
 	/**
@@ -286,8 +377,8 @@ public class DownloadQueue {
 	/**
 	 * The entries, in the order they are worked through.
 	 */
-	public List<Entry> entries() {
-		return _entries;
+	public synchronized List<Entry> entries() {
+		return List.copyOf(_entries);
 	}
 
 	/**
@@ -298,7 +389,7 @@ public class DownloadQueue {
 	}
 
 	/**
-	 * Whether the queue is working through its entries.
+	 * Whether the worker is working through the entries.
 	 */
 	public synchronized boolean isRunning() {
 		return _running;
@@ -319,12 +410,109 @@ public class DownloadQueue {
 	}
 
 	/**
-	 * Chooses the kind of download of every waiting entry.
+	 * The entry of the given device waiting for its download, <code>null</code> if none waits.
 	 */
-	public void setParametersOnly(boolean parametersOnly) {
+	public synchronized Entry waiting(TLObject device) {
 		for (Entry entry : _entries) {
-			entry.setParametersOnly(parametersOnly);
+			if (entry._state == State.WAITING && entry._device == device) {
+				return entry;
+			}
 		}
+		return null;
+	}
+
+	/**
+	 * Why no device of the project of the given object (a device or the project) can be enqueued now,
+	 * <code>null</code> if it can: writing to the bus is switched off, or the project's path to the
+	 * bus cannot be used.
+	 */
+	public static ResKey enqueueVeto(TLObject object) {
+		if (!CalimeroWriter.writeEnabled()) {
+			return I18NConstants.ERROR_WRITE_DISABLED;
+		}
+		return BusPath.veto(object);
+	}
+
+	/**
+	 * Why a download of the given kind into the device cannot be enqueued, as far as the queue
+	 * decides: the device waits already with the same kind or with the full download, which covers
+	 * the parameters; <code>null</code> if it can.
+	 */
+	public synchronized ResKey waitingVeto(TLObject device, boolean parametersOnly) {
+		Entry waiting = waiting(device);
+		if (waiting != null && (parametersOnly || !waiting._parametersOnly)) {
+			return I18NConstants.QUEUE_DEVICE_WAITS;
+		}
+		return null;
+	}
+
+	/**
+	 * Appends a download of the given kind into the device at the end of the queue and starts the
+	 * worker if none runs.
+	 *
+	 * <p>
+	 * A device waiting already is not appended again: a request for the full download raises its
+	 * entry of the parameters only to the full download, a request for the parameters only leaves it
+	 * as it is. The parameters only are requested in vain for a device whose program does not allow
+	 * them ({@link #allowsParametersOnly(TLObject)}): it gets the full download.
+	 * </p>
+	 *
+	 * @return Whether the queue changed.
+	 * @throws IllegalArgumentException
+	 *         If the device is not one of the project.
+	 */
+	public boolean enqueue(TLObject device, boolean parametersOnly) {
+		return enqueue(List.of(device), d -> Boolean.valueOf(parametersOnly)) > 0;
+	}
+
+	/**
+	 * Appends the downloads into the given devices, in their order, each of the kind the given
+	 * function says (whether it writes the parameters only), as {@link #enqueue(TLObject, boolean)}
+	 * does for one.
+	 *
+	 * @return The number of entries appended or raised to the full download.
+	 */
+	public int enqueue(Collection<? extends TLObject> devices, Function<TLObject, Boolean> parametersOnly) {
+		TLSubSessionContext session = TLContextManager.getSubSession();
+		Person person = session == null ? null : session.getPerson();
+		Locale locale = session == null ? null : session.getCurrentLocale();
+		TimeZone timeZone = session == null ? null : session.getCurrentTimeZone();
+		List<Entry> created = new ArrayList<>();
+		for (TLObject device : devices) {
+			if (BusPath.project(device) != _project) {
+				throw new IllegalArgumentException("The device " + device + " is not one of the project " + _project + ".");
+			}
+			boolean parameters = Boolean.TRUE.equals(parametersOnly.apply(device)) && allowsParametersOnly(device);
+			created.add(new Entry(device, parameters, person, locale, timeZone));
+		}
+		int result = 0;
+		boolean start = false;
+		synchronized (this) {
+			for (Entry entry : created) {
+				Entry waiting = waiting(entry._device);
+				if (waiting == null) {
+					_entries.add(entry);
+					result++;
+				} else if (waiting._parametersOnly && !entry._parametersOnly) {
+					waiting._parametersOnly = false;
+					result++;
+				}
+			}
+			if (result > 0) {
+				_version++;
+				if (!_running) {
+					_running = true;
+					start = true;
+				}
+			}
+		}
+		if (result > 0) {
+			changed();
+		}
+		if (start) {
+			startWorker();
+		}
+		return result;
 	}
 
 	/**
@@ -332,15 +520,22 @@ public class DownloadQueue {
 	 *
 	 * @return The number of entries cancelled.
 	 */
-	public synchronized int cancel(Collection<Entry> entries) {
+	public int cancel(Collection<Entry> entries) {
 		int result = 0;
-		for (Entry entry : entries) {
-			if (entry.queue() == this && entry._state == State.WAITING) {
-				entry._state = State.CANCELLED;
-				entry._details = I18NConstants.QUEUE_CANCELLED;
-				result++;
+		synchronized (this) {
+			for (Entry entry : entries) {
+				if (entry.queue() == this && entry._state == State.WAITING) {
+					entry._state = State.CANCELLED;
+					entry._details = I18NConstants.QUEUE_CANCELLED;
+					result++;
+				}
+			}
+			if (result > 0) {
 				_version++;
 			}
+		}
+		if (result > 0) {
+			changed();
 		}
 		return result;
 	}
@@ -351,7 +546,7 @@ public class DownloadQueue {
 	 * @return The number of entries cancelled.
 	 */
 	public int cancelWaiting() {
-		return cancel(_entries);
+		return cancel(entries());
 	}
 
 	/**
@@ -360,178 +555,245 @@ public class DownloadQueue {
 	 *
 	 * @return Whether a download runs.
 	 */
-	public synchronized boolean abortRunning() {
-		if (_current == null) {
-			return false;
+	public boolean abortRunning() {
+		synchronized (this) {
+			if (_current == null) {
+				return false;
+			}
+			_current._abort = true;
+			_version++;
 		}
-		_current._abort = true;
-		_version++;
+		changed();
 		return true;
 	}
 
 	/**
-	 * Why the queue cannot start now, <code>null</code> if it can: it runs already, no entry waits,
-	 * writing to the bus is switched off, the project's path to the bus cannot be used, or a download
-	 * of the project runs.
+	 * Removes the finished entries (done, failed, cancelled, aborted).
+	 *
+	 * @return The number of entries removed.
 	 */
-	public ResKey startVeto() {
-		if (isRunning()) {
-			return I18NConstants.QUEUE_RUNNING;
+	public int clearFinished() {
+		int result;
+		synchronized (this) {
+			int before = _entries.size();
+			_entries.removeIf(entry -> entry._state.isFinal());
+			result = before - _entries.size();
+			if (result > 0) {
+				_version++;
+			}
 		}
-		if (entries(State.WAITING).isEmpty()) {
-			return I18NConstants.QUEUE_NOTHING_WAITS;
+		if (result > 0) {
+			changed();
 		}
-		if (!CalimeroWriter.writeEnabled()) {
-			return I18NConstants.ERROR_WRITE_DISABLED;
-		}
-		ResKey path = BusPath.veto(_project);
-		if (path != null) {
-			return path;
-		}
-		return DownloadLock.veto(_project);
+		return result;
 	}
 
 	/**
-	 * Works through the waiting entries one after another, as a job.
+	 * Waits until the worker has worked through every waiting entry and released the lock.
 	 *
-	 * <p>
-	 * A cancel of the job aborts the download running and cancels the entries waiting; the job then
-	 * ends with the summary of what was done.
-	 * </p>
-	 *
-	 * @param opener
-	 *        How a download connects to its device: {@link #BUS} over the project's path to the bus.
-	 * @return The summary: how many devices were programmed, failed, were cancelled or aborted.
-	 * @throws TopLogicException
-	 *         If the queue cannot start ({@link #startVeto()}).
+	 * @return Whether the worker ended within the given time.
 	 */
-	public ResKey run(JobMonitor job, Opener opener) throws InterruptedException {
-		ResKey veto = startVeto();
-		if (veto != null) {
-			throw new TopLogicException(veto);
-		}
-		try (DownloadLock lock = DownloadLock.acquire(_project, I18NConstants.LOCK_QUEUE__COUNT.fill(_entries.size()))) {
-			synchronized (this) {
-				if (_running) {
-					throw new TopLogicException(I18NConstants.QUEUE_RUNNING);
-				}
-				_running = true;
+	public synchronized boolean awaitIdle(long millis) throws InterruptedException {
+		long end = System.currentTimeMillis() + millis;
+		while (_running) {
+			long left = end - System.currentTimeMillis();
+			if (left <= 0) {
+				return false;
 			}
-			try {
+			wait(left);
+		}
+		return true;
+	}
+
+	private void startWorker() {
+		try {
+			_executor.execute(this::work);
+		} catch (RuntimeException ex) {
+			Logger.error("The download queue of project " + _key + " cannot start its worker.", ex, DownloadQueue.class);
+			synchronized (this) {
+				_running = false;
+				notifyAll();
+			}
+			throw ex;
+		}
+	}
+
+	/**
+	 * The worker: takes the project's lock, waiting while another download holds it, and works
+	 * through the waiting entries one after another; ends when none waits, and starts anew if one was
+	 * enqueued while it released the lock.
+	 */
+	private void work() {
+		try {
+			try (DownloadLock lock = acquireLock()) {
 				while (true) {
 					Entry entry = next();
 					if (entry == null) {
 						break;
 					}
 					try {
-						run(job, entry, opener);
-					} catch (AbortExecutionException ex) {
-						entry.finish(State.ABORTED, entry.count() == 0 ? I18NConstants.QUEUE_ABORTED
-							: I18NConstants.QUEUE_ABORTED_AT__NUMBER_COUNT.fill(entry.done() + 1, entry.count()));
-						cancelWaiting();
-						return summary();
+						runInContext(entry);
 					} finally {
 						synchronized (this) {
 							_current = null;
+							_version++;
 						}
+						changed();
 					}
 				}
-			} finally {
-				synchronized (this) {
+			}
+		} catch (InterruptedException ex) {
+			Logger.warn("The download queue of project " + _key + " was interrupted.", ex, DownloadQueue.class);
+			cancelWaiting();
+		} catch (RuntimeException | Error ex) {
+			Logger.error("The download queue of project " + _key + " failed.", ex, DownloadQueue.class);
+			cancelWaiting();
+		} finally {
+			boolean again;
+			synchronized (this) {
+				again = _entries.stream().anyMatch(e -> e._state == State.WAITING);
+				if (!again) {
 					_running = false;
+					notifyAll();
 				}
+				_version++;
+			}
+			changed();
+			if (again) {
+				startWorker();
 			}
 		}
-		job.progress(_entries.size(), _entries.size());
-		return summary();
+	}
+
+	private DownloadLock acquireLock() throws InterruptedException {
+		while (true) {
+			try {
+				return DownloadLock.acquireKey(_key, I18NConstants.QUEUE_RUNNING);
+			} catch (TopLogicException ex) {
+				// Another download of the project (the address, the layout, a restore) runs: wait for it.
+				Thread.sleep(LOCK_RETRY_MILLIS);
+			}
+		}
 	}
 
 	/**
 	 * The first waiting entry, now running; <code>null</code> if none waits.
 	 */
-	private synchronized Entry next() {
-		for (Entry entry : _entries) {
-			if (entry._state == State.WAITING) {
-				entry._state = State.RUNNING;
-				entry._details = null;
-				_current = entry;
-				_version++;
-				return entry;
+	private Entry next() {
+		Entry result = null;
+		synchronized (this) {
+			for (Entry entry : _entries) {
+				if (entry._state == State.WAITING) {
+					entry._state = State.RUNNING;
+					entry._details = null;
+					_current = entry;
+					_version++;
+					result = entry;
+					break;
+				}
 			}
 		}
-		return null;
+		if (result != null) {
+			changed();
+		}
+		return result;
 	}
 
-	private void run(JobMonitor job, Entry entry, Opener opener) throws InterruptedException {
-		int index = _entries.indexOf(entry);
-		int total = _entries.size();
-		job.progress(index, total);
+	/**
+	 * Runs the download of the entry as the person who enqueued it, in a context of that person of its
+	 * own, with the person's language and time zone: the download does not depend on the session that
+	 * enqueued it, which may have ended meanwhile (haumacher/ehome #218). Only an entry enqueued without
+	 * a person (a test in the system context) runs in the system context.
+	 */
+	private void runInContext(Entry entry) {
+		try {
+			if (entry._person == null) {
+				ThreadContext.inSystemContext(DownloadQueue.class, () -> run(entry));
+			} else {
+				TLContextManager.inPersonContext(entry._person, () -> {
+					if (!entry._person.tValid()) {
+						entry.finish(State.FAILED, I18NConstants.QUEUE_PERSON_DELETED, null);
+						return;
+					}
+					TLSubSessionContext session = TLContextManager.getSubSession();
+					if (entry._locale != null) {
+						session.setCurrentLocale(entry._locale);
+					}
+					if (entry._timeZone != null) {
+						session.setCurrentTimeZone(entry._timeZone);
+					}
+					run(entry);
+				});
+			}
+		} catch (RuntimeException ex) {
+			Logger.error("Download into " + entry.label() + " failed.", ex, DownloadQueue.class);
+			if (entry.state() == State.RUNNING) {
+				entry.finish(State.FAILED, I18NConstants.QUEUE_INTERNAL_ERROR__DETAIL.fill(String.valueOf(ex.getMessage())), null);
+			}
+		}
+	}
+
+	private void run(Entry entry) {
 		TLObject device = entry.device();
 		if (!device.tValid()) {
-			entry.finish(State.FAILED, I18NConstants.QUEUE_DEVICE_DELETED);
+			entry.finish(State.FAILED, I18NConstants.QUEUE_DEVICE_DELETED, null);
 			return;
 		}
 		DownloadPlan.Kind kind = entry.kind();
 		ResKey veto = ProgrammingFunctions.downloadVeto(device, kind);
 		if (veto != null) {
-			entry.finish(State.FAILED, veto);
+			entry.finish(State.FAILED, veto, null);
 			return;
 		}
 		DownloadPlan plan = DownloadPlanner.plan(device, kind);
 		String path = BusPath.describe(device);
 		entry.progress(0, plan.getOperations().size(), I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(path));
-		// Reported after the entry changed: the display of the queue follows the reports of the job.
-		job.message(I18NConstants.QUEUE_PROGRESS_STARTING__DEVICE.fill(entry.label()));
 		DownloadExecutor.Result result;
-		try (CalimeroWriter access = opener.open(device, plan)) {
+		try (CalimeroWriter access = _opener.open(device, plan)) {
 			result = DownloadService.download(device, plan, access, new DownloadExecutor(), (number, count, operation) -> {
 				if (entry._abort) {
 					throw new Aborted(number, count);
 				}
 				entry.progress(number - 1, count,
 					I18NConstants.PROGRESS_OPERATION__NUMBER_COUNT_TEXT.fill(number, count, operation.description()));
-				job.progress(index + (number - 1) / (double) count, total);
-				job.message(I18NConstants.QUEUE_PROGRESS__DEVICE_NUMBER_COUNT_TEXT.fill(entry.label(), number, count,
-					operation.description()));
 			});
 		} catch (Aborted ex) {
-			entry.finish(State.ABORTED, I18NConstants.QUEUE_ABORTED_AT__NUMBER_COUNT.fill(ex._number, ex._count));
+			entry.finish(State.ABORTED, I18NConstants.QUEUE_ABORTED_AT__NUMBER_COUNT.fill(ex._number, ex._count), null);
 			return;
-		} catch (AbortExecutionException ex) {
-			// The job is cancelled: the queue ends.
-			throw ex;
+		} catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			entry.finish(State.ABORTED, I18NConstants.QUEUE_ABORTED, null);
+			return;
 		} catch (BusException ex) {
-			entry.finish(State.FAILED, I18NConstants.ERROR_CONNECTION__PATH_DETAIL.fill(path, ex.getErrorKey()));
+			entry.finish(State.FAILED, I18NConstants.ERROR_CONNECTION__PATH_DETAIL.fill(path, ex.getErrorKey()), null);
 			return;
 		} catch (TopLogicException ex) {
-			entry.finish(State.FAILED, ex.getErrorKey());
+			entry.finish(State.FAILED, ex.getErrorKey(), null);
 			return;
 		} catch (RuntimeException ex) {
 			Logger.error("Download into " + entry.label() + " failed.", ex, DownloadQueue.class);
-			entry.finish(State.FAILED, I18NConstants.QUEUE_INTERNAL_ERROR__DETAIL.fill(String.valueOf(ex.getMessage())));
+			entry.finish(State.FAILED, I18NConstants.QUEUE_INTERNAL_ERROR__DETAIL.fill(String.valueOf(ex.getMessage())), null);
 			return;
 		}
+		entry.progress(result.done(), result.count(), null);
+		Map<String, Object> report = DownloadJob.report(plan, result, path);
 		if (result.success()) {
-			entry.progress(result.done(), result.count(), null);
 			entry.finish(State.DONE, I18NConstants.QUEUE_DONE__COUNT_SECONDS.fill(result.done(),
-				Double.valueOf(result.duration().toMillis() / 1000.0)));
+				Double.valueOf(result.duration().toMillis() / 1000.0)), report);
 		} else {
-			entry.progress(result.done(), result.count(), null);
 			entry.finish(State.FAILED, I18NConstants.QUEUE_FAILED__NUMBER_OPERATION_REASON.fill(result.done() + 1,
-				result.failed().description(), result.reason()));
+				result.failed().description(), result.reason()), report);
 		}
 	}
 
-	/**
-	 * What was done, for a person.
-	 */
-	public synchronized ResKey summary() {
-		int[] counts = new int[State.values().length];
-		for (Entry entry : _entries) {
-			counts[entry._state.ordinal()]++;
+	private void changed() {
+		for (Consumer<Object> listener : LISTENERS) {
+			try {
+				listener.accept(_key);
+			} catch (RuntimeException ex) {
+				Logger.error("A listener of the download queues failed.", ex, DownloadQueue.class);
+			}
 		}
-		return I18NConstants.QUEUE_SUMMARY__DONE_FAILED_CANCELLED_ABORTED.fill(counts[State.DONE.ordinal()],
-			counts[State.FAILED.ordinal()], counts[State.CANCELLED.ordinal()], counts[State.ABORTED.ordinal()]);
 	}
 
 	/**
@@ -576,7 +838,7 @@ public class DownloadQueue {
 		return sorted(result);
 	}
 
-	private static String label(TLObject device) {
+	static String label(TLObject device) {
 		return MetaLabelProvider.INSTANCE.getLabel(device);
 	}
 

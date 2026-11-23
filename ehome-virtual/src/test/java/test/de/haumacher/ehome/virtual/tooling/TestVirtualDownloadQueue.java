@@ -18,24 +18,26 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.security.AccountFixture;
 
-import com.top_logic.basic.AbortExecutionException;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Revision;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.layout.view.job.JobMonitor;
-import com.top_logic.layout.view.job.JobPhase;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
-import com.top_logic.util.error.TopLogicException;
+import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.project.Project;
@@ -47,6 +49,8 @@ import de.haumacher.ehome.programming.download.DownloadQueue;
 import de.haumacher.ehome.programming.download.DownloadQueue.Entry;
 import de.haumacher.ehome.programming.download.DownloadQueue.State;
 import de.haumacher.ehome.programming.download.DownloadQueueFunctions;
+import de.haumacher.ehome.programming.download.DownloadSelection;
+import de.haumacher.ehome.programming.download.I18NConstants;
 import de.haumacher.ehome.programming.download.ProgrammingFunctions;
 import de.haumacher.ehome.virtual.server.Endpoint;
 import de.haumacher.ehome.virtual.tooling.VirtualInterfaceManager;
@@ -58,27 +62,41 @@ import de.haumacher.ehome.virtual.tooling.server.VirtualInterface;
 import de.haumacher.ehome.virtual.tooling.trace.TraceEntry;
 
 /**
- * The programming of several devices one after another (haumacher/ehome #200), into virtual devices
- * of <code>samples/KNX-Testsystem.knxproj</code> (the actuator, a copy of it and the push button), each behind a virtual interface of its own on the
- * loopback address.
+ * The project's queue of downloads (haumacher/ehome #200, #218), into virtual devices of
+ * <code>samples/KNX-Testsystem.knxproj</code> (the actuator, a copy of it and the push button), each
+ * behind a virtual interface of its own on the loopback address, worked through by a background
+ * worker.
  *
  * <p>
  * Three devices are downloaded in sequence (the traces do not overlap), each recorded singly, the
- * second one failing without stopping the third. A waiting device cancelled stays untouched; the
- * running download aborted stops before its next operation, unrecorded, and the queue goes on; a cancel
- * of the job aborts the running download and cancels the waiting ones. "All with changes" selects
- * exactly the devices with <code>downloadPending</code>, and the kind preset per device follows its
- * state. The queue holds the project's download lock while it runs.
+ * second one failing without stopping the third. A device already waiting is not enqueued twice; a
+ * full request raises a waiting entry of the parameters only, a request of the parameters only does
+ * not lower a waiting full one. Devices appended while the queue runs are worked through after the
+ * others, the device whose download runs among them; a waiting device cancelled stays untouched, the
+ * running download aborted stops before its next operation, unrecorded, and the queue goes on. A
+ * download enqueued while another download of the project holds the lock waits for it instead of
+ * being refused. An entry enqueued by a person runs as that person after the context it was enqueued in
+ * has ended. "All with changes" enqueues exactly the devices with <code>downloadPending</code>;
+ * the kind preset per device of a selection follows its state.
  * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestVirtualDownloadQueue extends BasicTestCase {
+
+	private static final long TIMEOUT = 120_000;
 
 	private static final int ROUTER = 0x1301;
 
 	private static final int ACTUATOR = 0x1305;
 
 	private static final int SENSOR = 0x1332;
+
+	/** Runs the worker on a thread of its own, as the application's scheduler does. */
+	private static final Executor THREAD = task -> {
+		Thread thread = new Thread(task, "download-queue-test");
+		thread.setDaemon(true);
+		thread.start();
+	};
 
 	/**
 	 * The virtual devices of a run, each behind an interface of its own.
@@ -116,63 +134,6 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 		}
 	}
 
-	/**
-	 * A job monitor calling a hook on every progress report, cancelled when the hook says so.
-	 */
-	private static final class Monitor implements JobMonitor {
-
-		private final Consumer<Monitor> _hook;
-
-		boolean _cancelled;
-
-		Monitor(Consumer<Monitor> hook) {
-			_hook = hook;
-		}
-
-		@Override
-		public void setPhases(List<JobPhase> phases) {
-			checkCancelled();
-		}
-
-		@Override
-		public void beginPhase(String name) {
-			checkCancelled();
-		}
-
-		@Override
-		public void progress(double done, double total) {
-			_hook.accept(this);
-			checkCancelled();
-		}
-
-		@Override
-		public void fraction(double fraction) {
-			checkCancelled();
-		}
-
-		@Override
-		public void indeterminate() {
-			checkCancelled();
-		}
-
-		@Override
-		public void message(ResKey message) {
-			checkCancelled();
-		}
-
-		@Override
-		public void checkCancelled() {
-			if (_cancelled) {
-				throw new AbortExecutionException();
-			}
-		}
-
-		@Override
-		public void uncancelable() {
-			checkCancelled();
-		}
-	}
-
 	public void testQueue() throws Exception {
 		TLObject project = TestVirtualDownload.importProject("../ehome/samples/KNX-Testsystem.knxproj");
 		try {
@@ -194,25 +155,51 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 				DownloadQueueFunctions.devices(project, List.of(copy, area, actuator)));
 			assertEquals(List.of(actuator), DownloadQueueFunctions.devices(project, List.of(actuator)));
 
-			// "All with changes".
+			// The kind preset per device of a selection follows its state: a device whose program is not loaded gets the full download.
+			DownloadSelection selection = new DownloadSelection(project, List.of(copy, sensor, actuator));
+			assertEquals(List.of(actuator, sensor, copy), selection.rows().stream().map(DownloadSelection.Row::device).toList());
+			for (DownloadSelection.Row row : selection.rows()) {
+				assertEquals(row.label(), ProgrammingFunctions.parametersOnlyByDefault(row.device()), row.parametersOnly());
+			}
+			assertFalse("The copy holds nothing.", selection.rows().get(2).parametersOnly());
+
+			// "All with changes": exactly the devices with downloadPending, in the order of their addresses.
 			assertPending(project);
 			assertTrue(DownloadQueue.pendingDevices(project).contains(copy));
+			List<Runnable> started = new ArrayList<>();
+			DownloadQueue pending = new DownloadQueue(project, (d, p) -> {
+				throw new AssertionError("Must not connect.");
+			}, started::add);
+			pending.enqueue(DownloadQueue.pendingDevices(project), d -> Boolean.FALSE);
+			assertEquals(DownloadQueue.pendingDevices(project), devices(pending));
+			assertEquals("One worker for the queue.", 1, started.size());
+			assertEquals(pending.entries().size(), pending.cancelWaiting());
 
-			// The kind preset per device follows its state: a device whose program is not loaded gets the full download.
-			DownloadQueue first = new DownloadQueue(project, List.of(copy, sensor, actuator));
-			assertEquals(List.of(actuator, sensor, copy), first.entries().stream().map(Entry::device).toList());
-			for (Entry entry : first.entries()) {
-				assertEquals(entry.label(), ProgrammingFunctions.parametersOnlyByDefault(entry.device()), entry.parametersOnly());
-			}
-			assertFalse("The copy holds nothing.", first.entries().get(2).parametersOnly());
-			first.setParametersOnly(false);
+			// A device waiting already is not enqueued twice; full raises the parameters only, not the other way round.
+			DownloadQueue kinds = new DownloadQueue(project, (d, p) -> {
+				throw new AssertionError("Must not connect.");
+			}, started::add);
+			assertTrue(kinds.enqueue(copy, true));
+			assertFalse("Waits already.", kinds.enqueue(copy, true));
+			assertEquals(I18NConstants.QUEUE_DEVICE_WAITS, kinds.waitingVeto(copy, true));
+			assertNull("The full download raises the entry.", kinds.waitingVeto(copy, false));
+			assertTrue(kinds.enqueue(copy, false));
+			assertEquals(1, kinds.entries().size());
+			assertFalse("Raised to the full download.", kinds.entries().get(0).parametersOnly());
+			assertFalse("The parameters only do not lower it.", kinds.enqueue(copy, true));
+			assertFalse(kinds.entries().get(0).parametersOnly());
+			assertEquals(I18NConstants.QUEUE_DEVICE_WAITS, kinds.waitingVeto(copy, false));
+			assertEquals(1, kinds.cancelWaiting());
+			assertNull("A cancelled entry no longer waits.", kinds.waitingVeto(copy, true));
+			assertEquals(1, kinds.clearFinished());
+			assertTrue(kinds.entries().isEmpty());
 
 			setGateway(project);
 
 			// Three devices one after another; the sensor (second) fails at its hardware type, the copy follows.
 			Object sensorRevision = sensor.tValueByName("downloadRevision");
 			Object sensorDownload = sensor.tValueByName("lastDownload");
-			// The virtual copy keeps what its download wrote, for the parameters only of the second run.
+			// The virtual copy keeps what its download wrote, for the parameters only of the later runs.
 			SimulatedDevice virtualCopy = ProjectDevices.create(copy, MappedLoadStateRule.ECHO);
 			try (Bench bench = new Bench()) {
 				bench.start(actuator, ProjectDevices.create(actuator, MappedLoadStateRule.ECHO), "actuator");
@@ -223,13 +210,15 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 				bench.start(sensor, wrongHardware, "sensor-mismatch");
 				bench.start(copy, virtualCopy, "copy");
 
-				ResKey[] summary = new ResKey[1];
-				writing(() -> summary[0] = first.run(new Monitor(m -> {
-					// No cancel.
-				}), bench.opener()));
+				DownloadQueue first = new DownloadQueue(project, bench.opener(), THREAD);
+				writing(() -> {
+					first.enqueue(List.of(actuator, sensor, copy), d -> Boolean.FALSE);
+					awaitIdle(first);
+				});
 				assertEquals(describe(first), List.of(State.DONE, State.FAILED, State.DONE), states(first));
-				assertEquals("Programmed: 2, failed: 1, cancelled: 0, aborted: 0.", Resources.getInstance().getString(summary[0]));
 				assertNull("The lock is released.", DownloadLock.veto(project));
+				assertNotNull("The report of the download.", first.entries().get(0).report());
+				assertNotNull("The report of the failure.", first.entries().get(1).report());
 
 				// One after another: no trace overlaps the next.
 				List<TraceEntry> actuatorTrace = bench.trace(actuator);
@@ -251,83 +240,119 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 			assertPending(project);
 			assertTrue(DownloadQueue.pendingDevices(project).contains(sensor));
 			assertFalse(DownloadQueue.pendingDevices(project).contains(actuator));
-
 			// After its full download, the copy holds the program of its last download: parameters only.
-			DownloadQueue second = new DownloadQueue(project, List.of(actuator, sensor, copy));
-			Entry actuatorEntry = second.entries().get(0);
-			Entry sensorEntry = second.entries().get(1);
-			Entry copyEntry = second.entries().get(2);
-			assertTrue(copyEntry.parametersOnly());
-			actuatorEntry.setParametersOnly(false);
+			assertTrue(ProgrammingFunctions.parametersOnlyByDefault(copy));
 
-			// The actuator aborted after 3 operations, the sensor cancelled while it waits; the copy follows.
+			// While the actuator runs: the sensor cancelled while it waits, the actuator itself and the copy appended,
+			// the running download aborted after 3 operations; the queue goes on with the appended ones.
 			try (Bench bench = new Bench()) {
 				bench.start(actuator, ProjectDevices.create(actuator, MappedLoadStateRule.ECHO), "actuator-aborted");
 				bench.start(sensor, ProjectDevices.create(sensor, MappedLoadStateRule.ECHO), "sensor-cancelled");
 				bench.start(copy, virtualCopy, "copy-parameters");
-				writing(() -> second.run(new Monitor(m -> {
-					if (second.current() == actuatorEntry && actuatorEntry.done() >= 3) {
-						second.cancel(List.of(sensorEntry));
-						second.abortRunning();
+				DownloadQueue second = new DownloadQueue(project, bench.opener(), THREAD);
+				ResKey[] lockWhileRunning = new ResKey[1];
+				boolean[] done = new boolean[1];
+				Consumer<Object> hook = key -> {
+					Entry current = second.current();
+					if (done[0] || current == null || current.device() != actuator || current.done() < 3) {
+						return;
 					}
-				}), bench.opener()));
-				assertEquals(describe(second), List.of(State.ABORTED, State.CANCELLED, State.DONE), states(second));
-				assertEquals("Aborted before operation 5 of " + actuatorEntry.count() + ".",
-					Resources.getInstance().getString(actuatorEntry.details()));
+					done[0] = true;
+					lockWhileRunning[0] = DownloadLock.veto(project);
+					second.cancel(List.of(second.waiting(sensor)));
+					assertTrue("The device whose download runs is enqueued anew.", second.enqueue(actuator, false));
+					assertTrue(second.enqueue(copy, true));
+					second.abortRunning();
+				};
+				DownloadQueue.addListener(hook);
+				try {
+					writing(() -> {
+						second.enqueue(List.of(actuator, sensor), d -> Boolean.FALSE);
+						awaitIdle(second);
+					});
+				} finally {
+					DownloadQueue.removeListener(hook);
+				}
+				assertTrue("The hook ran.", done[0]);
+				assertEquals("The queue holds the lock while it runs.", I18NConstants.QUEUE_RUNNING, lockWhileRunning[0]);
+				assertEquals(describe(second), List.of(actuator, sensor, actuator, copy), devices(second));
+				assertEquals(describe(second), List.of(State.ABORTED, State.CANCELLED, State.DONE, State.DONE), states(second));
+				Entry aborted = second.entries().get(0);
+				assertEquals("Aborted before operation 5 of " + aborted.count() + ".",
+					Resources.getInstance().getString(aborted.details()));
+				assertNull("Nothing reported of an aborted download.", aborted.report());
+				assertTrue(second.entries().get(3).parametersOnly());
 				assertTrue("Nothing reached the cancelled sensor.", bench.trace(sensor).stream().noneMatch(TraceEntry::incoming));
 				assertBefore(bench.trace(actuator), bench.trace(copy));
+				assertEquals(4, second.clearFinished());
+				assertTrue(second.entries().isEmpty());
 			}
-			assertEquals("The aborted download is not recorded.", actuatorDownload, actuator.tValueByName("lastDownload"));
+			assertTrue("The second download of the actuator is recorded.",
+				((Date) actuator.tValueByName("lastDownload")).after((Date) actuatorDownload));
 			assertEquals(sensorDownload, sensor.tValueByName("lastDownload"));
-			assertTrue(((Date) copy.tValueByName("lastDownload")).after((Date) copyDownload));
+			Date copyBefore = (Date) copy.tValueByName("lastDownload");
+			assertTrue(copyBefore.after((Date) copyDownload));
 
-			// A cancel of the job aborts the running download and cancels the waiting ones.
-			DownloadQueue third = new DownloadQueue(project, List.of(sensor, copy));
-			third.setParametersOnly(false);
+			// Enqueued while another download of the project holds the lock: waits for it, then runs.
 			try (Bench bench = new Bench()) {
-				bench.start(sensor, ProjectDevices.create(sensor, MappedLoadStateRule.ECHO), "sensor-job-cancelled");
-				bench.start(copy, ProjectDevices.create(copy, MappedLoadStateRule.ECHO), "copy-job-cancelled");
-				Entry running = third.entries().get(0);
-				ResKey[] summary = new ResKey[1];
-				writing(() -> summary[0] = third.run(new Monitor(m -> {
-					if (running.done() >= 2) {
-						m._cancelled = true;
-					}
-				}), bench.opener()));
-				assertEquals(describe(third), List.of(State.ABORTED, State.CANCELLED), states(third));
-				assertEquals("Programmed: 0, failed: 0, cancelled: 1, aborted: 1.", Resources.getInstance().getString(summary[0]));
-				assertTrue(bench.trace(copy).stream().noneMatch(TraceEntry::incoming));
-			}
-			assertEquals(sensorDownload, sensor.tValueByName("lastDownload"));
-			assertNull("The lock is released.", DownloadLock.veto(project));
-
-			// The queue does not start while another download of the project runs; one download of a project at a time.
-			DownloadQueue fourth = new DownloadQueue(project, List.of(sensor));
-			try (DownloadLock lock = DownloadLock.acquire(sensor, ResKey.text("single"))) {
-				assertEquals(ResKey.text("single"), DownloadLock.veto(project));
+				bench.start(copy, virtualCopy, "copy-after-lock");
+				DownloadQueue third = new DownloadQueue(project, bench.opener(), THREAD);
 				writing(() -> {
-					assertEquals(ResKey.text("single"), fourth.startVeto());
-					try {
-						fourth.run(new Monitor(m -> fail("Must not start.")), (d, p) -> {
-							throw new AssertionError("Must not connect.");
-						});
-						fail("The queue must not start.");
-					} catch (TopLogicException ex) {
-						assertEquals(ResKey.text("single"), ex.getErrorKey());
+					try (DownloadLock lock = DownloadLock.acquire(sensor, ResKey.text("single"))) {
+						assertTrue(third.enqueue(copy, true));
+						assertFalse("Waits for the lock.", third.awaitIdle(500));
+						assertEquals(List.of(State.WAITING), states(third));
+						assertEquals(ResKey.text("single"), DownloadLock.veto(project));
 					}
+					awaitIdle(third);
 				});
-				try {
-					DownloadLock.acquire(copy, ResKey.text("other"));
-					fail("One download of a project at a time.");
-				} catch (TopLogicException ex) {
-					assertEquals(ResKey.text("single"), ex.getErrorKey());
+				assertEquals(describe(third), List.of(State.DONE), states(third));
+				assertNull(DownloadLock.veto(project));
+			}
+			assertTrue(((Date) copy.tValueByName("lastDownload")).after(copyBefore));
+
+			// Enqueued by a person whose context is gone when the worker runs (the person logged out): the
+			// download runs to its end as that person. The worker starts only after the context of the
+			// enqueuing person, a sub-session of its own, has been torn down.
+			Person installer;
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				installer = AccountFixture.person("queue-installer", null);
+				tx.commit();
+			}
+			try (Bench bench = new Bench()) {
+				bench.start(copy, virtualCopy, "copy-person-gone");
+				List<Runnable> workers = new ArrayList<>();
+				DownloadQueue fourth = new DownloadQueue(project, bench.opener(), workers::add);
+				writing(() -> {
+					TLContextManager.inPersonContext(installer, () -> {
+						assertSame(installer, TLContextManager.getSubSession().getPerson());
+						assertTrue(fourth.enqueue(copy, true));
+					});
+					assertEquals("The worker is started after the context of the person ended.", 1, workers.size());
+					THREAD.execute(workers.get(0));
+					awaitIdle(fourth);
+				});
+				assertEquals(describe(fourth), List.of(State.DONE), states(fourth));
+				Revision recorded = HistoryUtils.getLastRevision();
+				assertEquals("Recorded as the person who enqueued it.", installer, recorded.resolveAuthor());
+			} finally {
+				try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+					installer.tDelete();
+					tx.commit();
 				}
 			}
-			assertNull(DownloadLock.veto(project));
-			assertEquals(List.of(State.WAITING), states(fourth));
 		} finally {
 			TestVirtualDownload.delete(project);
 		}
+	}
+
+	/**
+	 * Waits until the worker of the queue ended, and takes the view of the knowledge base the worker's
+	 * commits are in.
+	 */
+	private static void awaitIdle(DownloadQueue queue) throws Exception {
+		assertTrue("The worker ends.", queue.awaitIdle(TIMEOUT));
+		HistoryUtils.updateSessionRevision();
 	}
 
 	/**
@@ -362,6 +387,10 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 
 	private static List<State> states(DownloadQueue queue) {
 		return queue.entries().stream().map(Entry::state).toList();
+	}
+
+	private static List<TLObject> devices(DownloadQueue queue) {
+		return queue.entries().stream().map(Entry::device).toList();
 	}
 
 	/**
