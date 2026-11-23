@@ -5,6 +5,7 @@ package de.haumacher.ehome.programming.download;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 
@@ -19,6 +20,7 @@ import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.programming.ParameterMemory;
 
 /**
  * Reads a device into a {@link Snapshot} (haumacher/ehome #193); nothing is written.
@@ -28,9 +30,11 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * the program version (the property <code>ApplicationId</code> of the mask, or, BCU 1, the memory of
  * the program's identity); the states of the load state machines (through properties or in memory,
  * {@link LoadStateMachines}); the memory of every block of the download image a download writes, the
- * bytes of its mask, in requests of at most {@link DeviceReader#memoryChunk()} bytes (as the
- * comparison did; haumacher/ehome #196); the group address table and the association table where the device's table
- * pointers name them (property 7 of the interface objects 1 and 2, else where the image has them, as
+ * bytes of its mask and those any parameter of the program can place its value in, whatever the
+ * project's values say is in effect ({@link ParameterMemory}, haumacher/ehome #223: one read-out holds
+ * every value a take-over may decode), in requests of at most {@link DeviceReader#memoryChunk()} bytes
+ * over contiguous ranges (as the comparison did; haumacher/ehome #196); the group address table and
+ * the association table where the device's table pointers name them (property 7 of the interface objects 1 and 2, else where the image has them, as
  * <code>ReadBack</code> reads them), with their lengths from their counts; and the properties the
  * image writes parameters into.
  * </p>
@@ -92,6 +96,9 @@ public final class ReadOut {
 
 	private final Snapshot _snapshot = new Snapshot();
 
+	/** The memory any parameter of the program can place its value in. */
+	private final BitSet _parameters;
+
 	private final Resources _resources = Resources.getInstance();
 
 	private long _done;
@@ -105,6 +112,7 @@ public final class ReadOut {
 		_skip = skip;
 		_reader = reader;
 		_listener = listener;
+		_parameters = ParameterMemory.of(program);
 	}
 
 	/**
@@ -256,11 +264,7 @@ public final class ReadOut {
 			if (block.stateMachine() != null) {
 				continue;
 			}
-			for (byte bits : block.mask()) {
-				if (bits != 0) {
-					_total++;
-				}
-			}
+			_total += ParameterMemory.readCount(block, _parameters);
 		}
 		int number = 1;
 		for (Block block : blocks) {
@@ -277,13 +281,13 @@ public final class ReadOut {
 	}
 
 	/**
-	 * Reads the bytes of the mask of a block.
+	 * Reads the bytes of the mask of a block and the parameter memory within it.
 	 *
 	 * @return Whether the block was read to its end; <code>false</code> if the read-out was
 	 *         cancelled.
 	 */
 	private boolean block(Block block) {
-		byte[] mask = block.mask();
+		byte[] mask = ParameterMemory.readMask(block, _parameters);
 		int failures = 0;
 		int n = 0;
 		while (n < mask.length) {

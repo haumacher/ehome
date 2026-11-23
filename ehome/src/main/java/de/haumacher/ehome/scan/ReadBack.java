@@ -69,6 +69,7 @@ import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupTables;
 import de.haumacher.ehome.programming.ObjectFlags;
 import de.haumacher.ehome.programming.ParameterEncoding;
+import de.haumacher.ehome.programming.ParameterMemory;
 import de.haumacher.ehome.programming.ValueException;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceReader;
@@ -237,7 +238,9 @@ public class ReadBack {
 	}
 
 	/**
-	 * Reads the configuration of the device from the bus.
+	 * Reads the configuration of the device from the bus: the memory the download image writes and
+	 * the memory of every parameter of the program ({@link ParameterMemory}), the tables and the
+	 * properties the image writes.
 	 *
 	 * @param device
 	 *        The device of the project (<code>ehome.physical:Device</code>), with its program.
@@ -269,11 +272,14 @@ public class ReadBack {
 			}
 			blocks.add(block);
 		}
+		// Besides the bytes the image writes, those of every parameter of the program: a take-over decodes
+		// also the values the project's values switch off (haumacher/ehome #223).
+		BitSet parameters = ParameterMemory.of(program);
 		int total = blocks.size() + 2 + image.getPropertyWrites().size();
 		int done = 0;
 		for (Block block : blocks) {
 			listener.progress(done++, total, block.label());
-			byte[] mask = block.mask();
+			byte[] mask = ParameterMemory.readMask(block, parameters);
 			int n = 0;
 			while (n < mask.length) {
 				if (mask[n] == 0) {
@@ -1552,33 +1558,7 @@ public class ReadBack {
 	 * The size in bits of the values of a parameter type, as {@link ParameterEncoding} writes them.
 	 */
 	static int size(ParameterType type) {
-		if (type instanceof EnumerationType enumeration) {
-			return enumeration.getBits();
-		}
-		if (type instanceof NumericType numeric) {
-			return numeric.getBits();
-		}
-		if (type instanceof TimeType time) {
-			return time.getBits();
-		}
-		if (type instanceof TextType text) {
-			return text.getBits();
-		}
-		if (type instanceof FloatingPointType floating) {
-			String encoding = floating.getEncoding() == null ? "DPT9" : floating.getEncoding().getName();
-			return switch (encoding) {
-				case "IEEE754Single" -> 32;
-				case "IEEE754Double" -> 64;
-				default -> 16;
-			};
-		}
-		if (type instanceof DateType) {
-			return 24;
-		}
-		if (type instanceof IPAddressType) {
-			return 32;
-		}
-		return -1;
+		return ParameterMemory.bits(type);
 	}
 
 	/**
