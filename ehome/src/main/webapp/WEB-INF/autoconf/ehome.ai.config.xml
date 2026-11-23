@@ -136,6 +136,11 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 							tool-class="de.haumacher.ehome.ai.DeviceTools"
 						/>
 					</factory>
+					<factory name="ehome-snapshots">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.SnapshotTools"
+						/>
+					</factory>
 					<factory name="ehome-wiring">
 						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.WiringTools"
@@ -181,7 +186,7 @@ The building structure is where devices are placed: the installer finds a device
 4. Report the created parts by name; the ids are for further calls.]]></content>
 					</skill>
 					<skill name="EHome_devicePlanning"
-						description="Load before planning KNX devices in an E-Home project: choosing products and application programs from the catalog, lines and individual addresses, duplicating devices and setting their parameters. Names the tools searchCatalog, listDevices, planDevice, duplicateDevice, deviceParameters, setDeviceParameter, deviceInfo and placeDevice."
+						description="Load before planning KNX devices in an E-Home project: choosing products and application programs from the catalog, lines and individual addresses, duplicating devices and setting their parameters. Names the tools searchCatalog, listDevices, planDevice, duplicateDevice, deviceParameters, setDeviceParameter, deviceInfo, readOutDevice, listSnapshots, compareSnapshot, takeOverSnapshot and placeDevice."
 					>
 						<content><![CDATA[# Device planning in E-Home
 
@@ -204,6 +209,7 @@ E-Home replaces ETS: a planned device is a full device of the project - product,
 - The application refuses values out of range and checks the manufacturer's rules; relay its reason.
 - Planned devices and changed parameters need a download; the installer starts it in the device view (programming is never yours).
 - deviceInfo asks a device over the bus who it is (mask, manufacturer, serial number, program) and in what state, beside the project's values; it writes nothing. Use it before a download to check that the right device answers at the address; "answered": false means no device is there. A serial number the project does not know is taken over by the installer in the dialog of the command "Device info" (device view, tab Programming).
+- Snapshots (tab Programming, panel Snapshots): readOutDevice reads the device's memory over the bus into a new snapshot of the device (nothing is written into the device) and compares it with the download image; listSnapshots lists the stored ones, compareSnapshot compares one again without the bus (every differing byte run with the device's and the plan's bytes). takeOverSnapshot writes the project: the snapshot's parameter values and connections replace the device's in the project; ask the user before, and call it in a turn of its own.
 
 ## Duplicates
 - duplicateDevice copies product, program and parameters to the next free address of the same line, without connections and without location; rename it with updateObject (attribute title) and place it with placeDevice.]]></content>
@@ -308,6 +314,10 @@ The type in effect at a device's object is the first of: the type entered at the
 							<tool name="ehome-devices.deviceParameters"/>
 							<tool name="ehome-devices.setDeviceParameter"/>
 							<tool name="ehome-devices.deviceInfo"/>
+							<tool name="ehome-snapshots.readOutDevice"/>
+							<tool name="ehome-snapshots.listSnapshots"/>
+							<tool name="ehome-snapshots.compareSnapshot"/>
+							<tool name="ehome-snapshots.takeOverSnapshot"/>
 							<tool name="ehome-wiring.listGroupAddresses"/>
 							<tool name="ehome-wiring.createGroupAddress"/>
 							<tool name="ehome-wiring.setGroupAddressType"/>

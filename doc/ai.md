@@ -28,7 +28,7 @@ rules, functions, schedules and pages follow in #128.
 ## E-Home's tools
 
 Classes of `de.haumacher.ehome.ai` (`ehome.ai.config.xml`): on the chat's agent, published over MCP
-as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`, `ehome-templates__...`. Reading tools are in `data.read`
+as `ehome-building__...`, `ehome-devices__...`, `ehome-snapshots__...`, `ehome-wiring__...`, `ehome-templates__...`. Reading tools are in `data.read`
 (installers and viewers), changing ones in `data.write` (installers; a dry run needs no approval).
 
 | Tool | Changes | Runs |
@@ -44,6 +44,10 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`, `ehome-temp
 | `deviceParameters` | - | `DeviceConfiguration`: the page tree, a page's parameters with value, default, allowed values, edit veto |
 | `setDeviceParameter` | yes | `DeviceSettings.setValue` (type, range, manufacturer's validations and calculations) |
 | `deviceInfo` | - | `DeviceInfo`: the device at its address read over the project's path to the bus (gateway or controller), nothing written: identity beside the project's values, state, what was not read (haumacher/ehome #175) |
+| `readOutDevice` | snapshot | `ReadOutJob` as the command "Read out" (tab Programming): the device read over the project's path to the bus, nothing written into it, the snapshot stored with the device, compared with the download image; the view's check (`Write` on the device, `compareVeto`) (haumacher/ehome #193) |
+| `listSnapshots` | - | the snapshots of a device, newest first (`Snapshots.of`), with label, summary, completeness |
+| `compareSnapshot` | - | `SnapshotFunctions.compare` (the panel's "Compare"): summary, every differing byte run (block, addresses, device's and plan's bytes), the messages per block, nothing truncated |
+| `takeOverSnapshot` | yes | `SnapshotTakeOver` (the panel's "Take over"): parameter values, connections and flags of the snapshot into the project, the device untouched; `Write` on the snapshot; then the comparison |
 | `listGroupAddresses` | - | ranges, and per address (paged) name, identifier, description, type, range, functions, connections with device, room, object, function, channel, direction |
 | `createGroupAddress` | yes, dry run | `GroupAddresses.veto` / `nextFree` / `create`, in the project's notation |
 | `setGroupAddressType` | yes | `GroupAddressTypes.veto` / `setType` |
@@ -71,6 +75,11 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`, `ehome-temp
 - **Answers** name what was created or changed by id and display text.
 - **The open project:** every tab of a project passes the project in the page selection; the
   agent hands its id to the tools, which take any object of the project as well.
+- **Own transactions:** `readOutDevice` and `takeOverSnapshot` have the mode `EXTERNAL` (asked
+  before each call like a change): they commit as the views' commands do, in transactions of their
+  own. The take-over records the revision it committed as the device's state
+  (`Device#downloadRevision`), which the transaction of a `DATA_WRITE` call would falsify; in a turn
+  that changed data before, it is refused.
 - **Not a tool:** programming a device, deploying, writing to the bus; creating group ranges (the
   view creates a range with its name only and its bounds in the form: there is no rule to run yet,
   the agent names the command).

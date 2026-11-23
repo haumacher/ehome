@@ -23,6 +23,9 @@
  * <li>{@link de.haumacher.ehome.ai.DeviceTools} (<code>ehome-devices</code>): the catalog, the devices
  * by line, planning and duplicating a device, its parameter pages and setting a parameter, and the
  * device info read over the bus (haumacher/ehome #175).</li>
+ * <li>{@link de.haumacher.ehome.ai.SnapshotTools} (<code>ehome-snapshots</code>, haumacher/ehome #193):
+ * the snapshots of a device, read out over the bus (nothing written into the device), listed, compared
+ * with the download image and taken over into the project.</li>
  * <li>{@link de.haumacher.ehome.ai.WiringTools} (<code>ehome-wiring</code>): the group addresses with
  * what tells their purpose (paged), creating one, setting its datapoint type, naming several at once,
  * a device's communication objects, connecting and disconnecting them.</li>
@@ -58,7 +61,7 @@
  *
  * <p>
  * Deploying to a controller and programming a device stay commands of the installer in the views:
- * no tool does them. The one tool reaching the bus, the device info, only reads.
+ * no tool does them. The tools reaching the bus, the device info and the read-out, only read.
  * </p>
  */
 package de.haumacher.ehome.ai;
