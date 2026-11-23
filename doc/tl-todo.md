@@ -241,6 +241,20 @@ without a project the page says that there is none yet. **When fixed** (the colu
 change of the roles, or the table is re-resolved): put the table back in place of the switch; the text
 for no project may stay as the empty state of the table, if the engine offers one.
 
+## A declared grouping by a withheld column fails the table (TL #30530)
+
+Reported from the production server after the update to 1.9.0 (not a change of 1.9.0: the page is
+unchanged since 1.3): an anonymous request of `/ehome/view/datapoints` (page "Datenpunkttypen", a
+visitor before logging in) ends in an internal error, `NullPointerException ... "groupColumn" is null`
+in `ListRowSource.givenGroupOrder`. The table declares `group-by="mainType"`; `AttributeColumn.resolve`
+withholds the column of an attribute the user may not read, but `AbstractTableElement.createTable`
+puts the declared grouping into the initial state unchecked. Logged in, the page works. The same holds
+for every table with `group-by` (`datapoints.view.xml`, `projects/functions.view.xml`,
+`catalogs/program.view.xml`) opened by a person who may not read the grouping attribute; the E-Home
+grants give every account read access to these attributes, so only a visitor not logged in reaches it.
+No workaround: the error page is shown where the page would show nothing anyway. **When fixed**:
+nothing to undo; check that the page opens without login and shows the table ungrouped.
+
 ## A refused command on a composition part (TL #29885)
 
 Under alpha11 a refused check on an object whose type delegates to its access parent (a device, a
