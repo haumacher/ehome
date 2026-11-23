@@ -108,9 +108,7 @@ The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/
 that commit.
 
 - `images/example.json`, `images/minimal.json`: complete and minimal images.
-- `images/example.json.sig`: the detached signature (context `v1`) of `images/example.json`, history
-  since the binary image (homecontrol #87) carries its signature inside, and
-  `signatures/vectors.json`: the test keys (TEST KEYS ONLY: their seeds are public), their
+- `signatures/vectors.json`: the test keys (TEST KEYS ONLY: their seeds are public), their
   fingerprints and RFC 8032 section 7.1 test 1, checked in
   `test.de.haumacher.ehome.connection.TestImageSignatures`; the signed worked example
   `minimal.signed.bin` of homecontrol `spec/runtime-image.md` 13 is reproduced byte for byte in
