@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	haumacher/ehome #221: the history of a datapoint is its setting "Aufzeichnung"
+	(ehome.logical:Recording, the reference recording of group addresses and application datapoints:
+	none, 6 h to 10 years), from which its stores follow, and the flag "Zählerstand" (meter); the
+	history set by hand (historyManual, historyRetention, historySpacing, historyArchives with the
+	class HistoryArchive) and the history derived from the charts (historyDerived) go.
+
+	The SQL first keeps the reach of each history set by hand (the longest retention of its ring and
+	archives) as the flex attribute issue221.reach of its datapoint; then the old attributes, the
+	references to the archives and the class HistoryArchive with its objects are deleted from the
+	stored model and the data, and the enumeration Recording, the attributes recording, meter and
+	effectiveMeter, the chart ranges sixHours and tenYears and the options of the charts are created as
+	the model declares them, so the automatic model upgrade at startup has nothing left to do. After the
+	start, the startup action
+	de.haumacher.ehome.runtime.RecordingMigration gives every datapoint its recording: the reach of the
+	history it had, rounded up to the next level (a history set by hand by its stored reach, one
+	derived from the charts of the control pages by what they asked for), "none" for a datapoint without
+	history; a datapoint a chart drew as consumption bars becomes a meter reading.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_221_History_recording"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_203_Device_numbers"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<sql file-name-prefix="webinf://kbase/migration/ehome/Issue_221_History_recording_scripts/stashReach"/>
+		<delete-reference name="ehome.logical:GroupAddress#historyArchives"
+			association-table="hasStructureChild"
+		/>
+		<delete-reference name="ehome.runtime:ApplicationDatapoint#historyArchives"
+			association-table="hasStructureChild"
+		/>
+		<delete-property name="ehome.logical:GroupAddress#historyRetention"
+			type-tables="EHGroupAddress"
+		/>
+		<delete-property name="ehome.logical:GroupAddress#historySpacing"
+			type-tables="EHGroupAddress"
+		/>
+		<delete-property name="ehome.logical:GroupAddress#historyManual"
+			type-tables="EHGroupAddress"
+		/>
+		<delete-property name="ehome.logical:GroupAddress#historyDerived"/>
+		<delete-property name="ehome.runtime:ApplicationDatapoint#historyRetention"
+			type-tables="GenericObject"
+		/>
+		<delete-property name="ehome.runtime:ApplicationDatapoint#historySpacing"
+			type-tables="GenericObject"
+		/>
+		<delete-property name="ehome.runtime:ApplicationDatapoint#historyManual"
+			type-tables="GenericObject"
+		/>
+		<delete-property name="ehome.runtime:ApplicationDatapoint#historyDerived"/>
+		<delete-class name="ehome.logical:HistoryArchive"
+			type-table="GenericObject"
+		/>
+
+		<!-- What the model adds (nothing is removed or moved by the automatic model upgrade). -->
+		<create-enumeration name="ehome.logical:Recording"/>
+		<create-classifier name="ehome.logical:Recording#none"/>
+		<create-classifier name="ehome.logical:Recording#sixHours"/>
+		<create-classifier name="ehome.logical:Recording#day"/>
+		<create-classifier name="ehome.logical:Recording#week"/>
+		<create-classifier name="ehome.logical:Recording#month"/>
+		<create-classifier name="ehome.logical:Recording#year"/>
+		<create-classifier name="ehome.logical:Recording#tenYears"/>
+		<create-reference name="ehome.logical:GroupAddress#recording"
+			mandatory="true"
+			type="ehome.logical:Recording"
+		>
+			<annotations>
+				<default-value>
+					<classifier value="none"/>
+				</default-value>
+				<constraints>
+					<constraint-by-expression check="value -> obj -> runtimeRecordingProblem($value, $obj)"/>
+				</constraints>
+			</annotations>
+		</create-reference>
+		<create-property name="ehome.logical:GroupAddress#meter"
+			type="tl.core:Tristate"
+		>
+			<annotations>
+				<constraints>
+					<constraint-by-expression check="value -> obj -> runtimeMeterProblem($value, $obj)"/>
+				</constraints>
+			</annotations>
+		</create-property>
+		<create-property name="ehome.logical:GroupAddress#effectiveMeter"
+			type="tl.core:Boolean"
+		>
+			<annotations>
+				<storage-algorithm>
+					<query expr="dp -> runtimeMeter($dp)"/>
+				</storage-algorithm>
+			</annotations>
+		</create-property>
+		<reorder-part name="ehome.logical:GroupAddress#recording"
+			before="historyEffective"
+		/>
+		<reorder-part name="ehome.logical:GroupAddress#meter"
+			before="historyEffective"
+		/>
+		<reorder-part name="ehome.logical:GroupAddress#effectiveMeter"
+			before="historyEffective"
+		/>
+		<create-reference name="ehome.runtime:ApplicationDatapoint#recording"
+			mandatory="true"
+			type="ehome.logical:Recording"
+		>
+			<annotations>
+				<default-value>
+					<classifier value="none"/>
+				</default-value>
+				<constraints>
+					<constraint-by-expression check="value -> obj -> runtimeRecordingProblem($value, $obj)"/>
+				</constraints>
+			</annotations>
+		</create-reference>
+		<create-property name="ehome.runtime:ApplicationDatapoint#meter"
+			type="tl.core:Boolean"
+		>
+			<annotations>
+				<constraints>
+					<constraint-by-expression check="value -> obj -> runtimeMeterProblem($value, $obj)"/>
+				</constraints>
+			</annotations>
+		</create-property>
+		<reorder-part name="ehome.runtime:ApplicationDatapoint#recording"
+			before="historyEffective"
+		/>
+		<reorder-part name="ehome.runtime:ApplicationDatapoint#meter"
+			before="historyEffective"
+		/>
+
+		<!-- The chart ranges 6 h and 10 y; a chart offers the ranges and a series the datapoints recorded. -->
+		<create-classifier name="ehome.runtime:ChartRange#sixHours"/>
+		<reorder-part name="ehome.runtime:ChartRange#sixHours"
+			before="day"
+		/>
+		<create-classifier name="ehome.runtime:ChartRange#tenYears"/>
+		<add-annotations name="ehome.runtime:ChartElement#range">
+			<annotations>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> pageOptions($e, "range")]]></function>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</add-annotations>
+		<add-annotations name="ehome.runtime:ChartElement#presets">
+			<annotations>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> pageOptions($e, "range")]]></function>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</add-annotations>
+		<remove-annotations name="ehome.runtime:ChartSeries#datapoint">
+			<annotation class="com.top_logic.element.config.annotation.TLOptions"/>
+		</remove-annotations>
+		<add-annotations name="ehome.runtime:ChartSeries#datapoint">
+			<annotations>
+				<options>
+					<options-by-expression>
+						<function><![CDATA[e -> pageOptions($e, "series")]]></function>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</add-annotations>
+	</processors>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.runtime.RecordingMigration"/>
+	</startup-actions>
+</migration>

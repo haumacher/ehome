@@ -56,6 +56,7 @@ import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.BlockTexts;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
@@ -259,7 +260,7 @@ public class TestBlockInstances extends BasicTestCase {
 	/**
 	 * A function, a page element and a chart series on the valve: the function's role and the element
 	 * name block/wz-heating/valve, the series the address the valve is bound to (the mirror keeps no
-	 * history, spec/blocks.md 6), which gets the history the chart needs.
+	 * history, spec/blocks.md 6), whose recording gives the history the chart draws.
 	 */
 	public void testValveOnFunctionPageChart() throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -277,6 +278,8 @@ public class TestBlockInstances extends BasicTestCase {
 			Pages.insert(_project, section, Pages.DATAPOINT, List.of(valve));
 			TLObject chart = Pages.insert(_project, section, Pages.CHART, null);
 			Pages.insert(_project, chart, Pages.SERIES, List.of(valve));
+			((GroupAddress) BlockInstances.historyTarget(valve))
+				.setRecording(HistoryConfig.classifier(HistoryConfig.Level.DAY));
 			tx.commit();
 		}
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
@@ -290,7 +293,7 @@ public class TestBlockInstances extends BasicTestCase {
 		Map<?, ?> chart = (Map<?, ?>) ((Map<?, ?>) elements.get(1)).get("chart");
 		assertEquals("1/3/30", ((Map<?, ?>) ((List<?>) chart.get("series")).get(0)).get("datapoint"));
 		Map<?, ?> valveDatapoint = TestRuntimeImage.datapoint((List<?>) image.getJson().get("datapoints"), "1/3/30");
-		assertNotNull("The chart derives a history for the bound address.", valveDatapoint.get("history"));
+		assertNotNull("The bound address keeps the history.", valveDatapoint.get("history"));
 	}
 
 	/**

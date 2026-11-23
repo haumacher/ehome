@@ -24,6 +24,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -33,53 +34,51 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
-import com.top_logic.util.Resources;
+import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.logical.GroupAddress;
-import de.haumacher.ehome.model.logical.GroupAddressDefinition;
-import de.haumacher.ehome.model.logical.HistoryArchive;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.ChartElement;
 import de.haumacher.ehome.model.runtime.ChartSeries;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.model.runtime.Page;
+import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.HistoryConfig.Archive;
 import de.haumacher.ehome.runtime.HistoryConfig.History;
+import de.haumacher.ehome.runtime.HistoryConfig.Level;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
-import de.haumacher.ehome.runtime.ImageValidator;
-import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Pages;
+import de.haumacher.ehome.runtime.RecordingMigration;
 import de.haumacher.ehome.runtime.RuleFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
 
 /**
- * The history of a datapoint derived from the charts of the control pages, set by hand, migrated and
- * counted against the budget (haumacher/ehome #73, homecontrol #56): the acceptance tests of the
- * issue and the refusals of the archives by the image's check.
+ * The history of a datapoint from its recording (haumacher/ehome #221, homecontrol #115): the stores
+ * of each level, line and meter, the image's members <code>history</code> and <code>meter</code>, the
+ * charts that only choose what is recorded, the budget, the format gate for a controller of format 1.2
+ * and the migration of the histories set by hand or derived from the charts before.
  *
  * <p>
- * The project is built without an ETS import: group addresses of two datapoint main types created for
- * the test (9, a real value; 1, a truth value) and an application datapoint.
+ * The project is built without an ETS import: group addresses of datapoint main types created for the
+ * test (9, a real value; 1, a truth value; 12, a counter) and an application datapoint.
  * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestHistoryConfig extends BasicTestCase {
 
-	private static final java.time.Instant NOW = java.time.Instant.parse("2026-11-03T12:00:00Z");
+	private static final java.time.Instant NOW = java.time.Instant.parse("2026-11-23T12:00:00Z");
 
-	/** Acceptance 1: 24 h at 15 min in the raw ring, 30 days hourly, a year daily. */
-	private static final String YEAR_CHART_HISTORY = """
-		{"retention": 86400, "spacing": 900, "archives": [
-		  {"resolution": 3600, "retention": 2592000},
-		  {"resolution": 86400, "retention": 31536000}]}
-		""";
+	private static final long H = 3600;
+
+	private static final long D = 86400;
 
 	private Project _project;
 
@@ -89,7 +88,7 @@ public class TestHistoryConfig extends BasicTestCase {
 
 	private GroupAddress _humidity;
 
-	private GroupAddress _meter;
+	private GroupAddress _pulses;
 
 	private GroupAddress _window;
 
@@ -97,23 +96,21 @@ public class TestHistoryConfig extends BasicTestCase {
 
 	private TLObject _section;
 
-	private TLObject _real;
-
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject real = mainType(9);
-			_real = real;
 			TLObject bool = mainType(1);
+			TLObject counter = mainType(12);
 			_project = (Project) create("ehome.project:Project");
 			_project.setName("History");
-			_project.setExtId("P-TEST-73");
+			_project.setExtId("P-TEST-221");
 			_temperature = address("Temperatur", 1, 3, 1, real);
 			_humidity = address("Feuchte", 1, 3, 2, real);
-			_meter = address("Zähler", 1, 3, 3, real);
+			_pulses = address("Impulse", 1, 3, 3, counter);
 			_window = address("Fenster", 1, 3, 4, bool);
-			_project.setGroupAddresses(Set.of(_temperature, _humidity, _meter, _window));
+			_project.setGroupAddresses(Set.of(_temperature, _humidity, _pulses, _window));
 			_counter = (ApplicationDatapoint) RuleFunctions.create(_project, "applicationDatapoints",
 				runtime("ApplicationDatapoint"));
 			_counter.setIdentifier("counter");
@@ -140,203 +137,365 @@ public class TestHistoryConfig extends BasicTestCase {
 	}
 
 	/**
-	 * Acceptance 1: a chart with the default range 24 h and the presets up to a year on a temperature
-	 * gives the raw ring for the 24 h (48 points: 30 min, rounded down to 15 min) and an archive each
-	 * for the longer presets: 7 d (3.5 h, rounded down to 1 h) and 30 d (18.75 h, 1 h) share the hourly
-	 * archive kept for 30 days, a year (7.6 d) takes the daily one.
+	 * The stores of each level for a line, band or strip, exactly the table of haumacher/ehome #221: a
+	 * ring of 5 min over 6 h (73 values, 584 bytes) or 24 h (289, 2312 bytes), then archives of 3 h over
+	 * 7 days (57 slots), 12 h over 30 days (61), 7 days over a year (54) and 31 days over 10 years (119),
+	 * each one segment of 4 KB on flash and 96 bytes of RAM for its open slots.
 	 */
-	public void testYearChart() throws Exception {
-		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature);
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		assertTrue(image.validate().toString(), image.validate().isValid());
-		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)), Json.write(history(image, "1/3/1")));
-		// 97 samples in RAM and the open slots of two archives of an hour or more; 721 and 366 slots on
-		// flash, 6 and 3 segments.
-		assertEquals(97 * 8 + 96 + 96, HistoryConfig.ramBytes(_temperature));
-		assertEquals(968, HistoryConfig.ramBytes(_temperature));
-		assertEquals((6 + 3) * 4096, HistoryConfig.flashBytes(_temperature));
-		assertEquals(36864, HistoryConfig.flashBytes(_temperature));
-		assertFalse(HistoryConfig.isManual(_temperature));
-		// A datapoint no chart draws keeps none.
+	public void testLineStores() {
+		assertNull(HistoryConfig.stores(Level.NONE, false));
+		assertStores(Level.SIX_HOURS, false, new History(6 * H, 300, List.of(), false), 73, 584, 0);
+		assertStores(Level.DAY, false, new History(D, 300, List.of(), false), 289, 2312, 0);
+		Archive week = new Archive(3 * H, 7 * D);
+		Archive month = new Archive(12 * H, 30 * D);
+		Archive year = new Archive(7 * D, 365 * D);
+		Archive tenYears = new Archive(31 * D, 3650 * D);
+		assertEquals(57, week.slots());
+		assertEquals(61, month.slots());
+		assertEquals(54, year.slots());
+		assertEquals(119, tenYears.slots());
+		assertStores(Level.WEEK, false, new History(D, 300, List.of(week), false), 346, 2312 + 96, 4096);
+		assertStores(Level.MONTH, false, new History(D, 300, List.of(week, month), false), 407, 2312 + 2 * 96, 8192);
+		assertStores(Level.YEAR, false, new History(D, 300, List.of(week, month, year), false), 461, 2312 + 3 * 96,
+			12288);
+		assertStores(Level.TEN_YEARS, false, new History(D, 300, List.of(week, month, year, tenYears), false), 580,
+			2312 + 4 * 96, 16384);
+		// Each level reaches its range, and a reach rounds up to the next level.
+		for (Level level : Level.values()) {
+			if (level != Level.NONE) {
+				assertEquals(level.name(), level.reach(), HistoryConfig.stores(level, false).reach());
+				assertEquals(level, Level.covering(level.reach(), false));
+			}
+		}
+		assertEquals(Level.NONE, Level.covering(0, false));
+		assertEquals(Level.SIX_HOURS, Level.covering(H, false));
+		assertEquals(Level.WEEK, Level.covering(2 * D, false));
+		assertEquals(Level.YEAR, Level.covering(31 * D, false));
+		assertEquals(Level.TEN_YEARS, Level.covering(20 * 365 * D, false));
+	}
+
+	/**
+	 * The stores of a meter: the bars' widths instead of the 48 points (15 min for 6 h, 1 h for 24 h,
+	 * 1 d for 7 d and 30 d, a month for 1 y, a year for 10 y), each reaching one bar further for the
+	 * first difference, up to the 10 years an archive keeps: the 15-minute ring over 6 h 15 min or 25 h,
+	 * day slots over 8 days, 31 days or 13 months, 31-day slots over 10 years.
+	 */
+	public void testMeterStores() {
+		assertStores(Level.SIX_HOURS, true, new History(6 * H + 900, 900, List.of(), true), 26, 208, 0);
+		assertStores(Level.DAY, true, new History(25 * H, 900, List.of(), true), 101, 808, 0);
+		assertStores(Level.WEEK, true, new History(25 * H, 900, List.of(new Archive(D, 8 * D)), true), 110, 808 + 96,
+			4096);
+		assertStores(Level.MONTH, true, new History(25 * H, 900, List.of(new Archive(D, 31 * D)), true), 133,
+			808 + 96, 4096);
+		Archive year = new Archive(D, 13 * (365 * D / 12));
+		assertEquals(397, year.slots());
+		assertStores(Level.YEAR, true, new History(25 * H, 900, List.of(year), true), 498, 808 + 96, 16384);
+		assertStores(Level.TEN_YEARS, true,
+			new History(25 * H, 900, List.of(year, new Archive(31 * D, 3650 * D)), true), 617, 808 + 2 * 96, 20480);
+		// A meter recorded for 30 days covers its 31 bars: rounded to the month, not the year.
+		assertEquals(Level.MONTH, Level.covering(31 * D, true));
+		assertEquals(Level.YEAR, Level.covering(31 * D, false));
+	}
+
+	/**
+	 * The image carries the stores of the recording and <code>meter</code> for a meter reading of a
+	 * number: an application datapoint by its flag, a group address by its flag or its datapoint type
+	 * (12.x); the image is then written in schema 1.10 and binary format 1.3. A truth value is never a
+	 * meter reading: the flag is refused at saving and left out of the image.
+	 */
+	public void testImage() throws Exception {
+		RuntimeImage before = RuntimeImage.build(_project, 1, NOW);
+		assertNull(history(before, "1/3/1"));
+		assertEquals(RuntimeImage.SCHEMA_VERSION_INITIAL_VALUES, schema(before));
+
+		record(_temperature, Level.MONTH);
+		record(_pulses, Level.YEAR);
+		record(_window, Level.DAY);
+		record(_counter, Level.SIX_HOURS);
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_counter.setMeter(true);
+			tx.commit();
+		}
+		assertTrue(HistoryConfig.meterByType(_pulses));
+		assertTrue(HistoryConfig.meter(_pulses));
+		assertFalse(HistoryConfig.meterByType(_temperature));
+		RuntimeImage image = assertValid();
+		assertEquals(HistoryConfig.stores(Level.MONTH, false).json(), history(image, "1/3/1"));
+		assertEquals(HistoryConfig.stores(Level.YEAR, true).json(), history(image, "1/3/3"));
+		assertEquals(Boolean.TRUE, ((Map<?, ?>) history(image, "1/3/3")).get("meter"));
+		assertEquals(HistoryConfig.stores(Level.SIX_HOURS, true).json(), history(image, "counter"));
+		assertFalse(((Map<?, ?>) history(image, "1/3/4")).containsKey("meter"));
 		assertNull(history(image, "1/3/2"));
-		assertNull(HistoryConfig.effective(_humidity));
-	}
+		assertEquals(RuntimeImage.SCHEMA_VERSION_METER, schema(image));
+		assertEquals(3, ImageCompiler.formatMinor(image.getJson()));
+		byte[] binary = image.compile(null);
+		assertEquals(3, binary[6] | binary[7] << 8);
 
-	/**
-	 * Acceptance 2: two charts on the same datapoint are united: the finest resolution per range (the
-	 * hour of the first chart at 1 min, the day of the second at 15 min: one raw ring at 1 min for the
-	 * day), the longest retention per resolution.
-	 */
-	public void testUnion() throws Exception {
-		chart("hour", List.of(), null, _temperature);
-		chart("day", List.of("day", "week", "year"), null, _temperature);
-		History history = HistoryConfig.derived(_temperature);
-		assertEquals(new History(86400, 60, List.of(new Archive(3600, 7 * 86400), new Archive(86400, 365 * 86400))),
-			history);
-		assertEquals(1441 * 8 + 96 + 96, history.ramBytes());
-		// 169 slots in 2 segments, 366 in 3.
-		assertEquals((2 + 3) * 4096, history.flashBytes());
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		assertTrue(image.validate().toString(), image.validate().isValid());
-		assertEquals(Json.write(Json.parse("""
-			{"retention": 86400, "spacing": 60, "archives": [
-			  {"resolution": 3600, "retention": 604800}, {"resolution": 86400, "retention": 31536000}]}
-			""", 10)), Json.write(history(image, "1/3/1")));
-	}
-
-	/**
-	 * The consumption bars of a meter: per range a bar of its own width (24 h: 1 h, 7 d and 30 d: 1 d,
-	 * a year: a twelfth, rounded down to 1 d) over the bars and one more; the daily archive reaches the
-	 * 13 twelfths of the year bars, which covers the week and the month as well.
-	 */
-	public void testConsumptionBars() throws Exception {
-		chart("day", List.of("day", "week", "month", "year"), "consumption", _meter);
-		assertEquals(new History(25 * 3600, 3600, List.of(new Archive(86400, 13 * 2628000L))),
-			HistoryConfig.derived(_meter));
-		assertTrue(RuntimeImage.build(_project, 1, NOW).validate().isValid());
-		// A truth value has no bars (the image's check refuses its consumption): its on/off strip needs the
-		// line's resolution.
-		chart("week", List.of(), "consumption", _window);
-		assertEquals(new History(3600, 900, List.of(new Archive(3600, 7 * 86400))), HistoryConfig.derived(_window));
-	}
-
-	/**
-	 * A function's sparkline and sheet keep 24 hours at 15 minutes of a datapoint a chart draws only over
-	 * long ranges; without the function the raw ring only feeds the archive (the step below its
-	 * resolution, for one slot).
-	 */
-	public void testFunctionNeed() throws Exception {
-		chart("month", List.of(), null, _humidity);
-		assertEquals(new History(3600, 900, List.of(new Archive(3600, 30 * 86400))), HistoryConfig.derived(_humidity));
+		// A group address set to be no meter, though its type is one.
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			Function sensor = (Function) create("ehome.runtime:Function");
-			sensor.setNameKey(ResKey.builder().add(Locale.GERMAN, "Feuchte").build());
-			sensor.setIdentifier("humidity");
-			sensor.setKind(FunctionProposal.classifier("sensor"));
-			sensor.setValue(_humidity);
-			_project.setFunctions(List.of(sensor));
+			_pulses.setMeter(Boolean.FALSE);
 			tx.commit();
 		}
-		assertEquals(new History(86400, 900, List.of(new Archive(3600, 30 * 86400))), HistoryConfig.derived(_humidity));
+		assertFalse(((Map<?, ?>) history(RuntimeImage.build(_project, 1, NOW), "1/3/3")).containsKey("meter"));
+
+		// The flag on a truth value: refused by the field's check.
+		assertEquals(I18NConstants.METER_NOT_NUMBER__TYPE.fill("boolean"),
+			HistoryConfig.meterProblem(Boolean.TRUE, _window));
+		assertNull(HistoryConfig.meterProblem(Boolean.TRUE, _temperature));
+		assertNull(HistoryConfig.meterProblem(Boolean.FALSE, _window));
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_window.setMeter(Boolean.TRUE);
+			tx.commit();
+			fail("A truth value is no meter reading.");
+		} catch (TopLogicException ex) {
+			// Expected: the constraint of the field.
+		}
+
+		// The recording of a string is refused by the field's check.
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_counter.setType(classifier("DatapointValueType", "string"));
+			assertEquals(I18NConstants.HISTORY_WRONG_TYPE__TYPE.fill("string"),
+				HistoryConfig.recordingProblem(HistoryConfig.classifier(Level.DAY), _counter));
+			assertNull(HistoryConfig.recordingProblem(HistoryConfig.classifier(Level.NONE), _counter));
+			assertNull(HistoryConfig.effective(_counter));
+		}
 	}
 
 	/**
-	 * The derivation's rules for the device's limits: an archive beyond 2048 slots takes the next
-	 * coarser step; more than four archives merge the finest into the next; an archive a finer store
-	 * reaches as far is dropped; the raw ring's spacing stays below the finest archive.
+	 * A controller of format 1.2 gets no meter flag (minor 2 at most) and no page with the ranges 6 h or
+	 * 10 y: the deployment is refused before sending, naming the ranges; a controller of 1.3 takes both.
 	 */
-	public void testLimits() {
-		// 30 days at 15 min would be 2881 slots: hourly.
-		assertEquals(new History(3600, 900, List.of(new Archive(3600, 30 * 86400))),
-			HistoryConfig.derive(List.of(new HistoryConfig.Need(900, 30 * 86400)), false));
-		// The hourly archive reaches as far as the daily one: the daily one is dropped.
-		assertEquals(new History(3600, 900, List.of(new Archive(3600, 30 * 86400))),
-			HistoryConfig.derive(List.of(new HistoryConfig.Need(3600, 30 * 86400), new HistoryConfig.Need(86400, 8 * 86400)),
-				false));
-		// The raw ring at 1 h below an hourly archive: 15 min.
-		assertEquals(new History(90000, 900, List.of(new Archive(3600, 7 * 86400))),
-			HistoryConfig.derive(List.of(new HistoryConfig.Need(3600, 90000), new HistoryConfig.Need(3600, 7 * 86400)),
-				false));
-		// An archive at 1 min would be beyond the slots for any coverage beyond the raw ring's: 5 min.
-		assertEquals(List.of(new Archive(300, 6 * 86400)),
-			HistoryConfig.derive(List.of(new HistoryConfig.Need(60, 3 * 86400), new HistoryConfig.Need(300, 6 * 86400)),
-				false).archives());
-		// Five archives (only with a resolution off the ladder; the charts give at most two): the finest
-		// merges into the next coarser one. The four left need 5 + 4 + 6 + 3 segments, more than the 16 of
-		// the device's flash, but a need whose bucket width is its resolution allows no coarser store: the
-		// history stays as it is (the image's check refuses it).
-		History five = HistoryConfig.derive(List.of(new HistoryConfig.Need(300, 3 * 86400),
-			new HistoryConfig.Need(900, 6 * 86400), new HistoryConfig.Need(1800, 10 * 86400),
-			new HistoryConfig.Need(3600, 30 * 86400), new HistoryConfig.Need(86400, 365 * 86400)), false);
-		assertEquals(new History(900, 300, List.of(new Archive(900, 6 * 86400), new Archive(1800, 10 * 86400),
-			new Archive(3600, 30 * 86400), new Archive(86400, 365 * 86400))), five);
-		assertEquals(18 * 4096, five.flashBytes());
-		// Within the flash, the five keep four.
-		History fiveSmall = HistoryConfig.derive(List.of(new HistoryConfig.Need(300, 3 * 86400),
-			new HistoryConfig.Need(900, 4 * 86400), new HistoryConfig.Need(1800, 5 * 86400),
-			new HistoryConfig.Need(3600, 7 * 86400), new HistoryConfig.Need(86400, 365 * 86400)), false);
-		assertEquals(new History(900, 300, List.of(new Archive(900, 4 * 86400), new Archive(1800, 5 * 86400),
-			new Archive(3600, 7 * 86400), new Archive(86400, 365 * 86400))), fiveSmall);
-		assertNull(HistoryConfig.derive(List.of(), true));
+	public void testFormatGate() throws Exception {
+		record(_pulses, Level.DAY);
+		RuntimeImage meterOnly = assertValid();
+		assertEquals(3, ImageCompiler.formatMinor(meterOnly.getJson()));
+		assertNull(Deployer.formatRefusal("1.2", "C", meterOnly.getJson()));
+		assertNull(Deployer.formatRefusal("1.3", "C", meterOnly.getJson()));
+		byte[] forOld = meterOnly.compile(null, 2);
+		assertEquals(2, forOld[6] | forOld[7] << 8);
+		assertEquals(meterOnly.compile(null).length, forOld.length);
+
+		chart("sixHours", List.of("sixHours", "day"), null, _pulses);
+		RuntimeImage ranges = assertValid();
+		ResKey refusal = Deployer.formatRefusal("1.2", "C", ranges.getJson());
+		assertEquals(I18NConstants.DEPLOY_REFUSED_CHART_RANGES__CONTROLLER_FORMAT.fill("C", "1.2"), refusal);
+		assertNull(Deployer.formatRefusal("1.3", "C", ranges.getJson()));
+		// The initial value of the application datapoint asks for 1.2 already.
+		assertEquals(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill("C", "1.1", "1.2"),
+			Deployer.formatRefusal("1.1", "C", ranges.getJson()));
+		assertEquals(2, Deployer.reportedMinor("1.2"));
+		assertEquals(-1, Deployer.reportedMinor("2.0"));
 	}
 
 	/**
-	 * Acceptance 3: a history set by hand replaces the derived one in the image entirely, the derived
-	 * one stays visible beside it, and a reset returns to it.
+	 * The charts only choose: a series offers the datapoints with a recording, a chart the ranges every
+	 * datapoint of its series reaches (never 1 h); a chart asking for more is not cut but refused by the
+	 * image's check, at its range or preset, and a series of a datapoint without recording as before.
 	 */
-	public void testOverride() throws Exception {
-		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature);
-		String derived = HistoryConfig.describeDerived(_temperature);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			HistoryConfig.setManual(_temperature);
-			tx.commit();
-		}
-		// It starts from the derived one.
-		assertTrue(HistoryConfig.isManual(_temperature));
-		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
-			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_temperature.setHistoryRetention(Integer.valueOf(172800));
-			_temperature.setHistorySpacing(Integer.valueOf(300));
-			List<TLObject> archives = HistoryConfig.manualArchives(_temperature);
-			archives.get(0).tDelete();
-			((HistoryArchive) archives.get(1)).setRetention(2 * 365 * 86400);
-			tx.commit();
-		}
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		assertTrue(image.validate().toString(), image.validate().isValid());
-		assertEquals(Json.write(Json.parse("""
-			{"retention": 172800, "spacing": 300, "archives": [{"resolution": 86400, "retention": 63072000}]}
-			""", 10)), Json.write(history(image, "1/3/1")));
-		// The derived one, beside it.
-		assertEquals(derived, HistoryConfig.describeDerived(_temperature));
-		assertTrue(HistoryConfig.describeEffective(_temperature),
-			HistoryConfig.describeEffective(_temperature).contains("1 d for 730 d"));
+	public void testCharts() throws Exception {
+		record(_temperature, Level.DAY);
+		record(_humidity, Level.MONTH);
+		List<TLObject> series = Pages.options(_section, Pages.SERIES);
+		assertTrue(series.contains(_temperature));
+		assertTrue(series.contains(_humidity));
+		assertFalse(series.contains(_window));
+		assertFalse(series.contains(_counter));
 
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			HistoryConfig.reset(_temperature);
-			tx.commit();
-		}
-		assertFalse(HistoryConfig.isManual(_temperature));
-		assertNull(_temperature.getHistoryRetention());
-		assertEquals(List.of(), HistoryConfig.manualArchives(_temperature));
-		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
-			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));
+		TLObject chart = chart("day", List.of("day", "week", "month"), null, _temperature, _humidity);
+		assertEquals(D, HistoryConfig.chartReach(chart));
+		assertEquals(List.of(range("sixHours"), range("day")), Pages.options(chart, Pages.RANGE));
+		ImageReport report = RuntimeImage.build(_project, 1, NOW).validate();
+		String path = "ui.pages[0].sections[0].elements[0].chart";
+		assertRefused(report, path + ".presets[1]", "range 7d, but " + Pages.targetLabel(_temperature) + " is recorded only for");
+		assertRefused(report, path + ".presets[2]", "range 30d");
+		assertEquals(2, report.getRefusals().size());
 
-		// Set by hand without a raw ring: no history, and a chart of it is refused.
+		// Recorded long enough: valid; the range 1 h is refused.
+		record(_temperature, Level.MONTH);
+		assertValid();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_temperature.setHistoryManual(true);
+			((ChartElement) chart).setRange(range("hour"));
+			((ChartElement) chart).setPresets(Set.of());
 			tx.commit();
 		}
-		assertNotNull(Pages.seriesProblem(_temperature));
-		assertFalse(RuntimeImage.build(_project, 1, NOW).validate().isValid());
+		report = RuntimeImage.build(_project, 1, NOW).validate();
+		assertRefused(report, path + ".range", "range 1 h");
+		assertEquals(1, report.getRefusals().size());
+
+		// A chart without series offers every range but 1 h.
+		TLObject empty = chart("day", List.of(), null);
+		assertEquals(7 - 1, Pages.options(empty, Pages.RANGE).size());
+
+		// A datapoint without recording: the series is refused.
+		chart("day", List.of(), null, _window);
+		report = RuntimeImage.build(_project, 1, NOW).validate();
+		boolean found = false;
+		for (ImageReport.Refusal refused : report.getRefusals()) {
+			found |= refused.path().endsWith(".chart.series[0].datapoint") && refused.reason().contains("keeps no history");
+		}
+		assertTrue(report.toString(), found);
 	}
 
 	/**
-	 * Acceptance 4, the migration's effect on a datapoint: a group address and an application datapoint
-	 * with a retention and a spacing from before #73 are set by hand without archives (the flag the
-	 * migration writes), so their image does not change although a chart draws them; and the
-	 * migration's SQL gives exactly the datapoints with a history the flag, for every revision of it.
+	 * The budget and the caps stay: five datapoints recorded for 10 years need 80 KB of flash, more than
+	 * the controller's 64 KB, and are refused at <code>history</code>, the usage naming the biggest.
+	 */
+	public void testBudget() throws Exception {
+		for (TLObject datapoint : List.of(_temperature, _humidity, _pulses, _window, _counter)) {
+			record(datapoint, Level.TEN_YEARS);
+		}
+		assertEquals(5, HistoryConfig.datapoints(_project).size());
+		assertEquals(4 * 16384 + 20480, HistoryConfig.totalFlashBytes(_project));
+		ImageReport report = RuntimeImage.build(_project, 1, NOW).validate();
+		assertFalse(report.isValid());
+		assertRefused(report, "history", "flash");
+		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).contains(Pages.targetLabel(_pulses)));
+
+		record(_counter, Level.NONE);
+		record(_window, Level.NONE);
+		assertValid();
+	}
+
+	/**
+	 * The migration (haumacher/ehome #221): every datapoint gets once its history effective before as
+	 * its recording, the reach rounded up to the next level: one set by hand with 2 days "7 days" (the
+	 * SQL's reach), one with a chart over a year "1 year", a number drawn as consumption bars over 30 days
+	 * a meter of "30 days", a truth value a function shows on hour charts "24 h" (the function asked for
+	 * 24 h), a history set by hand without a ring and a datapoint no chart draws "none".
+	 *
+	 * <p>
+	 * The charts follow: a range 1 h becomes 6 h, a preset 1 h becomes 6 h (once), and a datapoint set by
+	 * hand to 24 h that a chart draws over 7 days is recorded for 7 days. The migrated project's image
+	 * passes the check: no chart is refused.
+	 * </p>
 	 */
 	public void testMigration() throws Exception {
-		chart("day", List.of("day", "year"), null, _temperature, _counter);
+		GroupAddress power;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_temperature.setHistoryRetention(Integer.valueOf(7 * 86400));
-			_temperature.setHistorySpacing(Integer.valueOf(600));
-			// What Issue_73_History_set_by_hand writes for it.
-			_temperature.setHistoryManual(true);
-			_counter.setHistoryRetention(Integer.valueOf(7 * 86400));
-			_counter.setHistorySpacing(Integer.valueOf(600));
-			_counter.setHistoryManual(true);
+			power = address("Leistung", 1, 3, 5, _temperature.getDatapointTypes().get(0));
+			_project.getGroupAddressesModifiable().add(power);
 			tx.commit();
 		}
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		Map<?, ?> before = Map.of("retention", Long.valueOf(7 * 86400), "spacing", Long.valueOf(600));
-		assertEquals(before, history(image, "1/3/1"));
-		assertEquals(before, history(image, "counter"));
-		assertTrue(image.validate().toString(), image.validate().isValid());
+		chart("day", List.of(), null, _temperature);
+		chart("week", List.of(), null, _temperature);
+		chart("day", List.of(), null, _humidity);
+		chart("year", List.of("day", "year"), null, power);
+		chart("month", List.of(), "consumption", _counter);
+		TLObject hourDay = chart("hour", List.of("hour", "day"), null, _window);
+		TLObject hourSix = chart("sixHours", List.of("hour", "sixHours"), null, _window);
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			Function contact = (Function) create("ehome.runtime:Function");
+			contact.setNameKey(ResKey.builder().add(Locale.GERMAN, "Fenster").build());
+			contact.setIdentifier("window");
+			contact.setKind(FunctionProposal.classifier("sensor"));
+			contact.setValue(_window);
+			_project.setFunctions(List.of(contact));
+			// The reach the SQL keeps of a history set by hand: it overrides the charts.
+			((KnowledgeItem) _humidity.tHandle()).setAttributeValue(RecordingMigration.REACH, Long.valueOf(2 * D));
+			((KnowledgeItem) _temperature.tHandle()).setAttributeValue(RecordingMigration.REACH, Long.valueOf(D));
+			// Set by hand without a ring: no history in the image.
+			((KnowledgeItem) _pulses.tHandle()).setAttributeValue(RecordingMigration.REACH, Long.valueOf(0));
+			tx.commit();
+		}
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			RecordingMigration.migrate(_project, new java.util.HashSet<>(), new int[3]);
+			tx.commit();
+		}
+		assertEquals(Level.WEEK, HistoryConfig.level(_humidity));
+		assertEquals(Level.YEAR, HistoryConfig.level(power));
+		assertEquals(Level.NONE, HistoryConfig.level(_pulses));
+		assertEquals(Level.DAY, HistoryConfig.level(_window));
+		assertEquals(Level.MONTH, HistoryConfig.level(_counter));
+		assertTrue(_counter.getMeter());
+		assertNull(power.getMeter());
+		assertNull(((KnowledgeItem) _humidity.tHandle()).getAttributeValue(RecordingMigration.REACH));
+		// Set by hand to 24 h, drawn over 7 days: recorded for 7 days.
+		assertEquals(Level.WEEK, HistoryConfig.level(_temperature));
 
-		// The SQL of the migration on a table of the layout of FLEX_DATA.
+		// The range 1 h became 6 h, the preset 1 h, too, once.
+		assertEquals(range("sixHours"), ((ChartElement) hourDay).getRange());
+		assertEquals(Set.of(range("sixHours"), range("day")), Set.copyOf(((ChartElement) hourDay).getPresets()));
+		assertEquals(range("sixHours"), ((ChartElement) hourSix).getRange());
+		assertEquals(Set.of(range("sixHours")), Set.copyOf(((ChartElement) hourSix).getPresets()));
+		Map<?, ?> chart = (Map<?, ?>) ((Map<?, ?>) elements(assertValid()).get(5)).get("chart");
+		assertEquals("6h", chart.get("range"));
+		assertEquals(List.of("6h", "24h"), chart.get("presets"));
+	}
+
+	/** The elements of the first section of the first page of the image. */
+	private static List<?> elements(RuntimeImage image) {
+		Map<?, ?> ui = (Map<?, ?>) image.getJson().get("ui");
+		Map<?, ?> page = (Map<?, ?>) ((List<?>) ui.get("pages")).get(0);
+		Map<?, ?> section = (Map<?, ?>) ((List<?>) page.get("sections")).get(0);
+		return (List<?>) section.get("elements");
+	}
+
+	/**
+	 * The SQL of the migration on tables of the layout of the database: the reach of each history set by
+	 * hand in the current state, the longest retention of its ring and of its archives; 0 without a
+	 * ring; nothing for a history not set by hand or of an earlier revision.
+	 */
+	public void testMigrationSql() throws Exception {
+		try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:issue221", "sa", "");
+				Statement statement = connection.createStatement()) {
+			statement.execute("CREATE TABLE FLEX_DATA (TYPE VARCHAR(70) NOT NULL, IDENTIFIER BIGINT NOT NULL,"
+				+ " REV_MAX BIGINT NOT NULL, ATTR VARCHAR(254) NOT NULL, REV_MIN BIGINT NOT NULL, DATA_TYPE TINYINT,"
+				+ " LONG_DATA BIGINT, DOUBLE_DATA DOUBLE PRECISION, VARCHAR_DATA VARCHAR(254), CLOB_DATA CLOB,"
+				+ " BLOB_DATA BLOB, PRIMARY KEY (TYPE, IDENTIFIER, REV_MAX, ATTR))");
+			statement.execute("CREATE TABLE HAS_STRUCTURE_CHILD (IDENTIFIER BIGINT NOT NULL, REV_MAX BIGINT NOT NULL,"
+				+ " REV_MIN BIGINT NOT NULL, SOURCE_TYPE VARCHAR(150), SOURCE_ID BIGINT, DEST_TYPE VARCHAR(150),"
+				+ " DEST_ID BIGINT, META_ATTRIBUTE_ID BIGINT)");
+			statement.execute("CREATE TABLE META_ATTRIBUTE (IDENTIFIER BIGINT NOT NULL, REV_MAX BIGINT NOT NULL,"
+				+ " NAME VARCHAR(150))");
+			long max = Long.MAX_VALUE;
+			statement.execute("INSERT INTO META_ATTRIBUTE VALUES (500, " + max + ", 'historyArchives'), (501, " + max
+				+ ", 'series')");
+			// 1: by hand, 2 days, an archive of 30 days (and one of an earlier revision, of 3 years);
+			// 2: by hand, a ring of 1 day alone; 3: by hand without a ring; 4: not by hand;
+			// 5: an application datapoint by hand with 7 days.
+			statement.execute("INSERT INTO FLEX_DATA (TYPE, IDENTIFIER, REV_MAX, ATTR, REV_MIN, DATA_TYPE, LONG_DATA) VALUES"
+				+ " ('EHGroupAddress', 1, " + max + ", 'historyManual', 10, 1, NULL),"
+				+ " ('EHGroupAddress', 1, " + max + ", 'historyRetention', 10, 11, 172800),"
+				+ " ('EHGroupAddress', 2, " + max + ", 'historyManual', 11, 1, NULL),"
+				+ " ('EHGroupAddress', 2, " + max + ", 'historyRetention', 11, 11, 86400),"
+				+ " ('EHGroupAddress', 3, " + max + ", 'historyManual', 12, 1, NULL),"
+				+ " ('EHGroupAddress', 4, " + max + ", 'historyManual', 13, 2, NULL),"
+				+ " ('EHGroupAddress', 4, " + max + ", 'historyRetention', 13, 11, 3600),"
+				+ " ('GenericObject', 5, " + max + ", 'historyManual', 14, 1, NULL),"
+				+ " ('GenericObject', 5, " + max + ", 'historyRetention', 14, 11, 604800),"
+				+ " ('GenericObject', 100, " + max + ", 'retention', 10, 11, 2592000),"
+				+ " ('GenericObject', 101, 20, 'retention', 10, 11, 94608000),"
+				+ " ('GenericObject', 102, " + max + ", 'retention', 10, 11, 999999999)");
+			statement.execute("INSERT INTO HAS_STRUCTURE_CHILD VALUES"
+				+ " (1000, " + max + ", 10, 'EHGroupAddress', 1, 'GenericObject', 100, 500),"
+				+ " (1001, 20, 10, 'EHGroupAddress', 1, 'GenericObject', 101, 500),"
+				+ " (1002, " + max + ", 10, 'EHGroupAddress', 2, 'GenericObject', 102, 501)");
+			String script = Files.readString(new File(
+				"src/main/webapp/WEB-INF/kbase/migration/ehome/Issue_221_History_recording_scripts/stashReach.h2.sql")
+				.toPath(), StandardCharsets.UTF_8);
+			for (String sql : script.replaceAll("(?m)^--.*$", "").split(";")) {
+				if (!sql.isBlank()) {
+					statement.execute(sql);
+				}
+			}
+			List<String> rows = new ArrayList<>();
+			try (ResultSet result = statement.executeQuery("SELECT TYPE, IDENTIFIER, REV_MIN, DATA_TYPE, LONG_DATA"
+				+ " FROM FLEX_DATA WHERE ATTR = '" + RecordingMigration.REACH + "' ORDER BY TYPE, IDENTIFIER")) {
+				while (result.next()) {
+					rows.add(result.getString(1) + " " + result.getLong(2) + " " + result.getLong(3) + " "
+						+ result.getInt(4) + " " + result.getLong(5));
+				}
+			}
+			assertEquals(List.of("EHGroupAddress 1 10 11 2592000", "EHGroupAddress 2 11 11 86400",
+				"EHGroupAddress 3 12 11 0", "GenericObject 5 14 11 604800"), rows);
+		}
+	}
+
+	/**
+	 * The SQL of the migration of haumacher/ehome #73 (Issue_73_History_set_by_hand) on a table of the
+	 * layout of FLEX_DATA: every revision with a retention, or a spacing alone, is marked as set by hand.
+	 */
+	public void testMigration73Sql() throws Exception {
 		try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:issue73", "sa", "");
 				Statement statement = connection.createStatement()) {
 			statement.execute("CREATE TABLE FLEX_DATA (TYPE VARCHAR(70) NOT NULL, IDENTIFIER BIGINT NOT NULL,"
@@ -372,595 +531,35 @@ public class TestHistoryConfig extends BasicTestCase {
 		}
 	}
 
-	/**
-	 * Acceptance 5: the derived histories exceeding the budget are refused at <code>history</code>, naming
-	 * the biggest; the bytes are those of the device (homecontrol #56): 2 days raw at 5 min (577
-	 * samples), 31 days hourly (745 slots) and 2 years daily (731 slots) take 4616 + 96 + 96 = 4808 bytes
-	 * of RAM and 6 + 6 segments, 49152 bytes, of flash. Derived histories beyond the device's flash or the
-	 * project's budget are made coarser until they fit, and the usage text names them.
-	 */
-	public void testBudget() throws Exception {
-		History fixture = new History(172800, 300, List.of(new Archive(3600, 31 * 86400), new Archive(86400, 730 * 86400)));
-		assertEquals(577, fixture.samples());
-		assertEquals(745, fixture.archives().get(0).slots());
-		assertEquals(731, fixture.archives().get(1).slots());
-		assertEquals(4808, fixture.ramBytes());
-		assertEquals(49152, fixture.flashBytes());
-
-		// The image's check counts the same.
-		String datapoint = """
-			{"id": "1/3/1", "type": "real", "history": %s, "knx": {"dpt": "9.001", "listen": ["1/3/1"]}}
-			""".formatted(Json.write(fixture.json()));
-		assertTrue(ImageValidator.validate(image(datapoint, 4808)).isValid());
-		ImageReport refused = ImageValidator.validate(image(datapoint, 4807));
-		assertRefused(refused, "history", "the rings and archives need 4808 bytes of RAM, the image's budget is 4807");
-		assertRefused(refused, "history", "'1/3/1' (4808 bytes)");
-		assertEquals(1, refused.getRefusals().size());
-
-		// The derived histories of a project against its budget and the device's flash: two year charts
-		// need 18 segments of the 16, and 2424 bytes of RAM of the budget of 2000. The derivation makes
-		// them fit: first the flash (the hourly archive of 1/3/1 at 2 h, 6 segments: 15), then the RAM, the
-		// biggest first, on a tie the smaller id: the raw ring of 1/3/1, then of 1/3/2, every 30 min
-		// instead of 15 (49 samples, 584 bytes; the day's bucket is 30 min): 1656 bytes.
-		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
-		chart("hour", List.of(), null, _window);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_project.setHistoryBudget(Integer.valueOf(2000));
-			tx.commit();
-		}
-		assertEquals(new History(86400, 1800, List.of(new Archive(7200, 30 * 86400), new Archive(86400, 365 * 86400))),
-			HistoryConfig.derived(_temperature));
-		assertEquals(new History(86400, 1800, List.of(new Archive(3600, 30 * 86400), new Archive(86400, 365 * 86400))),
-			HistoryConfig.derived(_humidity));
-		assertEquals(new History(3600, 60, List.of()), HistoryConfig.derived(_window));
-		assertEquals(List.of(_temperature, _humidity), List.copyOf(HistoryConfig.projectHistories(_project).coarsened()));
-		assertEquals(List.of(_humidity, _temperature, _window), HistoryConfig.datapoints(_project));
-		assertEquals(584 + 584 + 488, HistoryConfig.totalRamBytes(_project));
-		assertEquals((6 + 9) * 4096, HistoryConfig.totalFlashBytes(_project));
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		assertTrue(image.validate().toString(), image.validate().isValid());
-		assertAnswered();
-		Resources resources = Resources.getInstance();
-		String temperature = Pages.targetLabel(_temperature);
-		String humidity = Pages.targetLabel(_humidity);
-		assertEquals(
-			resources.getString(I18NConstants.HISTORY_USAGE_RAM__BYTES_BUDGET_CAP.fill(Long.valueOf(1656),
-				Long.valueOf(2000), Integer.valueOf(65536)))
-				+ " " + resources.getString(I18NConstants.HISTORY_USAGE_FLASH__BYTES_CAP.fill(Long.valueOf(61440),
-					Integer.valueOf(65536)))
-				+ " " + resources.getString(I18NConstants.HISTORY_USAGE_COARSENED__DATAPOINTS.fill(temperature + ", " + humidity)),
-			HistoryConfig.usage(_project));
-		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).contains("Temperatur (1/3/1)"));
-		TLObject yearChart = HistoryConfig.charts(_project).get(0);
-		assertEquals(584 + 584, HistoryConfig.chartRamBytes(yearChart));
-		assertEquals(61440, HistoryConfig.chartFlashBytes(yearChart));
-
-		// Within the budget and the caps: one datapoint with a year chart.
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_project.setHistoryBudget(null);
-			tx.commit();
-		}
-		chartless(_humidity);
-		assertTrue(RuntimeImage.build(_project, 1, NOW).validate().toString(),
-			RuntimeImage.build(_project, 1, NOW).validate().isValid());
-		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
-			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));
-		assertEquals(Set.of(), HistoryConfig.projectHistories(_project).coarsened());
-		assertEquals(
-			resources.getString(I18NConstants.HISTORY_USAGE_RAM__BYTES_CAP.fill(Long.valueOf(968 + 488), Integer.valueOf(65536)))
-				+ " " + resources.getString(I18NConstants.HISTORY_USAGE_FLASH__BYTES_CAP.fill(Long.valueOf(36864),
-					Integer.valueOf(65536))),
-			HistoryConfig.usage(_project));
-	}
-
-	/**
-	 * The derived histories of the image are made to fit the device's flash (16 segments of 4 KB) by
-	 * giving up resolution within the bucket widths of the ranges, never coverage. A year chart of a
-	 * temperature takes 9 segments: an hourly archive of 30 days (6) answering the week (bucket 3.5 h)
-	 * and the month (15 h), and a daily one of a year (3) answering the year (7.6 d). Each step takes the
-	 * finest coarser step that needs less flash, the datapoint with the most flash first (on a tie the
-	 * smallest id), the finest archive first: the hourly archive at 2 h (361 slots, 3 segments), at 3 h
-	 * (241, 2), no further (the week's bucket is 3.5 h); then the daily archive at 2 d (184 slots, 2) and
-	 * at 7 d (54, 1). A year chart needs at least 3 segments: five fit, six are refused.
-	 */
-	public void testImageWide() throws Exception {
-		History s0 = yearHistory(3600, 86400);
-		History s1 = yearHistory(7200, 86400);
-		History s2 = yearHistory(10800, 86400);
-		History s3 = yearHistory(10800, 2 * 86400);
-		History s4 = yearHistory(10800, 7 * 86400);
-		assertEquals(List.of(Long.valueOf(9), Long.valueOf(6), Long.valueOf(5), Long.valueOf(4), Long.valueOf(3)),
-			List.of(s0, s1, s2, s3, s4).stream().map(h -> Long.valueOf(h.flashBytes() / 4096)).toList());
-		for (History history : List.of(s0, s1, s2, s3, s4)) {
-			assertEquals(968, history.ramBytes());
-		}
-
-		// Two: 18 segments; 1/3/1 at s1: 6 + 9 = 15.
-		TLObject chart = chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
-		assertEquals(s1, HistoryConfig.derived(_temperature));
-		assertEquals(s0, HistoryConfig.derived(_humidity));
-		assertEquals(15 * 4096, HistoryConfig.totalFlashBytes(_project));
-		assertValid();
-		assertAnswered();
-
-		// Three: 27 segments; 1/3/1 and 1/3/2 at s2, 1/3/3 at s1: 5 + 5 + 6 = 16.
-		addSeries(chart, _meter);
-		assertEquals(s2, HistoryConfig.derived(_temperature));
-		assertEquals(s2, HistoryConfig.derived(_humidity));
-		assertEquals(s1, HistoryConfig.derived(_meter));
-		assertEquals(16 * 4096, HistoryConfig.totalFlashBytes(_project));
-		assertValid();
-		assertAnswered();
-
-		// Five: 45 segments; four at s4, 1/3/6 at s3: 4 * 3 + 4 = 16.
-		List<TLObject> more = new ArrayList<>();
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(_project.getGroupAddresses());
-			for (int sub = 5; sub <= 7; sub++) {
-				GroupAddress address = address("Temperatur " + sub, 1, 3, sub, _real);
-				more.add(address);
-				addresses.add(address);
-			}
-			_project.setGroupAddresses(addresses);
-			tx.commit();
-		}
-		addSeries(chart, more.get(0), more.get(1));
-		for (TLObject datapoint : List.of(_temperature, _humidity, _meter, more.get(0))) {
-			assertEquals(s4, HistoryConfig.derived(datapoint));
-		}
-		assertEquals(s3, HistoryConfig.derived(more.get(1)));
-		assertEquals(65536, HistoryConfig.totalFlashBytes(_project));
-		assertEquals(5 * 968, HistoryConfig.totalRamBytes(_project));
-		RuntimeImage image = assertValid();
-		assertAnswered();
-		assertEquals(Json.write(Json.parse("""
-			{"retention": 86400, "spacing": 900, "archives": [
-			  {"resolution": 10800, "retention": 2592000}, {"resolution": 604800, "retention": 31536000}]}
-			""", 10)), Json.write(history(image, "1/3/1")));
-		assertEquals(Json.write(Json.parse("""
-			{"retention": 86400, "spacing": 900, "archives": [
-			  {"resolution": 10800, "retention": 2592000}, {"resolution": 172800, "retention": 31536000}]}
-			""", 10)), Json.write(history(image, "1/3/6")));
-		assertEquals(List.of(_temperature, _humidity, _meter, more.get(0), more.get(1)),
-			List.copyOf(HistoryConfig.projectHistories(_project).coarsened()));
-		// Deterministic: the same project gives the same image.
-		assertEquals(Json.write(image.getJson().get("datapoints")),
-			Json.write(RuntimeImage.build(_project, 1, NOW).getJson().get("datapoints")));
-
-		// Six: all at s4 are 18 segments, and nothing can be coarser without a range losing its store:
-		// refused, and every range is still answered.
-		addSeries(chart, more.get(2));
-		for (TLObject datapoint : List.of(_temperature, _humidity, _meter, more.get(0), more.get(1), more.get(2))) {
-			assertEquals(s4, HistoryConfig.derived(datapoint));
-		}
-		ImageReport report = RuntimeImage.build(_project, 1, NOW).validate();
-		assertEquals(report.toString(), 1, report.getRefusals().size());
-		assertRefused(report, "history", "the archives need 73728 bytes of flash, the device allows at most 65536; "
-			+ "the biggest: '1/3/1' (12288 bytes), '1/3/2' (12288 bytes), '1/3/3' (12288 bytes)");
-		assertAnswered();
-		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).contains(
-			Resources.getInstance().getString(I18NConstants.HISTORY_USAGE_FLASH_EXCEEDED__BYTES_CAP_BIGGEST.fill(
-				Long.valueOf(73728), Integer.valueOf(65536), Pages.targetLabel(_temperature) + ": 12288 B, "
-					+ Pages.targetLabel(_humidity) + ": 12288 B, " + Pages.targetLabel(_meter) + ": 12288 B"))));
-	}
-
-	/** The history of a year chart (the day in the raw ring) with the given resolutions of its archives. */
-	private static History yearHistory(long month, long year) {
-		return new History(86400, 900, List.of(new Archive(month, 30 * 86400), new Archive(year, 365 * 86400)));
-	}
-
-	/**
-	 * Every range of every chart of the project is answered as the device chooses the store (runtime
-	 * image 3.9, "Which history answers"): of the stores whose resolution is at most the range's bucket
-	 * width, the finest that reaches back over the range, else the one that reaches furthest; the raw
-	 * ring where no archive is fine enough. The store chosen must be fine enough and reach back.
-	 */
-	private void assertAnswered() {
-		for (Map.Entry<TLObject, List<Pages.ChartUse>> entry : Pages.chartUses(_project).entrySet()) {
-			History history = HistoryConfig.effective(entry.getKey());
-			assertNotNull(history);
-			for (Pages.ChartUse use : entry.getValue()) {
-				assertNotSame("Lines only.", classifier("ChartConsolidation", "consumption"),
-					((ChartSeries) use.series()).getConsolidation());
-				for (Long range : use.ranges()) {
-					long bucket = range.longValue() / HistoryConfig.LINE_POINTS;
-					long[] ring = { history.spacing(), history.retention() };
-					List<long[]> fine = new ArrayList<>();
-					boolean fineArchive = false;
-					if (ring[0] <= bucket) {
-						fine.add(ring);
-					}
-					for (Archive archive : history.archives()) {
-						if (archive.resolution() <= bucket) {
-							fine.add(new long[] { archive.resolution(), archive.retention() });
-							fineArchive = true;
-						}
-					}
-					long[] chosen;
-					if (!fineArchive) {
-						chosen = ring;
-					} else {
-						fine.sort(java.util.Comparator.comparingLong(store -> store[0]));
-						chosen = null;
-						for (long[] store : fine) {
-							if (store[1] >= range.longValue()) {
-								chosen = store;
-								break;
-							}
-						}
-						if (chosen == null) {
-							chosen = fine.stream().max(java.util.Comparator.comparingLong(store -> store[1])).get();
-						}
-					}
-					String what = Pages.targetLabel(entry.getKey()) + " over " + range + " s: " + history;
-					assertTrue("Fine enough: " + what, chosen[0] <= bucket);
-					assertTrue("Reaches back: " + what, chosen[1] >= range.longValue());
-				}
-			}
-		}
-	}
-
-	/**
-	 * A history set by hand is never made coarser: when it alone needs more flash than the device allows
-	 * (an archive of 30 min for 40 days, 1921 slots in 16 segments, and an hourly one of 60 days, 1441
-	 * slots in 12), the derived histories stay as their charts ask, and the image's check refuses the
-	 * image at <code>history</code>.
-	 */
-	public void testManualExceeds() throws Exception {
-		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_humidity.setHistoryManual(true);
-			_humidity.setHistoryRetention(Integer.valueOf(86400));
-			_humidity.setHistorySpacing(Integer.valueOf(900));
-			TLClass type = (TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive");
-			List<HistoryArchive> archives = new ArrayList<>();
-			for (int[] archive : new int[][] { { 1800, 40 * 86400 }, { 3600, 60 * 86400 } }) {
-				HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory().createObject(type);
-				part.setResolution(archive[0]);
-				part.setRetention(archive[1]);
-				archives.add(part);
-			}
-			_humidity.setHistoryArchives(archives);
-			tx.commit();
-		}
-		History manual = HistoryConfig.effective(_humidity);
-		assertEquals(28 * 4096, manual.flashBytes());
-		History year = new History(86400, 900, List.of(new Archive(3600, 30 * 86400), new Archive(86400, 365 * 86400)));
-		assertEquals(year, HistoryConfig.derived(_temperature));
-		assertEquals(Set.of(), HistoryConfig.projectHistories(_project).coarsened());
-		ImageReport report = RuntimeImage.build(_project, 1, NOW).validate();
-		assertEquals(report.toString(), 1, report.getRefusals().size());
-		assertRefused(report, "history", "the archives need 151552 bytes of flash, the device allows at most 65536; "
-			+ "the biggest: '1/3/2' (114688 bytes), '1/3/1' (36864 bytes)");
-		Resources resources = Resources.getInstance();
-		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).endsWith(
-			resources.getString(I18NConstants.HISTORY_USAGE_FLASH_EXCEEDED__BYTES_CAP_BIGGEST.fill(Long.valueOf(151552),
-				Integer.valueOf(65536), Pages.targetLabel(_humidity) + ": 114688 B, " + Pages.targetLabel(_temperature)
-					+ ": 36864 B"))));
-	}
-
-	/**
-	 * Probe (review of #56): consumption bars (a meter, an application counter) and year lines (two
-	 * temperatures) beside a history set by hand (a window, an hourly archive of 31 days: 6 segments).
-	 * The hand-set history stays as it is; the derived ones are made coarser until the image fits; and
-	 * every range of every derived history is answered as the device chooses its store, with the bucket
-	 * widths of the device written out here (a line: range / 48; bars: 1 h of 5 min, 24 h of 1 h, 7 d and
-	 * 30 d of 1 d, 1 y of a twelfth).
-	 */
-	public void testProbeBarsBesideManual() throws Exception {
-		chart("day", List.of("day", "week", "month", "year"), "consumption", _meter, _counter);
-		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
-		chart("week", List.of(), "mean", _window);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_window.setHistoryManual(true);
-			_window.setHistoryRetention(Integer.valueOf(86400));
-			_window.setHistorySpacing(Integer.valueOf(900));
-			TLClass type = (TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive");
-			HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory().createObject(type);
-			part.setResolution(3600);
-			part.setRetention(31 * 86400);
-			_window.setHistoryArchives(List.of(part));
-			tx.commit();
-		}
-		History manual = new History(86400, 900, List.of(new Archive(3600, 31 * 86400)));
-		assertEquals(manual, HistoryConfig.effective(_window));
-		assertEquals(6 * 4096, manual.flashBytes());
-
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		ImageReport report = image.validate();
-		assertTrue(report.toString(), report.isValid());
-		assertTrue(HistoryConfig.totalFlashBytes(_project) <= ImageValidator.ARCHIVE_CAP);
-		assertEquals(manual, HistoryConfig.effective(_window));
-		assertFalse(HistoryConfig.projectHistories(_project).coarsened().contains(_window));
-
-		java.util.Map<Long, Long> barWidth = java.util.Map.of(
-			Long.valueOf(3600), Long.valueOf(300), Long.valueOf(86400), Long.valueOf(3600),
-			Long.valueOf(7 * 86400), Long.valueOf(86400), Long.valueOf(30 * 86400), Long.valueOf(86400),
-			Long.valueOf(365 * 86400), Long.valueOf(365 * 86400 / 12));
-		Object consumption = classifier("ChartConsolidation", "consumption");
-		for (Map.Entry<TLObject, List<Pages.ChartUse>> entry : Pages.chartUses(_project).entrySet()) {
-			if (entry.getKey() == _window) {
-				continue;
-			}
-			History history = HistoryConfig.effective(entry.getKey());
-			for (Pages.ChartUse use : entry.getValue()) {
-				boolean bars = ((ChartSeries) use.series()).getConsolidation() == consumption;
-				for (Long range : use.ranges()) {
-					long bucket = bars ? barWidth.get(range).longValue() : range.longValue() / 48;
-					// The device: of the stores fine enough, the finest reaching back, else the furthest; the raw
-					// ring where no archive is fine enough.
-					long[] ring = { history.spacing(), history.retention() };
-					List<long[]> fine = new ArrayList<>();
-					for (Archive archive : history.archives()) {
-						if (archive.resolution() <= bucket) {
-							fine.add(new long[] { archive.resolution(), archive.retention() });
-						}
-					}
-					long[] answer = ring;
-					if (!fine.isEmpty()) {
-						if (ring[0] <= bucket) {
-							fine.add(ring);
-						}
-						fine.sort(java.util.Comparator.comparingLong(store -> store[0]));
-						answer = fine.stream().filter(store -> store[1] >= range.longValue()).findFirst()
-							.orElseGet(() -> fine.stream().max(java.util.Comparator.comparingLong(store -> store[1])).get());
-					}
-					String what = Pages.targetLabel(entry.getKey()) + (bars ? " bars" : " line") + " over " + range
-						+ " s (bucket " + bucket + "): " + history;
-					assertTrue("Fine enough: " + what, answer[0] <= bucket);
-					assertTrue("Reaches back: " + what, answer[1] >= range.longValue());
-				}
-			}
-		}
-	}
-
-	/**
-	 * The exact histories of the probe's project (testProbeBarsBesideManual): the hand-set window takes 6
-	 * segments, the year lines of 1/3/1 and 1/3/2 go to s4 (3 segments each, as in testImageWide), and the
-	 * daily archive of the consumption bars (395 d, 397 slots, 4 segments), which the month bars (bucket
-	 * 1 d, 31 d) and the year bars (bucket 30.4 d, 395 d) share, is split: daily for 31 d (32 slots, 1
-	 * segment) and weekly for the 395 d (58 slots, 1 segment). 6 + 3 + 3 + 2 + 2 = 16 segments.
-	 */
-	public void testSplit() throws Exception {
-		chart("day", List.of("day", "week", "month", "year"), "consumption", _meter, _counter);
-		chart("day", List.of("day", "week", "month", "year"), "mean", _temperature, _humidity);
-		History bars = new History(25 * 3600, 3600, List.of(new Archive(86400, 13 * 2628000L)));
-		assertEquals(bars, HistoryConfig.derived(_meter));
-		assertEquals(397, bars.archives().get(0).slots());
-		assertEquals(4 * 4096, bars.flashBytes());
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_window.setHistoryManual(true);
-			_window.setHistoryRetention(Integer.valueOf(86400));
-			_window.setHistorySpacing(Integer.valueOf(900));
-			HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory()
-				.createObject((TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive"));
-			part.setResolution(3600);
-			part.setRetention(31 * 86400);
-			_window.setHistoryArchives(List.of(part));
-			tx.commit();
-		}
-		History split =
-			new History(25 * 3600, 3600, List.of(new Archive(86400, 31 * 86400), new Archive(7 * 86400, 13 * 2628000L)));
-		assertEquals(List.of(Long.valueOf(32), Long.valueOf(58)),
-			split.archives().stream().map(a -> Long.valueOf(a.slots())).toList());
-		assertEquals(split, HistoryConfig.derived(_meter));
-		assertEquals(split, HistoryConfig.derived(_counter));
-		History s4 = new History(86400, 900, List.of(new Archive(10800, 30 * 86400), new Archive(7 * 86400, 365 * 86400)));
-		assertEquals(s4, HistoryConfig.derived(_temperature));
-		assertEquals(s4, HistoryConfig.derived(_humidity));
-		assertEquals(65536, HistoryConfig.totalFlashBytes(_project));
-		assertValid();
-	}
-
-	/**
-	 * The example of the runtime image's specification (3.7, homecontrol
-	 * <code>accept-history-archives.json</code>): a temperature with a ring of 2 days at 300 s, an hourly
-	 * archive of 31 days and a daily one of 2 years, and a boolean with a ring of a day at 900 s and a
-	 * daily archive of a year need a budget of 5680 bytes of RAM and 61 440 bytes of flash; the image's
-	 * check accepts exactly these budgets and refuses one byte less, a budget above the caps, and two
-	 * archives of the same resolution.
-	 */
-	public void testSpecExample() {
-		History temperature =
-			new History(172800, 300, List.of(new Archive(3600, 31 * 86400), new Archive(86400, 730 * 86400)));
-		History heating = new History(86400, 900, List.of(new Archive(86400, 365 * 86400)));
-		assertEquals(577, temperature.samples());
-		assertEquals(97, heating.samples());
-		assertEquals(List.of(Long.valueOf(745), Long.valueOf(731)),
-			temperature.archives().stream().map(a -> Long.valueOf(a.slots())).toList());
-		assertEquals(List.of(Long.valueOf(6), Long.valueOf(6)),
-			temperature.archives().stream().map(a -> Long.valueOf(a.segments())).toList());
-		assertEquals(366, heating.archives().get(0).slots());
-		assertEquals(3, heating.archives().get(0).segments());
-		assertEquals(577 * 8 + 96 + 96, temperature.ramBytes());
-		assertEquals(97 * 8 + 96, heating.ramBytes());
-		assertEquals(5680, temperature.ramBytes() + heating.ramBytes());
-		assertEquals(61440, temperature.flashBytes() + heating.flashBytes());
-
-		// The RAM of an archive: the open slot and an hour of closed slots.
-		assertEquals((60 + 2) * 32, ImageValidator.archiveRamBytes(60));
-		assertEquals((12 + 2) * 32, ImageValidator.archiveRamBytes(300));
-		assertEquals((4 + 2) * 32, ImageValidator.archiveRamBytes(900));
-		assertEquals((2 + 2) * 32, ImageValidator.archiveRamBytes(1800));
-		assertEquals(96, ImageValidator.archiveRamBytes(3600));
-		assertEquals(96, ImageValidator.archiveRamBytes(7200));
-		// The flash: a segment per 127 slots.
-		assertEquals(4096, ImageValidator.archiveFlashBytes(126 * 3600, 3600));
-		assertEquals(8192, ImageValidator.archiveFlashBytes(127 * 3600, 3600));
-		assertEquals(17 * 4096, ImageValidator.archiveFlashBytes(2047 * 60, 60));
-
-		String datapoints = """
-			{"id": "t", "type": "real", "history": %s}, {"id": "heating", "type": "boolean", "history": %s}
-			""".formatted(Json.write(temperature.json()), Json.write(heating.json()));
-		assertTrue(ImageValidator.validate(image(datapoints, "\"budget\": 5680, \"archiveBudget\": 61440")).isValid());
-		// Without budgets: what they need.
-		assertTrue(ImageValidator.validate(image(datapoints, null)).isValid());
-		ImageReport ram = ImageValidator.validate(image(datapoints, "\"budget\": 5679, \"archiveBudget\": 61440"));
-		assertEquals(ram.toString(), 1, ram.getRefusals().size());
-		assertRefused(ram, "history", "the rings and archives need 5680 bytes of RAM, the image's budget is 5679");
-		ImageReport flash = ImageValidator.validate(image(datapoints, "\"archiveBudget\": 61439"));
-		assertEquals(flash.toString(), 1, flash.getRefusals().size());
-		assertRefused(flash, "history", "the archives need 61440 bytes of flash, the image's archive budget is 61439; "
-			+ "the biggest: 't' (49152 bytes), 'heating' (12288 bytes)");
-		ImageReport cap = ImageValidator.validate(image(datapoints, "\"archiveBudget\": 65537"));
-		assertEquals(cap.toString(), 1, cap.getRefusals().size());
-		assertRefused(cap, "history.archiveBudget", "the image asks for 65537 bytes of archive flash, the device allows at most 65536");
-		assertTrue(ImageValidator.validate(image(datapoints, "\"archiveBudget\": 65536")).isValid());
-		ImageReport ramCap = ImageValidator.validate(image(datapoints, "\"budget\": 65537"));
-		assertRefused(ramCap, "history.budget", "the image asks for 65537 bytes of history RAM, the device allows at most 65536");
-
-		// Two archives of one resolution.
-		ImageReport twice = ImageValidator.validate(image("""
-			{"id": "t", "type": "real", "history": {"retention": 86400, "spacing": 300, "archives": [
-			  {"resolution": 3600, "retention": 86400}, {"resolution": 3600, "retention": 172800}]}}
-			""", null));
-		assertEquals(twice.toString(), 1, twice.getRefusals().size());
-		assertRefused(twice, "datapoints[0].history.archives[1].resolution", "two archives of the resolution 3600 s");
-	}
-
-	/**
-	 * A history whose naive archives need more flash than the device allows (an hourly archive of 45 days,
-	 * 1081 slots in 9 segments, and a daily one of 5 years, 1826 slots in 15: 98 304 bytes) is made coarser
-	 * within the bucket widths of its ranges (45 d: 22.5 h, 5 years: 38 d), each step giving up the least
-	 * resolution, on a tie saving the most: the daily archive at 2 d (914 slots, 8 segments; a factor of
-	 * 2 like the hourly one at 2 h, but saving 7 segments instead of 4), then the hourly one at 2 h (541
-	 * slots, 5 segments; a factor of 2 against 3.5 for the 2 d one at 7 d): 13 segments, and both ranges
-	 * are still answered.
-	 */
-	public void testFlashCap() {
-		long years = 1825L * 86400;
-		HistoryConfig.Need month = new HistoryConfig.Need(3600, 45 * 86400, 45 * 86400 / 48);
-		HistoryConfig.Need decade = new HistoryConfig.Need(86400, years, years / 48);
-		History naive = new History(86400, 3600, List.of(new Archive(3600, 45 * 86400), new Archive(86400, years)));
-		assertEquals(24 * 4096, naive.flashBytes());
-		assertFalse(naive.fits());
-		History derived = HistoryConfig.derive(List.of(month, decade), false);
-		assertEquals(new History(7200, 3600, List.of(new Archive(7200, 45 * 86400), new Archive(2 * 86400, years))), derived);
-		assertEquals(13 * 4096, derived.flashBytes());
-		assertEquals(3 * 8 + 96 + 96, derived.ramBytes());
-		assertTrue(derived.fits());
-		assertTrue(month.answeredBy(derived));
-		assertTrue(decade.answeredBy(derived));
-
-		// With the raw ring of a chart's day: the ring stays, the archives give up resolution only.
-		History withRaw = HistoryConfig.derive(List.of(new HistoryConfig.Need(900, 86400, 1800), month, decade), false);
-		assertEquals(new History(86400, 900, List.of(new Archive(7200, 45 * 86400), new Archive(2 * 86400, years))), withRaw);
-		// Needs whose bucket width is their resolution allow nothing coarser: the history stays beyond the
-		// flash (the image's check refuses it).
-		History bound = HistoryConfig.derive(
-			List.of(new HistoryConfig.Need(3600, 45 * 86400), new HistoryConfig.Need(86400, years)), false);
-		assertEquals(new History(3600, 900, List.of(new Archive(3600, 45 * 86400), new Archive(86400, years))), bound);
-		assertFalse(bound.fits());
-		// Within the cap, nothing is coarsened: 9 + 5 segments.
-		assertEquals(List.of(new Archive(3600, 45 * 86400), new Archive(86400, 600L * 86400)),
-			HistoryConfig.derive(List.of(month, new HistoryConfig.Need(86400, 600L * 86400, 600L * 86400 / 48)), false)
-				.archives());
-	}
-
-	/**
-	 * The refusals of the archives by the image's check (homecontrol #56): at most four, a resolution
-	 * of 60 s to 31 days coarser than the raw spacing, a retention of at least the resolution and at
-	 * most 10 years, at most 2048 slots, both members present.
-	 */
-	public void testArchiveRefusals() {
-		String history = """
-			{"retention": 86400, "spacing": 300, "archives": [
-			  {"resolution": 30, "retention": 86400},
-			  {"resolution": 300, "retention": 86400},
-			  {"resolution": 3600, "retention": 1800},
-			  {"resolution": 86400, "retention": 400000000}]}
-			""";
-		String datapoints = """
-			{"id": "1/3/1", "type": "real", "history": %s, "knx": {"dpt": "9.001", "listen": ["1/3/1"]}},
-			{"id": "1/3/2", "type": "real", "history": {"retention": 86400, "spacing": 300, "archives": [
-			  {"resolution": 900, "retention": 86400}, {"resolution": 3600, "retention": 86400},
-			  {"resolution": 7200, "retention": 86400}, {"resolution": 86400, "retention": 86400},
-			  {"resolution": 172800, "retention": 172800}]}, "knx": {"dpt": "9.001", "listen": ["1/3/2"]}},
-			{"id": "1/3/3", "type": "real", "history": {"retention": 3600, "spacing": 60, "archives": [
-			  {"resolution": 600, "retention": 2000000}]}, "knx": {"dpt": "9.001", "listen": ["1/3/3"]}},
-			{"id": "1/3/4", "type": "real", "history": {"retention": 3600, "spacing": 60, "archives": {}},
-			 "knx": {"dpt": "9.001", "listen": ["1/3/4"]}},
-			{"id": "1/3/5", "type": "real", "history": {"retention": 3600, "spacing": 60, "archives": [{"resolution": 3600}]},
-			 "knx": {"dpt": "9.001", "listen": ["1/3/5"]}}
-			""".formatted(history);
-		ImageReport report = ImageValidator.validate(image(datapoints, 65536));
-		String archives = "datapoints[0].history.archives";
-		assertRefused(report, archives + "[0].resolution", "resolution (seconds)");
-		assertRefused(report, archives + "[1].resolution", "the resolution must be larger than the raw spacing (300 s)");
-		assertRefused(report, archives + "[2].retention", "retention (seconds, at least the resolution, at most 10 years)");
-		assertRefused(report, archives + "[3].retention", "at most 10 years");
-		assertRefused(report, "datapoints[4].history.archives[0]", "an archive needs resolution and retention");
-		assertRefused(report, "datapoints[1].history.archives", "more than 4 archives");
-		assertRefused(report, "datapoints[2].history.archives[0]", "more than 2048 slots");
-		assertRefused(report, "datapoints[3].history.archives", "archives");
-		// A refused history is no history: the chart of it would be refused, too.
-		assertTrue(ImageValidator.validate(image("""
-			{"id": "1/3/1", "type": "real", "history": {"retention": 86400, "spacing": 300, "archives": [
-			  {"resolution": 2678400, "retention": 315360000}]}, "knx": {"dpt": "9.001", "listen": ["1/3/1"]}}
-			""", 65536)).isValid());
-	}
-
-	/**
-	 * Probe of the review: a truth value a function shows and an hour chart draws keeps the function's
-	 * 24 h at the chart's minute; set by hand without a chart it has no history (and no refusal); deleting
-	 * a datapoint with archives set by hand deletes the archives and the chart's series of it, and the
-	 * image stays valid.
-	 */
-	public void testProbeComposition() throws Exception {
-		chart("hour", List.of(), null, _window);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			Function contact = (Function) create("ehome.runtime:Function");
-			contact.setNameKey(ResKey.builder().add(Locale.GERMAN, "Fenster").build());
-			contact.setIdentifier("window");
-			contact.setKind(FunctionProposal.classifier("sensor"));
-			contact.setValue(_window);
-			_project.setFunctions(List.of(contact));
-			tx.commit();
-		}
-		assertEquals(new History(86400, 60, List.of()), HistoryConfig.derived(_window));
-		assertEquals(1441 * 8, HistoryConfig.ramBytes(_window));
-		assertEquals(0, HistoryConfig.flashBytes(_window));
-
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			HistoryConfig.setManual(_humidity);
-			tx.commit();
-		}
-		assertTrue(HistoryConfig.isManual(_humidity));
-		assertNull(HistoryConfig.effective(_humidity));
-		assertNull(HistoryConfig.archivesProblem(_humidity));
-
-		chart("day", List.of("day", "year"), null, _temperature, _humidity);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			HistoryConfig.setManual(_temperature);
-			tx.commit();
-		}
-		List<TLObject> archives = HistoryConfig.manualArchives(_temperature);
-		assertFalse(archives.isEmpty());
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_humidity.setHistoryManual(false);
-			_temperature.tDelete();
-			tx.commit();
-		}
-		for (TLObject archive : archives) {
-			assertFalse(archive.tValid());
-		}
-		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
-		assertTrue(image.validate().toString(), image.validate().isValid());
-		assertNotNull(history(image, "1/3/2"));
-	}
-
 	// ---- helpers -------------------------------------------------------------------------------
 
-	private static String image(String datapoints, int budget) {
-		return image(datapoints, "\"budget\": " + budget);
+	private static void assertStores(Level level, boolean meter, History expected, long values, long ram, long flash) {
+		History history = HistoryConfig.stores(level, meter);
+		assertEquals(level.name(), expected, history);
+		assertEquals(level.name(), values, history.values());
+		assertEquals(level.name(), ram, history.ramBytes());
+		assertEquals(level.name(), flash, history.flashBytes());
 	}
 
-	/** An image of the datapoints and the members of <code>history</code>; without it for <code>null</code>. */
-	private static String image(String datapoints, String history) {
-		return """
-			{"image": {"schemaVersion": "1.2", "projectId": "history", "revision": 1},
-			 "datapoints": [%s]%s}
-			""".formatted(datapoints, history == null ? "" : ",\n \"history\": {" + history + "}");
+	/** Sets the recording of the datapoint, in a transaction of its own. */
+	private static void record(TLObject datapoint, Level level) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			set(datapoint, level);
+			tx.commit();
+		}
+	}
+
+	private static void set(TLObject datapoint, Level level) {
+		TLClassifier value = level == null ? null : HistoryConfig.classifier(level);
+		if (datapoint instanceof GroupAddress address) {
+			address.setRecording(value);
+		} else {
+			((ApplicationDatapoint) datapoint).setRecording(value);
+		}
+	}
+
+	private static String schema(RuntimeImage image) {
+		return (String) ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion");
 	}
 
 	private static Object history(RuntimeImage image, String id) {
@@ -980,39 +579,19 @@ public class TestHistoryConfig extends BasicTestCase {
 		return image;
 	}
 
-	/** Adds a series per datapoint to the chart. */
-	private void addSeries(TLObject chart, TLObject... datapoints) {
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			Pages.insert(_project, chart, Pages.SERIES, List.of(datapoints));
-			tx.commit();
-		}
-	}
-
-	/** Deletes the series of the datapoint from every chart. */
-	private void chartless(TLObject datapoint) {
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			for (TLObject chart : HistoryConfig.charts(_project)) {
-				for (TLObject series : RuleFunctions.objects(chart, "series")) {
-					if (((ChartSeries) series).getDatapoint() == datapoint) {
-						series.tDelete();
-					}
-				}
-			}
-			tx.commit();
-		}
-	}
-
 	/** A chart of the given range, presets and consolidation with a series per datapoint. */
 	private TLObject chart(String range, List<String> presets, String consolidation, TLObject... datapoints) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			ChartElement chart = (ChartElement) Pages.insert(_project, _section, Pages.CHART, null);
-			chart.setRange(classifier("ChartRange", range));
+			chart.setRange(range(range));
 			Set<TLClassifier> list = new LinkedHashSet<>();
 			for (String preset : presets) {
-				list.add(classifier("ChartRange", preset));
+				list.add(range(preset));
 			}
 			chart.setPresets(list);
-			Pages.insert(_project, chart, Pages.SERIES, List.of(datapoints));
+			if (datapoints.length > 0) {
+				Pages.insert(_project, chart, Pages.SERIES, List.of(datapoints));
+			}
 			if (consolidation != null) {
 				for (TLObject series : RuleFunctions.objects(chart, "series")) {
 					((ChartSeries) series).setConsolidation(classifier("ChartConsolidation", consolidation));
@@ -1021,6 +600,10 @@ public class TestHistoryConfig extends BasicTestCase {
 			tx.commit();
 			return chart;
 		}
+	}
+
+	private static TLClassifier range(String name) {
+		return classifier("ChartRange", name);
 	}
 
 	private static void assertRefused(ImageReport report, String path, String reason) {

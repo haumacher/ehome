@@ -475,6 +475,9 @@ public final class ImageDecoder {
 				Map<String, Object> h = new LinkedHashMap<>();
 				h.put("retention", Long.valueOf(l(ring, "retention")));
 				h.put("spacing", Long.valueOf(l(ring, "spacing")));
+				if ((i(ring, "flags") & Layout.HISTORY_METER) != 0) {
+					h.put("meter", Boolean.TRUE);
+				}
 				int first = i(ring, "firstArchive");
 				if (i(ring, "archiveCount") > 0) {
 					List<Object> list = new ArrayList<>();

@@ -46,6 +46,7 @@ import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
@@ -270,10 +271,8 @@ public class TestFunctionProposal extends BasicTestCase {
 				settings.setTimeMasterAtMidnight(Boolean.TRUE);
 				settings.setHistoryBudget(Integer.valueOf(16384));
 				temperature.setRuntimePersist(true);
-				// A history set by hand (haumacher/ehome #73).
-				temperature.setHistoryManual(true);
-				temperature.setHistoryRetention(Integer.valueOf(86400));
-				temperature.setHistorySpacing(Integer.valueOf(60));
+				// Recorded for 24 hours (haumacher/ehome #221).
+				temperature.setRecording(HistoryConfig.classifier(HistoryConfig.Level.DAY));
 				tx.commit();
 			}
 			assertEquals(List.of(time), List.of(RuntimeFunctions.groupAddresses(project).stream()
@@ -306,6 +305,12 @@ public class TestFunctionProposal extends BasicTestCase {
 			for (Object entry : (List<?>) before61.get("datapoints")) {
 				Map<Object, Object> datapoint = new LinkedHashMap<>((Map<?, ?>) entry);
 				String id = (String) datapoint.get("id");
+				if (id.equals("0/0/28")) {
+					// The 24 hours of the room temperature, at 1 min before, at 5 min since its recording
+					// (haumacher/ehome #221).
+					assertEquals(Map.of("retention", Long.valueOf(86400), "spacing", Long.valueOf(60)), datapoint.get("history"));
+					datapoint.put("history", HistoryConfig.stores(HistoryConfig.Level.DAY, false).json());
+				}
 				if (id.matches("0/0/(19|2[0-6])")) {
 					Map<Object, Object> rebuilt = new LinkedHashMap<>();
 					for (Map.Entry<Object, Object> member : datapoint.entrySet()) {
@@ -343,9 +348,13 @@ public class TestFunctionProposal extends BasicTestCase {
 			// The room temperature as the template has it.
 			Map<?, ?> expectedTemperature = TestRuntimeImage.datapoint((List<?>) template.get("datapoints"), "temperature");
 			Map<?, ?> actualTemperature = TestRuntimeImage.datapoint(datapoints, "0/0/28");
-			for (String member : List.of("type", "unit", "readOnStart", "persist", "history")) {
+			for (String member : List.of("type", "unit", "readOnStart", "persist")) {
 				assertEquals(member, expectedTemperature.get(member), actualTemperature.get(member));
 			}
+			// The template's 24 hours at 1 min, which E-Home records for 24 hours at 5 min (haumacher/ehome #221).
+			assertEquals(((Map<?, ?>) expectedTemperature.get("history")).get("retention"),
+				((Map<?, ?>) actualTemperature.get("history")).get("retention"));
+			assertEquals(HistoryConfig.stores(HistoryConfig.Level.DAY, false).json(), actualTemperature.get("history"));
 
 			// The functions as the template has them, by the datapoint ids of the export.
 			List<?> functions = (List<?>) json.get("functions");

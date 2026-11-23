@@ -104,6 +104,12 @@ Synced again at `4b729b1f059b187e7a0747fef4f0f53f78c7c78d` (2026-11-23, haumache
 cases `103-last-error-condition-resolved`, `104-last-error-reaction-site` and
 `105-last-error-silence-armed` and changed the rule corpus `README.md`; the image and block fixtures did
 not change.
+Synced again at `5705c3cee3997c30463d63c4e4ebe0521c08d7d8` (2026-11-23, haumacher/homecontrol#115,
+haumacher/ehome #221: schema 1.10, binary format 1.3, the member `meter` of a datapoint's history and the
+chart ranges `6h` and `10y`), which added the image cases `images/cases/accept-history-meter.json` (its
+`.bin` is compared by `test.de.haumacher.ehome.runtime.binary.TestImageCorpus`) and
+`images/cases/refuse-history-meter.json` and changed `images/cases/refuse-ui-charts.json` (the ranges in
+the refusal of an unknown range); the rule and block fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

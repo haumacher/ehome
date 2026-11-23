@@ -51,10 +51,9 @@ src/main/java/de/haumacher/ehome/programming/download/ProgrammingFunctions.java 
 src/main/java/de/haumacher/ehome/programming/download/Snapshots.java = 31
 src/main/java/de/haumacher/ehome/project/ProjectMembers.java = 1
 src/main/java/de/haumacher/ehome/runtime/ApplicationDatapoints.java = 1
-src/main/java/de/haumacher/ehome/runtime/DatapointSettings.java = 14
+src/main/java/de/haumacher/ehome/runtime/DatapointSettings.java = 12
 src/main/java/de/haumacher/ehome/runtime/FunctionProposal.java = 13
 src/main/java/de/haumacher/ehome/runtime/GroupAddressIds.java = 1
-src/main/java/de/haumacher/ehome/runtime/HistoryConfig.java = 8
 src/main/java/de/haumacher/ehome/runtime/LabelLimit.java = 3
 src/main/java/de/haumacher/ehome/runtime/Pages.java = 3
 src/main/java/de/haumacher/ehome/runtime/Referers.java = 1

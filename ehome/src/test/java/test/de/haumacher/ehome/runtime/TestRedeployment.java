@@ -69,6 +69,7 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectOwners;
 import de.haumacher.ehome.runtime.Deployer;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
@@ -156,6 +157,7 @@ public class TestRedeployment extends BasicTestCase {
 				Pages.insert(project, section, Pages.DATAPOINT, List.of(temperature));
 				TLObject chart = Pages.insert(project, section, Pages.CHART, null);
 				Pages.insert(project, chart, Pages.SERIES, List.of(temperature));
+				temperature.setRecording(HistoryConfig.classifier(HistoryConfig.Level.DAY));
 				tx.commit();
 			}
 			Controller controller = (Controller) controller(NAME, _fake.getPort());

@@ -118,11 +118,10 @@
 							unit="%"
 						>
 							<!--
-								What the histories cost (haumacher/ehome #73, homecontrol #56): the datapoints with a
-								history in the image, the biggest first, and the charts with the bytes of the
-								histories of the datapoints they draw (a datapoint two charts draw counts in both),
-								each as RAM (the raw rings and the archives' open slots, against history.budget) and
-								flash (the archives' segments, against the device's archive cap). The totals against
+								What the histories cost (haumacher/ehome #73, #221, homecontrol #56): the datapoints with
+								a history in the image, the biggest first, each with the stores of its recording as RAM
+								(the raw rings and the archives' open slots, against history.budget) and flash (the
+								archives' segments, against the device's archive cap); a chart costs nothing of its own. The totals against
 								the budget and the caps are the field "History memory" above; exceeding them is
 								refused by the image's check, naming the biggest histories.
 							-->
@@ -132,7 +131,7 @@
 									<de>Verlaufsspeicher</de>
 								</title>
 								<table
-									observed-types="ehome.logical:GroupAddress,ehome.runtime:ApplicationDatapoint,ehome.logical:HistoryArchive,ehome.runtime:ChartElement,ehome.runtime:ChartSeries,ehome.project:Project"
+									observed-types="ehome.logical:GroupAddress,ehome.runtime:ApplicationDatapoint,ehome.project:Project"
 								>
 									<inputs>
 										<input channel="project"/>
@@ -176,52 +175,6 @@
 										</computed-column>
 									</columns>
 									<rows>runtimeHistoryDatapoints($project)</rows>
-								</table>
-								<table
-									observed-types="ehome.logical:GroupAddress,ehome.runtime:ApplicationDatapoint,ehome.logical:HistoryArchive,ehome.runtime:ChartElement,ehome.runtime:ChartSeries,ehome.project:Project"
-								>
-									<inputs>
-										<input channel="project"/>
-									</inputs>
-									<columns>
-										<computed-column name="chart"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Chart</en>
-												<de>Diagramm</de>
-											</label>
-											<value>pageLabel($row)</value>
-										</computed-column>
-										<computed-column name="page"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Page</en>
-												<de>Seite</de>
-											</label>
-											<value>pageLabel($row.container().container())</value>
-										</computed-column>
-										<computed-column name="ram"
-											type="tl.core:Long"
-										>
-											<label>
-												<en>RAM (bytes)</en>
-												<de>RAM (Bytes)</de>
-											</label>
-											<value>runtimeHistoryRam($row)</value>
-										</computed-column>
-										<computed-column name="flash"
-											type="tl.core:Long"
-										>
-											<label>
-												<en>Flash (bytes)</en>
-												<de>Flash (Bytes)</de>
-											</label>
-											<value>runtimeHistoryFlash($row)</value>
-										</computed-column>
-									</columns>
-									<rows>runtimeHistoryCharts($project)</rows>
 								</table>
 							</panel>
 						</pane>

@@ -16,24 +16,6 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	String APPLICATION_DATAPOINT_TYPE = "ApplicationDatapoint";
 
 	/**
-	 * Part <code>historyArchives</code> of <code>ApplicationDatapoint</code>
-	 * 
-	 * <p>
-	 * Declared as <code>ehome.logical:HistoryArchive</code> in configuration.
-	 * </p>
-	 */
-	String HISTORY_ARCHIVES_ATTR = "historyArchives";
-
-	/**
-	 * Part <code>historyDerived</code> of <code>ApplicationDatapoint</code>
-	 * 
-	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
-	 * </p>
-	 */
-	String HISTORY_DERIVED_ATTR = "historyDerived";
-
-	/**
 	 * Part <code>historyEffective</code> of <code>ApplicationDatapoint</code>
 	 * 
 	 * <p>
@@ -41,33 +23,6 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	 * </p>
 	 */
 	String HISTORY_EFFECTIVE_ATTR = "historyEffective";
-
-	/**
-	 * Part <code>historyManual</code> of <code>ApplicationDatapoint</code>
-	 * 
-	 * <p>
-	 * Declared as <code>tl.core:Boolean</code> in configuration.
-	 * </p>
-	 */
-	String HISTORY_MANUAL_ATTR = "historyManual";
-
-	/**
-	 * Part <code>historyRetention</code> of <code>ApplicationDatapoint</code>
-	 * 
-	 * <p>
-	 * Declared as <code>tl.core:Integer</code> in configuration.
-	 * </p>
-	 */
-	String HISTORY_RETENTION_ATTR = "historyRetention";
-
-	/**
-	 * Part <code>historySpacing</code> of <code>ApplicationDatapoint</code>
-	 * 
-	 * <p>
-	 * Declared as <code>tl.core:Integer</code> in configuration.
-	 * </p>
-	 */
-	String HISTORY_SPACING_ATTR = "historySpacing";
 
 	/**
 	 * Part <code>identifier</code> of <code>ApplicationDatapoint</code>
@@ -115,6 +70,15 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	String LABEL_ATTR = "label";
 
 	/**
+	 * Part <code>meter</code> of <code>ApplicationDatapoint</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String METER_ATTR = "meter";
+
+	/**
 	 * Part <code>persist</code> of <code>ApplicationDatapoint</code>
 	 * 
 	 * <p>
@@ -122,6 +86,15 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	 * </p>
 	 */
 	String PERSIST_ATTR = "persist";
+
+	/**
+	 * Part <code>recording</code> of <code>ApplicationDatapoint</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.logical:Recording</code> in configuration.
+	 * </p>
+	 */
+	String RECORDING_ATTR = "recording";
 
 	/**
 	 * Part <code>type</code> of <code>ApplicationDatapoint</code>
@@ -165,102 +138,10 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	String TABLE_NAME = "GenericObject";
 
 	/**
-	 * Getter for part {@link #HISTORY_ARCHIVES_ATTR}.
-	 */
-	@SuppressWarnings("unchecked")
-	default java.util.List<? extends de.haumacher.ehome.model.logical.HistoryArchive> getHistoryArchives() {
-		return (java.util.List<? extends de.haumacher.ehome.model.logical.HistoryArchive>) tValueByName(HISTORY_ARCHIVES_ATTR);
-	}
-
-	/**
-	 * Live view of the {@link #HISTORY_ARCHIVES_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.List<de.haumacher.ehome.model.logical.HistoryArchive> getHistoryArchivesModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(HISTORY_ARCHIVES_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.List<de.haumacher.ehome.model.logical.HistoryArchive> result = (java.util.List<de.haumacher.ehome.model.logical.HistoryArchive>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #HISTORY_ARCHIVES_ATTR}.
-	 */
-	default void setHistoryArchives(java.util.List<de.haumacher.ehome.model.logical.HistoryArchive> newValue) {
-		tUpdateByName(HISTORY_ARCHIVES_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #HISTORY_ARCHIVES_ATTR} reference.
-	 */
-	default void addHistoryArchive(de.haumacher.ehome.model.logical.HistoryArchive newValue) {
-		tAddByName(HISTORY_ARCHIVES_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #HISTORY_ARCHIVES_ATTR} reference.
-	 */
-	default void removeHistoryArchive(de.haumacher.ehome.model.logical.HistoryArchive oldValue) {
-		tRemoveByName(HISTORY_ARCHIVES_ATTR, oldValue);
-	}
-
-	/**
-	 * Getter for part {@link #HISTORY_DERIVED_ATTR}.
-	 */
-	default String getHistoryDerived() {
-		return (String) tValueByName(HISTORY_DERIVED_ATTR);
-	}
-
-	/**
 	 * Getter for part {@link #HISTORY_EFFECTIVE_ATTR}.
 	 */
 	default String getHistoryEffective() {
 		return (String) tValueByName(HISTORY_EFFECTIVE_ATTR);
-	}
-
-	/**
-	 * Getter for part {@link #HISTORY_MANUAL_ATTR}.
-	 */
-	default boolean getHistoryManual() {
-		return (Boolean) tValueByName(HISTORY_MANUAL_ATTR);
-	}
-
-	/**
-	 * Setter for part {@link #HISTORY_MANUAL_ATTR}.
-	 */
-	default void setHistoryManual(boolean newValue) {
-		tUpdateByName(HISTORY_MANUAL_ATTR, newValue);
-	}
-
-	/**
-	 * Getter for part {@link #HISTORY_RETENTION_ATTR}.
-	 */
-	default Integer getHistoryRetention() {
-		return (Integer) tValueByName(HISTORY_RETENTION_ATTR);
-	}
-
-	/**
-	 * Setter for part {@link #HISTORY_RETENTION_ATTR}.
-	 */
-	default void setHistoryRetention(Integer newValue) {
-		tUpdateByName(HISTORY_RETENTION_ATTR, newValue);
-	}
-
-	/**
-	 * Getter for part {@link #HISTORY_SPACING_ATTR}.
-	 */
-	default Integer getHistorySpacing() {
-		return (Integer) tValueByName(HISTORY_SPACING_ATTR);
-	}
-
-	/**
-	 * Setter for part {@link #HISTORY_SPACING_ATTR}.
-	 */
-	default void setHistorySpacing(Integer newValue) {
-		tUpdateByName(HISTORY_SPACING_ATTR, newValue);
 	}
 
 	/**
@@ -327,6 +208,20 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	}
 
 	/**
+	 * Getter for part {@link #METER_ATTR}.
+	 */
+	default boolean getMeter() {
+		return (Boolean) tValueByName(METER_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #METER_ATTR}.
+	 */
+	default void setMeter(boolean newValue) {
+		tUpdateByName(METER_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #PERSIST_ATTR}.
 	 */
 	default boolean getPersist() {
@@ -338,6 +233,20 @@ public interface ApplicationDatapointBase extends de.haumacher.ehome.model.logic
 	 */
 	default void setPersist(boolean newValue) {
 		tUpdateByName(PERSIST_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #RECORDING_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getRecording() {
+		return (com.top_logic.model.TLClassifier) tValueByName(RECORDING_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #RECORDING_ATTR}.
+	 */
+	default void setRecording(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(RECORDING_ATTR, newValue);
 	}
 
 	/**

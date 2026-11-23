@@ -27,7 +27,6 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
-import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.logical.GroupAddress;
@@ -35,6 +34,7 @@ import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.DatapointSettings;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
@@ -101,25 +101,9 @@ public class TestRuntimeSettings extends BasicTestCase {
 			assertEquals(I18NConstants.FLAGS_READ_ON_START_SET, DatapointSettings.flagsSource(channelA));
 			assertEquals(Boolean.TRUE, datapoint(project, "0/0/34").get("writable"));
 
-			// A history without spacing is refused at saving; with both, it is in the image.
-			try {
-				update(() -> scene2.setHistoryRetention(Integer.valueOf(3600)));
-				fail("A history without spacing must not be stored.");
-			} catch (TopLogicException ex) {
-				// Expected: the constraint of the history.
-			}
-			assertNull(scene2.getHistoryRetention());
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				// A history set by hand (haumacher/ehome #73).
-				scene2.setHistoryManual(true);
-				scene2.setHistoryRetention(Integer.valueOf(3600));
-				scene2.setHistorySpacing(Integer.valueOf(1));
-				assertNotNull(DatapointSettings.historyProblem(scene2));
-				scene2.setHistorySpacing(Integer.valueOf(60));
-				assertNull(DatapointSettings.historyProblem(scene2));
-				tx.commit();
-			}
-			assertEquals(Map.of("retention", Long.valueOf(3600), "spacing", Long.valueOf(60)),
+			// Recorded for 6 hours (haumacher/ehome #221): the ring of 5 minutes in the image.
+			update(() -> scene2.setRecording(HistoryConfig.classifier(HistoryConfig.Level.SIX_HOURS)));
+			assertEquals(Map.of("retention", Long.valueOf(21600), "spacing", Long.valueOf(300)),
 				datapoint(project, "0/0/20").get("history"));
 
 			// A budget the rings do not fit in: refused by the controller, shown against the project.

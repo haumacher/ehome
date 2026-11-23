@@ -35,6 +35,16 @@ public final class ChartRange {
 	public static final String MONTH_CLASSIFIER = "month";
 
 	/**
+	 * Name of the classifier <code>sixHours</code> in enumeration {@value #TYPE_NAME}.
+	 */
+	public static final String SIX_HOURS_CLASSIFIER = "sixHours";
+
+	/**
+	 * Name of the classifier <code>tenYears</code> in enumeration {@value #TYPE_NAME}.
+	 */
+	public static final String TEN_YEARS_CLASSIFIER = "tenYears";
+
+	/**
 	 * Name of the classifier <code>week</code> in enumeration {@value #TYPE_NAME}.
 	 */
 	public static final String WEEK_CLASSIFIER = "week";
@@ -70,6 +80,20 @@ public final class ChartRange {
 	 */
 	public static com.top_logic.model.TLClassifier monthClassifier() {
 		return type().getClassifier(MONTH_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup the classifier {@value #SIX_HOURS_CLASSIFIER} of enumeration {@value #TYPE_NAME}.
+	 */
+	public static com.top_logic.model.TLClassifier sixHoursClassifier() {
+		return type().getClassifier(SIX_HOURS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup the classifier {@value #TEN_YEARS_CLASSIFIER} of enumeration {@value #TYPE_NAME}.
+	 */
+	public static com.top_logic.model.TLClassifier tenYearsClassifier() {
+		return type().getClassifier(TEN_YEARS_CLASSIFIER);
 	}
 
 	/**

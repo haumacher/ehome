@@ -12,6 +12,7 @@ import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.util.TLModelI18N;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.model.project.Project;
@@ -79,12 +80,16 @@ final class PageExport {
 
 	private final List<String> _notes;
 
+	/** Receives the ranges of the charts beyond the recordings of their series (haumacher/ehome #221). */
+	private final List<BlockInstances.Problem> _problems;
+
 	/** The objects of the project by the path of the image they stand for. */
 	private final Map<String, TLObject> _sources = new LinkedHashMap<>();
 
-	PageExport(Targets targets, List<String> notes) {
+	PageExport(Targets targets, List<String> notes, List<BlockInstances.Problem> problems) {
 		_targets = targets;
 		_notes = notes;
+		_problems = problems;
 	}
 
 	/**
@@ -299,6 +304,7 @@ final class PageExport {
 			return null;
 		}
 		json.put("series", series);
+		ranges(chart, path);
 
 		List<Object> references = new ArrayList<>();
 		List<TLObject> lines = RuleExport.objects(element.getReferences());
@@ -335,6 +341,42 @@ final class PageExport {
 		}
 		_sources.put(path, chart);
 		return json;
+	}
+
+	/**
+	 * Reports each range the chart offers that no recording serves (1 h) or that reaches further back
+	 * than a datapoint of its series is recorded (haumacher/ehome #221): the chart is not cut, the
+	 * image's check refuses it at its range or preset.
+	 */
+	private void ranges(TLObject chart, String path) {
+		String range = Pages.name(((ChartElement) chart).getRange());
+		List<String> offered = Pages.offeredRanges(chart);
+		boolean presets = !Pages.presets(chart).isEmpty();
+		for (int n = 0; n < offered.size(); n++) {
+			String name = offered.get(n);
+			String at = presets ? path + ".presets[" + n + "]" : path + ".range";
+			if (!presets && !name.equals(range == null ? Pages.DEFAULT_RANGE : range)) {
+				continue;
+			}
+			if ("hour".equals(name)) {
+				_problems.add(new BlockInstances.Problem(at, I18NConstants.CHART_RANGE_HOUR));
+				continue;
+			}
+			for (TLObject datapoint : HistoryConfig.drawn(chart)) {
+				if (!Pages.hasHistory(datapoint)) {
+					// The validator refuses the series: the datapoint keeps no history.
+					continue;
+				}
+				Long seconds = Pages.rangeSeconds(name);
+				if (seconds != null && HistoryConfig.reach(datapoint) < seconds.longValue()) {
+					_problems.add(new BlockInstances.Problem(at,
+						I18NConstants.CHART_RANGE_BEYOND_RECORDING__RANGE_DATAPOINT_RECORDING.fill(Pages.rangeName(name),
+							Pages.targetLabel(datapoint),
+							TLModelI18N.getI18nKeyWithoutFallback(HistoryConfig.classifier(HistoryConfig.level(datapoint))))));
+					break;
+				}
+			}
+		}
 	}
 
 	/** The fixed range of an axis: its lowest and highest value, each <code>null</code> for none. */

@@ -227,24 +227,29 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey FLAGS_READ_ON_START_SET;
 
 	/**
-	 * @en A history needs both the retention and the spacing.
-	 */
-	public static ResKey HISTORY_INCOMPLETE;
-
-	/**
 	 * @en A history is kept only of numbers and truth values, not of values of the type {0}.
 	 */
 	public static ResKey1 HISTORY_WRONG_TYPE__TYPE;
 
 	/**
-	 * @en The retention of a history is at least its spacing.
+	 * @en A meter reading is a number, not a value of the type {0}.
 	 */
-	public static ResKey HISTORY_RETENTION_BELOW_SPACING;
+	public static ResKey1 METER_NOT_NUMBER__TYPE;
 
 	/**
-	 * @en The history would hold {0} samples; the controller keeps at most {1} per datapoint.
+	 * @en The chart offers the range 1 h, which no recording serves: its shortest range is 6 h.
 	 */
-	public static ResKey2 HISTORY_TOO_MANY_SAMPLES__SAMPLES_MAX;
+	public static ResKey CHART_RANGE_HOUR;
+
+	/**
+	 * @en The chart offers the range {0}, but {1} is recorded only for {2}.
+	 */
+	public static ResKey3 CHART_RANGE_BEYOND_RECORDING__RANGE_DATAPOINT_RECORDING;
+
+	/**
+	 * @en The controller {0} reads format {1}; this project needs 1.3 (the chart ranges 6h and 10y): update the firmware.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_CHART_RANGES__CONTROLLER_FORMAT;
 
 	/**
 	 * @en An identifier has 1 to 32 letters, digits and the characters _ . -
@@ -688,7 +693,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 PAGE_IDENTIFIER_DUPLICATE__ID;
 
 	/**
-	 * @en {0} has no history: the controller can draw no chart of it. A history is kept of numbers and truth values; one set by hand needs a retention and a spacing. Derive its history, or choose another datapoint.
+	 * @en {0} is not recorded: the controller can draw no chart of it. Set its recording, or choose another datapoint.
 	 */
 	public static ResKey1 SERIES_NO_HISTORY__DATAPOINT;
 
@@ -828,26 +833,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 HISTORY_BYTES__HISTORY_RAM_FLASH;
 
 	/**
-	 * @en No history: the controller keeps one only of numbers and truth values.
-	 */
-	public static ResKey HISTORY_NOT_POSSIBLE;
-
-	/**
-	 * @en No history: no chart of the control pages draws the datapoint.
-	 */
-	public static ResKey HISTORY_NOT_CHARTED;
-
-	/**
-	 * @en Set by hand: {0}
-	 */
-	public static ResKey1 HISTORY_MANUAL__HISTORY;
-
-	/**
-	 * @en Derived from the charts: {0}
-	 */
-	public static ResKey1 HISTORY_DERIVED__HISTORY;
-
-	/**
 	 * @en The histories need {0} bytes of RAM, more than the {1} bytes allowed. The biggest: {2}.
 	 */
 	public static ResKey3 HISTORY_USAGE_RAM_EXCEEDED__BYTES_LIMIT_BIGGEST;
@@ -871,41 +856,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The archives need {0} bytes of flash of the {1} bytes the controller allows.
 	 */
 	public static ResKey2 HISTORY_USAGE_FLASH__BYTES_CAP;
-
-	/**
-	 * @en To fit the controller, the histories of these datapoints are coarser than their charts ask for: {0}.
-	 */
-	public static ResKey1 HISTORY_USAGE_COARSENED__DATAPOINTS;
-
-	/**
-	 * @en A history has at most {0} archives.
-	 */
-	public static ResKey1 HISTORY_TOO_MANY_ARCHIVES__MAX;
-
-	/**
-	 * @en Archives need the raw ring: set its retention and spacing.
-	 */
-	public static ResKey HISTORY_ARCHIVES_WITHOUT_RAW;
-
-	/**
-	 * @en The resolution of an archive ({0}) must be coarser than the spacing of the raw ring ({1}).
-	 */
-	public static ResKey2 HISTORY_ARCHIVE_NOT_COARSER__RESOLUTION_SPACING;
-
-	/**
-	 * @en The retention of an archive is at least its resolution.
-	 */
-	public static ResKey HISTORY_ARCHIVE_RETENTION_BELOW_RESOLUTION;
-
-	/**
-	 * @en An archive is kept for at most 10 years.
-	 */
-	public static ResKey HISTORY_ARCHIVE_TOO_LONG;
-
-	/**
-	 * @en The archive would hold {0} slots; the controller keeps at most {1} per archive.
-	 */
-	public static ResKey2 HISTORY_TOO_MANY_SLOTS__SLOTS_MAX;
 
 	/**
 	 * @en The virtual device {0}: the datapoint {2} bound to its port ''{1}'' no longer exists (a re-import of the ETS project removed it); remove the binding or bind another datapoint.
@@ -1581,6 +1531,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en A history needs a boolean, unsigned, signed or real datapoint.
 	 */
 	public static ResKey IMAGE_HISTORY_TYPE;
+
+	/**
+	 * @en A meter reading needs a numeric datapoint; ''{0}'' is a truth value.
+	 */
+	public static ResKey1 IMAGE_METER_OF_BOOLEAN__ID;
 
 	/**
 	 * @en A history has more than {0} archives.

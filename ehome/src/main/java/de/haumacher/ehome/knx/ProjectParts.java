@@ -42,7 +42,7 @@ import com.top_logic.model.util.TLModelUtil;
  * <p>
  * Every stored attribute of a type of the KNX part is declared as owned by ETS ({@link #isEtsOwned})
  * or by E-Home ({@link #isAppOwned}): on a group address E-Home's settings for the runtime image and
- * the history (with its composite reference to the archives), on a device the revision of its last
+ * the history (its recording and the meter flag, haumacher/ehome #221), on a device the revision of its last
  * download by E-Home and the presets applied to it (haumacher/ehome #146), the identifier of a group
  * address (haumacher/ehome #130). Of ETS's texts, the
  * name and the description of a group address are kept by an update where the file has none
@@ -169,10 +169,8 @@ public final class ProjectParts {
 		"ehome.logical:GroupAddress#runtimeReadable",
 		"ehome.logical:GroupAddress#runtimePersist",
 		"ehome.logical:GroupAddress#runtimeUnit",
-		"ehome.logical:GroupAddress#historyRetention",
-		"ehome.logical:GroupAddress#historySpacing",
-		"ehome.logical:GroupAddress#historyManual",
-		"ehome.logical:GroupAddress#historyArchives");
+		"ehome.logical:GroupAddress#recording",
+		"ehome.logical:GroupAddress#meter");
 
 	/**
 	 * The texts ETS owns that an update from ETS does not erase: an empty text in the file keeps the

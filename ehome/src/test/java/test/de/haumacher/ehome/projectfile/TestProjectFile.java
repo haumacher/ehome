@@ -59,7 +59,6 @@ import de.haumacher.ehome.etsImport.ImportProjectFileJob;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.logical.GroupAddress;
-import de.haumacher.ehome.model.logical.HistoryArchive;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.BlockParameter;
@@ -73,6 +72,7 @@ import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.GroupAddressIds;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.IdRenames;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
@@ -89,7 +89,7 @@ import de.haumacher.ehome.zigbee.ZigbeeImport;
  * The project file <code>.ehome</code> (haumacher/ehome #117): the test home of the KNX test system
  * (<code>samples/KNX-Testsystem.knxproj</code> with <code>samples/KNX-Testsystem.home.json</code> and
  * the Hue plug of the controller's Zigbee network, as {@code TestTestHome} sets it up), with a virtual
- * device, a control page with a chart, the proposed functions and a dismissed one, a history archive,
+ * device, a control page with a chart, the proposed functions and a dismissed one, a recording,
  * a follower of the simulation and an enrolled controller as deploy target, is exported and imported
  * as a new project by the import job.
  *
@@ -210,14 +210,14 @@ public class TestProjectFile extends BasicTestCase {
 			assertEquals(Json.write(ProjectFileExport.document(project, TIME)),
 				Json.write(ProjectFileExport.document(copy, TIME)));
 
-			// Data the model's constraints refuse (an archive finer than the controller keeps) refuses
+			// Data the model's constraints refuse (a key's truth value marked as a meter reading) refuses
 			// the import with the problem and the object named, and nothing is imported.
 			byte[] refused = withDocument(file, document -> {
 				for (Object entry : (List<?>) document.get(ProjectFile.GROUP_ADDRESSES_MEMBER)) {
-					if (((Map<?, ?>) entry).get("historyArchives") instanceof List<?> archives) {
+					if ("taste1".equals(((Map<?, ?>) entry).get("identifier"))) {
 						@SuppressWarnings("unchecked")
-						Map<String, Object> archive = (Map<String, Object>) archives.get(0);
-						archive.put("resolution", Long.valueOf(3600));
+						Map<String, Object> address = (Map<String, Object>) entry;
+						address.put("meter", Boolean.TRUE);
 					}
 				}
 			});
@@ -230,7 +230,7 @@ public class TestProjectFile extends BasicTestCase {
 				Resources english = Resources.getInstance(Locale.ENGLISH);
 				String message = CommandErrors.messages(ex).stream().map(english::getString)
 					.collect(Collectors.joining(" "));
-				assertTrue(message, message.contains("slots") && message.contains("History archive"));
+				assertTrue(message, message.contains("meter reading is a number") && message.contains("0/0/1"));
 			}
 			assertEquals(beforeRefused.size(), instances(ProjectFile.PROJECT_TYPE).size());
 
@@ -272,14 +272,9 @@ public class TestProjectFile extends BasicTestCase {
 			commit(tx);
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			// Settings of a group address: a history with an archive, a unit.
-			temperature.setHistoryManual(true);
-			temperature.setHistoryRetention(Integer.valueOf(172800));
-			temperature.setHistorySpacing(Integer.valueOf(300));
-			HistoryArchive archive = (HistoryArchive) create("ehome.logical:HistoryArchive");
-			archive.setResolution(86400);
-			archive.setRetention(365 * 86400);
-			temperature.setHistoryArchives(List.of(archive));
+			// Settings of a group address: a recording of a year as a meter reading, a unit.
+			temperature.setRecording(HistoryConfig.classifier(HistoryConfig.Level.YEAR));
+			temperature.setMeter(Boolean.TRUE);
 			temperature.setRuntimeUnit("°C");
 
 			// Functions, one of them dismissed.

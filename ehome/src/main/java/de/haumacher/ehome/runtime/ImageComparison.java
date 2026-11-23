@@ -27,7 +27,6 @@ import de.haumacher.ehome.model.runtime.Deployment;
 import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.binary.CompileException;
-import de.haumacher.ehome.runtime.binary.ImageCompiler;
 import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
 import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.binary.Layout;
@@ -415,9 +414,8 @@ public final class ImageComparison {
 		}
 		if (result.state() != State.UNKNOWN) {
 			String reported = reportedFormat(controller);
-			ResKey format = "".equals(reported) ? null : Deployer.formatRefusal(reported, ((Controller) controller).getName(),
-
-				ImageCompiler.formatMinor(image.getJson()));
+			ResKey format = "".equals(reported) ? null
+				: Deployer.formatRefusal(reported, ((Controller) controller).getName(), image.getJson());
 			if (format != null) {
 				text += "\n\n" + text(format);
 			}
@@ -426,7 +424,7 @@ public final class ImageComparison {
 			Long slot = Deployer.reportedSlot(client, ControllerStatus.read(client));
 			if (slot != null && image.validate().isValid()) {
 				try {
-					int bytes = image.compile(null).length
+					int bytes = image.compile(null, "".equals(reported) ? Layout.MINOR : Deployer.reportedMinor(reported)).length
 						+ (InstallationKeys.signer(project, controller) != null ? Layout.SIGNATURE_SIZE : 0);
 					ResKey tooLarge = Deployer.slotRefusal(bytes, slot);
 					if (tooLarge != null) {

@@ -29,7 +29,6 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.model.logical.HistoryArchive;
 import de.haumacher.ehome.model.logical.ProjectDatapoint;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Action;
@@ -333,28 +332,18 @@ public final class RuleImport {
 			}
 		}
 		if (json.get("history") instanceof Map<?, ?> history) {
-			// The image states the history: it becomes the datapoint's own, set by hand (haumacher/ehome #73).
-			result.setHistoryManual(true);
-			if (history.get("retention") instanceof Number retention) {
-				result.setHistoryRetention(Integer.valueOf(retention.intValue()));
-			}
-			if (history.get("spacing") instanceof Number spacing) {
-				result.setHistorySpacing(Integer.valueOf(spacing.intValue()));
-			}
+			// The image states the history: the recording reaching as far, rounded up (haumacher/ehome #221).
+			boolean meter = Boolean.TRUE.equals(history.get("meter"));
+			long reach = history.get("retention") instanceof Number retention ? retention.longValue() : 0;
 			if (history.get("archives") instanceof List<?> archives) {
-				List<HistoryArchive> parts = new ArrayList<>();
 				for (Object entry : archives) {
-					if (entry instanceof Map<?, ?> archive && archive.get("resolution") instanceof Number resolution
-						&& archive.get("retention") instanceof Number archiveRetention) {
-						HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory()
-							.createObject((TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive"));
-						part.setResolution(resolution.intValue());
-						part.setRetention(archiveRetention.intValue());
-						parts.add(part);
+					if (entry instanceof Map<?, ?> archive && archive.get("retention") instanceof Number archiveRetention) {
+						reach = Math.max(reach, archiveRetention.longValue());
 					}
 				}
-				result.setHistoryArchives(parts);
 			}
+			result.setMeter(meter);
+			result.setRecording(HistoryConfig.classifier(HistoryConfig.Level.covering(reach, meter)));
 		}
 		notes(json, "datapoint " + id);
 		return result;

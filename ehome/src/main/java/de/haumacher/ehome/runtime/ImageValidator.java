@@ -110,7 +110,7 @@ public final class ImageValidator {
 	public static final int MAX_CHART_REFERENCES = 128;
 
 	/** The time ranges of a chart. */
-	public static final List<String> CHART_RANGES = List.of("1h", "24h", "7d", "30d", "1y");
+	public static final List<String> CHART_RANGES = List.of("1h", "6h", "24h", "7d", "30d", "1y", "10y");
 
 	/** The consolidations of a chart series. */
 	public static final List<String> CHART_CONSOLIDATIONS = List.of("mean", "last", "band", "consumption");
@@ -1024,7 +1024,7 @@ public final class ImageValidator {
 		_writable.set(index, Boolean.valueOf(writable));
 		if (dp.containsKey("history")) {
 			enter(".history");
-			if (history(dp.get("history"), type)) {
+			if (history(dp.get("history"), type, _ids.get(index))) {
 				_withHistory.add(Integer.valueOf(index));
 				String name = _ids.get(index);
 				String key = name != null ? name : "datapoints[" + index + "]";
@@ -1382,11 +1382,18 @@ public final class ImageValidator {
 		// A record.
 	}
 
-	private boolean history(Object value, String type) {
+	private boolean history(Object value, String type, String id) {
 		if (!object(value, "history")) {
 			return false;
 		}
 		Map<?, ?> history = (Map<?, ?>) value;
+		// The meter flag (schema 1.10, homecontrol #115): a meter reading is a number.
+		if (flag(history, "meter") && ValueTypes.BOOLEAN.equals(type)) {
+			enter(".meter");
+			refuse("a meter needs a numeric datapoint; '" + id + "' is boolean",
+				I18NConstants.IMAGE_METER_OF_BOOLEAN__ID.fill(id));
+			leave();
+		}
 		boolean ok = true;
 		long retention = 0;
 		long spacing = 0;

@@ -1397,90 +1397,36 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- The raw ring of a history set by hand: how long the controller keeps the samples, in seconds (with the spacing; numbers and truth values only). -->
-				<property name="historyRetention"
-					type="tl.core:Integer"
+				<!-- How far back the controller records the datapoint (haumacher/ehome #221); its stores follow from it. -->
+				<reference name="recording"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.logical:Recording"
 				>
 					<annotations>
-						<dynamic-visibility>
-							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
-								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#historyManual`), null, "hidden")]]></function>
-							</mode-selector>
-						</dynamic-visibility>
-						<format>
-							<decimal pattern="0" result-type="long"/>
-						</format>
-						<value-range
-							max="2678400"
-							min="10"
-						/>
-					</annotations>
-				</property>
-				<!-- The raw ring of a history set by hand: the time between two samples in seconds (10 to 86400). -->
-				<property name="historySpacing"
-					type="tl.core:Integer"
-				>
-					<annotations>
-						<dynamic-visibility>
-							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
-								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#historyManual`), null, "hidden")]]></function>
-							</mode-selector>
-						</dynamic-visibility>
-						<format>
-							<decimal pattern="0" result-type="long"/>
-						</format>
-						<value-range
-							max="86400"
-							min="10"
-						/>
+						<default-value>
+							<classifier value="none"/>
+						</default-value>
 						<constraints>
 							<constraint-by-expression>
-								<check><![CDATA[value -> obj -> runtimeHistoryProblem($obj)]]></check>
+								<check><![CDATA[value -> obj -> runtimeRecordingProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- Whether the datapoint is a meter reading, drawn as consumption bars (haumacher/ehome #221): a counter computed by a rule. -->
+				<property name="meter"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeMeterProblem($value, $obj)]]></check>
 							</constraint-by-expression>
 						</constraints>
 					</annotations>
 				</property>
-				<!--
-					Whether the history is set by hand (haumacher/ehome #73): the raw ring of historyRetention and
-					historySpacing and the archives historyArchives replace the history derived from the charts
-					of the control pages. Switched by the commands "Set history by hand" and "Derive history".
-				-->
-				<property name="historyManual"
-					type="tl.core:Boolean"
-				>
-					<annotations>
-						<visibility value="read-only"/>
-					</annotations>
-				</property>
-				<!-- The archives of a history set by hand (homecontrol #56): a slot per resolution, kept for the retention. -->
-				<reference name="historyArchives"
-					composite="true"
-					kind="forwards"
-					multiple="true"
-					ordered="true"
-					type="ehome.logical:HistoryArchive"
-				>
-					<annotations>
-						<dynamic-visibility>
-							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
-								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#historyManual`), null, "hidden")]]></function>
-							</mode-selector>
-						</dynamic-visibility>
-					</annotations>
-				</reference>
-				<!-- The history the charts of the control pages ask for: raw ring and archives, with the bytes they take. -->
-				<property name="historyDerived"
-					type="tl.core:String"
-				>
-					<annotations>
-						<storage-algorithm>
-							<query>
-								<expr><![CDATA[dp -> runtimeHistoryDerived($dp)]]></expr>
-							</query>
-						</storage-algorithm>
-					</annotations>
-				</property>
-				<!-- The history in the runtime image: the one set by hand, else the derived one, with the bytes it takes. -->
+				<!-- The history in the runtime image: the stores its recording asks for, with the bytes they take. -->
 				<property name="historyEffective"
 					type="tl.core:String"
 				>
@@ -3795,13 +3741,15 @@
 			<classifier name="two" default="true"/>
 			<classifier name="four"/>
 		</enum>
-		<!-- A time range of a chart: 1 h, 24 h, 7 d, 30 d, 1 y. -->
+		<!-- A time range of a chart: 1 h, 6 h, 24 h, 7 d, 30 d, 1 y, 10 y (6 h and 10 y: haumacher/ehome #221). -->
 		<enum name="ChartRange">
 			<classifier name="hour"/>
+			<classifier name="sixHours"/>
 			<classifier name="day" default="true"/>
 			<classifier name="week"/>
 			<classifier name="month"/>
 			<classifier name="year"/>
+			<classifier name="tenYears"/>
 		</enum>
 		<!-- An axis of a chart. -->
 		<enum name="ChartAxis">
@@ -4038,18 +3986,34 @@
 					mandatory="true"
 					type="ChartHeight"
 				/>
-				<!-- The time range the chart opens with. -->
+				<!-- The time range the chart opens with; the options are the ranges the recordings of its series reach. -->
 				<reference name="range"
 					kind="forwards"
 					mandatory="true"
 					type="ChartRange"
-				/>
+				>
+					<annotations>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> pageOptions($e, "range")]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<!-- The time ranges the viewer switches between; empty for the default range only. -->
 				<reference name="presets"
 					kind="forwards"
 					multiple="true"
 					type="ChartRange"
-				/>
+				>
+					<annotations>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> pageOptions($e, "range")]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<!-- The lowest value of the left axis; empty: automatic. -->
 				<property name="leftMin"
 					type="tl.core:Double"
@@ -4109,7 +4073,7 @@
 				<instance-presentation icon="css:bi bi-activity"/>
 			</annotations>
 			<attributes>
-				<!-- The datapoint whose history the series draws; it needs a history. -->
+				<!-- The datapoint whose history the series draws; the options are the datapoints with a recording. -->
 				<reference name="datapoint"
 					deletion-policy="delete-referer"
 					kind="forwards"
@@ -4119,7 +4083,7 @@
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[e -> pageOptions($e, "datapoint")]]></function>
+								<function><![CDATA[e -> pageOptions($e, "series")]]></function>
 							</options-by-expression>
 						</options>
 						<constraints>

@@ -121,11 +121,6 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeHostNameProblem,
 		/**
-		 * <code>runtimeHistoryProblem(datapoint)</code>: what is wrong with the history settings of the
-		 * group address or application datapoint; <code>null</code> if they fit ({@link DatapointSettings#historyProblem}).
-		 */
-		runtimeHistoryProblem,
-		/**
 		 * <code>runtimeTimeMasterProblem(address, project, attribute)</code>: the constraint of the
 		 * time master's addresses (<code>timeMasterTime</code>, <code>timeMasterDate</code>,
 		 * <code>timeMasterDateTime</code>), see {@link #timeMasterConstraint(Object, Object, String)}.
@@ -338,8 +333,6 @@ public class RuntimeFunctions extends GenericMethod {
 				return roleDatapoints(project(obj));
 			case runtimeBuildingParts:
 				return buildingParts(project(obj));
-			case runtimeHistoryProblem:
-				return DatapointSettings.historyProblem(obj);
 			case datapointWritable:
 				return Boolean.valueOf(DatapointSettings.writable(obj));
 			case datapointReadOnStart:

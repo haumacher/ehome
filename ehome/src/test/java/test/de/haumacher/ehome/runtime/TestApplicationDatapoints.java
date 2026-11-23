@@ -46,6 +46,7 @@ import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
@@ -114,10 +115,9 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			counter.setType(valueType("unsigned"));
 			counter.setWritable(true);
 			counter.setUnit("x");
-			// A history set by hand (haumacher/ehome #73).
-			counter.setHistoryManual(true);
-			counter.setHistoryRetention(Integer.valueOf(3600));
-			counter.setHistorySpacing(Integer.valueOf(60));
+			// A recording of 6 hours as a meter reading (haumacher/ehome #221).
+			counter.setRecording(HistoryConfig.classifier(HistoryConfig.Level.SIX_HOURS));
+			counter.setMeter(true);
 
 			entry = (WeeklySchedule) RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
 			entry.setOutput(morning);
@@ -155,7 +155,8 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(Map.of("en", "Morning", "de", "Morgen"), exportedMorning.get("label"));
 			assertEquals(map("id", "value1", "label", Map.of("en", "Counter", "de", "Zähler"),
 				"type", "unsigned", "unit", "x", "writable", Boolean.TRUE,
-				"history", map("retention", Long.valueOf(3600), "spacing", Long.valueOf(60)), "virtual", Map.of(),
+				"history", map("retention", Long.valueOf(22500), "spacing", Long.valueOf(900), "meter", Boolean.TRUE),
+				"virtual", Map.of(),
 				"initial", Long.valueOf(0)), datapoints.get(3));
 			assertSame(holiday, image.elementAt("datapoints[1].id"));
 			assertEquals("schedule.morning", ((Map<?, ?>) ((List<?>) image.getJson().get("schedules")).get(0)).get("output"));
@@ -213,9 +214,12 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			idForm.set("unit", "0123456789abcdef");
 			assertEquals(List.of(resources.getString(I18NConstants.INVALID_UNIT)), idForm.errors("unit"));
 			idForm.set("type", valueType("string"));
-			idForm.set("historySpacing", Integer.valueOf(60));
+			idForm.set("recording", HistoryConfig.classifier(HistoryConfig.Level.DAY));
 			assertEquals(List.of(resources.getString(I18NConstants.HISTORY_WRONG_TYPE__TYPE.fill("string"))),
-				idForm.errors("historySpacing"));
+				idForm.errors("recording"));
+			idForm.set("meter", Boolean.TRUE);
+			assertEquals(List.of(resources.getString(I18NConstants.METER_NOT_NUMBER__TYPE.fill("string"))),
+				idForm.errors("meter"));
 
 			// On commit.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -305,8 +309,8 @@ public class TestApplicationDatapoints extends BasicTestCase {
 				assertEquals(exported.get("id").toString(), Json.write(exported.get("initial")), Json.write(back.get("initial")));
 			}
 			// A controller reading format 1.1 cannot take it (homecontrol spec/runtime-image.md 11).
-			assertNotNull(Deployer.formatRefusal("1.1", "C", 2));
-			assertNull(Deployer.formatRefusal("1.2", "C", 2));
+			assertNotNull(Deployer.formatRefusal("1.1", "C", image.getJson()));
+			assertNull(Deployer.formatRefusal("1.2", "C", image.getJson()));
 
 			// At the field: a literal of the datapoint's type.
 			Resources resources = Resources.getInstance();

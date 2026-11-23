@@ -66,6 +66,19 @@ final class ImageWriter {
 		return false;
 	}
 
+	/** Whether a history of the tables is a meter reading (9.9, format 1.3). */
+	private static boolean hasMeter(SortedMap<Integer, List<Map<String, Object>>> tables) {
+		List<Map<String, Object>> histories = tables.get(Integer.valueOf(Layout.HISTORY));
+		if (histories != null) {
+			for (Map<String, Object> rec : histories) {
+				if (rec.get("flags") instanceof Number flags && (flags.intValue() & Layout.HISTORY_METER) != 0) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	static byte[] write(SortedMap<Integer, List<Map<String, Object>>> tables, Map<Integer, byte[]> byteSections,
 			String seed) {
 		// The strings: every string reference and every tag and text of a label, sorted bytewise.
@@ -151,9 +164,9 @@ final class ImageWriter {
 		ByteBuffer out = ByteBuffer.allocate(total).order(ByteOrder.LITTLE_ENDIAN);
 		out.put(0, Layout.MAGIC);
 		out.putShort(4, (short) Layout.MAJOR);
-		// The oldest minor version with what the image uses (spec/runtime-image.md 8): 1.2 an initial
-		// value of a datapoint, 1.1 the sections of the anonymous pages.
-		out.putShort(6, (short) (hasInitial(tables) ? 2
+		// The oldest minor version with what the image uses (spec/runtime-image.md 8): 1.3 a meter, 1.2
+		// an initial value of a datapoint, 1.1 the sections of the anonymous pages.
+		out.putShort(6, (short) (hasMeter(tables) ? 3 : hasInitial(tables) ? 2
 			: byteSections.containsKey(Integer.valueOf(Layout.UI_ANONYMOUS)) ? 1 : 0));
 		out.putInt(8, total);
 		out.putInt(16, signed ? Layout.FLAG_SIGNED : 0);

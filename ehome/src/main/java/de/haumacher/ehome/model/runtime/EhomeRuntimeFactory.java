@@ -636,6 +636,22 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	public static final String MONTH_CHART_RANGE_CLASSIFIER = ChartRange.MONTH_CLASSIFIER;
 
 	/**
+	 * Name of the classifier <code>sixHours</code> in enumeration <code>ChartRange</code>.
+	 * 
+	 * @deprecated Use {@link ChartRange#SIX_HOURS_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String SIX_HOURS_CHART_RANGE_CLASSIFIER = ChartRange.SIX_HOURS_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>tenYears</code> in enumeration <code>ChartRange</code>.
+	 * 
+	 * @deprecated Use {@link ChartRange#TEN_YEARS_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String TEN_YEARS_CHART_RANGE_CLASSIFIER = ChartRange.TEN_YEARS_CLASSIFIER;
+
+	/**
 	 * Name of the classifier <code>week</code> in enumeration <code>ChartRange</code>.
 	 * 
 	 * @deprecated Use {@link ChartRange#WEEK_CLASSIFIER}.
@@ -1573,45 +1589,10 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
-	 * Lookup {@link ApplicationDatapoint#HISTORY_ARCHIVES_ATTR} of {@link ApplicationDatapoint}.
-	 */
-	public static com.top_logic.model.TLReference getHistoryArchivesApplicationDatapointAttr() {
-		return (com.top_logic.model.TLReference) getApplicationDatapointType().getPart(ApplicationDatapoint.HISTORY_ARCHIVES_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ApplicationDatapoint#HISTORY_DERIVED_ATTR} of {@link ApplicationDatapoint}.
-	 */
-	public static com.top_logic.model.TLProperty getHistoryDerivedApplicationDatapointAttr() {
-		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.HISTORY_DERIVED_ATTR);
-	}
-
-	/**
 	 * Lookup {@link ApplicationDatapoint#HISTORY_EFFECTIVE_ATTR} of {@link ApplicationDatapoint}.
 	 */
 	public static com.top_logic.model.TLProperty getHistoryEffectiveApplicationDatapointAttr() {
 		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.HISTORY_EFFECTIVE_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ApplicationDatapoint#HISTORY_MANUAL_ATTR} of {@link ApplicationDatapoint}.
-	 */
-	public static com.top_logic.model.TLProperty getHistoryManualApplicationDatapointAttr() {
-		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.HISTORY_MANUAL_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ApplicationDatapoint#HISTORY_RETENTION_ATTR} of {@link ApplicationDatapoint}.
-	 */
-	public static com.top_logic.model.TLProperty getHistoryRetentionApplicationDatapointAttr() {
-		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.HISTORY_RETENTION_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ApplicationDatapoint#HISTORY_SPACING_ATTR} of {@link ApplicationDatapoint}.
-	 */
-	public static com.top_logic.model.TLProperty getHistorySpacingApplicationDatapointAttr() {
-		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.HISTORY_SPACING_ATTR);
 	}
 
 	/**
@@ -1650,10 +1631,24 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
+	 * Lookup {@link ApplicationDatapoint#METER_ATTR} of {@link ApplicationDatapoint}.
+	 */
+	public static com.top_logic.model.TLProperty getMeterApplicationDatapointAttr() {
+		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.METER_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ApplicationDatapoint#PERSIST_ATTR} of {@link ApplicationDatapoint}.
 	 */
 	public static com.top_logic.model.TLProperty getPersistApplicationDatapointAttr() {
 		return (com.top_logic.model.TLProperty) getApplicationDatapointType().getPart(ApplicationDatapoint.PERSIST_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ApplicationDatapoint#RECORDING_ATTR} of {@link ApplicationDatapoint}.
+	 */
+	public static com.top_logic.model.TLReference getRecordingApplicationDatapointAttr() {
+		return (com.top_logic.model.TLReference) getApplicationDatapointType().getPart(ApplicationDatapoint.RECORDING_ATTR);
 	}
 
 	/**
@@ -4178,6 +4173,26 @@ public class EhomeRuntimeFactory extends com.top_logic.element.meta.kbbased.Abst
 	@Deprecated
 	public static com.top_logic.model.TLClassifier getMonthChartRangeClassifier() {
 		return ChartRange.monthClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>sixHours</code> of enumeration <code>ChartRange</code>.
+	 * 
+	 * @deprecated Use {@link ChartRange#sixHoursClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getSixHoursChartRangeClassifier() {
+		return ChartRange.sixHoursClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>tenYears</code> of enumeration <code>ChartRange</code>.
+	 * 
+	 * @deprecated Use {@link ChartRange#tenYearsClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getTenYearsChartRangeClassifier() {
+		return ChartRange.tenYearsClassifier();
 	}
 
 	/**

@@ -60,9 +60,9 @@ import de.haumacher.ehome.rules.Schedule;
  * </p>
  *
  * <p>
- * {@link #chartUses(TLObject)} collects what the charts ask of each datapoint, from which
- * {@link HistoryConfig} derives the history of the datapoint (haumacher/ehome #73); a series needs a
- * datapoint that can have one ({@link #hasHistory(TLObject)}).
+ * The charts only choose what to show (haumacher/ehome #221): a series draws a datapoint with a
+ * recording ({@link #hasHistory(TLObject)}), and a chart offers the ranges the recordings of its series
+ * reach ({@link HistoryConfig#chartReach(TLObject)}).
  * </p>
  */
 public final class Pages {
@@ -107,15 +107,19 @@ public final class Pages {
 	public static final String OPERATOR = "operator";
 
 	/** The external names of the chart ranges of the image by the classifiers of ChartRange. */
-	private static final Map<String, String> RANGES = Map.of("hour", "1h", "day", "24h", "week", "7d", "month", "30d",
-		"year", "1y");
+	private static final Map<String, String> RANGES = Map.of("hour", "1h", "sixHours", "6h", "day", "24h", "week", "7d",
+		"month", "30d", "year", "1y", "tenYears", "10y");
 
 	/** The length in seconds of the chart ranges by the classifiers of ChartRange. */
-	private static final Map<String, Long> RANGE_SECONDS = Map.of("hour", Long.valueOf(3600), "day", Long.valueOf(86400),
-		"week", Long.valueOf(7 * 86400), "month", Long.valueOf(30 * 86400), "year", Long.valueOf(365 * 86400));
+	private static final Map<String, Long> RANGE_SECONDS = Map.of("hour", Long.valueOf(3600), "sixHours",
+		Long.valueOf(6 * 3600), "day", Long.valueOf(86400), "week", Long.valueOf(7 * 86400), "month",
+		Long.valueOf(30 * 86400), "year", Long.valueOf(365 * 86400), "tenYears", Long.valueOf(3650L * 86400));
 
 	/** The classifiers of ChartRange in their order. */
-	static final List<String> RANGE_ORDER = List.of("hour", "day", "week", "month", "year");
+	static final List<String> RANGE_ORDER = List.of("hour", "sixHours", "day", "week", "month", "year", "tenYears");
+
+	/** The kind of the options of a chart's range and presets (classifiers of ChartRange). */
+	public static final String RANGE = "range";
 
 	/** The classifier of the range the controller shows first when a chart names none (24h). */
 	static final String DEFAULT_RANGE = "day";
@@ -214,9 +218,30 @@ public final class Pages {
 			case ROOM:
 				return RuntimeFunctions.buildingParts(project);
 			case DATAPOINT:
-			case SERIES:
 			case REFERENCE_DATAPOINT:
 				return datapoints(project);
+			case SERIES: {
+				// A series draws a datapoint with a recording (haumacher/ehome #221).
+				List<TLObject> result = new ArrayList<>();
+				for (TLObject datapoint : datapoints(project)) {
+					if (hasHistory(BlockInstances.historyTarget(datapoint))) {
+						result.add(datapoint);
+					}
+				}
+				return result;
+			}
+			case RANGE: {
+				// The ranges the recordings of the chart's series reach (haumacher/ehome #221).
+				TLObject chart = edited(obj);
+				long reach = is(chart, "ChartElement") ? HistoryConfig.chartReach(chart) : Long.MAX_VALUE;
+				List<TLObject> result = new ArrayList<>();
+				for (String range : RANGE_ORDER) {
+					if (HistoryConfig.offers(reach, range)) {
+						result.add(RuleImport.classifier("ChartRange", range));
+					}
+				}
+				return result;
+			}
 			default:
 				return List.of();
 		}
@@ -406,15 +431,11 @@ public final class Pages {
 	}
 
 	/**
-	 * Whether the controller keeps a history of the datapoint when a chart draws it (haumacher/ehome
-	 * #73): a datapoint of a number or a truth value whose history is derived from the charts, or one
-	 * set by hand with its raw ring (a rule parameter has none).
+	 * Whether the controller keeps a history of the datapoint (haumacher/ehome #221): a datapoint of a
+	 * number or a truth value with a recording (a rule parameter has none).
 	 */
 	public static boolean hasHistory(TLObject datapoint) {
-		if (!HistoryConfig.canHaveHistory(datapoint)) {
-			return false;
-		}
-		return !HistoryConfig.isManual(datapoint) || HistoryConfig.manual(datapoint) != null;
+		return HistoryConfig.effective(datapoint) != null;
 	}
 
 	/**
@@ -428,7 +449,8 @@ public final class Pages {
 
 	/**
 	 * What the charts of the project ask of the datapoints of their series, by datapoint in the order
-	 * of the pages, from which {@link HistoryConfig#derived(TLObject)} derives their histories
+	 * of the pages: the charts the project's charts table lists, and the reach the migration of
+	 * haumacher/ehome #221 gives the datapoints whose histories the charts derived before
 	 * (haumacher/ehome #73).
 	 */
 	public static Map<TLObject, List<ChartUse>> chartUses(TLObject project) {
@@ -496,6 +518,14 @@ public final class Pages {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * The length in seconds of the range of the given classifier of ChartRange, <code>null</code> for
+	 * none.
+	 */
+	public static Long rangeSeconds(String classifier) {
+		return classifier == null ? null : RANGE_SECONDS.get(classifier);
 	}
 
 	/**

@@ -7,7 +7,6 @@ import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
@@ -17,14 +16,12 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 
 /**
- * The TL-Script functions of the histories of the datapoints (haumacher/ehome #73), see
+ * The TL-Script functions of the histories of the datapoints (haumacher/ehome #73, #221), see
  * {@link HistoryConfig}.
  *
  * <p>
  * Each function is registered in <code>ehome.runtime.config.xml</code> under the name of its
- * {@link Function} constant with the {@link Builder} of this class. Only
- * <code>runtimeHistorySetManual</code> and <code>runtimeHistoryReset</code> change data; the view's
- * commands calling them check the write access to the datapoint.
+ * {@link Function} constant with the {@link Builder} of this class. None changes data.
  * </p>
  */
 public class HistoryFunctions extends GenericMethod {
@@ -33,48 +30,35 @@ public class HistoryFunctions extends GenericMethod {
 	 * The functions, named as they are registered.
 	 */
 	public enum Function {
-		/** <code>runtimeHistoryDerived(datapoint)</code>: {@link HistoryConfig#describeDerived(TLObject)}. */
-		runtimeHistoryDerived(true),
 		/** <code>runtimeHistoryEffective(datapoint)</code>: {@link HistoryConfig#describeEffective(TLObject)}. */
-		runtimeHistoryEffective(true),
-		/** <code>runtimeHistoryManual(datapoint)</code>: {@link HistoryConfig#isManual(TLObject)}. */
-		runtimeHistoryManual(true),
+		runtimeHistoryEffective(1),
 		/** <code>runtimeHistoryUsage(project)</code>: {@link HistoryConfig#usage(TLObject)}. */
-		runtimeHistoryUsage(true),
-		/**
-		 * <code>runtimeHistoryRam(obj)</code>: the RAM of the history of a datapoint
-		 * ({@link HistoryConfig#ramBytes(TLObject)}), or of the datapoints of a chart
-		 * ({@link HistoryConfig#chartRamBytes(TLObject)}).
-		 */
-		runtimeHistoryRam(true),
-		/**
-		 * <code>runtimeHistoryFlash(obj)</code>: the flash of the archives of a datapoint
-		 * ({@link HistoryConfig#flashBytes(TLObject)}), or of the datapoints of a chart
-		 * ({@link HistoryConfig#chartFlashBytes(TLObject)}).
-		 */
-		runtimeHistoryFlash(true),
+		runtimeHistoryUsage(1),
+		/** <code>runtimeHistoryRam(datapoint)</code>: {@link HistoryConfig#ramBytes(TLObject)}. */
+		runtimeHistoryRam(1),
+		/** <code>runtimeHistoryFlash(datapoint)</code>: {@link HistoryConfig#flashBytes(TLObject)}. */
+		runtimeHistoryFlash(1),
 		/** <code>runtimeHistoryDatapoints(project)</code>: {@link HistoryConfig#datapoints(TLObject)}. */
-		runtimeHistoryDatapoints(true),
-		/** <code>runtimeHistoryCharts(project)</code>: {@link HistoryConfig#charts(TLObject)}. */
-		runtimeHistoryCharts(true),
+		runtimeHistoryDatapoints(1),
+		/** <code>runtimeMeter(datapoint)</code>: {@link HistoryConfig#meter(TLObject)}. */
+		runtimeMeter(1),
 		/**
-		 * <code>runtimeArchiveProblem(archive)</code>: what is wrong with an archive set by hand
-		 * ({@link HistoryConfig#archiveProblem(TLObject, TLObject)}, else
-		 * {@link HistoryConfig#archivesProblem(TLObject)} of its datapoint).
+		 * <code>runtimeMeterProblem(value, datapoint)</code>: the constraint of <code>meter</code>,
+		 * {@link HistoryConfig#meterProblem(Object, TLObject)}.
 		 */
-		runtimeArchiveProblem(true),
-		/** <code>runtimeHistorySetManual(datapoint)</code>: {@link HistoryConfig#setManual(TLObject)}, no result. */
-		runtimeHistorySetManual(false),
-		/** <code>runtimeHistoryReset(datapoint)</code>: {@link HistoryConfig#reset(TLObject)}, no result. */
-		runtimeHistoryReset(false);
+		runtimeMeterProblem(2),
+		/**
+		 * <code>runtimeRecordingProblem(value, datapoint)</code>: the constraint of
+		 * <code>recording</code>, {@link HistoryConfig#recordingProblem(Object, TLObject)}.
+		 */
+		runtimeRecordingProblem(2);
 
-		private final boolean _sideEffectFree;
+		private final int _arguments;
 
-		Function(boolean sideEffectFree) {
-			_sideEffectFree = sideEffectFree;
+		Function(int arguments) {
+			_arguments = arguments;
 		}
 	}
-
 	private final Function _function;
 
 	/**
@@ -102,7 +86,7 @@ public class HistoryFunctions extends GenericMethod {
 
 	@Override
 	public boolean isSideEffectFree() {
-		return _function._sideEffectFree;
+		return true;
 	}
 
 	@Override
@@ -112,52 +96,44 @@ public class HistoryFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
+		switch (_function) {
+			case runtimeMeterProblem:
+				return arguments[1] instanceof TLObject datapoint ? HistoryConfig.meterProblem(arguments[0], datapoint) : null;
+			case runtimeRecordingProblem:
+				return arguments[1] instanceof TLObject datapoint ? HistoryConfig.recordingProblem(arguments[0], datapoint)
+					: null;
+			default:
+				break;
+		}
 		if (!(arguments[0] instanceof TLObject obj) || !obj.tValid()) {
 			switch (_function) {
 				case runtimeHistoryDatapoints:
-				case runtimeHistoryCharts:
 					return List.of();
 				default:
 					return null;
 			}
 		}
 		switch (_function) {
-			case runtimeHistoryDerived:
-				return HistoryConfig.isDatapoint(obj) ? HistoryConfig.describeDerived(obj) : null;
 			case runtimeHistoryEffective:
 				return HistoryConfig.isDatapoint(obj) ? HistoryConfig.describeEffective(obj) : null;
-			case runtimeHistoryManual:
-				return Boolean.valueOf(HistoryConfig.isManual(obj));
 			case runtimeHistoryUsage:
 				return HistoryConfig.usage(obj);
 			case runtimeHistoryRam:
-				return SearchExpression.toNumber(Pages.is(obj, "ChartElement") ? HistoryConfig.chartRamBytes(obj)
-					: HistoryConfig.ramBytes(obj));
+				return SearchExpression.toNumber(HistoryConfig.ramBytes(obj));
 			case runtimeHistoryFlash:
-				return SearchExpression.toNumber(Pages.is(obj, "ChartElement") ? HistoryConfig.chartFlashBytes(obj)
-					: HistoryConfig.flashBytes(obj));
+				return SearchExpression.toNumber(HistoryConfig.flashBytes(obj));
 			case runtimeHistoryDatapoints:
 				return HistoryConfig.datapoints(obj);
-			case runtimeHistoryCharts:
-				return HistoryConfig.charts(obj);
-			case runtimeArchiveProblem: {
-				TLObject datapoint = obj.tContainer();
-				ResKey problem = HistoryConfig.archiveProblem(obj, datapoint);
-				return problem != null || datapoint == null ? problem : HistoryConfig.archivesProblem(datapoint);
-			}
-			case runtimeHistorySetManual:
-				HistoryConfig.setManual(obj);
-				return null;
-			case runtimeHistoryReset:
-				HistoryConfig.reset(obj);
+			case runtimeMeter:
+				return Boolean.valueOf(HistoryConfig.meter(obj));
+			default:
 				return null;
 		}
-		return null;
 	}
 
 	/**
 	 * Builder of a {@link HistoryFunctions} function: the {@link Function} named as the function is
-	 * registered, of one argument.
+	 * registered, of its number of arguments.
 	 */
 	public static final class Builder extends AbstractSimpleMethodBuilder<HistoryFunctions> {
 
@@ -173,7 +149,7 @@ public class HistoryFunctions extends GenericMethod {
 
 		@Override
 		public HistoryFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
-			checkArgs(expr, args, 1, 1);
+			checkArgs(expr, args, _function._arguments, _function._arguments);
 			return new HistoryFunctions(getConfig().getName(), _function, args);
 		}
 

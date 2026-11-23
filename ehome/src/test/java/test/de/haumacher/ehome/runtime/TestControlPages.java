@@ -61,6 +61,7 @@ import de.haumacher.ehome.model.runtime.RuleEnabledElement;
 import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.model.runtime.WriteAction;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.HistoryConfig;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
@@ -485,8 +486,7 @@ public class TestControlPages extends BasicTestCase {
 		TLObject series;
 		TLObject parameterSeries;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			// A history set by hand without a raw ring: no history (a derived one would follow the chart, #73).
-			_light.setHistoryManual(true);
+			// Without a recording: no history (haumacher/ehome #221).
 			series = Pages.insert(_project, _chart, Pages.SERIES, List.of(_light));
 			parameterSeries = Pages.insert(_project, series, Pages.SERIES, List.of(_setpoint));
 			tx.commit();
@@ -519,15 +519,15 @@ public class TestControlPages extends BasicTestCase {
 		buildPages();
 		TLObject reference;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_chart.setRange(classifier("ChartRange", "hour"));
+			_chart.setRange(classifier("ChartRange", "sixHours"));
 			reference = Pages.insert(_project, Parts.get(_chart, "references", 1), Pages.REFERENCE_DATAPOINT,
 				List.of(_heating));
 			tx.commit();
 		}
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
 		Map<?, ?> chart = (Map<?, ?>) ((Map<?, ?>) elements((Map<?, ?>) image.getJson().get("ui"), 1, 0).get(0)).get("chart");
-		assertEquals("1h", chart.get("range"));
-		assertEquals(List.of("1h", "24h", "7d", "30d", "1y"), chart.get("presets"));
+		assertEquals("6h", chart.get("range"));
+		assertEquals(List.of("6h", "24h", "7d", "30d", "1y"), chart.get("presets"));
 
 		assertNotNull(Pages.problem(reference));
 		assertNull(Pages.problem(Parts.get(_chart, "references", 1)));
@@ -854,10 +854,8 @@ public class TestControlPages extends BasicTestCase {
 			address.setDatapointTypes(List.of(type));
 		}
 		if (history) {
-			// A history set by hand (haumacher/ehome #73).
-			address.setHistoryManual(true);
-			address.setHistoryRetention(Integer.valueOf(86400));
-			address.setHistorySpacing(Integer.valueOf(900));
+			// Recorded for a year, the longest range of the charts (haumacher/ehome #221).
+			address.setRecording(HistoryConfig.classifier(HistoryConfig.Level.YEAR));
 		}
 		return address;
 	}

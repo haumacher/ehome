@@ -60,6 +60,70 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	public static final String TWO_LEVEL_GROUP_ADDRESS_STYLE_CLASSIFIER = GroupAddressStyle.TWO_LEVEL_CLASSIFIER;
 
 	/**
+	 * Name of the enumeration <code>Recording</code> in module {@value #EHOME_LOGICAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link Recording#TYPE_NAME}.
+	 */
+	@Deprecated
+	public static final String RECORDING_ENUM = Recording.TYPE_NAME;
+
+	/**
+	 * Name of the classifier <code>day</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#DAY_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String DAY_RECORDING_CLASSIFIER = Recording.DAY_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>month</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#MONTH_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String MONTH_RECORDING_CLASSIFIER = Recording.MONTH_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>none</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#NONE_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String NONE_RECORDING_CLASSIFIER = Recording.NONE_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>sixHours</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#SIX_HOURS_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String SIX_HOURS_RECORDING_CLASSIFIER = Recording.SIX_HOURS_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>tenYears</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#TEN_YEARS_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String TEN_YEARS_RECORDING_CLASSIFIER = Recording.TEN_YEARS_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>week</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#WEEK_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String WEEK_RECORDING_CLASSIFIER = Recording.WEEK_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>year</code> in enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#YEAR_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String YEAR_RECORDING_CLASSIFIER = Recording.YEAR_CLASSIFIER;
+
+	/**
 	 * Name of the data type <code>GA</code> in module {@value #EHOME_LOGICAL_MODULE}.
 	 */
 	public static final String GA_TYPE = "GA";
@@ -97,27 +161,6 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	 */
 	public static com.top_logic.model.TLClass getProjectDatapointType() {
 		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_LOGICAL_MODULE).getType(ProjectDatapoint.PROJECT_DATAPOINT_TYPE);
-	}
-
-	/**
-	 * Lookup {@link HistoryArchive} type.
-	 */
-	public static com.top_logic.model.TLClass getHistoryArchiveType() {
-		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_LOGICAL_MODULE).getType(HistoryArchive.HISTORY_ARCHIVE_TYPE);
-	}
-
-	/**
-	 * Lookup {@link HistoryArchive#RESOLUTION_ATTR} of {@link HistoryArchive}.
-	 */
-	public static com.top_logic.model.TLProperty getResolutionHistoryArchiveAttr() {
-		return (com.top_logic.model.TLProperty) getHistoryArchiveType().getPart(HistoryArchive.RESOLUTION_ATTR);
-	}
-
-	/**
-	 * Lookup {@link HistoryArchive#RETENTION_ATTR} of {@link HistoryArchive}.
-	 */
-	public static com.top_logic.model.TLProperty getRetentionHistoryArchiveAttr() {
-		return (com.top_logic.model.TLProperty) getHistoryArchiveType().getPart(HistoryArchive.RETENTION_ATTR);
 	}
 
 	/**
@@ -163,6 +206,13 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
+	 * Lookup {@link GroupAddress#EFFECTIVE_METER_ATTR} of {@link GroupAddress}.
+	 */
+	public static com.top_logic.model.TLProperty getEffectiveMeterGroupAddressAttr() {
+		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.EFFECTIVE_METER_ATTR);
+	}
+
+	/**
 	 * Lookup {@link GroupAddress#EFFECTIVE_READ_ON_START_ATTR} of {@link GroupAddress}.
 	 */
 	public static com.top_logic.model.TLProperty getEffectiveReadOnStartGroupAddressAttr() {
@@ -184,20 +234,6 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
-	 * Lookup {@link GroupAddress#HISTORY_ARCHIVES_ATTR} of {@link GroupAddress}.
-	 */
-	public static com.top_logic.model.TLReference getHistoryArchivesGroupAddressAttr() {
-		return (com.top_logic.model.TLReference) getGroupAddressType().getPart(GroupAddress.HISTORY_ARCHIVES_ATTR);
-	}
-
-	/**
-	 * Lookup {@link GroupAddress#HISTORY_DERIVED_ATTR} of {@link GroupAddress}.
-	 */
-	public static com.top_logic.model.TLProperty getHistoryDerivedGroupAddressAttr() {
-		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.HISTORY_DERIVED_ATTR);
-	}
-
-	/**
 	 * Lookup {@link GroupAddress#HISTORY_EFFECTIVE_ATTR} of {@link GroupAddress}.
 	 */
 	public static com.top_logic.model.TLProperty getHistoryEffectiveGroupAddressAttr() {
@@ -205,31 +241,24 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
-	 * Lookup {@link GroupAddress#HISTORY_MANUAL_ATTR} of {@link GroupAddress}.
-	 */
-	public static com.top_logic.model.TLProperty getHistoryManualGroupAddressAttr() {
-		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.HISTORY_MANUAL_ATTR);
-	}
-
-	/**
-	 * Lookup {@link GroupAddress#HISTORY_RETENTION_ATTR} of {@link GroupAddress}.
-	 */
-	public static com.top_logic.model.TLProperty getHistoryRetentionGroupAddressAttr() {
-		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.HISTORY_RETENTION_ATTR);
-	}
-
-	/**
-	 * Lookup {@link GroupAddress#HISTORY_SPACING_ATTR} of {@link GroupAddress}.
-	 */
-	public static com.top_logic.model.TLProperty getHistorySpacingGroupAddressAttr() {
-		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.HISTORY_SPACING_ATTR);
-	}
-
-	/**
 	 * Lookup {@link GroupAddress#IDENTIFIER_ATTR} of {@link GroupAddress}.
 	 */
 	public static com.top_logic.model.TLProperty getIdentifierGroupAddressAttr() {
 		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.IDENTIFIER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link GroupAddress#METER_ATTR} of {@link GroupAddress}.
+	 */
+	public static com.top_logic.model.TLProperty getMeterGroupAddressAttr() {
+		return (com.top_logic.model.TLProperty) getGroupAddressType().getPart(GroupAddress.METER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link GroupAddress#RECORDING_ATTR} of {@link GroupAddress}.
+	 */
+	public static com.top_logic.model.TLReference getRecordingGroupAddressAttr() {
+		return (com.top_logic.model.TLReference) getGroupAddressType().getPart(GroupAddress.RECORDING_ATTR);
 	}
 
 	/**
@@ -350,6 +379,86 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	}
 
 	/**
+	 * Lookup the enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#type()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLEnumeration getRecordingEnum() {
+		return Recording.type();
+	}
+
+	/**
+	 * Lookup classifier <code>day</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#dayClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getDayRecordingClassifier() {
+		return Recording.dayClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>month</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#monthClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getMonthRecordingClassifier() {
+		return Recording.monthClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>none</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#noneClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getNoneRecordingClassifier() {
+		return Recording.noneClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>sixHours</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#sixHoursClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getSixHoursRecordingClassifier() {
+		return Recording.sixHoursClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>tenYears</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#tenYearsClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getTenYearsRecordingClassifier() {
+		return Recording.tenYearsClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>week</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#weekClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getWeekRecordingClassifier() {
+		return Recording.weekClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>year</code> of enumeration <code>Recording</code>.
+	 * 
+	 * @deprecated Use {@link Recording#yearClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getYearRecordingClassifier() {
+		return Recording.yearClassifier();
+	}
+
+	/**
 	 * Lookup {@value #GA_TYPE} data type.
 	 */
 	public static com.top_logic.model.TLPrimitive getGAType() {
@@ -371,22 +480,6 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	 */
 	@Deprecated
 	public static final String PROJECT_DATAPOINT_NODE = ProjectDatapoint.PROJECT_DATAPOINT_TYPE;
-
-	/**
-	 * Name of type <code>HistoryArchive</code> in module {@link #EHOME_LOGICAL_MODULE}.
-	 * 
-	 * @deprecated Use {@link HistoryArchive#HISTORY_ARCHIVE_TYPE}.
-	 */
-	@Deprecated
-	public static final String HISTORY_ARCHIVE_NODE = HistoryArchive.HISTORY_ARCHIVE_TYPE;
-
-	/**
-	 * Storage table name of {@link #HISTORY_ARCHIVE_NODE} objects.
-	 * 
-	 * @deprecated Use {@link de.haumacher.ehome.model.logical.internal.HistoryArchiveBase#TABLE_NAME}.
-	 */
-	@Deprecated
-	public static final String KO_NAME_HISTORY_ARCHIVE = de.haumacher.ehome.model.logical.internal.HistoryArchiveBase.TABLE_NAME;
 
 	/**
 	 * Name of type <code>GroupAddress</code> in module {@link #EHOME_LOGICAL_MODULE}.
@@ -420,20 +513,6 @@ public class EhomeLogicalFactory extends com.top_logic.element.meta.kbbased.Abst
 	@Deprecated
 	public static final String KO_NAME_GROUP_RANGE = de.haumacher.ehome.model.logical.internal.GroupRangeBase.TABLE_NAME;
 
-
-	/**
-	 * Create an instance of {@link HistoryArchive} type.
-	 */
-	public final HistoryArchive createHistoryArchive(com.top_logic.model.TLObject context) {
-		return (HistoryArchive) createObject(getHistoryArchiveType(), context);
-	}
-
-	/**
-	 * Create an instance of {@link HistoryArchive} type.
-	 */
-	public final HistoryArchive createHistoryArchive() {
-		return createHistoryArchive(null);
-	}
 
 	/**
 	 * Create an instance of {@link GroupAddress} type.

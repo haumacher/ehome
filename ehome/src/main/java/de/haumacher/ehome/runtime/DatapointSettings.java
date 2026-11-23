@@ -62,7 +62,7 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * <p>
  * Set for the address (<code>runtimeWritable</code>, <code>runtimeReadOnStart</code>, both empty
  * for "derived"): override the derivation. <code>runtimeReadable</code>,
- * <code>runtimePersist</code>, <code>historyRetention</code>/<code>historySpacing</code> and
+ * <code>runtimePersist</code> and
  * <code>runtimeUnit</code> have no derivation: unset, the image leaves them out (the unit then is
  * the datapoint type's).
  * </p>
@@ -225,22 +225,6 @@ public final class DatapointSettings {
 	}
 
 	/**
-	 * The history retention in seconds; <code>null</code> without history.
-	 */
-	public static Integer historyRetention(TLObject address) {
-		return address.tValueByName("historyRetention") instanceof Number value ? Integer.valueOf(value.intValue())
-			: null;
-	}
-
-	/**
-	 * The history spacing in seconds; <code>null</code> without history.
-	 */
-	public static Integer historySpacing(TLObject address) {
-		return address.tValueByName("historySpacing") instanceof Number value ? Integer.valueOf(value.intValue())
-			: null;
-	}
-
-	/**
 	 * The unit of the datapoint: the setting, else the one of its datapoint type;
 	 * <code>null</code> for none (or one longer than the image allows). For an application datapoint
 	 * (a role of a function may refer to one, haumacher/ehome #61) its unit.
@@ -275,41 +259,6 @@ public final class DatapointSettings {
 			return I18NConstants.FLAGS_READ_ON_START_SET;
 		}
 		return I18NConstants.FLAGS_DERIVED;
-	}
-
-	/**
-	 * What is wrong with the history settings of the address or application datapoint
-	 * ({@link ApplicationDatapoints}, which has the same attributes); <code>null</code> if they fit.
-	 */
-	public static ResKey historyProblem(TLObject address) {
-		Integer retention = historyRetention(address);
-		Integer spacing = historySpacing(address);
-		if (retention == null && spacing == null) {
-			return null;
-		}
-		if (retention == null || spacing == null) {
-			return I18NConstants.HISTORY_INCOMPLETE;
-		}
-		String type;
-		if (ApplicationDatapoints.isApplicationDatapoint(address)) {
-			type = ApplicationDatapoints.valueType(address);
-		} else {
-			Dpt dpt = GroupAddressTypes.effective(address);
-			type = dpt == null ? null : ValueTypes.valueType(dpt.main(), dpt.isMainType() ? 0 : dpt.sub());
-		}
-		if (type != null && !ValueTypes.BOOLEAN.equals(type) && !ValueTypes.UNSIGNED.equals(type)
-			&& !ValueTypes.SIGNED.equals(type) && !ValueTypes.REAL.equals(type)) {
-			return I18NConstants.HISTORY_WRONG_TYPE__TYPE.fill(type);
-		}
-		if (retention.intValue() < spacing.intValue()) {
-			return I18NConstants.HISTORY_RETENTION_BELOW_SPACING;
-		}
-		long samples = ImageValidator.samples(retention.longValue(), spacing.longValue());
-		if (samples > ImageValidator.MAX_SAMPLES) {
-			return I18NConstants.HISTORY_TOO_MANY_SAMPLES__SAMPLES_MAX.fill(Long.valueOf(samples),
-				Integer.valueOf(ImageValidator.MAX_SAMPLES));
-		}
-		return null;
 	}
 
 }

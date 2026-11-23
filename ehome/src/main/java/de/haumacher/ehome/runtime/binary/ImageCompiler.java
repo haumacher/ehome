@@ -1631,6 +1631,8 @@ public final class ImageCompiler {
 			ram += 8 * ImageValidator.samples(retention, spacing);
 			Map<String, Object> rec = record();
 			rec.put("datapoint", Integer.valueOf(i));
+			// The meter flag (3.3, 9.9, format 1.3).
+			rec.put("flags", Integer.valueOf(Boolean.TRUE.equals(history.get("meter")) ? Layout.HISTORY_METER : 0));
 			rec.put("retention", Long.valueOf(retention));
 			rec.put("spacing", Long.valueOf(spacing));
 			rec.put("firstArchive", Integer.valueOf(archives.size()));
@@ -1660,17 +1662,82 @@ public final class ImageCompiler {
 
 	/**
 	 * The minor version of the binary format the image of the given source is written in (section 8):
-	 * 2 with an initial value of a datapoint (3.3, homecontrol #107, haumacher/ehome #217), else 1 with
-	 * a control page of minimum role <code>anonymous</code> (3.9, I12, homecontrol #91, haumacher/ehome
-	 * #184), else 0.
+	 * 3 with a history that is a meter reading (3.3, homecontrol #115, haumacher/ehome #221), else 2 with
+	 * an initial value of a datapoint (3.3, homecontrol #107, haumacher/ehome #217), else 1 with a control
+	 * page of minimum role <code>anonymous</code> (3.9, I12, homecontrol #91, haumacher/ehome #184), else
+	 * 0.
 	 */
 	public static int formatMinor(Map<?, ?> source) {
+		for (Map<?, ?> dp : maps(source.get("datapoints"))) {
+			if (dp.get("history") instanceof Map<?, ?> history && Boolean.TRUE.equals(history.get("meter"))) {
+				return 3;
+			}
+		}
 		for (Map<?, ?> dp : maps(source.get("datapoints"))) {
 			if (dp.containsKey("virtual") && dp.containsKey("initial")) {
 				return 2;
 			}
 		}
 		return anonymousPages(source).isEmpty() ? 0 : 1;
+	}
+
+	/** The chart ranges of format 1.3 (schema 1.10, homecontrol #115, haumacher/ehome #221). */
+	public static final Set<String> RANGES_1_3 = Set.of("6h", "10y");
+
+	/**
+	 * Whether a chart of the source's control pages offers a range of format 1.3 ({@link #RANGES_1_3}),
+	 * which a controller of an older format does not draw.
+	 */
+	public static boolean usesRanges13(Map<?, ?> source) {
+		if (!(source.get("ui") instanceof Map<?, ?> ui)) {
+			return false;
+		}
+		for (Map<?, ?> page : maps(ui.get("pages"))) {
+			for (Map<?, ?> section : maps(page.get("sections"))) {
+				for (Map<?, ?> element : maps(section.get("elements"))) {
+					if (element.get("chart") instanceof Map<?, ?> chart) {
+						if (RANGES_1_3.contains(chart.get("range"))) {
+							return true;
+						}
+						if (chart.get("presets") instanceof List<?> presets) {
+							for (Object preset : presets) {
+								if (RANGES_1_3.contains(preset)) {
+									return true;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The source as a controller of the given minor format reads it: for one before 1.3 without the meter
+	 * flags of the histories (format 1.3, which such a firmware would draw as lines anyway); the source
+	 * itself where nothing is to be left out.
+	 */
+	public static Map<?, ?> forFormat(Map<?, ?> source, int minor) {
+		if (minor >= 3 || formatMinor(source) < 3) {
+			return source;
+		}
+		Map<Object, Object> result = new LinkedHashMap<>(source);
+		List<Object> datapoints = new ArrayList<>();
+		for (Object entry : (List<?>) source.get("datapoints")) {
+			if (entry instanceof Map<?, ?> dp && dp.get("history") instanceof Map<?, ?> history
+				&& history.containsKey("meter")) {
+				Map<Object, Object> copy = new LinkedHashMap<>(dp);
+				Map<Object, Object> stripped = new LinkedHashMap<>(history);
+				stripped.remove("meter");
+				copy.put("history", stripped);
+				datapoints.add(copy);
+			} else {
+				datapoints.add(entry);
+			}
+		}
+		result.put("datapoints", datapoints);
+		return result;
 	}
 
 	/** The control pages of minimum role <code>anonymous</code> of the source, in their order. */

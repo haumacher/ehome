@@ -129,6 +129,14 @@ public final class RuntimeImage {
 	public static final String SCHEMA_VERSION_INITIAL_VALUES = "1.9";
 
 	/**
+	 * The version of the schema of an image with a meter reading or a chart range of 6 h or 10 y
+	 * (homecontrol <code>spec/runtime-image.md</code> 3.3, 3.9, homecontrol #115, haumacher/ehome #221):
+	 * the history member <code>meter</code>, binary format 1.3, and the ranges <code>6h</code> and
+	 * <code>10y</code>.
+	 */
+	public static final String SCHEMA_VERSION_METER = "1.10";
+
+	/**
 	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote
 	 * (homecontrol <code>spec/runtime-image.md</code> 3.5, 1.4; haumacher/ehome #70): the toggle a press,
 	 * on and off, dim up and down, the dim stop a release.
@@ -177,9 +185,6 @@ public final class RuntimeImage {
 	/** The ids of the datapoints by the group address they stand for. */
 	private final Map<TLObject, String> _datapointIds = new HashMap<>();
 
-	/** The histories the charts of the pages derive for their datapoints (haumacher/ehome #73). */
-	private Map<TLObject, HistoryConfig.History> _derivedHistory = Map.of();
-
 	/** The time master's addresses with the id of the datapoint the controller adds for each. */
 	private final Map<TLObject, String> _timeMaster = new LinkedHashMap<>();
 
@@ -195,7 +200,10 @@ public final class RuntimeImage {
 	/** The objects of the project by the paths of <code>blocks</code>. */
 	private final Map<String, TLObject> _blockSources = new HashMap<>();
 
-	/** What the image cannot express of the virtual devices. */
+	/**
+	 * What the image cannot express of the virtual devices, and the ranges of the charts beyond the
+	 * recordings of their series (haumacher/ehome #221).
+	 */
 	private final List<BlockInstances.Problem> _blockProblems = new ArrayList<>();
 
 	private RuntimeImage() {
@@ -280,6 +288,15 @@ public final class RuntimeImage {
 	 */
 	public byte[] compile(String seed) {
 		return ImageCompiler.compile(_json, ImageCompiler.Options.signed(seed));
+	}
+
+	/**
+	 * {@link #compile(String)} for a controller reading the given minor version of the format: before
+	 * 1.3 without the meter flags of the histories ({@link ImageCompiler#forFormat(Map, int)},
+	 * haumacher/ehome #221).
+	 */
+	public byte[] compile(String seed, int minor) {
+		return ImageCompiler.compile(ImageCompiler.forFormat(_json, minor), ImageCompiler.Options.signed(seed));
 	}
 
 	/**
@@ -532,7 +549,6 @@ public final class RuntimeImage {
 	// ---- datapoints --------------------------------------------------------------------------
 
 	private void datapoints(TLObject project) {
-		_derivedHistory = HistoryConfig.derivedHistories(project);
 		List<TLObject> addresses = new ArrayList<>();
 		collectAddresses(((Project) project).getGroupAddresses(), addresses);
 		addresses.sort(Comparator.comparingInt(RuntimeImage::addressValue)
@@ -550,7 +566,7 @@ public final class RuntimeImage {
 			}
 		}
 		for (TLObject application : ApplicationDatapoints.of(project)) {
-			Map<String, Object> datapoint = ApplicationDatapoints.json(application, _derivedHistory);
+			Map<String, Object> datapoint = ApplicationDatapoints.json(application);
 			datapoints.add(datapoint);
 			_datapointSources.add(application);
 			_datapointIds.put(application, (String) datapoint.get("id"));
@@ -627,7 +643,7 @@ public final class RuntimeImage {
 		if (DatapointSettings.persist(address)) {
 			result.put("persist", Boolean.TRUE);
 		}
-		Map<String, Object> history = HistoryConfig.json(address, _derivedHistory);
+		Map<String, Object> history = HistoryConfig.json(address);
 		if (history != null) {
 			result.put("history", history);
 		}
@@ -1089,7 +1105,7 @@ public final class RuntimeImage {
 				String id = Pages.imageId(rule);
 				return parameters.contains(id) ? id : null;
 			}
-		}, _notes);
+		}, _notes, _blockProblems);
 		List<Object> pages = export.pages(project);
 		if (pages != null) {
 			Map<String, Object> ui = new LinkedHashMap<>();
@@ -1101,16 +1117,23 @@ public final class RuntimeImage {
 
 	/**
 	 * The schema the image is written in: the oldest whose members it uses
-	 * ({@link #SCHEMA_VERSION_INITIAL_VALUES}, {@link #SCHEMA_VERSION_ANONYMOUS_PAGES}), so an image
-	 * without them stays the image it was.
+	 * ({@link #SCHEMA_VERSION_METER}, {@link #SCHEMA_VERSION_INITIAL_VALUES},
+	 * {@link #SCHEMA_VERSION_ANONYMOUS_PAGES}), so an image without them stays the image it was.
 	 */
 	@SuppressWarnings("unchecked")
 	private void schemaVersion() {
 		int minor = ImageCompiler.formatMinor(_json);
-		if (minor > 0) {
-			((Map<String, Object>) _json.get("image")).put("schemaVersion",
-				minor >= 2 ? SCHEMA_VERSION_INITIAL_VALUES : SCHEMA_VERSION_ANONYMOUS_PAGES);
+		String version;
+		if (minor >= 3 || ImageCompiler.usesRanges13(_json)) {
+			version = SCHEMA_VERSION_METER;
+		} else if (minor == 2) {
+			version = SCHEMA_VERSION_INITIAL_VALUES;
+		} else if (minor == 1) {
+			version = SCHEMA_VERSION_ANONYMOUS_PAGES;
+		} else {
+			return;
 		}
+		((Map<String, Object>) _json.get("image")).put("schemaVersion", version);
 	}
 
 	// ---- history -----------------------------------------------------------------------------

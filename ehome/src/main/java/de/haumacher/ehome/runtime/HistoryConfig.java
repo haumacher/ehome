@@ -7,116 +7,60 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.function.ToLongFunction;
-import java.util.function.UnaryOperator;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
-import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
-import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.logical.GroupAddress;
-import de.haumacher.ehome.model.logical.HistoryArchive;
+import de.haumacher.ehome.model.logical.Recording;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.ChartElement;
 import de.haumacher.ehome.model.runtime.ChartSeries;
-import de.haumacher.ehome.model.runtime.Function;
+import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
+import de.haumacher.ehome.programming.GroupAddressTypes;
 
 /**
- * The history the controller keeps of a datapoint (haumacher/ehome #73, homecontrol #56): a raw ring
- * of samples and up to four archives of consolidated slots, derived from the charts of the control
- * pages, or set by hand.
+ * The history the controller keeps of a datapoint (haumacher/ehome #221, homecontrol #115): its setting
+ * "Aufzeichnung" ({@link Level}, the attribute <code>recording</code>) says how far back it reaches, and
+ * its stores follow from it, a raw ring of samples and archives of consolidated slots; the flag
+ * "Zählerstand" (<code>meter</code>) marks a meter reading, which the controller's generic view draws as
+ * consumption bars. The control pages only choose what to show: a chart offers the datapoints with a
+ * recording and the ranges their recordings reach.
  *
- * <h2>Derived from the charts</h2>
- *
- * <p>
- * Each series of a chart asks, for each range the chart offers (its default range and its presets),
- * for a <i>resolution</i> over a <i>coverage</i> ({@link #needs(Pages.ChartUse, boolean)}), read from
- * what the controller's UI draws (homecontrol <code>web/ui/dist/elements.js</code>, <code>load()</code>):
- * </p>
- * <ul>
- * <li>a line, band or on/off strip: {@value #LINE_POINTS} points over the range, so the resolution is
- * the range divided by {@value #LINE_POINTS}, over the range;</li>
- * <li>the bars of a consumption: one bar per bucket of its own width (1 h: 12 of 5 min, 24 h: 24 of
- * 1 h, 7 d: 7 of 1 d, 30 d: 30 of 1 d, 1 y: 12 of a twelfth of the year), queried with one bucket
- * more for the first difference, so the resolution is the bar width, over the bars plus one.</li>
- * </ul>
- * <p>
- * A resolution is rounded down to the {@link #LADDER} (1, 5, 15 min, 1 h, 1 d). A coverage up to
- * {@link #RAW_COVERAGE 2 days} is served by the raw ring: its spacing is the finest such resolution,
- * its retention the longest such coverage. A longer coverage is served by an archive of its
- * resolution, kept for the longest coverage at that resolution. Over all charts of the datapoint the
- * needs are united: the finest resolution per coverage, the longest retention per resolution. A
- * datapoint a function shows (any role of a function) keeps, besides, the 24 hours at 15 minutes its
- * tile's sparkline and its sheet draw ({@link #FUNCTION_NEED}); a datapoint no chart draws keeps no
- * history.
- * </p>
- * <p>
- * The limits of the controller (homecontrol #56) are respected by these rules, each of which keeps
- * the coverage and gives up resolution:
- * </p>
- * <ul>
- * <li>an archive of more than {@value #MAX_SLOTS} slots takes the next coarser step of the ladder (and
- * joins an archive of that resolution), as does a raw ring of more than
- * {@value ImageValidator#MAX_SAMPLES} samples;</li>
- * <li>an archive whose coverage a finer store (the raw ring or a finer archive) reaches as well is
- * dropped: the controller serves its range from the finer one;</li>
- * <li>of more than {@value #MAX_ARCHIVES} archives the finest is merged into the next coarser one,
- * until four are left;</li>
- * <li>the raw ring's spacing is finer than the finest archive's resolution: if not, it takes the step
- * of the ladder below. Without a range of up to two days the raw ring only feeds the archives: the
- * step below the finest archive's resolution, kept for one slot of it;</li>
- * <li>a history whose archives need more flash than the device allows for all archives
- * ({@value ImageValidator#ARCHIVE_CAP} bytes), or whose ring and archives need more RAM than it allows
- * ({@value ImageValidator#HISTORY_CAP} bytes), is made coarser as below, until it fits or nothing can
- * be coarser. With the ranges of the charts (up to a year) a single datapoint never comes near either
- * cap; the rule keeps the derivation within the device's limits for any coverage.</li>
- * </ul>
- *
- * <h2>Made coarser, never shorter</h2>
+ * <h2>The stores</h2>
  *
  * <p>
- * The controller answers a range of a chart from the finest of the datapoint's stores (the raw ring
- * and the archives) whose resolution is at most the range's bucket width (a line: the range divided by
- * {@value #LINE_POINTS}; bars: their width) and that reaches back over the range; if no archive is
- * fine enough, from the raw ring (runtime image 3.9, "Which history answers"). Where a history must
- * need less, a store takes a coarser of the {@link #COARSENING_STEPS}: an archive moves to the finest
- * step that needs less flash (or RAM), joining an archive of that resolution, or is split (it keeps its
- * resolution for the ranges of finer buckets, and an archive at the coarsest step the other ranges'
- * buckets allow takes its retention), whichever gives up the least resolution; the raw ring takes the
- * finest step that needs less RAM, for the same retention. A step is taken only when every range the
- * history answered is
- * still answered by a store fine enough for its bucket width and reaching back: a store gives up
- * resolution up to the finest bucket width of the ranges it serves, never coverage. Retentions are
- * never shortened.
- * </p>
- * <p>
- * The limits hold for the image as a whole as well: while the histories of all datapoints need more
- * flash or RAM than the device (or the project's budget) allows, the derived histories are made coarser,
- * one archive or ring at a time, the biggest first ({@link #projectHistories(TLObject)}); the histories
- * set by hand are never changed. Only where that cannot make them fit does the image's check refuse
- * them at <code>history</code> ({@link ImageValidator}), without giving up coverage; the project's usage text
- * ({@link #usage(TLObject)}) names the biggest, and the datapoints made coarser.
+ * What the controller's views draw decides the resolution: a line, band or on/off strip has
+ * {@value #LINE_POINTS} points per range (6 h, 24 h, 7 d, 30 d, 1 y, 10 y up to the reach), rounded down to
+ * the controller's steps; consumption bars have their width (15 min for 6 h, 1 h for 24 h, 1 d for 7 d
+ * and 30 d, a month for 1 y, a year for 10 y), and their store reaches one bar further for the first
+ * difference. Up to 24 hours a raw ring serves the ranges, beyond them an archive per resolution:
  * </p>
  *
- * <h2>Set by hand</h2>
- *
+ * <table>
+ * <caption>The stores of a recording</caption>
+ * <tr><th>Reach</th><th>Line, band, strip</th><th>Meter</th></tr>
+ * <tr><td>6 h</td><td>ring 5 min × 6 h</td><td>ring 15 min × 6¼ h</td></tr>
+ * <tr><td>24 h</td><td>ring 5 min × 24 h</td><td>ring 15 min × 25 h</td></tr>
+ * <tr><td>7 days</td><td>+ archive 3 h × 7 d</td><td>+ archive 1 d × 8 d</td></tr>
+ * <tr><td>30 days</td><td>+ archive 12 h × 30 d</td><td>archive 1 d × 31 d</td></tr>
+ * <tr><td>1 year</td><td>+ archive 7 d × 1 y</td><td>archive 1 d × 13 months</td></tr>
+ * <tr><td>10 years</td><td>+ archive 31 d × 10 y</td><td>+ archive 31 d × 10 y</td></tr>
+ * </table>
  * <p>
- * With <code>historyManual</code>, the raw ring of <code>historyRetention</code> and
- * <code>historySpacing</code> and the archives <code>historyArchives</code> replace the derived history
- * entirely: no merging. A datapoint that had a history before haumacher/ehome #73 is migrated to one set
- * by hand without archives, so its image does not change.
+ * A meter's month bars are summed from day slots, which start at local midnight like the bars; its year
+ * bars come from the 31-day archive (a day archive over 10 years would exceed the 2048 slots of an
+ * archive), which reaches no further than the controller keeps an archive (10 years).
  * </p>
  *
  * <h2>Bytes</h2>
@@ -129,74 +73,110 @@ import de.haumacher.ehome.model.runtime.Function;
  * <ul>
  * <li>RAM (<code>history.budget</code>, at most {@value ImageValidator#HISTORY_CAP} bytes): per raw ring
  * {@value #SAMPLE_BYTES} bytes per sample, per archive its open slot and the closed slots of up to an
- * hour not yet written, <code>(ceil(3600 / resolution) + 2) * {@value #SLOT_BYTES}</code>
- * ({@link ImageValidator#archiveRamBytes(long)}; 96 bytes for an hour or more). The closed slots of an
- * archive are not in RAM.</li>
+ * hour not yet written ({@link ImageValidator#archiveRamBytes(long)}; 96 bytes for an hour or more).</li>
  * <li>Flash (<code>history.archiveBudget</code>, at most {@value ImageValidator#ARCHIVE_CAP} bytes): per
- * archive a segment of 4096 bytes per 127 slots, <code>ceil(slots / 127) * 4096</code>
- * ({@link ImageValidator#archiveFlashBytes(long, long)}).</li>
+ * archive a segment of 4096 bytes per 127 slots ({@link ImageValidator#archiveFlashBytes(long, long)}).</li>
  * </ul>
  * <p>
  * E-Home writes <code>history.budget</code> when the project sets <code>historyBudget</code>, and never
- * <code>history.archiveBudget</code>: its default is what the archives need, and the device refuses the
- * archives beyond its cap without it.
+ * <code>history.archiveBudget</code>. Histories beyond the budget or the caps are refused by the image's
+ * check at <code>history</code> ({@link ImageValidator}); the project's usage text
+ * ({@link #usage(TLObject)}) names the biggest.
  * </p>
  */
 public final class HistoryConfig {
 
-	/** The steps a derived resolution is rounded down to, in seconds. */
-	public static final List<Long> LADDER =
-		List.of(Long.valueOf(60), Long.valueOf(300), Long.valueOf(900), Long.valueOf(3600), Long.valueOf(86400));
-
-	/**
-	 * The steps a derived archive or raw ring is made coarser to where the device's limits ask for it, in
-	 * seconds: the divisors of a day from 1 min (aligned to multiples in UTC), then 1, 2 and 7 days and
-	 * 31 days, the coarsest resolution of the device (aligned to local days). A step is taken only within
-	 * the bucket widths of the ranges the store answers ({@link Need#bucket()}). A chart's need is rounded
-	 * down to the {@link #LADDER} alone.
-	 */
-	public static final List<Long> COARSENING_STEPS = List.of(Long.valueOf(60), Long.valueOf(300), Long.valueOf(900),
-		Long.valueOf(1800), Long.valueOf(3600), Long.valueOf(7200), Long.valueOf(10800), Long.valueOf(21600),
-		Long.valueOf(43200), Long.valueOf(86400), Long.valueOf(2 * 86400), Long.valueOf(7 * 86400),
-		Long.valueOf(31 * 86400));
-
-	/** The longest coverage the raw ring serves; longer ones are served by archives. */
-	public static final long RAW_COVERAGE = 2 * 86400;
-
 	/** The points of a line of a chart of the controller's UI. */
 	public static final int LINE_POINTS = 48;
-
-	/** The most archives of a datapoint. */
-	public static final int MAX_ARCHIVES = 4;
-
-	/** The most slots of an archive. */
-	public static final int MAX_SLOTS = 2048;
-
-	/** The bytes of a slot of an archive. */
-	public static final int SLOT_BYTES = 32;
 
 	/** The bytes of a sample of the raw ring. */
 	public static final int SAMPLE_BYTES = 8;
 
-	/** The finest resolution of an archive. */
-	public static final long MIN_RESOLUTION = 60;
-
-	/** The coarsest resolution of an archive: 31 days. */
-	public static final long MAX_RESOLUTION = 31 * 86400;
-
-	/** The longest retention of an archive: 10 years. */
+	/** The longest retention of an archive the controller keeps: 10 years. */
 	public static final long MAX_ARCHIVE_RETENTION = 3650L * 86400;
 
-	/** What a function asks of the datapoints of its roles: its sparkline and sheet, 24 h at 15 min. */
-	public static final Need FUNCTION_NEED = new Need(900, 86400);
+	private static final long MINUTE = 60;
 
-	/** The consumption bars of the controller's UI per range: their count and width in seconds. */
-	private static final Map<Long, long[]> BARS = Map.of(
-		Long.valueOf(3600), new long[] { 12, 300 },
-		Long.valueOf(86400), new long[] { 24, 3600 },
-		Long.valueOf(7 * 86400), new long[] { 7, 86400 },
-		Long.valueOf(30 * 86400), new long[] { 30, 86400 },
-		Long.valueOf(365 * 86400), new long[] { 12, 365 * 86400 / 12 });
+	private static final long HOUR = 3600;
+
+	private static final long DAY = 86400;
+
+	/** The width of the month bars of a year: a twelfth of 365 days. */
+	private static final long MONTH_BAR = 365 * DAY / 12;
+
+	/**
+	 * How far back the controller records a datapoint: the classifiers of
+	 * <code>ehome.logical:Recording</code> and the reach in seconds of the chart range of the same
+	 * length (a year is 365 days).
+	 */
+	public enum Level {
+
+		/** No history. */
+		NONE("none", 0),
+
+		/** 6 hours. */
+		SIX_HOURS("sixHours", 6 * HOUR),
+
+		/** 24 hours. */
+		DAY("day", HistoryConfig.DAY),
+
+		/** 7 days. */
+		WEEK("week", 7 * HistoryConfig.DAY),
+
+		/** 30 days. */
+		MONTH("month", 30 * HistoryConfig.DAY),
+
+		/** A year of 365 days. */
+		YEAR("year", 365 * HistoryConfig.DAY),
+
+		/** 10 years of 365 days. */
+		TEN_YEARS("tenYears", 3650 * HistoryConfig.DAY);
+
+		private final String _classifier;
+
+		private final long _reach;
+
+		Level(String classifier, long reach) {
+			_classifier = classifier;
+			_reach = reach;
+		}
+
+		/** The name of the classifier of <code>ehome.logical:Recording</code>. */
+		public String classifier() {
+			return _classifier;
+		}
+
+		/** How far back the recording reaches: the length of the longest chart range it serves. */
+		public long reach() {
+			return _reach;
+		}
+
+		/** The level of the classifier name; {@link #NONE} for none or an unknown one. */
+		public static Level of(String classifier) {
+			for (Level level : values()) {
+				if (level._classifier.equals(classifier)) {
+					return level;
+				}
+			}
+			return NONE;
+		}
+
+		/**
+		 * The shortest level whose stores reach back at least the given seconds ({@link #NONE} for
+		 * none, {@link #TEN_YEARS} for more than it reaches): a history reaching that far, rounded up.
+		 */
+		public static Level covering(long seconds, boolean meter) {
+			if (seconds <= 0) {
+				return NONE;
+			}
+			for (Level level : values()) {
+				if (level != NONE && stores(level, meter).reach() >= seconds) {
+					return level;
+				}
+			}
+			return TEN_YEARS;
+		}
+	}
 
 	private HistoryConfig() {
 		// Static utility.
@@ -220,11 +200,6 @@ public final class HistoryConfig {
 			return ImageValidator.archiveRamBytes(resolution);
 		}
 
-		/** The segments of the archive on flash. */
-		public long segments() {
-			return ImageValidator.archiveSegments(retention, resolution);
-		}
-
 		/**
 		 * The flash the archive takes: 4096 bytes per segment ({@link ImageValidator#archiveFlashBytes(long, long)}).
 		 */
@@ -234,14 +209,32 @@ public final class HistoryConfig {
 	}
 
 	/**
-	 * The history of a datapoint: the raw ring (retention and spacing in seconds) and the archives,
-	 * finest first.
+	 * The history of a datapoint: the raw ring (retention and spacing in seconds), the archives, finest
+	 * first, and whether it is a meter reading.
 	 */
-	public record History(long retention, long spacing, List<Archive> archives) {
+	public record History(long retention, long spacing, List<Archive> archives, boolean meter) {
 
 		/** The samples of the raw ring. */
 		public long samples() {
 			return ImageValidator.samples(retention, spacing);
+		}
+
+		/** The values the ring and the archives hold together. */
+		public long values() {
+			long result = samples();
+			for (Archive archive : archives) {
+				result += archive.slots();
+			}
+			return result;
+		}
+
+		/** How far back the history reaches: the longest retention of its ring and archives. */
+		public long reach() {
+			long result = retention;
+			for (Archive archive : archives) {
+				result = Math.max(result, archive.retention());
+			}
+			return result;
 		}
 
 		/** The RAM the controller allocates: the raw ring and the archives' open slots. */
@@ -262,19 +255,18 @@ public final class HistoryConfig {
 			return result;
 		}
 
-		/** Whether the history is within the device's caps of RAM and flash, taken alone. */
-		public boolean fits() {
-			return ramBytes() <= ImageValidator.HISTORY_CAP && flashBytes() <= ImageValidator.ARCHIVE_CAP;
-		}
-
 		/**
 		 * The member <code>history</code> of the datapoint in the image: <code>retention</code>,
-		 * <code>spacing</code> and, where there are some, <code>archives</code>.
+		 * <code>spacing</code>, <code>meter</code> for a meter reading (schema 1.10) and, where there are
+		 * some, <code>archives</code>.
 		 */
 		public Map<String, Object> json() {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("retention", Long.valueOf(retention));
 			result.put("spacing", Long.valueOf(spacing));
+			if (meter) {
+				result.put("meter", Boolean.TRUE);
+			}
 			if (!archives.isEmpty()) {
 				List<Object> list = new ArrayList<>();
 				for (Archive archive : archives) {
@@ -289,614 +281,63 @@ public final class HistoryConfig {
 		}
 	}
 
-	/**
-	 * What a chart asks of a datapoint for one of its ranges, in seconds: the resolution (the bucket
-	 * width rounded down to the {@link #LADDER}) over the coverage, and the bucket width itself. The
-	 * controller answers the range from a store whose resolution is at most the bucket width and that
-	 * reaches back over the coverage (runtime image 3.9, "Which history answers").
-	 */
-	public record Need(long resolution, long coverage, long bucket) {
-
-		/**
-		 * A need whose bucket width is its resolution: a store answering it must not be coarser.
-		 */
-		public Need(long resolution, long coverage) {
-			this(resolution, coverage, resolution);
-		}
-
-		/**
-		 * Whether a store of the given resolution and retention answers the need: fine enough and
-		 * reaching back.
-		 */
-		boolean answeredBy(long storeResolution, long storeRetention) {
-			return storeResolution <= bucket && storeRetention >= coverage;
-		}
-
-		/**
-		 * Whether a store of the history answers the need.
-		 */
-		public boolean answeredBy(History history) {
-			if (answeredBy(history.spacing(), history.retention())) {
-				return true;
-			}
-			for (Archive archive : history.archives()) {
-				if (answeredBy(archive.resolution(), archive.retention())) {
-					return true;
-				}
-			}
-			return false;
-		}
-	}
-
-	// ---- derivation ------------------------------------------------------------------------------
+	// ---- the stores of a level -----------------------------------------------------------------
 
 	/**
-	 * The needs of the series of a use for each range of its chart.
+	 * The stores of the level ({@link HistoryConfig}); <code>null</code> for {@link Level#NONE}.
 	 *
-	 * @param bars
-	 *        Whether the series is drawn as consumption bars.
+	 * @param meter
+	 *        Whether the datapoint is a meter reading, drawn as consumption bars.
 	 */
-	public static List<Need> needs(Pages.ChartUse use, boolean bars) {
-		List<Need> result = new ArrayList<>();
-		for (Long range : use.ranges()) {
-			long seconds = range.longValue();
-			long[] bar = BARS.get(range);
-			if (bars && bar != null) {
-				result.add(new Need(floor(bar[1]), (bar[0] + 1) * bar[1], bar[1]));
-			} else {
-				result.add(new Need(floor(seconds / LINE_POINTS), seconds, seconds / LINE_POINTS));
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * The history the needs ask for; <code>null</code> for no needs.
-	 *
-	 * @param shown
-	 *        Whether a function shows the datapoint, which adds {@link #FUNCTION_NEED}.
-	 */
-	public static History derive(List<Need> needs, boolean shown) {
-		Derivation derivation = derivation(needs, shown);
-		return derivation == null ? null : derivation.history();
-	}
-
-	/**
-	 * The derivation of the needs, within the device's limits for the datapoint alone; <code>null</code>
-	 * for no needs.
-	 */
-	private static Derivation derivation(List<Need> needs, boolean shown) {
-		if (needs.isEmpty()) {
+	public static History stores(Level level, boolean meter) {
+		if (level == Level.NONE) {
 			return null;
 		}
-		List<Need> all = new ArrayList<>(needs);
-		if (shown) {
-			all.add(FUNCTION_NEED);
-		}
-		long spacing = Long.MAX_VALUE;
-		long retention = 0;
 		TreeMap<Long, Long> archives = new TreeMap<>();
-		for (Need need : all) {
-			if (need.coverage() <= RAW_COVERAGE) {
-				spacing = Math.min(spacing, need.resolution());
-				retention = Math.max(retention, need.coverage());
-			} else {
-				addArchive(archives, need.resolution(), need.coverage());
+		long spacing;
+		long retention;
+		if (meter) {
+			// 15-minute bars over 6 h, hourly ones over 24 h, each with one bar more.
+			spacing = 15 * MINUTE;
+			retention = level == Level.SIX_HOURS ? 6 * HOUR + spacing : DAY + HOUR;
+			if (level.reach() >= Level.WEEK.reach()) {
+				archive(archives, DAY, 8 * DAY);
 			}
-		}
-		// The raw ring before the archives' redundancy is judged against it.
-		boolean raw = spacing != Long.MAX_VALUE;
-		if (raw) {
-			while (ImageValidator.samples(retention, spacing) > ImageValidator.MAX_SAMPLES && coarser(spacing) > spacing) {
-				spacing = coarser(spacing);
+			if (level.reach() >= Level.MONTH.reach()) {
+				archive(archives, DAY, 31 * DAY);
+			}
+			if (level.reach() >= Level.YEAR.reach()) {
+				archive(archives, DAY, 13 * MONTH_BAR);
+			}
+			if (level.reach() >= Level.TEN_YEARS.reach()) {
+				archive(archives, 31 * DAY, MAX_ARCHIVE_RETENTION);
 			}
 		} else {
-			spacing = 0;
-		}
-		Derivation result = new Derivation(raw, retention, spacing, List.copyOf(all),
-			history(raw, retention, spacing, archives));
-		// Beyond the device's RAM or flash: coarser within the bucket widths of the ranges.
-		while (!result.history().fits()) {
-			Derivation coarser = result.history().flashBytes() > ImageValidator.ARCHIVE_CAP
-				? result.coarserArchive(History::flashBytes) : result.coarserForRam();
-			if (coarser == null) {
-				break;
+			spacing = 5 * MINUTE;
+			retention = level == Level.SIX_HOURS ? 6 * HOUR : DAY;
+			if (level.reach() >= Level.WEEK.reach()) {
+				archive(archives, 3 * HOUR, Level.WEEK.reach());
 			}
-			result = coarser;
+			if (level.reach() >= Level.MONTH.reach()) {
+				archive(archives, 12 * HOUR, Level.MONTH.reach());
+			}
+			if (level.reach() >= Level.YEAR.reach()) {
+				archive(archives, 7 * DAY, Level.YEAR.reach());
+			}
+			if (level.reach() >= Level.TEN_YEARS.reach()) {
+				archive(archives, 31 * DAY, Level.TEN_YEARS.reach());
+			}
 		}
-		return result;
+		List<Archive> list = new ArrayList<>();
+		archives.forEach((resolution, kept) -> list.add(new Archive(resolution.longValue(), kept.longValue())));
+		return new History(retention, spacing, List.copyOf(list), meter);
 	}
 
-	/**
-	 * A derived history, the raw ring the needs ask for and the needs, from which it is derived again
-	 * when it is made coarser.
-	 *
-	 * @param raw
-	 *        Whether a need asks for the raw ring.
-	 * @param retention
-	 *        The retention of the raw ring the needs ask for.
-	 * @param spacing
-	 *        The spacing of the raw ring the needs ask for (or that it was made coarser to).
-	 * @param needs
-	 *        The needs of the history, a function's included.
-	 * @param history
-	 *        The history derived.
-	 */
-	private record Derivation(boolean raw, long retention, long spacing, List<Need> needs, History history) {
-
-		/**
-		 * A candidate of {@link Derivation#coarserArchive(ToLongFunction)}: the derivation and the
-		 * resolution the coarsened coverage takes.
-		 */
-		private record Step(Derivation derivation, long resolution) {
-			// A record.
-		}
-
-		/**
-		 * The derivation with an archive made coarser, giving up the least resolution among the steps that
-		 * need less of the given bytes; <code>null</code> where no archive can be made coarser. The
-		 * candidates, each leaving every need the history answers answered:
-		 * <ul>
-		 * <li>a move: the archive at the finest of the {@link #COARSENING_STEPS} that needs less (joining
-		 * an archive of that resolution), not beyond its retention and the device's coarsest
-		 * resolution;</li>
-		 * <li>a split: the needs the archive answers are parted at a bucket width; the archive keeps its
-		 * resolution for the longest coverage of the needs with a finer bucket, and its whole retention
-		 * goes to an archive at the coarsest step within the buckets of the others (joining an archive of
-		 * that resolution); no fifth archive.</li>
-		 * </ul>
-		 * <p>
-		 * The resolution given up is the factor from the archive's resolution to the new one; on a tie the
-		 * candidate saving the most bytes, then the finest archive, a move before a split.
-		 * </p>
-		 */
-		Derivation coarserArchive(ToLongFunction<History> bytes) {
-			long before = bytes.applyAsLong(history);
-			Derivation best = null;
-			long bestFrom = 0;
-			long bestTo = 0;
-			long bestSaved = 0;
-			for (Archive archive : history.archives()) {
-				List<Step> candidates = new ArrayList<>();
-				Step move = move(archive, bytes, before);
-				if (move != null) {
-					candidates.add(move);
-				}
-				candidates.addAll(splits(archive, bytes, before));
-				for (Step step : candidates) {
-					Derivation candidate = step.derivation();
-					long to = step.resolution();
-					long saved = before - bytes.applyAsLong(candidate.history());
-					// Less resolution given up: to / from smaller; on a tie more saved.
-					boolean better;
-					if (best == null) {
-						better = true;
-					} else {
-						long left = to * bestFrom;
-						long right = bestTo * archive.resolution();
-						better = left < right || (left == right && saved > bestSaved);
-					}
-					if (better) {
-						best = candidate;
-						bestFrom = archive.resolution();
-						bestTo = to;
-						bestSaved = saved;
-					}
-				}
-			}
-			return best;
-		}
-
-		/**
-		 * The archive moved to the finest of the {@link #COARSENING_STEPS} that needs less of the bytes;
-		 * <code>null</code> for none.
-		 */
-		private Step move(Archive archive, ToLongFunction<History> bytes, long before) {
-			for (Long step : COARSENING_STEPS) {
-				long next = step.longValue();
-				if (next <= archive.resolution()) {
-					continue;
-				}
-				if (next > archive.retention() || next > MAX_RESOLUTION) {
-					break;
-				}
-				TreeMap<Long, Long> archives = new TreeMap<>();
-				for (Archive other : history.archives()) {
-					addArchive(archives, other == archive ? next : other.resolution(), other.retention());
-				}
-				Derivation candidate =
-					new Derivation(raw, retention, spacing, needs, HistoryConfig.history(raw, retention, spacing, archives));
-				if (!candidate.keepsAnswers(this)) {
-					// A coarser step is not fine enough either.
-					break;
-				}
-				if (bytes.applyAsLong(candidate.history()) < before) {
-					return new Step(candidate, next);
-				}
-			}
-			return null;
-		}
-
-		/**
-		 * The splits of the archive that need less of the bytes, the parting bucket widths ascending.
-		 */
-		private List<Step> splits(Archive archive, ToLongFunction<History> bytes, long before) {
-			List<Step> result = new ArrayList<>();
-			List<Need> served = new ArrayList<>();
-			TreeSet<Long> buckets = new TreeSet<>();
-			for (Need need : needs) {
-				if (need.answeredBy(archive.resolution(), archive.retention())) {
-					served.add(need);
-					buckets.add(Long.valueOf(need.bucket()));
-				}
-			}
-			for (Long parting : buckets) {
-				long kept = 0;
-				long minBucket = Long.MAX_VALUE;
-				for (Need need : served) {
-					if (need.bucket() < parting.longValue()) {
-						kept = Math.max(kept, need.coverage());
-					} else {
-						minBucket = Math.min(minBucket, need.bucket());
-					}
-				}
-				if (kept == 0 || kept >= archive.retention()) {
-					// All needs move (a move), or the archive keeps its whole retention.
-					continue;
-				}
-				long coarse = 0;
-				for (Long step : COARSENING_STEPS) {
-					if (step.longValue() <= minBucket && step.longValue() <= archive.retention()
-						&& step.longValue() <= MAX_RESOLUTION) {
-						coarse = step.longValue();
-					}
-				}
-				if (coarse <= archive.resolution() || kept < archive.resolution()) {
-					continue;
-				}
-				TreeMap<Long, Long> archives = new TreeMap<>();
-				for (Archive other : history.archives()) {
-					if (other == archive) {
-						addArchive(archives, archive.resolution(), kept);
-						addArchive(archives, coarse, archive.retention());
-					} else {
-						addArchive(archives, other.resolution(), other.retention());
-					}
-				}
-				if (archives.size() > MAX_ARCHIVES) {
-					continue;
-				}
-				Derivation candidate =
-					new Derivation(raw, retention, spacing, needs, HistoryConfig.history(raw, retention, spacing, archives));
-				if (candidate.keepsAnswers(this) && bytes.applyAsLong(candidate.history()) < before) {
-					result.add(new Step(candidate, coarse));
-				}
-			}
-			return result;
-		}
-
-		/**
-		 * The derivation with the raw ring made coarser for the same retention: to the finest of the
-		 * {@link #COARSENING_STEPS} that needs less RAM, at most a day and the retention, finer than the
-		 * finest archive, and leaving every need the history answers answered; <code>null</code> where
-		 * it cannot be.
-		 */
-		Derivation coarserRing() {
-			if (!raw) {
-				return null;
-			}
-			long before = history.ramBytes();
-			for (Long step : COARSENING_STEPS) {
-				long next = step.longValue();
-				if (next <= history.spacing()) {
-					continue;
-				}
-				if (next > retention || next > ImageValidator.MAX_SPACING
-					|| (!history.archives().isEmpty() && next >= history.archives().get(0).resolution())) {
-					break;
-				}
-				TreeMap<Long, Long> archives = new TreeMap<>();
-				for (Archive archive : history.archives()) {
-					addArchive(archives, archive.resolution(), archive.retention());
-				}
-				Derivation candidate =
-					new Derivation(raw, retention, next, needs, HistoryConfig.history(raw, retention, next, archives));
-				if (!candidate.keepsAnswers(this)) {
-					break;
-				}
-				if (candidate.history().ramBytes() < before) {
-					return candidate;
-				}
-			}
-			return null;
-		}
-
-		/**
-		 * The derivation needing less RAM: the raw ring coarser, else an archive; <code>null</code> where
-		 * neither can be.
-		 */
-		Derivation coarserForRam() {
-			Derivation result = coarserRing();
-			return result != null ? result : coarserArchive(History::ramBytes);
-		}
-
-		/**
-		 * Whether this derivation's history answers every need the other's answers.
-		 */
-		boolean keepsAnswers(Derivation other) {
-			for (Need need : needs) {
-				if (need.answeredBy(other.history()) && !need.answeredBy(history)) {
-					return false;
-				}
-			}
-			return true;
-		}
-	}
-
-	/**
-	 * The history of the raw ring and the archives under the rules of the slots, the redundancy, the
-	 * number of archives and the raw ring's spacing.
-	 *
-	 * @param raw
-	 *        Whether a need asks for the raw ring of the given retention and spacing.
-	 */
-	private static History history(boolean raw, long rawRetention, long rawSpacing, TreeMap<Long, Long> needed) {
-		TreeMap<Long, Long> archives = new TreeMap<>(needed);
-		long spacing = rawSpacing;
-		long retention = rawRetention;
-		// Archives beyond the slots take a coarser resolution.
-		boolean changed = true;
-		while (changed) {
-			changed = false;
-			for (Map.Entry<Long, Long> entry : archives.entrySet()) {
-				long resolution = entry.getKey().longValue();
-				long coarser = coarser(resolution);
-				if (ImageValidator.samples(entry.getValue().longValue(), resolution) > MAX_SLOTS && coarser > resolution) {
-					archives.remove(entry.getKey());
-					addArchive(archives, coarser, entry.getValue().longValue());
-					changed = true;
-					break;
-				}
-			}
-		}
-		// Archives a finer store reaches as far are dropped.
-		List<Archive> kept = new ArrayList<>();
-		long reach = raw ? retention : 0;
-		for (Map.Entry<Long, Long> entry : archives.entrySet()) {
-			long archiveRetention = entry.getValue().longValue();
-			if (archiveRetention > reach) {
-				kept.add(new Archive(entry.getKey().longValue(), archiveRetention));
-				reach = archiveRetention;
-			}
-		}
-		while (kept.size() > MAX_ARCHIVES) {
-			Archive finest = kept.remove(0);
-			Archive next = kept.get(0);
-			kept.set(0, new Archive(next.resolution(), Math.max(next.retention(), finest.retention())));
-		}
-		if (!kept.isEmpty()) {
-			long finest = kept.get(0).resolution();
-			if (!raw) {
-				spacing = below(finest);
-				retention = finest;
-			} else if (spacing >= finest) {
-				spacing = below(finest);
-			}
-		}
-		return new History(retention, spacing, List.copyOf(kept));
-	}
-
-	private static void addArchive(TreeMap<Long, Long> archives, long resolution, long retention) {
+	private static void archive(TreeMap<Long, Long> archives, long resolution, long retention) {
 		archives.merge(Long.valueOf(resolution), Long.valueOf(retention), (a, b) -> Long.valueOf(Math.max(a, b)));
 	}
 
-	/**
-	 * The step of the {@link #LADDER} at or below the given seconds; the finest step for less.
-	 */
-	public static long floor(long seconds) {
-		long result = LADDER.get(0).longValue();
-		for (Long step : LADDER) {
-			if (step.longValue() <= seconds) {
-				result = step.longValue();
-			}
-		}
-		return result;
-	}
-
-	/** The next coarser step of the ladder; the given seconds where there is none. */
-	private static long coarser(long seconds) {
-		for (Long step : LADDER) {
-			if (step.longValue() > seconds) {
-				return step.longValue();
-			}
-		}
-		return seconds;
-	}
-
-	/** The next finer step of the ladder; half of the seconds (at least 10) where there is none. */
-	private static long below(long seconds) {
-		long result = -1;
-		for (Long step : LADDER) {
-			if (step.longValue() < seconds) {
-				result = step.longValue();
-			}
-		}
-		return result > 0 ? result : Math.max(10, seconds / 2);
-	}
-
-	/**
-	 * The derived histories of the datapoints of the project, by datapoint in the order of the pages:
-	 * the datapoints the charts draw that can have a history (a group address or an application
-	 * datapoint of a number or truth value), made coarser where the image would exceed the device
-	 * ({@link #projectHistories(TLObject)}).
-	 */
-	public static Map<TLObject, History> derivedHistories(TLObject project) {
-		return projectHistories(project).derived();
-	}
-
-	/**
-	 * The derived histories of a project and the datapoints whose derived history in the image is
-	 * coarser than their charts ask for, to fit the device.
-	 *
-	 * @param derived
-	 *        The derived histories by datapoint, in the order of the pages.
-	 * @param coarsened
-	 *        The datapoints with a history set by derivation that was made coarser for the image, in
-	 *        the order of the pages.
-	 */
-	public record ProjectHistories(Map<TLObject, History> derived, Set<TLObject> coarsened) {
-		// A record.
-	}
-
-	/**
-	 * The derived histories of the project's datapoints, within the device's limits for the image as a
-	 * whole.
-	 *
-	 * <p>
-	 * Each datapoint's history is first derived alone. The histories set by hand count as they are, and
-	 * the derived ones of the datapoints whose history is not set by hand are then made coarser, one
-	 * step at a time, while the image needs more than the device allows, as long as the histories set
-	 * by hand alone fit:
-	 * </p>
-	 * <ul>
-	 * <li>while the archives need more flash than {@value ImageValidator#ARCHIVE_CAP} bytes: of the
-	 * datapoint with the most flash (on a tie, the smallest image id first) that can be coarser, the
-	 * finest archive that can be coarser takes the finest of the {@link #COARSENING_STEPS} that needs
-	 * less flash;</li>
-	 * <li>else, while the rings and archives need more RAM than the project's <code>historyBudget</code>
-	 * (or {@value ImageValidator#HISTORY_CAP} bytes): of the datapoint with the most RAM, the raw ring
-	 * takes the finest coarser step that needs less RAM for the same retention, or else its finest
-	 * archive such a step.</li>
-	 * </ul>
-	 * <p>
-	 * Each step keeps every range of the charts answered by a store fine enough for its bucket width and
-	 * reaching back ({@link Need#answeredBy(History)}). Where nothing can
-	 * be coarser, or the histories set by hand alone need more than the device allows, the image's check
-	 * refuses the image at <code>history</code>. An unchanged project gives the same histories.
-	 * </p>
-	 */
-	public static ProjectHistories projectHistories(TLObject project) {
-		Map<TLObject, Derivation> own = new LinkedHashMap<>();
-		if (project == null) {
-			return new ProjectHistories(new LinkedHashMap<>(), new LinkedHashSet<>());
-		}
-		Set<TLObject> shown = shownByFunctions(project);
-		for (Map.Entry<TLObject, List<Pages.ChartUse>> entry : Pages.chartUses(project).entrySet()) {
-			TLObject datapoint = entry.getKey();
-			if (!canHaveHistory(datapoint)) {
-				continue;
-			}
-			List<Need> needs = new ArrayList<>();
-			boolean bars = !ValueTypes.BOOLEAN.equals(Pages.valueType(datapoint));
-			for (Pages.ChartUse use : entry.getValue()) {
-				needs.addAll(needs(use,
-					bars && "consumption".equals(Pages.name(((ChartSeries) use.series()).getConsolidation()))));
-			}
-			Derivation derivation = derivation(needs, shown.contains(datapoint));
-			if (derivation != null) {
-				own.put(datapoint, derivation);
-			}
-		}
-
-		long manualRam = 0;
-		long manualFlash = 0;
-		for (TLObject datapoint : RuntimeFunctions.datapoints(project)) {
-			if (isManual(datapoint)) {
-				History history = manual(datapoint);
-				if (history != null) {
-					manualRam += history.ramBytes();
-					manualFlash += history.flashBytes();
-				}
-			}
-		}
-		Object budget = ((Project) project).getHistoryBudget();
-		long ramLimit = budget instanceof Number number ? number.longValue() : ImageValidator.HISTORY_CAP;
-
-		Map<TLObject, Derivation> fitted = new LinkedHashMap<>();
-		for (Map.Entry<TLObject, Derivation> entry : own.entrySet()) {
-			if (!isManual(entry.getKey())) {
-				fitted.put(entry.getKey(), entry.getValue());
-			}
-		}
-		while (true) {
-			long ram = manualRam;
-			long flash = manualFlash;
-			for (Derivation derivation : fitted.values()) {
-				ram += derivation.history().ramBytes();
-				flash += derivation.history().flashBytes();
-			}
-			boolean stepped = false;
-			if (flash > ImageValidator.ARCHIVE_CAP && manualFlash <= ImageValidator.ARCHIVE_CAP) {
-				stepped = step(fitted, History::flashBytes, derivation -> derivation.coarserArchive(History::flashBytes));
-			}
-			if (!stepped && ram > ramLimit && manualRam <= ramLimit) {
-				stepped = step(fitted, History::ramBytes, Derivation::coarserForRam);
-			}
-			if (!stepped) {
-				break;
-			}
-		}
-
-		Map<TLObject, History> derived = new LinkedHashMap<>();
-		Set<TLObject> coarsened = new LinkedHashSet<>();
-		for (Map.Entry<TLObject, Derivation> entry : own.entrySet()) {
-			Derivation result = fitted.getOrDefault(entry.getKey(), entry.getValue());
-			derived.put(entry.getKey(), result.history());
-			if (!result.history().equals(entry.getValue().history())) {
-				coarsened.add(entry.getKey());
-			}
-		}
-		return new ProjectHistories(derived, coarsened);
-	}
-
-	/**
-	 * Makes the derivation of the datapoint with the most of the given bytes that can be coarser one
-	 * step coarser; on a tie the smallest image id (then the object's id) first.
-	 *
-	 * @return Whether a derivation was made coarser.
-	 */
-	private static boolean step(Map<TLObject, Derivation> derivations, ToLongFunction<History> bytes,
-			UnaryOperator<Derivation> coarser) {
-		List<Map.Entry<TLObject, Derivation>> entries = new ArrayList<>(derivations.entrySet());
-		entries.sort(Comparator.<Map.Entry<TLObject, Derivation>> comparingLong(
-			entry -> -bytes.applyAsLong(entry.getValue().history()))
-			.thenComparing(entry -> String.valueOf(Pages.imageId(entry.getKey())))
-			.thenComparing(entry -> String.valueOf(entry.getKey().tId())));
-		for (Map.Entry<TLObject, Derivation> entry : entries) {
-			Derivation next = coarser.apply(entry.getValue());
-			if (next != null) {
-				derivations.put(entry.getKey(), next);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * The derived history of the datapoint; <code>null</code> where no chart draws it.
-	 */
-	public static History derived(TLObject datapoint) {
-		TLObject stored = stored(datapoint);
-		if (stored == null) {
-			return null;
-		}
-		return derivedHistories(RuntimeFunctions.project(stored)).get(stored);
-	}
-
-	/**
-	 * The datapoints the roles of the project's functions refer to.
-	 */
-	private static Set<TLObject> shownByFunctions(TLObject project) {
-		Set<TLObject> result = new HashSet<>();
-		for (TLObject function : FunctionProposal.functions(project)) {
-			for (String role : FunctionKinds.roles(Pages.name(((Function) function).getKind()))) {
-				if (function.tValueByName(role) instanceof TLObject datapoint) {
-					result.add(datapoint);
-				}
-			}
-		}
-		return result;
-	}
+	// ---- the datapoint's settings --------------------------------------------------------------
 
 	/**
 	 * Whether the object is a datapoint the controller can keep a history of: a group address or an
@@ -907,119 +348,150 @@ public final class HistoryConfig {
 			return false;
 		}
 		String type = Pages.valueType(datapoint);
-		return ValueTypes.BOOLEAN.equals(type) || ValueTypes.UNSIGNED.equals(type) || ValueTypes.SIGNED.equals(type)
-			|| ValueTypes.REAL.equals(type);
+		return ValueTypes.BOOLEAN.equals(type) || isNumber(type);
+	}
+
+	/** Whether the value type is a number: a meter reading must be one. */
+	private static boolean isNumber(String type) {
+		return ValueTypes.UNSIGNED.equals(type) || ValueTypes.SIGNED.equals(type) || ValueTypes.REAL.equals(type);
 	}
 
 	/**
-	 * Whether the object is a group address or an application datapoint, which have the history
-	 * attributes.
+	 * Whether the object is a group address or an application datapoint, which have the attributes
+	 * <code>recording</code> and <code>meter</code>.
 	 */
 	public static boolean isDatapoint(TLObject obj) {
 		return obj != null && obj.tValid()
 			&& (ExtIds.isA(obj, "ehome.logical:GroupAddress") || ApplicationDatapoints.isApplicationDatapoint(obj));
 	}
 
+	/**
+	 * The recording set for the datapoint; {@link Level#NONE} for none or an object without the setting.
+	 */
+	public static Level level(TLObject datapoint) {
+		TLObject stored = stored(datapoint);
+		if (stored instanceof GroupAddress address) {
+			return Level.of(Pages.name(address.getRecording()));
+		}
+		if (stored instanceof ApplicationDatapoint application) {
+			return Level.of(Pages.name(application.getRecording()));
+		}
+		return Level.NONE;
+	}
+
+	/**
+	 * Whether the datapoint is marked as a meter reading: an application datapoint by its flag, a group
+	 * address by its flag, else by its datapoint type ({@link #meterByType(TLObject)}).
+	 */
+	public static boolean meter(TLObject datapoint) {
+		TLObject stored = stored(datapoint);
+		if (stored instanceof GroupAddress address) {
+			Boolean set = address.getMeter();
+			return set != null ? set.booleanValue() : meterByType(address);
+		}
+		if (stored instanceof ApplicationDatapoint application) {
+			return application.getMeter();
+		}
+		return false;
+	}
+
+	/**
+	 * Whether the datapoint type of the group address is a meter reading: a counter of pulses (12.x)
+	 * or of energy (13.010 to 13.016).
+	 */
+	public static boolean meterByType(TLObject address) {
+		Dpt dpt = GroupAddressTypes.effective(address);
+		if (dpt == null) {
+			return false;
+		}
+		return dpt.main() == 12 || (dpt.main() == 13 && !dpt.isMainType() && dpt.sub() >= 10 && dpt.sub() <= 16);
+	}
+
+	/**
+	 * Why the datapoint (a group address or an application datapoint, also one being edited) cannot be
+	 * marked as a meter reading: it is no number; <code>null</code> if it can, or is not marked.
+	 *
+	 * @param meter
+	 *        The value of <code>meter</code>.
+	 */
+	public static ResKey meterProblem(Object meter, TLObject datapoint) {
+		if (!Boolean.TRUE.equals(meter) || datapoint == null) {
+			return null;
+		}
+		String type = editedValueType(datapoint);
+		if (type == null || isNumber(type)) {
+			return null;
+		}
+		return I18NConstants.METER_NOT_NUMBER__TYPE.fill(type);
+	}
+
+	/**
+	 * What is wrong with the recording of the datapoint (also one being edited): a history of a value
+	 * that is neither a number nor a truth value; <code>null</code> if it fits or is none.
+	 *
+	 * @param recording
+	 *        The value of <code>recording</code>.
+	 */
+	public static ResKey recordingProblem(Object recording, TLObject datapoint) {
+		if (Level.of(Pages.name(recording)) == Level.NONE || datapoint == null) {
+			return null;
+		}
+		String type = editedValueType(datapoint);
+		if (type == null || ValueTypes.BOOLEAN.equals(type) || isNumber(type)) {
+			return null;
+		}
+		return I18NConstants.HISTORY_WRONG_TYPE__TYPE.fill(type);
+	}
+
+	/** The value type of a datapoint, also one being edited, from the values of the form. */
+	private static String editedValueType(TLObject datapoint) {
+		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
+			return ApplicationDatapoints.valueType(datapoint);
+		}
+		Dpt dpt = GroupAddressTypes.effective(datapoint);
+		return dpt == null ? null : ValueTypes.valueType(dpt.main(), dpt.isMainType() ? 0 : dpt.sub());
+	}
+
+	/** The classifier of <code>ehome.logical:Recording</code> of the level. */
+	public static TLClassifier classifier(Level level) {
+		return Recording.type().getClassifier(level.classifier());
+	}
+
 	private static TLObject stored(TLObject obj) {
-		if (obj instanceof TLFormObjectBase form) {
+		if (obj instanceof TLFormObjectBase form && form.getEditedObject() != null) {
 			return form.getEditedObject();
 		}
 		return obj;
 	}
 
-	// ---- set by hand -----------------------------------------------------------------------------
-
-	/**
-	 * Whether the history of the datapoint is set by hand.
-	 */
-	public static boolean isManual(TLObject datapoint) {
-		return datapoint != null && Boolean.TRUE.equals(datapoint.tValueByName("historyManual"));
-	}
-
-	/**
-	 * The archives set by hand, in their order.
-	 */
-	public static List<TLObject> manualArchives(TLObject datapoint) {
-		return RuleExport.objects(datapoint.tValueByName("historyArchives"));
-	}
-
-	/**
-	 * The history set by hand; <code>null</code> without a complete raw ring. An archive without its
-	 * resolution or retention is left out.
-	 */
-	public static History manual(TLObject datapoint) {
-		Integer retention = DatapointSettings.historyRetention(datapoint);
-		Integer spacing = DatapointSettings.historySpacing(datapoint);
-		if (retention == null || spacing == null) {
-			return null;
-		}
-		List<Archive> archives = new ArrayList<>();
-		for (TLObject archive : manualArchives(datapoint)) {
-			if (archive.tValueByName("resolution") instanceof Number resolution
-				&& archive.tValueByName("retention") instanceof Number archiveRetention) {
-				archives.add(new Archive(resolution.longValue(), archiveRetention.longValue()));
-			}
-		}
-		return new History(retention.longValue(), spacing.longValue(), archives);
-	}
-
 	// ---- in effect -------------------------------------------------------------------------------
 
 	/**
-	 * The history of the datapoint in the image: the one set by hand, else the derived one;
-	 * <code>null</code> for none.
+	 * The history of the datapoint in the image: the stores of its recording, a meter reading only of a
+	 * number; <code>null</code> for none (no recording, or a datapoint that can have no history).
 	 */
 	public static History effective(TLObject datapoint) {
-		if (!isDatapoint(datapoint)) {
+		TLObject stored = stored(datapoint);
+		if (!canHaveHistory(stored)) {
 			return null;
 		}
-		return isManual(datapoint) ? manual(datapoint) : derived(datapoint);
+		return stores(level(stored), meter(stored) && isNumber(Pages.valueType(stored)));
+	}
+
+	/**
+	 * How far back the history of the datapoint in the image reaches, as the chart ranges count it (the
+	 * reach of its recording); 0 without history.
+	 */
+	public static long reach(TLObject datapoint) {
+		return effective(datapoint) == null ? 0 : level(datapoint).reach();
 	}
 
 	/**
 	 * The member <code>history</code> of the datapoint in the image; <code>null</code> for none.
-	 *
-	 * <p>
-	 * Set by hand, it is written as set, even incomplete (the image's check then refuses it with its
-	 * path, as it did before haumacher/ehome #73); derived, it is the given derivation's.
-	 * </p>
-	 *
-	 * @param derived
-	 *        The derived histories of the project ({@link #derivedHistories(TLObject)}).
 	 */
-	public static Map<String, Object> json(TLObject datapoint, Map<TLObject, History> derived) {
-		if (!isManual(datapoint)) {
-			History history = derived.get(datapoint);
-			return history == null ? null : history.json();
-		}
-		Integer retention = DatapointSettings.historyRetention(datapoint);
-		Integer spacing = DatapointSettings.historySpacing(datapoint);
-		List<TLObject> archives = manualArchives(datapoint);
-		if (retention == null && spacing == null && archives.isEmpty()) {
-			return null;
-		}
-		Map<String, Object> result = new LinkedHashMap<>();
-		if (retention != null) {
-			result.put("retention", Long.valueOf(retention.longValue()));
-		}
-		if (spacing != null) {
-			result.put("spacing", Long.valueOf(spacing.longValue()));
-		}
-		if (!archives.isEmpty()) {
-			List<Object> list = new ArrayList<>();
-			for (TLObject archive : archives) {
-				Map<String, Object> entry = new LinkedHashMap<>();
-				if (archive.tValueByName("resolution") instanceof Number resolution) {
-					entry.put("resolution", Long.valueOf(resolution.longValue()));
-				}
-				if (archive.tValueByName("retention") instanceof Number archiveRetention) {
-					entry.put("retention", Long.valueOf(archiveRetention.longValue()));
-				}
-				list.add(entry);
-			}
-			result.put("archives", list);
-		}
-		return result;
+	public static Map<String, Object> json(TLObject datapoint) {
+		History history = effective(datapoint);
+		return history == null ? null : history.json();
 	}
 
 	/**
@@ -1047,9 +519,8 @@ public final class HistoryConfig {
 		if (project == null) {
 			return histories;
 		}
-		Map<TLObject, History> derived = derivedHistories(project);
 		for (TLObject datapoint : RuntimeFunctions.datapoints(project)) {
-			History history = isManual(datapoint) ? manual(datapoint) : derived.get(datapoint);
+			History history = effective(datapoint);
 			if (history != null) {
 				histories.put(datapoint, history);
 			}
@@ -1096,117 +567,46 @@ public final class HistoryConfig {
 		return result;
 	}
 
-	/**
-	 * The RAM of the histories of the datapoints a chart draws, each datapoint once (a datapoint several
-	 * charts draw counts in each of them).
-	 */
-	public static long chartRamBytes(TLObject chart) {
-		return chartBytes(chart, HistoryConfig::ramBytes);
-	}
+	// ---- charts ----------------------------------------------------------------------------------
 
 	/**
-	 * The flash of the archives of the datapoints a chart draws, each datapoint once (a datapoint several
-	 * charts draw counts in each of them).
+	 * The datapoints a chart draws whose history it shows, each once: the datapoint of a series, or the
+	 * one an output of a virtual device is bound to.
 	 */
-	public static long chartFlashBytes(TLObject chart) {
-		return chartBytes(chart, HistoryConfig::flashBytes);
-	}
-
-	private static long chartBytes(TLObject chart, ToLongFunction<TLObject> bytes) {
-		long result = 0;
+	public static List<TLObject> drawn(TLObject chart) {
+		List<TLObject> result = new ArrayList<>();
 		Set<TLObject> seen = new HashSet<>();
 		for (TLObject series : RuleExport.objects(((ChartElement) chart).getSeries())) {
-			if (((ChartSeries) series).getDatapoint() instanceof TLObject drawn
-				&& seen.add(BlockInstances.historyTarget(drawn))) {
+			if (((ChartSeries) series).getDatapoint() instanceof TLObject drawn) {
 				TLObject datapoint = BlockInstances.historyTarget(drawn);
-				result += bytes.applyAsLong(datapoint);
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * The charts of the project's pages, in the order of the pages.
-	 */
-	public static List<TLObject> charts(TLObject project) {
-		List<TLObject> result = new ArrayList<>();
-		if (project == null) {
-			return result;
-		}
-		for (List<Pages.ChartUse> uses : Pages.chartUses(project).values()) {
-			for (Pages.ChartUse use : uses) {
-				if (!result.contains(use.chart())) {
-					result.add(use.chart());
+				if (seen.add(datapoint)) {
+					result.add(datapoint);
 				}
 			}
 		}
 		return result;
 	}
 
-	// ---- commands ----------------------------------------------------------------------------
-
 	/**
-	 * Sets the history of the datapoint by hand, starting from the derived one (no history where no
-	 * chart draws it): the raw ring and the archives become the datapoint's own.
+	 * How far back every series of the chart is recorded: the shortest reach of the datapoints it draws;
+	 * {@link Long#MAX_VALUE} for a chart without series.
 	 */
-	public static void setManual(TLObject datapoint) {
-		History derived = derived(datapoint);
-		clearManual(datapoint);
-		if (derived == null) {
-			setHistory(datapoint, true, null, null, List.of());
-			return;
+	public static long chartReach(TLObject chart) {
+		long result = Long.MAX_VALUE;
+		for (TLObject datapoint : drawn(chart)) {
+			result = Math.min(result, reach(datapoint));
 		}
-		List<HistoryArchive> archives = new ArrayList<>();
-		TLClass type = (TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive");
-		for (Archive archive : derived.archives()) {
-			HistoryArchive part = (HistoryArchive) ModelService.getInstance().getFactory().createObject(type);
-			part.setResolution((int) archive.resolution());
-			part.setRetention((int) archive.retention());
-			archives.add(part);
-		}
-		setHistory(datapoint, true, Integer.valueOf((int) derived.retention()), Integer.valueOf((int) derived.spacing()),
-			archives);
+		return result;
 	}
 
 	/**
-	 * Returns the datapoint to its derived history: the raw ring and the archives set by hand are
-	 * removed.
+	 * Whether a chart reaching back the given seconds ({@link #chartReach(TLObject)}) can offer the range
+	 * of the given classifier of <code>ChartRange</code>: a range a recording serves (not 1 h) and that
+	 * the reach covers.
 	 */
-	public static void reset(TLObject datapoint) {
-		clearManual(datapoint);
-		// Stored as false, the storage of a truth value has no empty value.
-		setHistory(datapoint, false, null, null, List.of());
-	}
-
-	/**
-	 * Sets the history attributes of a group address or an application datapoint, which declare them
-	 * each on its own.
-	 */
-	private static void setHistory(TLObject datapoint, boolean manual, Integer retention, Integer spacing,
-			List<HistoryArchive> archives) {
-		if (datapoint instanceof GroupAddress address) {
-			address.setHistoryManual(manual);
-			address.setHistoryRetention(retention);
-			address.setHistorySpacing(spacing);
-			address.setHistoryArchives(archives);
-		} else {
-			ApplicationDatapoint application = (ApplicationDatapoint) datapoint;
-			application.setHistoryManual(manual);
-			application.setHistoryRetention(retention);
-			application.setHistorySpacing(spacing);
-			application.setHistoryArchives(archives);
-		}
-	}
-
-	private static void clearManual(TLObject datapoint) {
-		List<TLObject> archives = manualArchives(datapoint);
-		setHistory(datapoint, isManual(datapoint), null, null, List.of());
-
-		for (TLObject archive : archives) {
-			if (archive.tValid()) {
-				archive.tDelete();
-			}
-		}
+	public static boolean offers(long reach, String range) {
+		Long seconds = Pages.rangeSeconds(range);
+		return seconds != null && !"hour".equals(range) && seconds.longValue() <= reach;
 	}
 
 	// ---- texts -------------------------------------------------------------------------------
@@ -1256,31 +656,16 @@ public final class HistoryConfig {
 	}
 
 	/**
-	 * The derived history of the datapoint for the user.
-	 */
-	public static String describeDerived(TLObject datapoint) {
-		if (!canHaveHistory(stored(datapoint))) {
-			return Resources.getInstance().getString(I18NConstants.HISTORY_NOT_POSSIBLE);
-		}
-		History derived = derived(datapoint);
-		return derived == null ? Resources.getInstance().getString(I18NConstants.HISTORY_NOT_CHARTED) : describe(derived);
-	}
-
-	/**
-	 * The history of the datapoint in the image for the user, saying whether it is set by hand.
+	 * The history of the datapoint in the image for the user.
 	 */
 	public static String describeEffective(TLObject datapoint) {
-		Resources resources = Resources.getInstance();
-		History history = effective(datapoint);
-		return resources.getString((isManual(datapoint) ? I18NConstants.HISTORY_MANUAL__HISTORY
-			: I18NConstants.HISTORY_DERIVED__HISTORY).fill(describe(history)));
+		return describe(effective(datapoint));
 	}
 
 	/**
 	 * The bytes of the project's histories for the user: their RAM against the project's budget (or the
 	 * device's cap without one) and the flash of their archives against the device's cap, each naming the
-	 * biggest histories where it is exceeded, and the datapoints whose derived histories were made
-	 * coarser to fit the device.
+	 * biggest histories where it is exceeded.
 	 */
 	public static String usage(TLObject project) {
 		Map<TLObject, History> consumers = consumers(project);
@@ -1311,16 +696,7 @@ public final class HistoryConfig {
 			flashText = I18NConstants.HISTORY_USAGE_FLASH__BYTES_CAP.fill(Long.valueOf(flash), archiveCap);
 		}
 		Resources resources = Resources.getInstance();
-		String result = resources.getString(ramText) + " " + resources.getString(flashText);
-		Set<TLObject> coarsened = projectHistories(project).coarsened();
-		if (!coarsened.isEmpty()) {
-			List<String> labels = new ArrayList<>();
-			for (TLObject datapoint : coarsened) {
-				labels.add(Pages.targetLabel(datapoint));
-			}
-			result += " " + resources.getString(I18NConstants.HISTORY_USAGE_COARSENED__DATAPOINTS.fill(String.join(", ", labels)));
-		}
-		return result;
+		return resources.getString(ramText) + " " + resources.getString(flashText);
 	}
 
 	/**
@@ -1340,61 +716,6 @@ public final class HistoryConfig {
 			result.add(Pages.targetLabel(entry.getKey()) + ": " + value + " B");
 		}
 		return String.join(", ", result);
-	}
-
-	// ---- checks ------------------------------------------------------------------------------
-
-	/**
-	 * What is wrong with the archives set by hand for the datapoint (the limits of homecontrol #56);
-	 * <code>null</code> if they fit. The raw ring is checked by
-	 * {@link DatapointSettings#historyProblem(TLObject)}.
-	 */
-	public static ResKey archivesProblem(TLObject datapoint) {
-		List<TLObject> archives = manualArchives(datapoint);
-		if (archives.isEmpty()) {
-			return null;
-		}
-		if (archives.size() > MAX_ARCHIVES) {
-			return I18NConstants.HISTORY_TOO_MANY_ARCHIVES__MAX.fill(Integer.valueOf(MAX_ARCHIVES));
-		}
-		if (DatapointSettings.historyRetention(datapoint) == null || DatapointSettings.historySpacing(datapoint) == null) {
-			return I18NConstants.HISTORY_ARCHIVES_WITHOUT_RAW;
-		}
-		for (TLObject archive : archives) {
-			ResKey problem = archiveProblem(archive, datapoint);
-			if (problem != null) {
-				return problem;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * What is wrong with an archive set by hand: its resolution not coarser than the raw ring's
-	 * spacing, its retention below its resolution, beyond 10 years or giving more than
-	 * {@value #MAX_SLOTS} slots; <code>null</code> if it fits or is incomplete.
-	 */
-	public static ResKey archiveProblem(TLObject archive, TLObject datapoint) {
-		if (!(archive.tValueByName("resolution") instanceof Number resolution)
-			|| !(archive.tValueByName("retention") instanceof Number retention)) {
-			return null;
-		}
-		Integer spacing = datapoint == null ? null : DatapointSettings.historySpacing(datapoint);
-		if (spacing != null && resolution.longValue() <= spacing.longValue()) {
-			return I18NConstants.HISTORY_ARCHIVE_NOT_COARSER__RESOLUTION_SPACING.fill(duration(resolution.longValue()),
-				duration(spacing.longValue()));
-		}
-		if (retention.longValue() < resolution.longValue()) {
-			return I18NConstants.HISTORY_ARCHIVE_RETENTION_BELOW_RESOLUTION;
-		}
-		if (retention.longValue() > MAX_ARCHIVE_RETENTION) {
-			return I18NConstants.HISTORY_ARCHIVE_TOO_LONG;
-		}
-		long slots = ImageValidator.samples(retention.longValue(), resolution.longValue());
-		if (slots > MAX_SLOTS) {
-			return I18NConstants.HISTORY_TOO_MANY_SLOTS__SLOTS_MAX.fill(Long.valueOf(slots), Integer.valueOf(MAX_SLOTS));
-		}
-		return null;
 	}
 
 }

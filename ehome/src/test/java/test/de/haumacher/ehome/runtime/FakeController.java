@@ -27,6 +27,7 @@ import de.haumacher.ehome.runtime.Json.JsonException;
 import de.haumacher.ehome.runtime.binary.ImageCompiler;
 import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
+import de.haumacher.ehome.runtime.binary.Layout;
 
 /**
  * An in-process stand-in for a HomeControl controller speaking the deployment protocol (homecontrol
@@ -107,7 +108,7 @@ public class FakeController {
 
 	private int _nextStatus;
 
-	private String _format = "1.2";
+	private String _format = Layout.FORMAT;
 
 	private Map<String, Object> _nextBody;
 
@@ -518,8 +519,8 @@ public class FakeController {
 	/**
 	 * The format of the binary runtime image the fake reports it reads (<code>device.format</code> of
 	 * <code>/api/status</code>, <code>format</code> of its <code>auth</code>): <code>null</code> as a
-	 * firmware up to 1.2, which read JSON images and reports none; by default 1.2, the newest (the initial
-	 * values of the application datapoints, haumacher/ehome #217).
+	 * firmware up to 1.2, which read JSON images and reports none; by default the newest E-Home writes
+	 * ({@link Layout#FORMAT}, 1.3: the meter flag, haumacher/ehome #221).
 	 */
 	public synchronized String getFormat() {
 		return _format;

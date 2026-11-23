@@ -64,6 +64,11 @@ import de.haumacher.ehome.runtime.RuntimeImage;
 @SuppressWarnings("javadoc")
 public class TestDeployment extends BasicTestCase {
 
+	/** An image of format 1.1: a page of minimum role anonymous (haumacher/ehome #184). */
+	private static final Map<String, Object> ANONYMOUS_PAGE =
+		Map.of("ui", Map.of("pages", List.of(Map.of("minimumRole", "anonymous"))));
+
+
 	private static final String TOKEN = "hct_0123456789abcdef0123456789abcdef";
 
 	private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
@@ -261,13 +266,13 @@ public class TestDeployment extends BasicTestCase {
 			_fake.setFormat("2.0");
 			assertRefused(Deployer.deploy(project, NOW), 1, null, Deployer.CODE_FORMAT);
 			assertEquals(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill("x", "2.0", "1.0"),
-				Deployer.formatRefusal("2.0", "x", 0));
-			assertNull(Deployer.formatRefusal("1.0", "x", 0));
-			assertNull(Deployer.formatRefusal("1.3", "x", 0));
+				Deployer.formatRefusal("2.0", "x", Map.of()));
+			assertNull(Deployer.formatRefusal("1.0", "x", Map.of()));
+			assertNull(Deployer.formatRefusal("1.3", "x", Map.of()));
 			// An image with anonymous pages (format 1.1, haumacher/ehome #184) needs a firmware that knows their sections.
 			assertEquals(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill("x", "1.0", "1.1"),
-				Deployer.formatRefusal("1.0", "x", 1));
-			assertNull(Deployer.formatRefusal("1.1", "x", 1));
+				Deployer.formatRefusal("1.0", "x", ANONYMOUS_PAGE));
+			assertNull(Deployer.formatRefusal("1.1", "x", ANONYMOUS_PAGE));
 			_fake.setFormat("1.0");
 
 			// No last valid image: the refusal the controller reported is recorded, nothing is sent.

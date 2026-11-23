@@ -423,8 +423,8 @@ public final class Deployer {
 		}
 		ControllerStatus.Loaded before = ControllerStatus.read(client);
 		outcome._before = before.text();
-		ResKey formatRefusal = formatRefusal(reportedFormat(client, before), ((Controller) controller).getName(),
-			ImageCompiler.formatMinor(image.getJson()));
+		String reported = reportedFormat(client, before);
+		ResKey formatRefusal = formatRefusal(reported, ((Controller) controller).getName(), image.getJson());
 		if (before.answered() && formatRefusal != null) {
 			// A firmware reading JSON images (or another major format) cannot load the binary image: nothing is sent.
 			outcome._code = CODE_FORMAT;
@@ -434,7 +434,7 @@ public final class Deployer {
 		Keys signer = InstallationKeys.signer(project, controller);
 		byte[] binary;
 		try {
-			binary = image.compile(signer == null ? null : signer.seed());
+			binary = image.compile(signer == null ? null : signer.seed(), before.answered() ? reportedMinor(reported) : Layout.MINOR);
 		} catch (CompileException ex) {
 			outcome._code = CODE_INVALID;
 			outcome._message = text(I18NConstants.DEPLOY_COMPILE_FAILED__PATH_REASON.fill(ex.getPath(), ex.getReason()));
@@ -595,32 +595,49 @@ public final class Deployer {
 	}
 
 	/**
-	 * Why the binary image cannot go to a controller reporting the given format (homecontrol
-	 * <code>spec/runtime-image.md</code> section 11): a controller reporting none runs a firmware
-	 * that reads JSON images (up to 1.2), one of another major format a firmware E-Home cannot write
-	 * for, one of an older minor format than the image is written in (format 1.1 for the anonymous
-	 * pages, haumacher/ehome #184) a firmware that does not know its sections; <code>null</code> when
-	 * it reads the image's format. There is no JSON fallback: every controller is flashed with a
-	 * firmware reading the binary image.
-	 *
-	 * @param imageMinor
-	 *        The minor version of the format the image is written in
-	 *        ({@link de.haumacher.ehome.runtime.binary.ImageCompiler#formatMinor(Map)}).
+	 * Why the binary image of the given source cannot go to a controller reporting the given format
+	 * (homecontrol <code>spec/runtime-image.md</code> sections 8 and 11): a controller reporting none
+	 * runs a firmware that reads JSON images (up to 1.2), one of another major format a firmware E-Home
+	 * cannot write for, one of an older minor format than the image is written in for it (format 1.1
+	 * for the anonymous pages, haumacher/ehome #184, 1.2 for the initial values; the meter flags of 1.3
+	 * are left out for a controller before 1.3, {@link ImageCompiler#forFormat(Map, int)}) a firmware
+	 * that does not know its sections, one before 1.3 a firmware whose pages do not draw the chart
+	 * ranges 6h and 10y (haumacher/ehome #221); <code>null</code> when it reads the image. There is no
+	 * JSON fallback: every controller is flashed with a firmware reading the binary image.
 	 */
-	public static ResKey formatRefusal(String reported, Object controller, int imageMinor) {
+	public static ResKey formatRefusal(String reported, Object controller, Map<?, ?> source) {
 		if (reported == null || reported.isBlank()) {
 			return I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill(controller);
 		}
+		int minor = reportedMinor(reported);
+		int imageMinor = ImageCompiler.formatMinor(ImageCompiler.forFormat(source, minor));
+		if (minor < 0 || minor < imageMinor) {
+			return I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill(controller, reported.trim(),
+				Layout.MAJOR + "." + imageMinor);
+		}
+		if (minor < 3 && ImageCompiler.usesRanges13(source)) {
+			return I18NConstants.DEPLOY_REFUSED_CHART_RANGES__CONTROLLER_FORMAT.fill(controller, reported.trim());
+		}
+		return null;
+	}
+
+	/**
+	 * The minor version of the format the controller reports (<code>1.2</code>: 2); -1 for a format of
+	 * another major version or none.
+	 */
+	public static int reportedMinor(String reported) {
+		if (reported == null) {
+			return -1;
+		}
 		String[] parts = reported.trim().split("\\.");
 		try {
-			if (parts.length == 2 && Integer.parseInt(parts[0]) == Layout.MAJOR && Integer.parseInt(parts[1]) >= imageMinor) {
-				return null;
+			if (parts.length == 2 && Integer.parseInt(parts[0]) == Layout.MAJOR) {
+				return Integer.parseInt(parts[1]);
 			}
 		} catch (NumberFormatException ex) {
-			// Refused below.
+			// None.
 		}
-		return I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill(controller, reported.trim(),
-			Layout.MAJOR + "." + imageMinor);
+		return -1;
 	}
 
 	/**

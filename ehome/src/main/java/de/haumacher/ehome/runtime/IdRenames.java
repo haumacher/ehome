@@ -289,19 +289,18 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 
 	/**
 	 * The renamed datapoints for which the controller keeps something by their id: a persisted
-	 * value or a history (set by hand or derived from the charts).
+	 * value or a history (a recording, haumacher/ehome #221).
 	 */
 	private static List<RenamedDatapoint> keepingValues(TLObject project, List<RenamedDatapoint> renamed) {
 		if (renamed.isEmpty()) {
 			return List.of();
 		}
-		Map<TLObject, HistoryConfig.History> derived = HistoryConfig.derivedHistories(project);
 		List<RenamedDatapoint> result = new ArrayList<>();
 		for (RenamedDatapoint datapoint : renamed) {
 			TLObject obj = datapoint.datapoint();
 			boolean persist = obj instanceof GroupAddress address ? address.getRuntimePersist()
 				: obj instanceof ApplicationDatapoint application && application.getPersist();
-			boolean history = HistoryConfig.isManual(obj) ? HistoryConfig.manual(obj) != null : derived.get(obj) != null;
+			boolean history = HistoryConfig.effective(obj) != null;
 			if (persist || history) {
 				result.add(datapoint);
 			}

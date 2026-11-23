@@ -26,10 +26,14 @@ public final class Layout {
 	/**
 	 * The newest minor version of the format this layout describes (1.1: the anonymous pages,
 	 * homecontrol #91, haumacher/ehome #184; 1.2: the initial values of datapoints, homecontrol #107,
-	 * haumacher/ehome #217). An image is written in the oldest minor version that has what it uses: 2
-	 * with an initial value, else 1 with the anonymous pages, else 0.
+	 * haumacher/ehome #217; 1.3: the meter flag of a history, homecontrol #115, haumacher/ehome #221). An
+	 * image is written in the oldest minor version that has what it uses: 3 with a meter, else 2 with an
+	 * initial value, else 1 with the anonymous pages, else 0.
 	 */
-	public static final int MINOR = 2;
+	public static final int MINOR = 3;
+
+	/** The bit of a history's <code>flags</code>: the datapoint is a meter reading (9.9, format 1.3). */
+	public static final int HISTORY_METER = 0x01;
 
 	/** The bit of a datapoint's <code>init</code>: its <code>initial</code> names its initial value (9.7). */
 	public static final int INIT_INITIAL = 0x01;
@@ -305,7 +309,7 @@ public final class Layout {
 		table(FUNCTIONS, "functions", 28, false, "id:0:STR", "label:4:LABEL", "unit:8:STR", "room:12:U16",
 			"firstRole:14:U16", "kind:16:U8", "scene:17:U8", "roleCount:18:U8", "presses:20:RAW6");
 		table(ROLES, "roles", 8, false, "name:0:STR", "datapoint:4:U16");
-		table(HISTORY, "history", 16, false, "datapoint:0:U16", "archiveCount:2:U8", "retention:4:U32",
+		table(HISTORY, "history", 16, false, "datapoint:0:U16", "archiveCount:2:U8", "flags:3:U8", "retention:4:U32",
 			"spacing:8:U32", "firstArchive:12:U16");
 		table(ARCHIVES, "archives", 8, false, "resolution:0:U32", "retention:4:U32");
 		table(KNX_ADDRESSES, "knx.addresses", 8, false, "address:0:U16", "firstListener:2:U16",
