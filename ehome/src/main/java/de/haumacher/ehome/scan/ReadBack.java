@@ -61,6 +61,8 @@ import de.haumacher.ehome.model.operational.TimeType;
 import de.haumacher.ehome.model.operational.VoidType;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.download.DeviceComparison;
+import de.haumacher.ehome.programming.download.LoadStateMachines;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -175,7 +177,11 @@ public class ReadBack {
 			}
 			Integer addressTable = table(snapshot, snapshot.getAddressTable(),
 				de.haumacher.ehome.programming.I18NConstants.BLOCK_ADDRESS_TABLE, notes);
-			Integer associationTable = table(snapshot, snapshot.getAssociationTable(),
+			// A mask keeping the pointer to the table in memory names the place in the snapshot's memory
+			// (BCU 1, haumacher/ehome #222); a snapshot of an older E-Home recorded the image's place.
+			Integer pointed = LoadStateMachines.associationTablePointer(DeviceConfiguration.program(device),
+				snapshot.memory(), snapshot.known());
+			Integer associationTable = table(snapshot, pointed != null ? pointed : snapshot.getAssociationTable(),
 				de.haumacher.ehome.programming.I18NConstants.BLOCK_ASSOCIATION_TABLE, notes);
 			Map<String, byte[]> properties = new LinkedHashMap<>(snapshot.getProperties());
 			DownloadImage image = DownloadImage.compute(device);
@@ -299,6 +305,11 @@ public class ReadBack {
 		if (associationBlock != null) {
 			associationTable =
 				propertyMapped && image.getBlocks().contains(associationBlock) ? tablePointer(reader, 2, notes) : null;
+			if (associationTable == null) {
+				// A mask keeping the pointer in memory (BCU 1): the place the device names, read with the
+				// segment holding the pointer.
+				associationTable = LoadStateMachines.associationTablePointer(program, memory, known);
+			}
 			if (associationTable == null) {
 				boolean separate = image.getBlocks().contains(associationBlock);
 				if (program.getDynamicTableManagement() && separate && addressTable != null) {
@@ -468,24 +479,36 @@ public class ReadBack {
 		}
 		int settings = ((Collection<?>) device.tValueByName("settings")).size();
 
-		// The proof: the image of the device as read back is what the device holds.
+		// The proof: the memory a download of the device as read back leaves is what the device holds
+		// - the image, where the plan writes over it the value it writes last (BCU 1: FF into
+		// RunError), without the memory the plan does not load (as DeviceComparison compares).
 		DownloadImage image = DownloadImage.compute(device);
 		problems.addAll(image.getProblems());
+		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+		Map<Integer, Byte> written = DeviceComparison.written(plan);
+		BitSet skipped = new BitSet();
+		for (Block part : plan.getUnloadedBlocks()) {
+			if (part.stateMachine() == null) {
+				skipped.set(part.address(), part.end());
+			}
+		}
 		int compared = 0;
 		List<Integer> differences = new ArrayList<>();
-		for (Block block : loadedBlocks(device, image)) {
+		for (Block block : image.getBlocks()) {
 			if (block.stateMachine() != null) {
 				continue;
 			}
 			for (int n = 0; n < block.data().length; n++) {
+				int address = block.address() + n;
 				int bits = block.mask()[n] & 0xFF;
-				Integer actual = memory.byteAt(block.address() + n);
-				if (bits == 0 || actual == null) {
+				Integer actual = memory.byteAt(address);
+				if (bits == 0 || actual == null || skipped.get(address)) {
 					continue;
 				}
 				compared++;
-				if (((block.data()[n] ^ actual.intValue()) & bits) != 0) {
-					differences.add(block.address() + n);
+				int expected = written.getOrDefault(Integer.valueOf(address), Byte.valueOf(block.data()[n])).byteValue() & 0xFF;
+				if (((expected ^ actual.intValue()) & bits) != 0) {
+					differences.add(Integer.valueOf(address));
 				}
 			}
 		}

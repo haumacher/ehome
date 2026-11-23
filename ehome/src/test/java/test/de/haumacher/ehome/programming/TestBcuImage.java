@@ -98,21 +98,25 @@ public class TestBcuImage extends BasicTestCase {
 		assertEquals(0x0100, block.address());
 		assertEquals(256, block.data().length);
 
-		// The header as the static data has it, with the pointers to the association table (0125)
-		// and the object table (0136).
-		assertBytes(block, 0x0100, "ff 00 00 00 08 ff f1 01 ff 00 00 00 00 ff 61 63 2f 25 36 00 00 00");
+		// The header as the static data has it, the program's identity 0104-0107 (manufacturer 0008,
+		// application FFF1, version 01), the pointers to the association table (011F, where the
+		// download places it) and the object table (0136).
+		assertBytes(block, 0x0100, "ff 00 00 00 08 ff f1 01 ff 00 00 00 00 ff 61 63 2f 1f 36 00 00 00");
 		assertMask(block, 0x0100, "ff 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff");
 
 		// The address table at 0116 (the mask's GroupAddressTable): 4 entries, the individual address
-		// (not written), 0/0/1, 0/0/3, 0/1/1; the rest of its space keeps the static data.
+		// (not written), 0/0/1, 0/0/3, 0/1/1.
 		assertEquals(0x0116, image.getAddressTable().address());
-		assertBytes(block, 0x0116, "04 ff ff 00 01 00 03 01 01 00 00 00 00 00 00");
-		assertMask(block, 0x0116, "ff 00 00 ff ff ff ff ff ff ff ff ff ff ff ff");
+		assertBytes(block, 0x0116, "04 ff ff 00 01 00 03 01 01");
+		assertMask(block, 0x0116, "ff 00 00 ff ff ff ff ff ff");
 
-		// The association table at 0125 (the program's place, named by the pointer 0111): object 0
-		// sends to index 2 (0/0/3) first, then index 1 (0/0/1); object 1 to index 3 (0/1/1).
-		assertEquals(0x0125, image.getAssociationTable().address());
-		assertBytes(block, 0x0125, "03 02 00 01 00 03 01 00");
+		// The association table right after it at 011F (dynamic table management, as ETS places it
+		// on a device of mask 0012, haumacher/ehome #222; the pointer 0111 names it), a place per
+		// object: object 0 sends to index 2 (0/0/3), object 1 to index 3 (0/1/1), the place of object
+		// 2 (without association) takes the further address of object 0, index 1 (0/0/1).
+		assertEquals(0x011F, image.getAssociationTable().address());
+		assertBytes(block, 0x011F, "03 02 00 03 01 01 00");
+		assertMask(block, 0x011F, "ff ff ff ff ff ff ff");
 
 		// The object table at 0136: 3 objects, RAM flags 00CE; configuration bytes from the flags
 		// (object 2 without association: no communication flag, its value-in-EEPROM bit kept); type
@@ -143,9 +147,11 @@ public class TestBcuImage extends BasicTestCase {
 
 		byte[] expected = new byte[256];
 		byte[] mask = new byte[256];
-		put(expected, mask, 0x11, "25 36", "ff ff");
+		// The program's identity (application FFF2, version 01).
+		put(expected, mask, 0x04, "08 ff f2 01", "ff ff ff ff");
+		put(expected, mask, 0x11, "1f 36", "ff ff");
 		put(expected, mask, 0x16, "04 00 00 00 01 00 03 01 01", "ff 00 00 ff ff ff ff ff ff");
-		put(expected, mask, 0x25, "03 02 00 01 00 03 01", "ff ff ff ff ff ff ff");
+		put(expected, mask, 0x1F, "03 02 00 03 01 01 00", "ff ff ff ff ff ff ff");
 		// Verzögerung 3 in bits 0-3, Verhalten 2 in bits 4-5 of 0151; bits 6-7 are nobody's.
 		put(expected, mask, 0x50, "02 38 01 2c", "ff fc ff ff");
 		assertEquals(hex(expected), hex(block.data()));
@@ -170,7 +176,7 @@ public class TestBcuImage extends BasicTestCase {
 		expected.add("#5 WriteMem: 0116 01 (Inline data (GroupAddressTable))");
 		expected.add("#6 WriteMem: 0100 ff (" + SEGMENT + ")");
 		expected.add("#7 WriteMem: 0104 08fff101ff00000000 (" + SEGMENT + ")");
-		expected.add("#8 WriteMem: 010E 61632f2536000000 (" + SEGMENT + ")");
+		expected.add("#8 WriteMem: 010E 61632f1f36000000 (" + SEGMENT + ")");
 		for (int address = 0x0119; address < 0x01FF; address += 12) {
 			int length = Math.min(12, 0x01FF - address);
 			// The last chunk 01FD-01FE: zeros of the static data.
@@ -185,9 +191,9 @@ public class TestBcuImage extends BasicTestCase {
 		assertEquals(String.join("\n", expected), operations.stream().map(TestBcuImage::describe)
 			.collect(Collectors.joining("\n")));
 
-		// The first chunk of the range 0119-01FE: the group addresses and the free space of the table.
+		// The first chunk of the range 0119-01FE: the group addresses and the association table.
 		Operation.WriteMemory first = (Operation.WriteMemory) operations.get(8);
-		assertEquals("000100030101000000000000", hex(first.data()));
+		assertEquals("000100030101030200030101", hex(first.data()));
 		for (Operation operation : operations) {
 			if (operation instanceof Operation.WriteMemory write) {
 				assertTrue(write.describe(), write.verify());

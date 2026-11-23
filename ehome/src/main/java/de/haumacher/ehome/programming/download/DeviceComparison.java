@@ -210,7 +210,7 @@ public class DeviceComparison {
 	/**
 	 * The bytes the plan writes into memory, by address: the value it writes last.
 	 */
-	private static Map<Integer, Byte> written(DownloadPlan plan) {
+	public static Map<Integer, Byte> written(DownloadPlan plan) {
 		Map<Integer, Byte> written = new HashMap<>();
 		for (Operation operation : plan.getOperations()) {
 			if (operation instanceof Operation.WriteMemory write) {

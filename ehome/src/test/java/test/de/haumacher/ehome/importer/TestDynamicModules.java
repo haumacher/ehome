@@ -646,7 +646,10 @@ public class TestDynamicModules extends BasicTestCase {
 		byte[] data = image.getAssociationTable().data();
 		List<Integer> result = new ArrayList<>();
 		for (int n = 0, cnt = data[0] & 0xFF; n < cnt; n++) {
-			result.add(Integer.valueOf(data[2 + 2 * n] & 0xFF));
+			// The place of an object without association (BCU 1 with a place per object) holds none.
+			if ((data[1 + 2 * n] & 0xFF) != GroupTables.UNUSED_SLOT) {
+				result.add(Integer.valueOf(data[2 + 2 * n] & 0xFF));
+			}
 		}
 		return result;
 	}

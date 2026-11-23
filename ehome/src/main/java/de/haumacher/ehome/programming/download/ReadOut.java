@@ -358,6 +358,11 @@ public final class ReadOut {
 		if (associationBlock != null) {
 			associationTable = propertyMapped && _image.getBlocks().contains(associationBlock) ? tablePointer(2) : null;
 			if (associationTable == null) {
+				// A mask keeping the pointer in memory (BCU 1): the place the device names, read with the
+				// segment holding the pointer (haumacher/ehome #222).
+				associationTable = LoadStateMachines.associationTablePointer(_program, _snapshot.memory(), _snapshot.known());
+			}
+			if (associationTable == null) {
 				boolean separate = _image.getBlocks().contains(associationBlock);
 				Integer count = addressTable == null ? null : _snapshot.byteAt(addressTable.intValue());
 				if (_program.getDynamicTableManagement() && separate && count != null) {

@@ -64,20 +64,19 @@ import java.util.TreeSet;
  *
  * <h2>The order of the associations</h2>
  * <p>
- * ETS writes the associations of the devices of mask 0705 in ascending order of the object number,
- * E-Home's order. The device of mask 0701 holds the ones ETS wrote in another order, neither by
- * object nor by address ((3, 1), (1, 8), (4, 1), (2, 8): object 1 sends to address 3 and receives
- * 4, object 8 sends to 1 and receives 2), and runs with it: its mask does not search the table by
- * an order, it goes through it. For such a lookup only the order within an object matters, its
- * first entry being the address it sends to; E-Home's order keeps it (send address first) and
- * differs from ETS's only across objects, so the device runs E-Home's table the same. E-Home keeps
- * its order on every mask: it is the order ETS writes on mask 0705, whose devices are verified with
- * it, and one order for all masks needs no rule per mask that no master data would ground.
+ * ETS writes first one association per object, the address the object sends to, in ascending order
+ * of the object number, then the further addresses of the objects that have several, again by
+ * object ({@link #associationOrder(Collection)}). Verified on three devices: the device of mask
+ * 0701 holds (3, 1), (1, 8), (4, 1), (2, 8) (object 1 sends to address 3 and receives 4, object 8
+ * sends to 1 and receives 2), a device of mask 0705 with two such objects holds them after all
+ * others (haumacher/ehome #222), and the devices of mask 0705 without such an object hold their
+ * associations by object number.
  * </p>
  *
  * <h2>BCU 1 (mask 0012)</h2>
  * <p>
- * Not verified against a device (none on the test system). The sources: the resources of mask
+ * Verified against a device of mask 0012 that ETS programmed (a Siemens 5WG1 562-2AB31, program
+ * with dynamic table management, haumacher/ehome #222); see the points below. The sources: the resources of mask
  * <code>MV-0012</code> in <code>knx_master.xml</code>, and the static data ETS ships with BCU 1
  * programs (the EEPROM image 0100-01FF of the program's only segment), which holds the tables'
  * templates at the places the program's <code>AddressTable</code>, <code>AssociationTable</code> and
@@ -93,13 +92,21 @@ import java.util.TreeSet;
  * <li>Address table: the format <code>AddressTable_Bcu1</code> above. Its individual address
  * (0117-0118, the mask's resource <code>IndividualAddress</code>) is not written by a download of the
  * application (the static data masks it out, the mask's load procedure skips it).</li>
- * <li>Association table (<code>AssociationTable_Bcu1</code>): the same bytes as
- * <code>AssociationTable_M112</code>.</li>
+ * <li>Association table (<code>AssociationTable_Bcu1</code>): a place per object as BCU 2 has it
+ * ({@link #associationSlots(Collection, int)}), <code>FE</code> for an object without an
+ * association (the device holds 24 entries for its 24 objects). With dynamic table management ETS
+ * places it right after the address table, the pointer 0111 naming that place (the device: 0127
+ * after an address table of 8 entries at 0116, where its program's static data has the template
+ * at 014D); the static data after the table stays.</li>
+ * <li>The program's identity: the resource <code>ApplicationId</code> (0104-0107) holds the low
+ * byte of the manufacturer, the application number and its version (the device:
+ * <code>01 20 71 01</code>), not the placeholder of the static data.</li>
  * <li>Object table (<code>GroupObjectTable_Bcu11</code>, {@link ObjectTableFormat#BCU1}): the number
  * of objects, the address of the RAM flags (one byte), then three bytes per object: the address of
  * its value (one byte), the configuration byte (the bits of the BIM M112's, as the static data of
  * BCU 1 programs shows them: D7 for update, transmit, write, communication, low priority), the type
- * byte (codes 0 to 14 only).</li>
+ * byte (codes 0 to 14 only). An object not in effect keeps the configuration of the static data,
+ * without the communication flag (the device: D3 where the static data has D7).</li>
  * </ul>
  *
  * <h2>BCU 2 (masks 0020, 0021, 0025)</h2>
@@ -252,13 +259,17 @@ public class GroupTables {
 	}
 
 	/**
-	 * The associations in the order of the association table: by object number; for an object with
-	 * several addresses, the address it sends to first (the device sends to the first address it
-	 * finds for the object), then by the index of the address.
+	 * The associations in the order of the association table, as ETS writes it: first one
+	 * association per object, the address the object sends to (the device sends to the first address
+	 * it finds for the object; without a send connection the receive address of the lowest index), in
+	 * the order of the object numbers; then the further associations of objects with several
+	 * addresses, by object number and the index of the address.
 	 *
 	 * <p>
-	 * The order by object number is verified; no reference device has an object with several
-	 * addresses, so the order within an object follows the KNX rule for the sending address.
+	 * Verified on the devices ETS programmed: a device of mask 0705 with two objects of two addresses
+	 * each holds <code>(0D, 04) (0E, 05) ... (0F, 04) (10, 05)</code> (haumacher/ehome #222), the device
+	 * of mask 0701 <code>(3, 1) (1, 8) (4, 1) (2, 8)</code>; the devices without such an object hold the
+	 * associations by object number.
 	 * </p>
 	 */
 	public static List<Association> associationOrder(Collection<Association> associations) {
@@ -275,7 +286,20 @@ public class GroupTables {
 				distinct.add(association);
 			}
 		}
-		return distinct;
+		// The first association of each object (the address it sends to) in the order of the objects,
+		// then the further ones, again by object.
+		List<Association> primaries = new ArrayList<>();
+		List<Association> further = new ArrayList<>();
+		Set<Integer> objects = new HashSet<>();
+		for (Association association : distinct) {
+			if (objects.add(Integer.valueOf(association.objectNumber()))) {
+				primaries.add(association);
+			} else {
+				further.add(association);
+			}
+		}
+		primaries.addAll(further);
+		return primaries;
 	}
 
 	/**

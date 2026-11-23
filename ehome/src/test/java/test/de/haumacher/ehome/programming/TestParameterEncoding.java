@@ -162,10 +162,11 @@ public class TestParameterEncoding extends TestCase {
 			new Association(1, 0, true),
 			new Association(1, 2, true),
 			new Association(1, 2, false)));
-		// By object; the send address first; an address once per object.
-		assertEquals(List.of(new Association(1, 0, true), new Association(2, 0, false), new Association(1, 2, true),
-			new Association(3, 4, true)), order);
-		assertEquals("0401000200010203" + "04", HexFormat.of().formatHex(GroupTables.associationTable(order)));
+		// The send address of each object by object, then the further addresses (as ETS writes it,
+		// haumacher/ehome #222); an address once per object.
+		assertEquals(List.of(new Association(1, 0, true), new Association(1, 2, true), new Association(3, 4, true),
+			new Association(2, 0, false)), order);
+		assertEquals("0401000102030402" + "00", HexFormat.of().formatHex(GroupTables.associationTable(order)));
 	}
 
 	public void testObjectConfig() {

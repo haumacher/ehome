@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -32,7 +31,6 @@ import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
-import de.haumacher.ehome.programming.GroupTables;
 import de.haumacher.ehome.programming.ParameterEncoding;
 import de.haumacher.ehome.programming.download.DeviceComparison;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
@@ -429,8 +427,8 @@ public class TestMask71Download extends SharedProjectTestCase {
 	 * <li>The address table is the device's bytes, its first entry the static data <code>FFFF</code>,
 	 * not the individual address 1.3.5; written (the static data has no mask) and compared: the
 	 * comparison of the device with the plan finds the address table identical.</li>
-	 * <li>The association table holds the device's associations, the first entry of each object (its
-	 * send address) the device's, in E-Home's order (by object number) instead of ETS's.</li>
+	 * <li>The association table holds the device's associations in the device's order: the send address
+	 * of each object by object, then the further addresses (haumacher/ehome #222).</li>
 	 * </ul>
 	 */
 	private static void checkReadBackTables(TLObject device) throws Exception {
@@ -457,10 +455,10 @@ public class TestMask71Download extends SharedProjectTestCase {
 
 			byte[] device71 = Arrays.copyOf(associationTable[1], 1 + 2 * (associationTable[1][0] & 0xFF));
 			byte[] computed = image.getAssociationTable().data();
-			assertEquals("040301040101080208", hex(computed));
-			List<GroupTables.Association> expected = GroupTables.associations(device71, false);
-			List<GroupTables.Association> actual = GroupTables.associations(computed, false);
-			assertEquals(new HashSet<>(expected), new HashSet<>(actual));
+			// ETS's order (haumacher/ehome #222): the send address of each object by object, then the
+			// further addresses - the device's bytes.
+			assertEquals("040301010804010208", hex(computed));
+			assertEquals(hex(device71), hex(computed));
 
 			DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 			MockDevice mock = mask71Device().setMemory(0x4000, addressTable[1]);

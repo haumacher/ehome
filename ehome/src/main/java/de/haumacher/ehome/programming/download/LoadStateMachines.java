@@ -4,6 +4,7 @@
 package de.haumacher.ehome.programming.download;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -12,6 +13,7 @@ import com.top_logic.basic.util.ResKey;
 import de.haumacher.ehome.model.operational.MaskFeature;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.ResourceLocation;
 
 /**
@@ -73,6 +75,32 @@ public final class LoadStateMachines {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * The address of the association table the device names in memory: the pointer
+	 * <code>GroupAssociationTablePtr</code> of a mask keeping it there (BCU 1, flavour
+	 * <code>Ptr_StandardMemory100</code>: one byte, the address minus 0100). <code>null</code> if the
+	 * mask keeps no such pointer or the byte was not read (haumacher/ehome #222).
+	 *
+	 * @param memory
+	 *        The memory read, valid where <code>known</code> is set.
+	 */
+	public static Integer associationTablePointer(Program program, byte[] memory, BitSet known) {
+		MaskVersion mask = program == null ? null : program.getMask();
+		if (mask == null) {
+			return null;
+		}
+		for (MaskResource resource : mask.getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if ("GroupAssociationTablePtr".equals(resource.getName()) && "Ptr_StandardMemory100".equals(resource.getFlavour())
+				&& location != null && location.getAddressSpace() != null
+				&& "StandardMemory".equals(location.getAddressSpace().getName()) && location.getStartAddress() != null) {
+				int address = location.getStartAddress().intValue();
+				return known.get(address) ? Integer.valueOf(0x100 + (memory[address] & 0xFF)) : null;
+			}
+		}
+		return null;
 	}
 
 	/**

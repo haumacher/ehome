@@ -97,9 +97,20 @@ class DownloadImageBuilder {
 	/** The format of the association table of BCU 2, with a reserved place per object ({@link GroupTables#associationSlots(Collection, int)}). */
 	private static final String ASSOCIATION_TABLE_BCU2 = "AssociationTable_Bcu2";
 
+	/** The format of the association table of BCU 1. */
+	private static final String ASSOCIATION_TABLE_BCU1 = "AssociationTable_Bcu1";
+
+	/**
+	 * The formats of the association table with a reserved place per object
+	 * ({@link GroupTables#associationSlots(Collection, int)}): BCU 2, and BCU 1 as ETS writes it (a
+	 * device of mask 0012 holds an entry per object, <code>FE</code> for an object without an
+	 * association, haumacher/ehome #222).
+	 */
+	private static final List<String> SLOT_FORMATS = List.of(ASSOCIATION_TABLE_BCU1, ASSOCIATION_TABLE_BCU2);
+
 	/** The formats of the association table with the bytes of {@link GroupTables#associationTable(List)}. */
 	private static final List<String> ASSOCIATION_TABLE_FORMATS =
-		List.of("AssociationTable_M112", "AssociationTable_Bcu1", ASSOCIATION_TABLE_BCU2);
+		List.of("AssociationTable_M112", ASSOCIATION_TABLE_BCU1, ASSOCIATION_TABLE_BCU2);
 
 	/**
 	 * The feature of a mask whose segments with checksum control (allocation attribute
@@ -153,6 +164,7 @@ class DownloadImageBuilder {
 			return _image;
 		}
 		segments();
+		identity();
 		parameters();
 		tables();
 		objectTable();
@@ -212,6 +224,36 @@ class DownloadImageBuilder {
 				_combined.add(segment);
 			}
 			_image.addSegment(block);
+		}
+	}
+
+	/**
+	 * Writes the program's identity where the mask keeps it in memory (BCU 1: the resource
+	 * <code>ApplicationId</code>, four bytes at 0104: the low byte of the manufacturer, the
+	 * application number and its version). ETS writes it there with the static data, whose bytes
+	 * at that place are a placeholder (a device of mask 0012 holds <code>01 20 71 01</code> for
+	 * <code>M-0001_A-2071-01</code> where the static data has <code>0A 70 53 00</code>,
+	 * haumacher/ehome #222).
+	 */
+	private void identity() {
+		MaskResource resource = memoryResourceOf("ApplicationId");
+		if (resource == null || resource.getLength() == null) {
+			return;
+		}
+		byte[] id = de.haumacher.ehome.programming.download.DownloadPlanner.applicationId(_program);
+		int length = resource.getLength().intValue();
+		if (length > id.length) {
+			return;
+		}
+		int address = resource.getLocation().getStartAddress().intValue();
+		for (Block block : _blocks.values()) {
+			if (block.stateMachine() != null || !block.contains(address) || !block.contains(address + length - 1)) {
+				continue;
+			}
+			for (int n = 0; n < length; n++) {
+				block.data()[address - block.address() + n] = id[id.length - length + n];
+				block.mask()[address - block.address() + n] = (byte) 0xFF;
+			}
 		}
 	}
 
@@ -338,7 +380,7 @@ class DownloadImageBuilder {
 		for (Association association : associations) {
 			_associatedObjects.add(association.objectNumber());
 		}
-		if (ASSOCIATION_TABLE_BCU2.equals(associationFormat)) {
+		if (slots(_program, associationFormat, objectCount())) {
 			associations = GroupTables.associationSlots(associations, objectCount());
 		} else {
 			associations = GroupTables.associationOrder(associations);
@@ -383,9 +425,11 @@ class DownloadImageBuilder {
 		int associationStart;
 		byte[] associationMask;
 		boolean associationCombined = combined(associationLocation);
-		if (_program.getDynamicTableManagement() && !associationCombined) {
+		boolean dynamic = _program.getDynamicTableManagement();
+		if (dynamic) {
 			// ETS places the association table right after the address table (and the checksum of its
-			// segment, see tableChecksum(Program)).
+			// segment, see tableChecksum(Program)), also within a segment shared with other content
+			// (BCU 1: the pointer then names that place, haumacher/ehome #222).
 			associationStart = addressStart + addressTable.length + tableChecksum(_program);
 			associationMask = full(associationTable.length);
 		} else {
@@ -400,7 +444,7 @@ class DownloadImageBuilder {
 		Block associationBlock = new Block(I18NConstants.BLOCK_ASSOCIATION_TABLE, associationStart, null, associationTable, associationMask);
 		_image.setAssociationTable(associationBlock);
 		if (associationCombined) {
-			pointer("GroupAssociationTablePtr", associationStart);
+			pointer("GroupAssociationTablePtr", associationStart, dynamic);
 			patch(associationLocation.getSegment(), associationBlock);
 		}
 	}
@@ -506,9 +550,13 @@ class DownloadImageBuilder {
 	/**
 	 * Sets a pointer the mask keeps in memory (flavour {@value #POINTER_100}: one byte, the address
 	 * minus 0100) to the place of its table, in the block holding it. Static data giving another
-	 * place is a problem.
+	 * place is a problem, unless the place is the download's to choose.
+	 *
+	 * @param placed
+	 *        Whether the download places the table (dynamic table management): the pointer is
+	 *        written whatever the static data holds.
 	 */
-	private void pointer(String resourceName, int tableAddress) {
+	private void pointer(String resourceName, int tableAddress, boolean placed) {
 		MaskResource resource = memoryResourceOf(resourceName);
 		if (resource == null && propertyResource(resourceName)) {
 			// The mask keeps the pointer in a property only (BCU 2.5, PID_TABLE_REFERENCE): the load
@@ -539,7 +587,7 @@ class DownloadImageBuilder {
 		}
 		int index = address - block.address();
 		int mask = block.mask()[index] & 0xFF;
-		if (mask == 0) {
+		if (mask == 0 || placed) {
 			block.data()[index] = (byte) value;
 			block.mask()[index] = (byte) 0xFF;
 		} else if (mask != 0xFF || (block.data()[index] & 0xFF) != value) {
@@ -606,11 +654,47 @@ class DownloadImageBuilder {
 			return false;
 		}
 		for (MaskResource resource : program.getMask().getResources()) {
-			if ("GroupAssociationTable".equals(resource.getName()) && ASSOCIATION_TABLE_BCU2.equals(resource.getFlavour())) {
-				return true;
+			if ("GroupAssociationTable".equals(resource.getName())) {
+				return slots(program, resource.getFlavour(), staticObjectCount(program));
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether the association table of the given format reserves a place per object: BCU 2 always;
+	 * BCU 1 where the program's table can hold a place for each of its objects (the device of mask
+	 * 0012 ETS programmed: 24 places of 27 entries; a program whose table holds fewer entries than it
+	 * has objects cannot have them).
+	 */
+	private static boolean slots(Program program, String format, int objectCount) {
+		if (ASSOCIATION_TABLE_BCU2.equals(format)) {
+			return true;
+		}
+		if (!ASSOCIATION_TABLE_BCU1.equals(format)) {
+			return false;
+		}
+		TableLocation location = program.getAssociationTable();
+		return location == null || location.getMaxEntries() == null || location.getMaxEntries().intValue() >= objectCount;
+	}
+
+	/**
+	 * The number of objects of the program's object table in its static data, else the number of
+	 * its objects.
+	 */
+	private static int staticObjectCount(Program program) {
+		TableLocation location = program.getObjectTable();
+		byte[] data = location == null || location.getSegment() == null ? null
+			: ParameterEncoding.toBytes(location.getSegment().getData());
+		int offset = location == null ? 0 : value(location.getOffset());
+		if (data != null && offset < data.length) {
+			return data[offset] & 0xFF;
+		}
+		int count = 0;
+		for (Port port : program.getPorts()) {
+			count = Math.max(count, port.getIndex() + 1);
+		}
+		return count;
 	}
 
 	static int tableChecksum(Program program) {
@@ -752,7 +836,7 @@ class DownloadImageBuilder {
 		GroupTables.ObjectTableFormat format = GroupTables.ObjectTableFormat.byFlavour(flavour);
 		int start = value(location.getOffset());
 		if (_combined.contains(location.getSegment())) {
-			pointer("GroupObjectTablePtr", segment.address() + start);
+			pointer("GroupObjectTablePtr", segment.address() + start, false);
 		}
 		if (_withoutData.contains(location.getSegment())) {
 			// The addresses of the objects' values are part of the program, not of the configuration.
@@ -795,6 +879,7 @@ class DownloadImageBuilder {
 				connectors.putIfAbsent(placed.getPort(), connector);
 			}
 		}
+		boolean combinedTable = _combined.contains(location.getSegment());
 		String invisible = _program.getDownloadInvisibleParameters();
 		boolean keepsStaticConfig = invisible != null && !invisible.isBlank() && !"None".equals(invisible);
 		for (int number = 0; number < count; number++) {
@@ -815,11 +900,13 @@ class DownloadImageBuilder {
 			Interface placed = connector != null ? ModuleParts.port(connector)
 				: _configuration.getActiveInterfaces().get(port);
 			int position = start + format.header() + format.descriptor() * number + format.config();
-			if (connector == null && placed == null && keepsStaticConfig) {
-				// A program of ETS 6 with the option DownloadInvisibleParameters: an object not in
-				// effect keeps the configuration of the static data, without communication (as ETS 6
-				// writes it, ets6-download-1.3.5.txt). Otherwise its configuration is computed from
-				// its flags, as ETS 4 writes it (the memory of the test system's devices).
+			if (connector == null && placed == null && (keepsStaticConfig || combinedTable)) {
+				// A program of ETS 6 with the option DownloadInvisibleParameters, and a table within the
+				// memory image of BCU 1: an object not in effect keeps the configuration of the static
+				// data, without communication (as ETS 6 writes it, ets6-download-1.3.5.txt; a device of
+				// mask 0012 holds D3 where the static data has D7, haumacher/ehome #222). Otherwise its
+				// configuration is computed from its flags, as ETS 4 writes it (the memory of the test
+				// system's devices).
 				data[position] = (byte) ((data[position] & 0xFF) & ~GroupTables.COMMUNICATION);
 				continue;
 			}
@@ -831,10 +918,11 @@ class DownloadImageBuilder {
 				enabled("communication", connector, placed, port),
 				GroupTables.priorityCode(classifier("priority", connector, placed, port)),
 				_associatedObjects.contains(number));
-			// The type byte of an object with an association is the size in effect (a parameter may
-			// decide it through the reference); an object without one keeps the static byte, as the
-			// memory of the test devices shows.
-			if (_associatedObjects.contains(number)) {
+			// The type byte of an object with an association or in effect is the size in effect (a
+			// parameter may decide it through the reference): a device of mask 0705 holds 07 for two
+			// objects in effect of a byte each without association where the static data has 00 and 03
+			// (haumacher/ehome #222); an object neither associated nor in effect keeps the static byte.
+			if (_associatedObjects.contains(number) || placed != null) {
 				int bits = placed != null && placed.getSize() != null ? placed.getSize() : port.getSize();
 				int type = GroupTables.objectType(bits);
 				if (type < 0 || type > format.maxType()) {
