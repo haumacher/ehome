@@ -476,3 +476,12 @@ keeps its name-based access (haumacher/ehome #198); the calls stay in the `[migr
 - TL #30313, #30314: see above (a role query after a change of the roles on H2, the columns of a table after a change of the roles).
 - TL #30406, #30289: see above (no description at the options of a select, no help at a `<value-input>`).
 - TL #30407: see above (startup messages of the engine on the console of a shared Tomcat).
+
+## No tool mode for a write in its own transactions (TL #30531)
+
+The MCP tools `readOutDevice` and `takeOverSnapshot` (`de.haumacher.ehome.ai.SnapshotTools`) run in
+`ToolMode.EXTERNAL`: `DATA_WRITE` would run them inside the engine's transaction, and the take-over
+(`ReadBack.takeOver`) would then record the revision before its own change as the device's downloaded
+state. The approval prompt of EXTERNAL speaks of sending data to an outside system, which is wrong for
+the take-over. **When fixed**: switch both tools to the new mode and check that a taken-over device
+does not show as changed since its download.
