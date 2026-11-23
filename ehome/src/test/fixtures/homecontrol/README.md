@@ -99,6 +99,11 @@ of `e4617cdec954b87c39d5444da29b752c6084e72c`, commit `236fc8b3787edbf1ee9d499ab
 `images/cases/accept-initial-values.json` (its `.bin` is compared by
 `test.de.haumacher.ehome.runtime.binary.TestImageCorpus`) and `images/cases/refuse-initial-values.json`;
 the rule and block fixtures did not change.
+Synced again at `4b729b1f059b187e7a0747fef4f0f53f78c7c78d` (2026-11-23, haumacher/homecontrol#116: the `final` and `check` member
+`lastError`, a rule's last error and whether it is resolved, `spec/rules.md` 9.1), which added the rule
+cases `103-last-error-condition-resolved`, `104-last-error-reaction-site` and
+`105-last-error-silence-armed` and changed the rule corpus `README.md`; the image and block fixtures did
+not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

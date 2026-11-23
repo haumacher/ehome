@@ -1209,6 +1209,19 @@ public class TestRuleCorpus extends TestCase {
 					}
 				}
 			}
+			if (expected.get("lastError") instanceof Map<?, ?> lastErrors) {
+				for (Map.Entry<?, ?> entry : lastErrors.entrySet()) {
+					Engine.RuleStatus status = _engine.status(rule((String) entry.getKey()));
+					String have = status.lastErrorCode() == null ? "null"
+						: status.lastErrorCode().externalName() + (status.resolved() ? " resolved" : " unresolved");
+					String want = entry.getValue() instanceof Map<?, ?> error
+						? error.get("code") + (Boolean.TRUE.equals(error.get("resolved")) ? " resolved" : " unresolved")
+						: "null";
+					if (!have.equals(want)) {
+						_failures.add(where + ": last error of " + entry.getKey() + " is " + have + ", expected " + want);
+					}
+				}
+			}
 			if (expected.get("schedules") instanceof Map<?, ?> schedules) {
 				compareSchedules(schedules, where);
 			}
