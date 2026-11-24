@@ -885,14 +885,17 @@ class DownloadImageBuilder {
 		for (int number = 0; number < count; number++) {
 			Port port = ports.get(number);
 			if (port == null) {
-				int position = start + format.header() + format.descriptor() * number + format.config();
-				if (!_program.getModules().isEmpty()) {
-					// The table of a program with modules holds the objects of every instance its layout
-					// allows; one of an instance not in effect (a repeat counting fewer) keeps the static
-					// descriptor, without communication (haumacher/ehome #202).
+				// A number the program defines no object for: the slot of a module instance not in
+				// effect (a repeat counting fewer, haumacher/ehome #202), or a gap in the numbering of the
+				// program (a program converted from ETS 3 with the objects 0-9 and 11-35 in a table of
+				// 36, haumacher/ehome #226). No setting, flag or association reaches it, so it keeps the
+				// descriptor of the static data, as an object not in effect: without communication
+				// where such an object keeps the static configuration (a program with modules, the
+				// option DownloadInvisibleParameters, a table within the memory image of BCU 1), else
+				// unchanged (there are no flags to compute its configuration from).
+				if (!_program.getModules().isEmpty() || keepsStaticConfig || combinedTable) {
+					int position = start + format.header() + format.descriptor() * number + format.config();
 					data[position] = (byte) ((data[position] & 0xFF) & ~GroupTables.COMMUNICATION);
-				} else {
-					_image.addProblem(I18NConstants.IMAGE_UNDEFINED_OBJECT__NUMBER.fill(number));
 				}
 				continue;
 			}

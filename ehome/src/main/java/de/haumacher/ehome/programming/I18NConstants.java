@@ -553,11 +553,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 IMAGE_OBJECT_TABLE_EXCEEDS__COUNT;
 
 	/**
-	 * @en The object table has an object {0} the program does not define.
-	 */
-	public static ResKey1 IMAGE_UNDEFINED_OBJECT__NUMBER;
-
-	/**
 	 * @en The object {0} has group addresses, but the object table of the program holds {1} objects only: the object cannot be written.
 	 */
 	public static ResKey2 IMAGE_OBJECT_BEYOND_TABLE__NUMBER_COUNT;

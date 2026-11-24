@@ -65,7 +65,8 @@ import de.haumacher.ehome.programming.ParameterEncoding;
  * changes exactly the bits of its parameter and nothing else, and removing it restores the image;
  * a device of a program built from scratch (as the catalog editor builds it) has an image too. An
  * object with group addresses that the object table of the program cannot hold is an image problem;
- * an object without one is not (haumacher/ehome #202).
+ * an object without one is not (haumacher/ehome #202). A program whose numbering of objects has a
+ * gap within its object table has an image (haumacher/ehome #226).
  */
 @SuppressWarnings("javadoc")
 public class TestDownloadImageProbe extends BasicTestCase {
@@ -80,6 +81,7 @@ public class TestDownloadImageProbe extends BasicTestCase {
 		List<TLObject> created = new ArrayList<>();
 		try {
 			settingEdit(project);
+			numberingGap(project);
 			fromScratch(project, created);
 		} finally {
 			KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
@@ -221,6 +223,78 @@ public class TestDownloadImageProbe extends BasicTestCase {
 	}
 
 	/**
+	 * The program of the device with a gap in the numbering of its objects (in a transaction that is
+	 * rolled back): an object without group addresses inside the object table moves beyond it, as a
+	 * program converted from ETS 3 defines the objects 0-9 and 11-35 for its table of 36. The image
+	 * has no problem; the descriptor of the number without an object is the one of the static data
+	 * (a program of mask 0705 without modules and without the option DownloadInvisibleParameters:
+	 * nothing computes its configuration), every other byte of the image stays (haumacher/ehome
+	 * #226).
+	 */
+	private void numberingGap(TLObject project) throws Exception {
+		TLObject device = device(project);
+		DeviceConfiguration configuration = new DeviceConfiguration(device);
+		Program program = configuration.getProgram();
+		assertTrue(program.getModules().isEmpty());
+		assertNull(program.getDownloadInvisibleParameters());
+		DownloadImage original = DownloadImage.compute(device);
+		assertEquals(List.of(), original.getProblems());
+		Block table = original.getObjectTable();
+		int count = table.data()[0] & 0xFF;
+		Set<Integer> associated = new HashSet<>();
+		for (TLObject connector : configuration.getConnectors()) {
+			Interface placed = de.haumacher.ehome.modules.ModuleParts.port(connector);
+			if (placed != null && placed.getPort() != null) {
+				associated.add(Integer.valueOf(placed.getPort().getIndex()));
+			}
+		}
+		de.haumacher.ehome.model.operational.Port gap = configuration.getPorts().stream()
+			.filter(p -> p.getIndex() < count - 1 && !associated.contains(Integer.valueOf(p.getIndex())))
+			.findFirst().orElseThrow();
+		int number = gap.getIndex();
+		StaticDescriptor descriptor = new StaticDescriptor(program, number);
+
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		try (Transaction tx = kb.beginTransaction()) {
+			gap.setIndex(0xFF);
+			DownloadImage image = DownloadImage.compute(device);
+			assertEquals(image.dump(), List.of(), image.getProblems());
+			Block objects = image.getObjectTable();
+			assertEquals(count, objects.data()[0] & 0xFF);
+			for (int n = 0; n < descriptor.length(); n++) {
+				assertEquals("Descriptor of object " + number + ", byte " + n, descriptor.staticByte(n),
+					objects.data()[descriptor.offset() + n]);
+			}
+			Set<Integer> addresses = new HashSet<>();
+			for (int n = 0; n < descriptor.length(); n++) {
+				addresses.add(Integer.valueOf(objects.address() + descriptor.offset() + n));
+			}
+			assertSameExcept(original, image, addresses);
+			// Not committed: the program keeps its numbering.
+		}
+		assertEquals(number, gap.getIndex());
+	}
+
+	/**
+	 * The descriptor of an object in the object table of the static data of a program of the format
+	 * <code>GroupObjectTable_M112</code> (mask 0705).
+	 */
+	private record StaticDescriptor(byte[] data, int table, int offset, int length) {
+
+		StaticDescriptor(Program program, int number) {
+			this(ParameterEncoding.toBytes(((CodeSegment) program.getObjectTable().getSegment()).getData()),
+				program.getObjectTable().getOffset().intValue(), 3 + 4 * number, 4);
+		}
+
+		/**
+		 * The byte of the descriptor at the given index, in the static data.
+		 */
+		byte staticByte(int n) {
+			return data[table + offset + n];
+		}
+	}
+
+	/**
 	 * A device of a program built from scratch: one segment of four bytes, a numeric parameter of 8
 	 * bits placed in the structure, no objects.
 	 */
@@ -347,6 +421,13 @@ public class TestDownloadImageProbe extends BasicTestCase {
 	}
 
 	private static void assertSameExcept(DownloadImage expected, DownloadImage actual, int exceptAddress) {
+		assertSameExcept(expected, actual, Set.of(Integer.valueOf(exceptAddress)));
+	}
+
+	/**
+	 * The two images are the same except at the given memory addresses.
+	 */
+	private static void assertSameExcept(DownloadImage expected, DownloadImage actual, Set<Integer> except) {
 		List<Block> expectedBlocks = expected.getBlocks();
 		List<Block> actualBlocks = actual.getBlocks();
 		assertEquals(expectedBlocks.size(), actualBlocks.size());
@@ -358,7 +439,7 @@ public class TestDownloadImageProbe extends BasicTestCase {
 			assertEquals(a.data().length, b.data().length);
 			assertTrue(Arrays.equals(a.mask(), b.mask()));
 			for (int i = 0; i < a.data().length; i++) {
-				if (a.address() + i == exceptAddress) {
+				if (except.contains(Integer.valueOf(a.address() + i))) {
 					continue;
 				}
 				assertEquals(a.name() + " at " + Integer.toHexString(a.address() + i), a.data()[i], b.data()[i]);
