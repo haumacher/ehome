@@ -58,7 +58,7 @@ import de.haumacher.ehome.virtual.tooling.trace.TraceEntry;
  * behind a virtual interface of APDU 55, a device of APDU 55 is downloaded, compared, read out and
  * read back in memory accesses of up to 52 bytes, asked once for its APDU; behind an interface of a
  * standard frame (15), it is not asked and the accesses carry 12 bytes; a device that does not
- * answer the property, and a device of BCU 1, keep 12. Behind an interface announcing 55 whose line
+ * answer the property, and a device managed as BCU 1 (also a coupler of mask 091A), keep 12. Behind an interface announcing 55 whose line
  * carries standard frames only, the first longer access fails without an answer, the accesses fall
  * back to 12 bytes once and the download, the comparison and the read-out complete.
  */
@@ -301,6 +301,27 @@ public class TestVirtualMemoryChunk extends BasicTestCase {
 			MappedLoadStateRule.ECHO);
 		simulated.initMemory(0x0100, new byte[64]);
 		assertEquals(MemoryChunk.STANDARD, chunk(simulated, "bcu1", true));
+	}
+
+	/**
+	 * A coupler of mask 091A (management model <code>Bcu1</code> in the master data of the test
+	 * system's project, which has such an IP router) announcing an APDU of 55 behind an interface of
+	 * APDU 55: not asked, 12 bytes. Its memory services count in four bits, a read of 52 bytes would be
+	 * answered with 4 (haumacher/ehome #227).
+	 */
+	public void testBcu1Coupler() throws Exception {
+		TLObject project = importProject("../ehome/samples/KNX-Testsystem.knxproj");
+		try {
+			assertTrue(CalimeroReader.bcu1(0x091A));
+			assertFalse(CalimeroReader.bcu1(0x0705));
+			SimulatedDevice simulated = new SimulatedDevice("1.1.0", 0x1100, 0x091A, SimulatedDevice.LoadControlKind.NONE,
+				MappedLoadStateRule.ECHO);
+			simulated.initProperty(0, MemoryChunk.PID_MAX_APDU_LENGTH, new byte[] { 0, APDU });
+			simulated.initMemory(0x0100, new byte[64]);
+			assertEquals(MemoryChunk.STANDARD, chunk(simulated, "coupler", true));
+		} finally {
+			SharedData.deleteProjects(List.of(project));
+		}
 	}
 
 	private static int chunk(SimulatedDevice simulated, String name, boolean descriptor) throws Exception {

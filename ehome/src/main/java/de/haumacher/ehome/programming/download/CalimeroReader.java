@@ -17,10 +17,13 @@ import com.top_logic.basic.Logger;
 import com.top_logic.basic.thread.CancelScope;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey4;
+import com.top_logic.model.TLClassifier;
 
 import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.knx.transport.TransportClient;
 import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
+import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.scan.BusScanner;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
@@ -33,7 +36,7 @@ import de.haumacher.ehome.settings.OperatorSettings;
  * The chunk of the memory accesses ({@link #memoryChunk()}, haumacher/ehome #196) follows the maximum
  * APDU length of the path (the medium of the link) and of the device: on a path of more than a
  * standard frame, the device is asked once (property 56 of the device object, as ETS does at every
- * download); a device that does not answer it, or a device of BCU 1 (mask 001x, without properties),
+ * download); a device that does not answer it, or a device managed as BCU 1 ({@link #bcu1(int)}),
  * keeps the standard frame. On a path of a standard frame the device is not asked. A longer memory
  * access failing without an answer of the device falls back to standard frames for the rest of the
  * reader's connection and is repeated in them ({@link #fallBack(BusException)}).
@@ -45,6 +48,9 @@ import de.haumacher.ehome.settings.OperatorSettings;
  * </p>
  */
 public class CalimeroReader implements DeviceReader {
+
+	/** The management model of a device managed as BCU 1 ({@link #bcu1(int)}). */
+	private static final String BCU1_MANAGEMENT = "Bcu1";
 
 	/** The time to wait for an answer of the device. */
 	public static final Duration TIMEOUT = Duration.ofSeconds(5);
@@ -195,9 +201,9 @@ public class CalimeroReader implements DeviceReader {
 			return MemoryChunk.STANDARD;
 		}
 		int device = MemoryChunk.STANDARD_APDU;
-		if ((_mask & 0xFFF0) == 0x0010) {
+		if (bcu1(_mask)) {
 			Logger.info("Memory accesses of " + device() + " through " + _path + ": the device of mask "
-				+ String.format("%04X", _mask) + " has no properties, " + MemoryChunk.STANDARD + " bytes.",
+				+ String.format("%04X", _mask) + " is managed as BCU 1, " + MemoryChunk.STANDARD + " bytes.",
 				CalimeroReader.class);
 			return MemoryChunk.STANDARD;
 		}
@@ -216,6 +222,23 @@ public class CalimeroReader implements DeviceReader {
 			+ " bytes (maximum APDU length of the device " + device + ", of the path " + path + ").",
 			CalimeroReader.class);
 		return result;
+	}
+
+	/**
+	 * Whether a device of the given mask version is managed as BCU 1 (the management model
+	 * <code>Bcu1</code> of the master data: the masks 001x and the couplers 09xx), whose memory
+	 * services count the bytes in four bits: such a device takes memory accesses of a standard frame
+	 * only, whatever maximum APDU length it announces. A coupler of mask 091A that announces a longer
+	 * one answered a read of 52 bytes with 4, the low four bits of 52 (haumacher/ehome #227). Without
+	 * master data of the mask (a test without the knowledge base), the masks 001x.
+	 */
+	public static boolean bcu1(int mask) {
+		MaskVersion version = BusScanner.mask(mask);
+		TLClassifier model = version == null ? null : version.getManagementModel();
+		if (model != null) {
+			return BCU1_MANAGEMENT.equals(model.getName());
+		}
+		return (mask & 0xFFF0) == 0x0010;
 	}
 
 	@Override

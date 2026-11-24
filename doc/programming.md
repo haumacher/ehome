@@ -53,7 +53,10 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   APDU length (the tunnel's medium: what the gateway announces in property 56 of its device object; or
   the controller's `max_apdu`) and the device's (property 0/56, read once per connection, as ETS does
   at every download). On a path of a standard frame the device is not asked; a device that refuses or
-  does not answer the property, and a device of BCU 1 (mask 001x), keep 12. The plan stays the same
+  does not answer the property, and a device managed as BCU 1 (management model `Bcu1` of the master
+  data: masks 001x and the couplers 09xx, whose memory services count in four bits; a coupler of mask
+  091A announcing a longer APDU answered a read of 52 bytes with 4, haumacher/ehome #227) keep 12;
+  the latter is not asked. The plan stays the same
   for every path (writes of at most 12 bytes); the executor writes a run of contiguous memory writes
   (verified alike) in chunks of the derived length and reads each verified chunk back as written.
   Nobody on the path knows what the line between the gateway and the device carries (a router may
