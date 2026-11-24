@@ -469,7 +469,7 @@ keeps its name-based access (haumacher/ehome #198); the calls stay in the `[migr
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30048: see above (agent access: the follow-ups of the module).
 - TL #30217: see above (a rebuilt tree table keeps its selection without opening its parents).
-- TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha13.823).
+- TL #30274: see above (OAuth login and discovery of the MCP endpoint; fixed 2026-11-18, after 8.0.0-alpha13.823: comes with the next upgrade; claude.ai connectors need it).
 - TL #30275: see above (enumeration values unreadable without a grant on `tl.model`; in testing).
 - TL #30311: see above (memory of a product import committed step by step).
 - TL #30357: see above (the table of the cookie pools after their move to `tl-ai-browser`).
