@@ -36,11 +36,14 @@ import de.haumacher.ehome.model.operational.ProgramRequirement;
  *
  * <p>
  * E-Home runs none of them; the plug-in's files stay in the baggage of the manufacturer. With a user
- * interface plug-in only, a device of the program is edited and downloaded as the product data declare
- * it, and the notice says that the plug-in offers functions E-Home does not have. With any other
- * requirement, a device of the program is planned, parameterized and connected, but its download is
- * refused naming the requirements ({@link #downloadProblem(Program)}, a problem of the download plan);
- * the comparison with the device only reads it and stays allowed.
+ * interface plug-in or a download plug-in, a device of the program is edited and downloaded as the
+ * product data declare it, and the notice says that the plug-in offers functions E-Home does not have.
+ * What a download plug-in decides in ETS (the manufacturer, whether the device holds the program's
+ * application before a partial download) E-Home checks for every download (haumacher/ehome #224,
+ * doc/manufacturers.md). With a data handler or external software, a device of the program is planned,
+ * parameterized and connected, but its download is refused naming the requirements
+ * ({@link #downloadProblem(Program)}, a problem of the download plan); the comparison with the device
+ * only reads it and stays allowed.
  * </p>
  *
  * <p>
@@ -133,7 +136,9 @@ public class PluginRequirements extends GenericMethod {
 	 */
 	public static boolean refusesDownload(Collection<TLClassifier> requirements) {
 		for (TLClassifier requirement : requirements) {
-			if (!ProgramRequirement.USER_INTERFACE_PLUGIN_CLASSIFIER.equals(requirement.getName())) {
+			String name = requirement.getName();
+			if (!ProgramRequirement.USER_INTERFACE_PLUGIN_CLASSIFIER.equals(name)
+				&& !ProgramRequirement.DOWNLOAD_PLUGIN_CLASSIFIER.equals(name)) {
 				return true;
 			}
 		}

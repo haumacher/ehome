@@ -91,22 +91,22 @@ public class TestPluginRequirements extends BasicTestCase {
 			assertEquals(id, Boolean.TRUE, program(id).getRequirementsReadOrNull());
 		}
 		assertFalse(PluginRequirements.refusesDownload(PluginRequirements.requirements(program(UI))));
-		assertTrue(PluginRequirements.refusesDownload(PluginRequirements.requirements(program(DOWNLOAD))));
+		assertFalse(PluginRequirements.refusesDownload(PluginRequirements.requirements(program(DOWNLOAD))));
 		assertTrue(PluginRequirements.refusesDownload(PluginRequirements.requirements(program(DATA))));
 	}
 
 	/**
-	 * The import reports a user interface plug-in as a note, every other requirement as the warning
-	 * that E-Home cannot download the program.
+	 * The import reports a user interface or download plug-in as a note, a data handler or external
+	 * software as the warning that E-Home cannot download the program.
 	 */
 	public void testImportMessages() {
 		assertEquals(List.of(
 			"INFO The application program \"" + UI + "\" uses a plug-in of the manufacturer in ETS (User interface "
 				+ "plug-in). E-Home edits and downloads what its product data declare, without the functions of the "
 				+ "plug-in.",
-			"WARN The application program \"" + DOWNLOAD + "\" needs in ETS what E-Home does not run (User interface "
-				+ "plug-in, Download plug-in): its devices can be planned, parameterized and connected, but E-Home "
-				+ "cannot download them.",
+			"INFO The application program \"" + DOWNLOAD + "\" uses a plug-in of the manufacturer in ETS (User "
+				+ "interface plug-in, Download plug-in). E-Home edits and downloads what its product data declare, "
+				+ "without the functions of the plug-in.",
 			"WARN The application program \"" + DATA + "\" needs in ETS what E-Home does not run (Data handler, "
 				+ "External software): its devices can be planned, parameterized and connected, but E-Home cannot "
 				+ "download them."),
@@ -122,9 +122,10 @@ public class TestPluginRequirements extends BasicTestCase {
 			+ "E-Home edits and downloads the parameters and communication objects its product data declare; the "
 			+ "functions the plug-in adds, such as the commissioning of a DALI bus, are not available in E-Home.",
 			english(PluginRequirements.notice(program(UI))));
-		assertEquals("In ETS, the application program needs what E-Home does not run: User interface plug-in, "
-			+ "Download plug-in. A device of it is planned, parameterized and connected in E-Home, but E-Home cannot "
-			+ "download it.",
+		assertEquals("In ETS, the application program uses a plug-in of the manufacturer (User interface plug-in, "
+			+ "Download plug-in). E-Home edits and downloads the parameters and communication objects its product "
+			+ "data declare; the functions the plug-in adds, such as the commissioning of a DALI bus, are not "
+			+ "available in E-Home.",
 			english(PluginRequirements.notice(program(DOWNLOAD))));
 		assertEquals("In ETS, the application program needs what E-Home does not run: Data handler, External "
 			+ "software. A device of it is planned, parameterized and connected in E-Home, but E-Home cannot download "
@@ -147,9 +148,9 @@ public class TestPluginRequirements extends BasicTestCase {
 	}
 
 	/**
-	 * A device planned with each program: the download plug-in and the data handler refuse the
-	 * download (and the download replacing the layout) naming the requirements, the user interface
-	 * plug-in does not; the image is computed for all, so the comparison stays allowed, and the
+	 * A device planned with each program: the data handler refuses the download (and the download
+	 * replacing the layout) naming the requirements, the user interface and the download plug-in do
+	 * not; the image is computed for all, so the comparison stays allowed, and the
 	 * individual address can be programmed.
 	 */
 	public void testDownloadVeto() throws Exception {
@@ -180,10 +181,15 @@ public class TestPluginRequirements extends BasicTestCase {
 			assertEquals(english(PluginRequirements.notice(program(DOWNLOAD))),
 				english(PluginRequirements.notice(PluginRequirements.program(download))));
 
-			DownloadPlan uiPlan = DownloadPlanner.plan(ui, DownloadPlan.Kind.FULL);
-			assertTrue(uiPlan.getProblems().toString(), uiPlan.isExecutable());
+			// A user interface or download plug-in does not stop the download (#224): E-Home checks what a
+			// download plug-in decides in ETS for every download.
+			for (TLObject allowed : List.of(ui, download)) {
+				DownloadPlan allowedPlan = DownloadPlanner.plan(allowed, DownloadPlan.Kind.FULL);
+				assertTrue(allowedPlan.getProblems().toString(), allowedPlan.isExecutable());
+				assertNull(PluginRequirements.downloadProblem(PluginRequirements.program(allowed)));
+			}
 
-			for (TLObject refused : List.of(download, data)) {
+			for (TLObject refused : List.of(data)) {
 				Program program = PluginRequirements.program(refused);
 				ResKey reason = PluginRequirements.downloadProblem(program);
 				assertNotNull(reason);
@@ -195,10 +201,9 @@ public class TestPluginRequirements extends BasicTestCase {
 				assertNotNull("The comparison needs the image.", DownloadPlanner.plan(refused, DownloadPlan.Kind.FULL).getImage());
 				assertTrue(DownloadPlanner.plan(refused, DownloadPlan.Kind.ADDRESS).isExecutable());
 			}
-			assertEquals("In ETS, the application program needs what E-Home does not run: User interface plug-in, "
-				+ "Download plug-in. E-Home cannot download it.",
-				english(PluginRequirements.downloadProblem(PluginRequirements.program(download))));
-			assertNull(PluginRequirements.downloadProblem(PluginRequirements.program(ui)));
+			assertEquals("In ETS, the application program needs what E-Home does not run: Data handler, External "
+				+ "software. E-Home cannot download it.",
+				english(PluginRequirements.downloadProblem(PluginRequirements.program(data))));
 		} finally {
 			try (Transaction tx = kb.beginTransaction()) {
 				if (project.tValid()) {
