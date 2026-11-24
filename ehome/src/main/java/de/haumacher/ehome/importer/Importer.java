@@ -274,6 +274,7 @@ public class Importer {
 				completeButtons(facts);
 				completeRequirements(facts);
 				completeChannelNumbers(facts);
+				completeManufacturerCheck(facts);
 				baggage.readProgramReferences(program);
 				_resources.read(program);
 			} else if (name.endsWith(".xml")) {
@@ -392,6 +393,7 @@ public class Importer {
 				completeButtons(facts);
 				completeRequirements(facts);
 				completeChannelNumbers(facts);
+				completeManufacturerCheck(facts);
 				baggage.readProgramReferences(content);
 				_resources.read(content);
 				HiddenProgramValues.reportPending(context);
@@ -591,6 +593,26 @@ public class Importer {
 	}
 
 	/**
+	 * Switches off the check of the device's manufacturer for the known programs of the given program
+	 * file that say so (<code>Options@LegacyDoNotCheckManufacturerId</code>), which an import before
+	 * haumacher/ehome #224 did not read: their check stands at its default (checked). Only a file
+	 * switching it off is read (see {@link ProgramFileScan}).
+	 */
+	private void completeManufacturerCheck(ProgramFacts facts) throws IOException {
+		if (!facts.scan().mayHaveNoManufacturerCheck()) {
+			return;
+		}
+		for (String id : facts.noManufacturerCheck()) {
+			Program existing = existingProgram(id);
+			if (existing == null || _binding.isCreated(existing) || existing.getNoManufacturerCheck()) {
+				continue;
+			}
+			existing.setNoManufacturerCheck(true);
+			_messages.log(Level.INFO, I18NConstants.INFO_NO_MANUFACTURER_CHECK_COMPLETED__PROGRAM.fill(id));
+		}
+	}
+
+	/**
 	 * Gives the channels of known programs the numbers an import before haumacher/ehome #162 could not
 	 * read: a number that is not an integer ("18d") was reported and left out while the number was an
 	 * integer in the model. Only such numbers are looked for, so a file without them costs the scan of its
@@ -635,6 +657,9 @@ public class Importer {
 
 		/** The numbers of the channels that are not integers, by the channel's ID. */
 		private Map<String, String> _textChannelNumbers;
+
+		/** The IDs of the programs whose options switch off the check of the device's manufacturer. */
+		private Set<String> _noManufacturerCheck;
 
 		/** The scan of the bytes of the file, <code>null</code> before it is asked for. */
 		private ProgramFileScan _scan;
@@ -695,6 +720,15 @@ public class Importer {
 		}
 
 		/**
+		 * The IDs of the application programs of the file whose options switch off the check of the
+		 * device's manufacturer (<code>LegacyDoNotCheckManufacturerId</code>).
+		 */
+		Set<String> noManufacturerCheck() throws IOException {
+			read();
+			return _noManufacturerCheck;
+		}
+
+		/**
 		 * The numbers of the channels of the file that are not integers, by the channel's ID.
 		 */
 		Map<String, String> textChannelNumbers() throws IOException {
@@ -708,6 +742,7 @@ public class Importer {
 			}
 			Map<String, Set<String>> requirements = new LinkedHashMap<>();
 			Map<String, String> numbers = new LinkedHashMap<>();
+			Set<String> noManufacturerCheck = new LinkedHashSet<>();
 			try {
 				XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
 					.createXMLStreamReader(new ByteArrayInputStream(_content));
@@ -725,6 +760,9 @@ public class Importer {
 								&& elements.size() >= 2 && "ApplicationProgram".equals(List.copyOf(elements).get(1))) {
 								requirements.get(program).addAll(
 									PluginRequirements.fromExtension(attribute -> in.getAttributeValue(null, attribute)));
+							} else if ("Options".equals(name) && program != null
+								&& ProgramFileScan.isSet(in.getAttributeValue(null, "LegacyDoNotCheckManufacturerId"))) {
+								noManufacturerCheck.add(program);
 							} else if ("Channel".equals(name)) {
 								String number = in.getAttributeValue(null, "Number");
 								String id = in.getAttributeValue(null, "Id");
@@ -746,6 +784,7 @@ public class Importer {
 			}
 			_requirements = requirements;
 			_textChannelNumbers = numbers;
+			_noManufacturerCheck = noManufacturerCheck;
 		}
 	}
 

@@ -14,6 +14,7 @@ import com.top_logic.basic.util.ResKey;
 
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.LoadControls;
+import de.haumacher.ehome.programming.download.MemoryChunk;
 import de.haumacher.ehome.programming.download.Operation;
 
 /**
@@ -189,6 +190,17 @@ public class TraceOperations {
 				operation = new Operation.WriteMemory(write.step(), write.what(), write.address(), write.data(), true);
 				n++;
 			}
+			if (operation instanceof Operation.CheckApplicationMemory check) {
+				// The reads of the code, in standard frames (haumacher/ehome #224).
+				byte[] expected = check.expected();
+				for (int from = 0; from < expected.length; from += MemoryChunk.STANDARD) {
+					int to = Math.min(expected.length, from + MemoryChunk.STANDARD);
+					result.add(new Operation.CompareMemory(check.step(), check.address() + from,
+						Arrays.copyOfRange(expected, from, to)));
+				}
+				connected = true;
+				continue;
+			}
 			operation = onWire(operation);
 			if (operation instanceof Operation.Disconnect) {
 				if (!connected) {
@@ -207,7 +219,7 @@ public class TraceOperations {
 
 	/**
 	 * A check of a download of the parameters only as it shows on the wire: the read of the program
-	 * version or a load state (property or memory) with the value expected.
+	 * version, a load state (property or memory) or the code, with the value expected.
 	 */
 	private static Operation onWire(Operation operation) {
 		if (operation instanceof Operation.CheckProgramVersion check) {
@@ -257,6 +269,18 @@ public class TraceOperations {
 		if (planned instanceof Operation.CheckMask check && recorded instanceof Operation.CheckMask read) {
 			return Arrays.stream(check.masks()).anyMatch(m -> m == read.masks()[0]);
 		}
+		if (planned instanceof Operation.CheckManufacturer check && recorded instanceof Operation.CompareProperty read) {
+			// The read of the manufacturer (haumacher/ehome #224); of the application loaded, also a
+			// device without one (no value, 0000 or FFFF).
+			if (check.objectIndex() != read.objectIndex() || check.propertyId() != read.propertyId() || read.start() != 1
+				|| read.count() != 1) {
+				return false;
+			}
+			byte[] value = read.expected();
+			int manufacturer = value.length < 2 ? -1 : (value[0] & 0xFF) << 8 | value[1] & 0xFF;
+			return manufacturer == check.manufacturer()
+				|| check.application() && (manufacturer == -1 || manufacturer == 0 || manufacturer == 0xFFFF);
+		}
 		if (planned instanceof Operation.CompareProperty compare && recorded instanceof Operation.CompareProperty read) {
 			return compare.objectIndex() == read.objectIndex() && compare.propertyId() == read.propertyId()
 				&& compare.start() == read.start() && compare.count() == read.count()
@@ -284,6 +308,10 @@ public class TraceOperations {
 		}
 		if (operation instanceof Operation.Authorize authorize) {
 			return "Authorize " + TraceFormat.hex(authorize.key());
+		}
+		if (operation instanceof Operation.CheckManufacturer check) {
+			return "CheckManufacturer " + check.objectIndex() + "/" + check.propertyId() + " "
+				+ String.format("%04X", check.manufacturer());
 		}
 		if (operation instanceof Operation.CompareProperty compare) {
 			return "CompareProperty " + compare.objectIndex() + "/" + compare.propertyId() + " " + compare.start() + "+"

@@ -1523,6 +1523,7 @@
 																			<property name="textZeroTerminated" xml-attribute="TextParameterZeroTerminate" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																			<property name="noPartialDownload" xml-attribute="LegacyNoPartialDownload" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																			<property name="noMemoryVerify" xml-attribute="LegacyNoMemoryVerifyMode" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+																			<property name="noManufacturerCheck" xml-attribute="LegacyDoNotCheckManufacturerId" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																			<property name="keepObjectTableGaps" xml-attribute="LegacyKeepObjectTableGaps" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																			<property name="ignoreRunState" xml-attribute="DeviceInfoIgnoreRunState" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																			<property name="ignoreLoadedState" xml-attribute="DeviceInfoIgnoreLoadedState" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>

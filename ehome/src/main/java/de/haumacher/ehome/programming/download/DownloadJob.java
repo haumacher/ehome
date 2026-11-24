@@ -115,7 +115,24 @@ public class DownloadJob implements JobBody {
 	 * @return The report ({@link ProgrammingReport#toMap(ResKey, boolean)}).
 	 */
 	public static Map<String, Object> report(DownloadPlan plan, DownloadExecutor.Result result, String gatewayText) {
+		return report(new DownloadService.Outcome(plan, result, null), gatewayText);
+	}
+
+	/**
+	 * The report of a download performed (or failed) through the given path to the bus: the failing
+	 * operation with the device's answer, the steps not executed, and why the complete download
+	 * replaced a download of the parameters only.
+	 *
+	 * @return The report ({@link ProgrammingReport#toMap(ResKey, boolean)}).
+	 */
+	public static Map<String, Object> report(DownloadService.Outcome outcome, String gatewayText) {
+		DownloadPlan plan = outcome.plan();
+		DownloadExecutor.Result result = outcome.result();
 		ProgrammingReport report = new ProgrammingReport();
+		if (outcome.completeInstead() != null) {
+			report.add("info", I18NConstants.LEVEL_NOTE, "",
+				I18NConstants.REPORT_COMPLETE_INSTEAD__REASON.fill(outcome.completeInstead()));
+		}
 		if (!result.success()) {
 			report.add("error", I18NConstants.LEVEL_FAILURE, result.failed().step(),
 				I18NConstants.REPORT_OPERATION_FAILED__OPERATION_REASON.fill(result.failed().description(), result.reason()));

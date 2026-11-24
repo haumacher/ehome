@@ -196,7 +196,7 @@ public class TestParametersDownload extends BasicTestCase {
 		return result;
 	}
 
-	private static TLObject device(TLObject project, String extId) {
+	static TLObject device(TLObject project, String extId) {
 		for (TLObject device : instances("ehome.physical:Device")) {
 			if (extId.equals(device.tValueByName("extId"))) {
 				TLObject root = device;

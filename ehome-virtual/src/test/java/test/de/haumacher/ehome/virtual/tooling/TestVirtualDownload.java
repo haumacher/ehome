@@ -334,9 +334,9 @@ public class TestVirtualDownload extends BasicTestCase {
 			manager.stop();
 		}
 		assertFalse(result[0].success());
-		// Connect and the mask check done, the comparison of the hardware type failed.
-		assertSame(plan.getOperations().get(2), result[0].failed());
-		assertEquals(2, result[0].done());
+		// Connect, the mask and the manufacturer checked, the comparison of the hardware type failed.
+		assertSame(plan.getOperations().get(3), result[0].failed());
+		assertEquals(3, result[0].done());
 		HexFormat hex = HexFormat.ofDelimiter(" ").withUpperCase();
 		assertEquals("The device has the hardware type " + hex.formatHex(other) + ", the program expects "
 			+ hex.formatHex(expected) + ".", result[0].failure());

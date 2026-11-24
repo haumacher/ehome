@@ -94,6 +94,13 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * the download.
  * </p>
  *
+ * <h2>The manufacturer</h2>
+ * <p>
+ * The manufacturer of the device is compared with the program's after the mask check (and the
+ * authorization of BCU 2), before anything is written (haumacher/ehome #224), see
+ * {@link #checkManufacturer()}.
+ * </p>
+ *
  * <h2>Memory-based procedures (BCU 1)</h2>
  * <p>
  * A procedure that allocates no segment (the mask's generic procedure of BCU 1, mask 0012) loads
@@ -137,9 +144,10 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * program no parameter lies in, holding neither a table nor the object table) is allocated and not
  * written. In both cases the code the plan does not write is listed as not loaded: the device keeps
  * it. Before anything is written, the plan reads the program version (BCU 1: the program's identity
- * in memory) and the load states of the load state machines the procedure completes (without any,
- * those of the address table, the association table and the application) and stops unless the device
- * holds the program and has it loaded; only a full download loads the program. A program that allows
+ * in memory), the load states of the load state machines the procedure completes (without any,
+ * those of the address table, the association table and the application) and the code it leaves to
+ * the device ({@link Operation.ApplicationCheck}); a device not holding the project's application gets
+ * the complete download instead ({@link DownloadService}). A program that allows
  * no partial download (ETS: <code>LegacyNoPartialDownload</code>) refuses it.
  * </p>
  *
@@ -479,6 +487,7 @@ public class DownloadPlanner {
 			step(step);
 		}
 		compareIdentical(steps);
+		checkManufacturer();
 		if (kind == DownloadPlan.Kind.PARAMETERS) {
 			unloadCode();
 			checkProgram(steps);
@@ -964,6 +973,7 @@ public class DownloadPlanner {
 				}
 			}
 		}
+		checks.addAll(applicationMemory());
 		int index = _operations.size();
 		for (int n = 0; n < _operations.size(); n++) {
 			if (_operations.get(n).writes()) {
@@ -972,6 +982,76 @@ public class DownloadPlanner {
 			}
 		}
 		_operations.addAll(index, checks);
+	}
+
+	/**
+	 * Parameters only: the checks that the device holds the program's code the plan leaves to it (the
+	 * blocks of code {@link #unloadCode() not loaded} that the full download writes), each run of bytes
+	 * of the image's mask (haumacher/ehome #224). The program version names the application, not its
+	 * build: two builds of one version differ in their code (seen on an ABB US/U 2.2,
+	 * doc/manufacturers.md). A block the full download does not write either (a segment ETS does not
+	 * write) is the device's own and not compared.
+	 */
+	private List<Operation> applicationMemory() {
+		List<Operation> result = new ArrayList<>();
+		Set<Integer> keptByFull = new HashSet<>();
+		for (Block block : plan(_device, DownloadPlan.Kind.FULL).getUnloadedBlocks()) {
+			keptByFull.add(block.address());
+		}
+		for (Block block : _unloaded) {
+			if (!isCode(block) || keptByFull.contains(block.address())) {
+				continue;
+			}
+			byte[] data = block.data();
+			byte[] mask = block.mask();
+			int n = 0;
+			while (n < data.length) {
+				if ((mask[n] & 0xFF) != 0xFF) {
+					n++;
+					continue;
+				}
+				int start = n;
+				while (n < data.length && (mask[n] & 0xFF) == 0xFF) {
+					n++;
+				}
+				result.add(new Operation.CheckApplicationMemory("", block.address() + start,
+					Arrays.copyOfRange(data, start, n)));
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Compares the manufacturer of the device with the program's right after the mask check, before
+	 * anything is written (haumacher/ehome #224): the mask's resource <code>DeviceManufacturerId</code>
+	 * (the device object's manufacturer), or, where the mask names none (mask 7.1), the manufacturer
+	 * of the application loaded (the first two bytes of the resource <code>ApplicationId</code>; a
+	 * device without an application is not refused). Not for a program whose product data switch the
+	 * check off (ETS: <code>LegacyDoNotCheckManufacturerId</code>), nor on a mask naming neither in a
+	 * property (BCU 1: the identity in memory is the program's own, written by the download).
+	 */
+	private void checkManufacturer() {
+		if (_program.getNoManufacturerCheck()) {
+			return;
+		}
+		ResourceLocation location = systemProperty("DeviceManufacturerId");
+		boolean application = false;
+		if (location == null) {
+			location = systemProperty("ApplicationId");
+			application = true;
+		}
+		if (location == null) {
+			return;
+		}
+		for (int n = 0; n < _operations.size(); n++) {
+			if (_operations.get(n) instanceof Operation.CheckMask) {
+				// After the authorization following the mask check (BCU 2), as the other reads.
+				int index = n + 1 < _operations.size() && _operations.get(n + 1) instanceof Operation.Authorize ? n + 2 : n + 1;
+				_operations.add(index, new Operation.CheckManufacturer("", location.getInterfaceObject(),
+					location.getPropertyId(), manufacturer(_program), application));
+				return;
+			}
+		}
 	}
 
 	/**

@@ -140,6 +140,59 @@ public sealed interface Operation {
 	}
 
 	/**
+	 * A check of a download of the parameters only, before anything is written, that the application
+	 * loaded in the device is the project's (haumacher/ehome #195, #224): the device answering
+	 * otherwise makes the download the complete one ({@link DownloadService}).
+	 */
+	sealed interface ApplicationCheck extends Operation
+			permits CheckProgramVersion, CheckProgramIdentity, CheckLoadState, CheckApplicationMemory {
+		// Marker.
+	}
+
+	/**
+	 * Reads the manufacturer of the device and aborts unless it is the program's (haumacher/ehome
+	 * #224), before anything is written.
+	 *
+	 * @param objectIndex
+	 *        The interface object holding the manufacturer: the device object (the mask's resource
+	 *        <code>DeviceManufacturerId</code>), or the object of the program version (resource
+	 *        <code>ApplicationId</code>, the manufacturer of the application loaded) where the mask
+	 *        names no manufacturer of the device.
+	 * @param propertyId
+	 *        Its property.
+	 * @param manufacturer
+	 *        The KNX number of the program's manufacturer.
+	 * @param application
+	 *        Whether the manufacturer is the one of the application loaded (its first two bytes): a
+	 *        device without an application (0000 or FFFF there, or refusing the read) is not refused.
+	 */
+	record CheckManufacturer(String step, int objectIndex, int propertyId, int manufacturer, boolean application)
+			implements Operation {
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_CHECK_MANUFACTURER__OBJECT_PROPERTY_VALUE.fill(objectIndex, propertyId,
+				String.format("%04X", manufacturer));
+		}
+	}
+
+	/**
+	 * Reads memory of the application that a download of the parameters only leaves to the device
+	 * (the program's code, haumacher/ehome #224) and aborts unless it holds the image's bytes there.
+	 *
+	 * @param address
+	 *        The first address.
+	 * @param expected
+	 *        The bytes of the image from there on.
+	 */
+	record CheckApplicationMemory(String step, int address, byte[] expected) implements ApplicationCheck {
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_CHECK_APPLICATION_MEMORY__FROM_TO_COUNT.fill(String.format("%04X", address),
+				String.format("%04X", address + expected.length - 1), expected.length);
+		}
+	}
+
+	/**
 	 * Reads the program version of the device (<code>PID_PROGRAM_VERSION</code>) and aborts unless it
 	 * is the program's: a download of the parameters only needs the program in the device
 	 * (haumacher/ehome #195).
@@ -152,7 +205,7 @@ public sealed interface Operation {
 	 * @param expected
 	 *        The application ID of the program.
 	 */
-	record CheckProgramVersion(String step, int objectIndex, int propertyId, byte[] expected) implements Operation {
+	record CheckProgramVersion(String step, int objectIndex, int propertyId, byte[] expected) implements ApplicationCheck {
 		@Override
 		public ResKey description() {
 			return I18NConstants.OP_CHECK_PROGRAM_VERSION__OBJECT_PROPERTY_VALUE.fill(objectIndex, propertyId, hex(expected));
@@ -164,7 +217,7 @@ public sealed interface Operation {
 	 * <code>ApplicationId</code> in memory) and aborts unless it holds the image's bytes there: a
 	 * download of the parameters only needs the program in the device (haumacher/ehome #195).
 	 */
-	record CheckProgramIdentity(String step, int address, byte[] expected) implements Operation {
+	record CheckProgramIdentity(String step, int address, byte[] expected) implements ApplicationCheck {
 		@Override
 		public ResKey description() {
 			return I18NConstants.OP_CHECK_PROGRAM_IDENTITY__FROM_TO_VALUE.fill(String.format("%04X", address),
@@ -186,7 +239,7 @@ public sealed interface Operation {
 	 *        The address of its load state in memory (mask 7.1), <code>null</code> for one through
 	 *        properties.
 	 */
-	record CheckLoadState(String step, int stateMachine, Integer objectIndex, Integer status) implements Operation {
+	record CheckLoadState(String step, int stateMachine, Integer objectIndex, Integer status) implements ApplicationCheck {
 		@Override
 		public ResKey description() {
 			return I18NConstants.OP_CHECK_LOADED__LSM.fill(stateMachine);

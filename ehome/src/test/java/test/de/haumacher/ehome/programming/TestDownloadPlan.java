@@ -126,11 +126,11 @@ public class TestDownloadPlan extends BasicTestCase {
 		Logger.info("Download plan of the Tastsensor:\n" + plan.dump(), TestDownloadPlan.class);
 		assertEquals(plan.dump(), List.of(), plan.getProblems());
 		assertEquals(
-			"Connect CheckMask CompareProperty Unload1 Unload2 Unload3 Load1 Segment1 Task1 Write Completed1 Load2 Segment2 "
+			"Connect CheckMask CheckManufacturer CompareProperty Unload1 Unload2 Unload3 Load1 Segment1 Task1 Write Completed1 Load2 Segment2 "
 				+ "Task2 Write Completed2 Load3 Segment3*8 Task3 TaskControl3 Write Completed3 CompareProperty "
 				+ "WriteProperty*8 Restart Disconnect",
 			signature(plan));
-		Operation.CompareProperty hardware = (Operation.CompareProperty) plan.getOperations().get(2);
+		Operation.CompareProperty hardware = (Operation.CompareProperty) plan.getOperations().get(3);
 		assertEquals(0, hardware.objectIndex());
 		assertEquals(78, hardware.propertyId());
 		assertEquals("000a0000003d", hex(hardware.expected()));
@@ -210,10 +210,10 @@ public class TestDownloadPlan extends BasicTestCase {
 		Logger.info("Download plan of the actuator:\n" + plan.dump(), TestDownloadPlan.class);
 		assertEquals(plan.dump(), List.of(), plan.getProblems());
 		assertEquals(
-			"Connect CheckMask CompareProperty Unload1 Unload2 Unload3 Load1 Segment1 Task1 Write Completed1 Load2 Segment2 "
+			"Connect CheckMask CheckManufacturer CompareProperty Unload1 Unload2 Unload3 Load1 Segment1 Task1 Write Completed1 Load2 Segment2 "
 				+ "Task2 Write Completed2 Load3 Segment3*4 Task3 Write Completed3 CompareProperty Restart Disconnect",
 			signature(plan));
-		Operation.CompareProperty hardware = (Operation.CompareProperty) plan.getOperations().get(2);
+		Operation.CompareProperty hardware = (Operation.CompareProperty) plan.getOperations().get(3);
 		assertEquals(0, hardware.objectIndex());
 		assertEquals(78, hardware.propertyId());
 		assertEquals("00000000030d00000000", hex(hardware.expected()));
@@ -314,7 +314,7 @@ public class TestDownloadPlan extends BasicTestCase {
 		assertEquals(plan.getOperations().size(), progress.size());
 
 		assertEquals(
-			"readDescriptor readProperty0 writeLoadControl1 writeLoadControl2 writeLoadControl3 writeLoadControl1*3 "
+			"readDescriptor readProperty0*2 writeLoadControl1 writeLoadControl2 writeLoadControl3 writeLoadControl1*3 "
 				+ "(writeMemory readMemory)* writeLoadControl1 writeLoadControl2*3 (writeMemory readMemory)* "
 				+ "writeLoadControl2 writeLoadControl3*6 (writeMemory readMemory)* writeLoadControl3 readProperty3 restart "
 				+ "disconnect",
@@ -438,10 +438,10 @@ public class TestDownloadPlan extends BasicTestCase {
 		MockDevice sensor = sensorDevice(sensorPlan).setProperty(0, 78, "000a0000003c");
 		result = new DownloadExecutor(ms -> { /* No wait. */ }).execute(sensorPlan, sensor, (n, c, o) -> { /* Ignore. */ });
 		assertFalse(result.success());
-		assertSame(sensorPlan.getOperations().get(2), result.failed());
+		assertSame(sensorPlan.getOperations().get(3), result.failed());
 		assertEquals("The device has the hardware type 00 0A 00 00 00 3C, the program expects 00 0A 00 00 00 3D.",
 			result.failure());
-		assertEquals(List.of("readDescriptor", "readProperty 0 78 1 1"), sensor.calls());
+		assertEquals(List.of("readDescriptor", "readProperty 0 12 1 1", "readProperty 0 78 1 1"), sensor.calls());
 		assertEquals(0, sensor.writes());
 
 		MockDevice wrongMask = actuatorDevice().setDescriptor("0701");
@@ -522,7 +522,7 @@ public class TestDownloadPlan extends BasicTestCase {
 	 * A device of mask 7.5 holding what the plan compares.
 	 */
 	private MockDevice sensorDevice(DownloadPlan plan) {
-		MockDevice result = new MockDevice().setState(1, 1).setState(2, 1).setState(3, 1);
+		MockDevice result = new MockDevice().setState(1, 1).setState(2, 1).setState(3, 1).manufacturerOf(plan);
 		for (Operation operation : plan.getOperations()) {
 			if (operation instanceof Operation.CompareProperty compare) {
 				result.setProperty(compare.objectIndex(), compare.propertyId(), hex(compare.expected()).replace(" ", ""));
@@ -533,6 +533,7 @@ public class TestDownloadPlan extends BasicTestCase {
 
 	private MockDevice actuatorDevice() {
 		return new MockDevice()
+			.setProperty(0, 12, "0083")
 			.setProperty(0, 78, "00000000030d")
 			.setProperty(3, 13, "0083000c21")
 			.setState(1, 1).setState(2, 1).setState(3, 1);

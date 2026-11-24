@@ -2598,6 +2598,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#NO_MANUFACTURER_CHECK_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getNoManufacturerCheckProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.NO_MANUFACTURER_CHECK_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#NO_MEMORY_VERIFY_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getNoMemoryVerifyProgramAttr() {

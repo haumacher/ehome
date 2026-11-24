@@ -131,4 +131,100 @@ Each is a public download of the manufacturer (address above); the name is the f
 | Enertex `1164-ETS-KNXIPSecureRouter-1.004.knxprod` | a secure IP router with script and calculation |
 
 Not found among the files read: a product file with an encrypted entry (the fixture
-`Encrypted.knxprod` is artificial), and a download plug-in (`Extension@EtsDownloadPlugin`).
+`Encrypted.knxprod` is artificial). A download plug-in (`Extension@EtsDownloadPlugin`) was found in a
+real house project only (below).
+
+## A download plug-in: ABB's AbbUsU (haumacher/ehome #224)
+
+ABB's US/U 2.2 "Binäreingang Anzeige Heizen 2f/1.3b" (`M-0002_A-A002-13-8DB0`, mask 0701, ETS 4)
+names the download plug-in `{15053D1A-12DE-462A-AEE9-E967A27EFF5B}` ("AbbUsU.SwapPlugin.1", baggage
+`AbbUsU/AbbUsU.dll`, a native 32-bit Windows COM DLL, version R1.00.0510.0000 of 2009-02-04, with its
+German texts in `AbbUsU0407.loc`). The product file comes from a private house project and is not in
+the repository. Its disassembly (`objdump -d`, image base `10000000`; the addresses below are virtual
+addresses in the DLL) shows what it does; E-Home does not run it and has no code for it. It holds no
+AVR code: it decides how ETS downloads, it does not generate the device's application.
+
+**Two passes.** ETS calls the plug-in twice. In the first pass (`1000A6B6`-`1000A71E`) it appends a
+procedure of three records of 16 bytes (data at `1002C198`): `0E` (connect), `F0 04 04 03 0D 00 01 01`
+(read a property: object index 3, property 13, one element from element 1) and `FF` (end), and registers
+a buffer of 5 bytes for object 3, property 13 (`10006C00`). Property 13 of object 3 is
+`PID_PROGRAM_VERSION` of the application program, which mask 0701 names as its resource
+`ApplicationId`. In the second pass (`10009EF5`-`1000A10F`) it takes those 5 bytes (all must have been
+read, "MultiPass - Pass2 - not all bytes of prop read") as manufacturer (bytes 0-1), application number
+(2-3) and version (4), and asks ETS for the application ID of the project (`GetApplicationId`, method
+`+30` of the data bridge). It reads nothing else from the device: no memory, in particular not
+`6F3A`-`6F3B`.
+
+**What it compares** (`1000A16D`-`1000A1D5`, the manufacturer at `10006350`):
+
+1. The manufacturer of the application in the device with the project's: equal, or ABB (0002) and
+   Busch-Jaeger (0007) either way (logged as an exception; the master data put both in the
+   compatibility group 2). Anything else stops the download (`C0042B13`).
+2. The application number: different is "Incompatible device type. Please check if the correct
+   device is to be programmed." (string 103), and the download stops (`C0042B15`), for every kind of
+   download.
+3. A partial download asked for and the version byte of the device `FF`: "The application download
+   was incomplete" (107), the complete download.
+4. The high nibbles of the version bytes differ: "The already downloaded application in the device
+   differs from the application in the ETS project" (104), the complete download.
+5. The low nibble of the project greater: "The application version in the ETS project is newer"
+   (105), the complete download; smaller: "The version of the application in the device is newer"
+   (106) and "Nevertheless download the older application?" (114), the complete download.
+6. Equal versions: no dialog. A partial download stays one; **a complete download is reduced to the
+   partial one** (`1000A259`: the download options keep only `PROC_PARAMETERS` and
+   `PROC_GROUP_COMMUNICATION`, the table of the options is at `1002C110`).
+
+A partial download is the download options naming some, not all, parts of the application
+(`options & FF` neither 0 nor `FF`); confirming a dialog of the cases 3-5 sets all of them
+(`1000A233`), cancelling it ends the download (`80004004`). The dialog texts are strings 103-114 of the
+DLL's string table (case table at `10009CF8`, called from `1000A1E4`).
+
+**What it changes in the procedure** ETS generates for those options (ETS's own component, created at
+`1000A283`, CLSID `{67867306-EB66-4D61-B43D-766D63D44F29}`):
+
+- "patching param" (`1000A338`-`1000A602`): for each entry of a list the component returns (of
+  address space 2 or 3 and longer than 8 bits) it copies the entry's bytes into the image segment
+  holding its address, logging the old and the new bytes. What the list holds is ETS's and not in the
+  DLL; that it is the parameters of more than one byte, rewritten in the byte order the product data
+  name (`ParameterByteOrder="LittleEndian"`, `PreEts4Style="1"`), is plausible but **not proven**.
+  E-Home writes parameters in the byte order the product data name; that the parameter segment of a
+  device of this program compared bit-identical after the take-over of its parameters is consistent
+  with it, but a take-over reads and writes through the same encoding and proves nothing about it.
+- `100063C0`: in every record whose first byte has the bits `03` set and whose second byte has the
+  bit `02`, bytes 6-7 become the manufacturer read from the device. Which load controls these records
+  are is **not determinable**: the binary record format is ETS's, not in the DLL. Presumably the
+  application ID of a task segment, so that a Busch-Jaeger device keeps its manufacturer.
+- Partial download only (`100064C0`): of the records of 16 bytes, the first of type `0E` (connect)
+  and the first of type `31` ("LoadApp" in its log, "patching load control for partial download,
+  proc size=%d, index Connect=%d, index LoadApp=%d") are found, and the `31` record is moved directly
+  after the connect (the records between shift by one). Which load control `31` is follows from the
+  log's name only.
+
+**The device of the house project.** It reports the project's program version (`00 02 A0 02 13`), but
+its code segment 4600 is another build of the application (one routine 30 bytes longer, the code after
+it and every address into it moved by 15 words). The bytes `6F3A`-`6F3B` that differ as well are not a
+version: `0E ED 16 E2` (product data) and `0D EE 16 E2` (device) are the AVR instructions `ldi r16,0xDE;
+ldi r17,0x26` and `ldi r16,0xED; ldi r17,0x26`, the word address of a routine in 4600 (`26DE`, byte
+`4DBC`, right after the changed routine), moved by the same 15 words. By case 6 ETS with this plug-in
+never writes 4600 into a device holding the same version, not even for a complete download: that is how
+the device keeps a build the product data do not contain.
+
+**What E-Home does instead, for every program** (no code for this plug-in; `doc/programming.md`): every
+download compares the manufacturer before it writes (case 1 above, without the compatibility group:
+E-Home refuses an ABB program on a Busch-Jaeger device); a download of the parameters only reads, besides
+the program version and the load states, the code it leaves to the device and becomes the complete
+download where the device holds anything else (cases 3-5, and the other build of case 6). Unlike the
+plug-in, E-Home does not refuse a complete download into a device holding another application number
+(case 2: a complete download replaces the application, and the mask names no other identity of the
+hardware), and does not reduce a complete download to a partial one. The download of a program with a
+download plug-in stays refused (haumacher/ehome #159).
+
+**A complete download of this program** unloads the load state machines 1-3 (address table,
+association table, application), allocates and writes the segments 4000 and 4200 (tables) and 4600,
+6F10, 43FE, 6D00 and 6F00 (application and parameters), all above `4000`, writes the task segments,
+completes the loads and restarts the device. No step addresses the individual address or the memory of
+the system software. A download interrupted after the unload leaves the application stopped and the
+load state machines not loaded; the system software still answers the management services, so a
+further complete download is accepted (the plug-in itself handles that state: case 3, version byte
+`FF`). E-Home leaves out the task segment of load state machine 5 (mask 7.1 has no load control for it,
+`DownloadPlanner`), as for every program of that mask; both builds put it at `43FE`.

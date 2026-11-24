@@ -342,7 +342,7 @@ public class TestDeviceChanges extends BasicTestCase {
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 		assertEquals(plan.dump(), List.of(), plan.getProblems());
 		MockDevice mock = new MockDevice()
-			.setProperty(0, 78, "00000000030d")
+			.setProperty(0, 12, "0083").setProperty(0, 78, "00000000030d")
 			.setProperty(3, 13, "0083000c21")
 			.setState(1, 1).setState(2, 1).setState(3, 1);
 		DownloadExecutor.Result result = DownloadService.download(device, plan, mock,

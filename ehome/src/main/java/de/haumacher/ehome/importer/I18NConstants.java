@@ -387,6 +387,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 INFO_CHANNEL_NUMBER_COMPLETED__CHANNEL_NUMBER;
 
 	/**
+	 * @en The program {0}, imported earlier without its options, does not check the manufacturer of the device on a download, as its product data say.
+	 */
+	public static ResKey1 INFO_NO_MANUFACTURER_CHECK_COMPLETED__PROGRAM;
+
+	/**
 	 * @en The application program "{0}" names {1} icons its icon archive does not hold, the first "{2}"; their elements show their text alone.
 	 */
 	public static ResKey3 WARN_PROGRAM_ICONS_MISSING__PROGRAM_COUNT_FIRST;

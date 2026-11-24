@@ -13,8 +13,10 @@ import java.util.function.BiFunction;
 
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceAccess;
+import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.LoadControls;
 import de.haumacher.ehome.programming.download.MemoryChunk;
+import de.haumacher.ehome.programming.download.Operation;
 
 /**
  * A device of mask 7.5 in memory for the tests of the download: it records every call, answers from
@@ -74,6 +76,20 @@ public class MockDevice implements DeviceAccess {
 
 	public MockDevice setProperty(int object, int property, String hex) {
 		_properties.put(object + "/" + property, HexFormat.of().parseHex(hex));
+		return this;
+	}
+
+	/**
+	 * Makes the device one of the manufacturer the given plan checks (haumacher/ehome #224): the
+	 * property it reads answers the program's manufacturer, unless the device has a value there.
+	 */
+	public MockDevice manufacturerOf(DownloadPlan plan) {
+		for (Operation operation : plan.getOperations()) {
+			if (operation instanceof Operation.CheckManufacturer check
+				&& !_properties.containsKey(check.objectIndex() + "/" + check.propertyId())) {
+				setProperty(check.objectIndex(), check.propertyId(), String.format("%04X", check.manufacturer()));
+			}
+		}
 		return this;
 	}
 

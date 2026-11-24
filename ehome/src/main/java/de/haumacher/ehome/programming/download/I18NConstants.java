@@ -928,6 +928,41 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 EXEC_PROGRAM_IDENTITY__ADDRESS_VALUE_EXPECTED;
 
 	/**
+	 * @en Check that object {0}, property {1} names the manufacturer {2}
+	 */
+	public static ResKey3 OP_CHECK_MANUFACTURER__OBJECT_PROPERTY_VALUE;
+
+	/**
+	 * @en Check that memory {0}-{1} holds the application ({2} bytes)
+	 */
+	public static ResKey3 OP_CHECK_APPLICATION_MEMORY__FROM_TO_COUNT;
+
+	/**
+	 * @en The device is of the manufacturer {0}, the program of the manufacturer {1}: the device is not the one the program is for.
+	 */
+	public static ResKey2 EXEC_MANUFACTURER__DEVICE_PROGRAM;
+
+	/**
+	 * @en The application in the device is of the manufacturer {0}, the program of the manufacturer {1}: the device is not the one the program is for.
+	 */
+	public static ResKey2 EXEC_APPLICATION_MANUFACTURER__DEVICE_PROGRAM;
+
+	/**
+	 * @en The device answers {0} as its manufacturer, which is no manufacturer number.
+	 */
+	public static ResKey1 EXEC_NO_MANUFACTURER__VALUE;
+
+	/**
+	 * @en The device holds {1} at {0}, the application of the program has {2} there: only a full download loads the program.
+	 */
+	public static ResKey3 EXEC_APPLICATION_MEMORY__ADDRESS_READ_EXPECTED;
+
+	/**
+	 * @en The application in the device is not the one of the project ({0}): the complete download was performed instead of the parameters only.
+	 */
+	public static ResKey1 REPORT_COMPLETE_INSTEAD__REASON;
+
+	/**
 	 * @en Load state machine {0} of the device is "{1}", not loaded: only a full download loads the program.
 	 */
 	public static ResKey2 EXEC_NOT_LOADED__LSM_STATE;

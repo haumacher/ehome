@@ -142,7 +142,7 @@ public class TestBcu2Download extends BasicTestCase {
 			"3 0303011c011d00000000 2", "3 03040000000000000000 2", "3 03055081011a00d000d0 2",
 			"3 02000000000000000000 1"), loadControls(plan));
 		List<Operation> operations = plan.getOperations();
-		assertEquals(101, operations.size());
+		assertEquals(102, operations.size());
 		assertAuthorize(operations);
 		// EnableSegmentWrite off: nothing written into the segments before the load completes.
 		int completed = indexOf(operations, "#16 LoadCompleted LSM 3");
@@ -185,7 +185,7 @@ public class TestBcu2Download extends BasicTestCase {
 			"3 03020210000008ff2101 2", "3 03030220022800000000 2", "3 03040000000000000000 2",
 			"3 03055081024000c80200 2", "3 02000000000000000000 1"), loadControls(plan));
 		List<Operation> operations = plan.getOperations();
-		assertEquals(35, operations.size());
+		assertEquals(36, operations.size());
 		assertAuthorize(operations);
 		assertEquals(List.of("0116 05 10 02 00 01 00 02 00 03 01 01", "0122 04 03 00 04 01 02 02 01 00",
 			"0200 02 38 01 2C 00 00 00 00 00 00 00 00", "020C 00 00 00 00 81 00 00 00 00 00 00 00",
@@ -217,9 +217,9 @@ public class TestBcu2Download extends BasicTestCase {
 			"3 03020000000008ff2501 2", "3 03030000000000000000 2", "3 03050000040000000000 2",
 			"1 02000000000000000000 1", "2 02000000000000000000 1", "3 02000000000000000000 1"), loadControls(plan));
 		List<Operation> operations = plan.getOperations();
-		assertEquals(31, operations.size());
+		assertEquals(32, operations.size());
 		assertAuthorize(operations);
-		assertEquals("Compare object 0 property 78 with 00 08 00 00 25 F3 00 00 00 00", operations.get(3).describe());
+		assertEquals("Compare object 0 property 78 with 00 08 00 00 25 F3 00 00 00 00", operations.get(4).describe());
 		assertFalse(plan.dump(), plan.dump().contains("LSM 5"));
 		// The tables and the object table loaded with their load state machines; the parameter segment,
 		// allocated while EnableSegmentWrite is off, by the WriteMem after the load.
@@ -284,6 +284,8 @@ public class TestBcu2Download extends BasicTestCase {
 	private static void assertAuthorize(List<Operation> operations) {
 		assertTrue(operations.get(1) instanceof Operation.CheckMask);
 		Operation.Authorize authorize = (Operation.Authorize) operations.get(2);
+		// The manufacturer of the device compared after the authorization (haumacher/ehome #224).
+		assertTrue(operations.get(3) instanceof Operation.CheckManufacturer);
 		assertEquals("ffffffff", hex(authorize.key()));
 	}
 
@@ -293,7 +295,7 @@ public class TestBcu2Download extends BasicTestCase {
 	 * image wherever the plan writes it.
 	 */
 	private static MockDevice execute(DownloadPlan plan, String mask, String applicationId) throws Exception {
-		MockDevice mock = new MockDevice().setDescriptor(mask).setProperty(0, 78, "0008000025f3")
+		MockDevice mock = new MockDevice().setDescriptor(mask).manufacturerOf(plan).setProperty(0, 78, "0008000025f3")
 			.setProperty(3, 13, applicationId);
 		DownloadExecutor.Result result = new DownloadExecutor(ms -> {
 			// No wait.

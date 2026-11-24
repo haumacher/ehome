@@ -46,6 +46,10 @@ final class ProgramFileScan {
 
 	private static final byte[] NUMBER = name("Number");
 
+	private static final byte[] OPTIONS = name("Options");
+
+	private static final byte[] NO_MANUFACTURER_CHECK = name("LegacyDoNotCheckManufacturerId");
+
 	private boolean _assigns;
 
 	private boolean _buttons;
@@ -55,6 +59,8 @@ final class ProgramFileScan {
 	private boolean _extensions;
 
 	private boolean _textChannelNumbers;
+
+	private boolean _noManufacturerCheck;
 
 	private List<String> _programIds = new ArrayList<>();
 
@@ -97,6 +103,15 @@ final class ProgramFileScan {
 	 */
 	boolean mentionsExtensions() {
 		return _extensions;
+	}
+
+	/**
+	 * Whether an element <code>Options</code> of the file switches off the check of the device's
+	 * manufacturer (<code>LegacyDoNotCheckManufacturerId</code> other than <code>0</code> and
+	 * <code>false</code>).
+	 */
+	boolean mayHaveNoManufacturerCheck() {
+		return _noManufacturerCheck;
 	}
 
 	/**
@@ -149,6 +164,8 @@ final class ProgramFileScan {
 				if (number != null && !number.isBlank() && !number.trim().matches("-?[0-9]+")) {
 					_textChannelNumbers = true;
 				}
+			} else if (is(content, nameStart, nameEnd, OPTIONS)) {
+				_noManufacturerCheck |= isSet(attribute(content, nameEnd, NO_MANUFACTURER_CHECK));
 			} else if (is(content, nameStart, nameEnd, APPLICATION_PROGRAM)) {
 				String id = attribute(content, nameEnd, ID);
 				if (id == null || id.indexOf('&') >= 0) {
@@ -159,6 +176,18 @@ final class ProgramFileScan {
 			}
 			n = nameEnd - 1;
 		}
+	}
+
+	/**
+	 * Whether the given value of a boolean attribute is set: present and neither <code>0</code> nor
+	 * <code>false</code> (the scan errs to the side of reading).
+	 */
+	static boolean isSet(String value) {
+		if (value == null) {
+			return false;
+		}
+		String trimmed = value.trim();
+		return !trimmed.isEmpty() && !"0".equals(trimmed) && !"false".equals(trimmed);
 	}
 
 	/**

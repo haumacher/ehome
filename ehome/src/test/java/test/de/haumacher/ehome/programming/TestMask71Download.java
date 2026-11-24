@@ -119,6 +119,7 @@ public class TestMask71Download extends SharedProjectTestCase {
 			Logger.info("Download plan of the mask 7.1 actuator:\n" + plan.dump(), TestMask71Download.class);
 			checkPlan(plan, DownloadPlanner.plan(device(reference, ACTUATOR), DownloadPlan.Kind.FULL));
 			MockDevice mock = checkDownload(plan);
+			checkApplicationManufacturer(plan);
 			checkParameters(device, plan, mock);
 			checkCompare(device, plan, mock);
 			checkReadOut(device, plan, mock);
@@ -218,10 +219,44 @@ public class TestMask71Download extends SharedProjectTestCase {
 				assertEquals(otherWrite.verify(), write.verify());
 			} else if (operation instanceof Operation.CompareProperty compare && compare.propertyId() == 13) {
 				assertEquals(3, ((Operation.CompareProperty) other).objectIndex());
+			} else if (operation instanceof Operation.CheckManufacturer check) {
+				// Mask 7.1 names no manufacturer of the device: the one of the application loaded.
+				Operation.CheckManufacturer otherCheck = (Operation.CheckManufacturer) other;
+				assertEquals(otherCheck.manufacturer(), check.manufacturer());
+				assertFalse(otherCheck.application());
+				assertTrue(check.application());
+				assertEquals(3, check.objectIndex());
+				assertEquals(13, check.propertyId());
 			} else if (!(operation instanceof Operation.CheckMask)) {
 				assertEquals(other.describe(), operation.describe());
 			}
 		}
+	}
+
+	/**
+	 * Mask 7.1 names no manufacturer of the device: the download compares the manufacturer of the
+	 * application loaded (haumacher/ehome #224). A device without an application (FFFF) is not refused,
+	 * one holding an application of another manufacturer is, before anything is written.
+	 */
+	private static void checkApplicationManufacturer(DownloadPlan plan) throws Exception {
+		MockDevice empty = mask71Device().setProperty(3, 13, "ffffffffff");
+		DownloadExecutor.Result result = new DownloadExecutor(ms -> {
+			// No wait.
+		}).execute(plan, empty, (number, count, operation) -> {
+			// No progress.
+		});
+		assertFalse(result.failed() instanceof Operation.CheckManufacturer);
+
+		MockDevice other = mask71Device().setProperty(3, 13, "0002a00213");
+		result = new DownloadExecutor(ms -> {
+			// No wait.
+		}).execute(plan, other, (number, count, operation) -> {
+			// No progress.
+		});
+		assertTrue(result.failed() instanceof Operation.CheckManufacturer);
+		assertEquals("The application in the device is of the manufacturer 0002, the program of the manufacturer 0083: "
+			+ "the device is not the one the program is for.", result.failure());
+		assertEquals(0, other.writes());
 	}
 
 	/**
@@ -237,9 +272,9 @@ public class TestMask71Download extends SharedProjectTestCase {
 		});
 		assertTrue(result.failure(), result.success());
 		List<String> calls = mock.calls();
-		assertEquals(List.of("readDescriptor", "readProperty 0 78 1 1", "writeMemory 0104 1400000000000000000000",
+		assertEquals(List.of("readDescriptor", "readProperty 3 13 1 1", "readProperty 0 78 1 1", "writeMemory 0104 1400000000000000000000",
 			"readMemory B6EA 1", "writeMemory 0104 2400000000000000000000", "readMemory B6EB 1",
-			"writeMemory 0104 3400000000000000000000", "readMemory B6EC 1"), calls.subList(0, 8));
+			"writeMemory 0104 3400000000000000000000", "readMemory B6EC 1"), calls.subList(0, 9));
 		int records = 0;
 		for (int n = 0; n < calls.size(); n++) {
 			if (calls.get(n).startsWith("writeMemory 0104 ")) {
@@ -295,9 +330,9 @@ public class TestMask71Download extends SharedProjectTestCase {
 			// No progress.
 		});
 		assertTrue(result.failure(), result.success());
-		assertEquals(List.of("readDescriptor", "readProperty 0 78 1 1", "readProperty 3 13 1 1", "readMemory B6EA 1",
+		assertEquals(List.of("readDescriptor", "readProperty 3 13 1 1", "readProperty 0 78 1 1", "readProperty 3 13 1 1", "readMemory B6EA 1",
 			"readMemory B6EB 1", "readMemory B6EC 1", "writeMemory 0104 1400000000000000000000"),
-			loaded.calls().subList(calls, calls + 7));
+			loaded.calls().subList(calls, calls + 8));
 
 		MockDevice unloaded = mask71Device();
 		DownloadExecutor.Result refused = new DownloadExecutor(ms -> {
@@ -400,7 +435,7 @@ public class TestMask71Download extends SharedProjectTestCase {
 		assertEquals(plan.getOperations().indexOf(failed), result.done());
 		assertEquals("Load state machine 1 reports the state \"Loaded\" after the load control \"Unload\", expected \"Unloaded\".",
 			result.failure());
-		assertEquals(List.of("readDescriptor", "readProperty 0 78 1 1", "writeMemory 0104 1400000000000000000000",
+		assertEquals(List.of("readDescriptor", "readProperty 3 13 1 1", "readProperty 0 78 1 1", "writeMemory 0104 1400000000000000000000",
 			"readMemory B6EA 1", "readMemory B6EA 1", "readMemory B6EA 1", "readMemory B6EA 1"), mock.calls());
 		assertEquals(List.of(250, 250, 250), sleeps);
 		assertEquals(1, mock.writes());

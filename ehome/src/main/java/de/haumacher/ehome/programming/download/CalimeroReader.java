@@ -400,7 +400,7 @@ public class CalimeroReader implements DeviceReader {
 	protected byte[] propertyValue(ResKey4 refused, byte[] answer) throws BusException {
 		byte[] asdu = Tpdu.asdu(answer);
 		if ((asdu[2] & 0xF0) == 0) {
-			throw new BusException(refused.fill(asdu[0] & 0xFF, asdu[1] & 0xFF, device(), _path));
+			throw new Refused(refused.fill(asdu[0] & 0xFF, asdu[1] & 0xFF, device(), _path));
 		}
 		return Arrays.copyOfRange(asdu, 4, asdu.length);
 	}

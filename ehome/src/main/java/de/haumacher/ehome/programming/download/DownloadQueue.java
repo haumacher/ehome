@@ -259,6 +259,18 @@ public class DownloadQueue {
 			changed();
 		}
 
+		/**
+		 * The download became the complete one: the device does not hold the project's application
+		 * (see {@link DownloadService}).
+		 */
+		void completeInstead() {
+			synchronized (DownloadQueue.this) {
+				_parametersOnly = false;
+				_version++;
+			}
+			changed();
+		}
+
 		void finish(State state, ResKey details, Map<String, Object> report) {
 			synchronized (DownloadQueue.this) {
 				_state = state;
@@ -748,9 +760,9 @@ public class DownloadQueue {
 		DownloadPlan plan = DownloadPlanner.plan(device, kind);
 		String path = BusPath.describe(device);
 		entry.progress(0, plan.getOperations().size(), I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(path));
-		DownloadExecutor.Result result;
+		DownloadService.Outcome outcome;
 		try (CalimeroWriter access = _opener.open(device, plan)) {
-			result = DownloadService.download(device, plan, access, new DownloadExecutor(), (number, count, operation) -> {
+			outcome = DownloadService.perform(device, plan, access, new DownloadExecutor(), (number, count, operation) -> {
 				if (entry._abort) {
 					throw new Aborted(number, count);
 				}
@@ -775,8 +787,12 @@ public class DownloadQueue {
 			entry.finish(State.FAILED, I18NConstants.QUEUE_INTERNAL_ERROR__DETAIL.fill(String.valueOf(ex.getMessage())), null);
 			return;
 		}
+		if (outcome.completeInstead() != null) {
+			entry.completeInstead();
+		}
+		DownloadExecutor.Result result = outcome.result();
 		entry.progress(result.done(), result.count(), null);
-		Map<String, Object> report = DownloadJob.report(plan, result, path);
+		Map<String, Object> report = DownloadJob.report(outcome, path);
 		if (result.success()) {
 			entry.finish(State.DONE, I18NConstants.QUEUE_DONE__COUNT_SECONDS.fill(result.done(),
 				Double.valueOf(result.duration().toMillis() / 1000.0)), report);

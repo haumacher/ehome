@@ -86,12 +86,26 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   `par,grp`, `all`, `auto` and those without; otherwise the full procedure, whose segments holding
   the program's code alone (no parameter, no table, not the object table) are allocated and not
   written. The code not written is listed as not loaded. Before the first write the plan reads the
-  program version (BCU 1: the program's identity in memory) and the load states of the load state
-  machines the procedure completes; another program or a load state machine not loaded stops it
-  with the reason, and only the full download loads the program. Within the segments it writes,
+  program version (BCU 1: the program's identity in memory), the load states of the load state
+  machines the procedure completes, and the code it leaves to the device (the blocks of code the full
+  download writes, each byte of the image's mask; haumacher/ehome #224: one program version may have
+  several builds, `doc/manufacturers.md`). A device answering otherwise (another program or version,
+  a load state machine not loaded, other code) gets the complete download instead, planned anew and
+  performed on the same connection (`DownloadService`): the queue's entry becomes "Vollständig" and
+  the report names the reason. A failure of the access (no answer, access refused) fails the download
+  as before. Within the segments it writes,
   every byte is written; there is no comparison with an earlier image. It is recorded like a full
   download. That a load state machine unloaded and loaded again keeps the memory of a segment not
   written is still to be verified per mask on hardware.
+- Every download (full, parameters only, module layout, restore) compares the manufacturer of the
+  device with the program's right after the mask (and the authorization of BCU 2), before anything is
+  written (haumacher/ehome #224): the mask's resource `DeviceManufacturerId` (object 0, property 12),
+  or, on a mask naming none (7.1), the manufacturer of the application loaded (the first two bytes of
+  `ApplicationId`; a device answering 0000 or FFFF there, or refusing the read, holds no application
+  and is not refused). A
+  program whose product data say `LegacyDoNotCheckManufacturerId` is not compared (completed for a
+  program imported before by the next import of its file). Manufacturers of one compatibility group
+  of the master data (ABB and Busch-Jaeger) count as different: E-Home does not read the group.
 - "Wiederherstellen" (haumacher/ehome #194) on a snapshot of the list "Speicherabbilder" (a read-out or
   an uploaded file) writes it back into the device: a full download whose bytes are the snapshot's
   (`DownloadPlanner.restore`, `SnapshotImage`, `RestoreJob`). The plan is the one of the full download,

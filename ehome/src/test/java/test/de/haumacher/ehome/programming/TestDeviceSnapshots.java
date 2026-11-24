@@ -203,7 +203,7 @@ public class TestDeviceSnapshots extends BasicTestCase {
 	private static MockDevice downloaded() throws InterruptedException {
 		DownloadPlan plan = DownloadPlanner.plan(_device, DownloadPlan.Kind.FULL);
 		assertTrue(plan.getProblems().toString(), plan.isExecutable());
-		MockDevice mock = new MockDevice().setDescriptor("0705");
+		MockDevice mock = new MockDevice().setDescriptor("0705").manufacturerOf(plan);
 		// A device of the program's hardware that takes the program's identity from its task segment: it
 		// answers the comparisons of the load procedure.
 		for (Operation operation : plan.getOperations()) {

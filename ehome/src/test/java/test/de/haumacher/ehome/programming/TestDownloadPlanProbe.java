@@ -55,12 +55,12 @@ public class TestDownloadPlanProbe extends BasicTestCase {
 		try {
 			Map<Integer, TLObject> devices = devicesByAddress(project);
 			probe(devices.get(5), "DI-2-1.3.5", new MockDevice()
-				.setProperty(0, 78, "00000000030d")
+				.setProperty(0, 12, "0083").setProperty(0, 78, "00000000030d")
 				.setProperty(3, 13, "0083000c21")
 				.setState(1, 1).setState(2, 1).setState(3, 1));
 			// The hardware type the Tastsensor of the test system reports (doc/programming.md).
 			probe(devices.get(50), "DI-3-1.3.50", new MockDevice()
-				.setProperty(0, 78, "000a0000003d")
+				.setProperty(0, 12, "0008").setProperty(0, 78, "000a0000003d")
 				.setProperty(3, 13, "000810d711")
 				.setState(1, 1).setState(2, 1).setState(3, 1));
 		} finally {

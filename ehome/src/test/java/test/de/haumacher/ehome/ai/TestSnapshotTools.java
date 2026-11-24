@@ -248,7 +248,7 @@ public class TestSnapshotTools extends BasicTestCase {
 	private static MockDevice downloaded() throws InterruptedException {
 		DownloadPlan plan = DownloadPlanner.plan(_device, DownloadPlan.Kind.FULL);
 		assertTrue(plan.getProblems().toString(), plan.isExecutable());
-		MockDevice mock = new MockDevice().setDescriptor("0705");
+		MockDevice mock = new MockDevice().setDescriptor("0705").manufacturerOf(plan);
 		for (Operation operation : plan.getOperations()) {
 			if (operation instanceof Operation.CompareProperty compare) {
 				mock.setPropertyElement(compare.objectIndex(), compare.propertyId(), compare.start(), compare.expected());

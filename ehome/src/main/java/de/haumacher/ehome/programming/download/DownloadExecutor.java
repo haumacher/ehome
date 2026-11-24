@@ -39,9 +39,11 @@ import com.top_logic.basic.util.ResKey;
  * </p>
  *
  * <p>
- * The checks of a download of the parameters only (haumacher/ehome #195) read the program version
- * (or, BCU 1, the program's identity in memory) and the load states once each; a device holding
- * another program or a load state machine not loaded stops the download before anything is written.
+ * The checks of a download of the parameters only (haumacher/ehome #195, #224) read the program
+ * version (or, BCU 1, the program's identity in memory), the load states and the code the download
+ * leaves to the device, once each; a device holding anything else stops the download before anything
+ * is written, as a {@link Result#otherApplication() mismatch} the {@link DownloadService} answers with
+ * the complete download. The manufacturer of the device is compared before every download writes.
  * </p>
  */
 public class DownloadExecutor {
@@ -99,8 +101,27 @@ public class DownloadExecutor {
 	 *        Why it failed (with the device's answer), for a person; <code>null</code> on success.
 	 * @param duration
 	 *        The time the download took.
+	 * @param mismatch
+	 *        Whether the operation failed because the device answered with another value than the
+	 *        expected (not for a failure of the access itself).
 	 */
-	public record Result(int done, int count, Operation failed, ResKey reason, Duration duration) {
+	public record Result(int done, int count, Operation failed, ResKey reason, Duration duration, boolean mismatch) {
+
+		/**
+		 * Creates a {@link Result} of a download that succeeded, or failed in the access.
+		 */
+		public Result(int done, int count, Operation failed, ResKey reason, Duration duration) {
+			this(done, count, failed, reason, duration, false);
+		}
+
+		/**
+		 * Whether the download stopped at a check of a download of the parameters only finding that the
+		 * application loaded in the device is not the project's ({@link Operation.ApplicationCheck}),
+		 * before anything was written.
+		 */
+		public boolean otherApplication() {
+			return mismatch && failed instanceof Operation.ApplicationCheck;
+		}
 
 		/**
 		 * The {@link #reason()} in English, for the log; <code>null</code> on success.
@@ -181,7 +202,7 @@ public class DownloadExecutor {
 			} catch (BusException ex) {
 				return new Result(position[0], count, operations.get(position[0]), ex.getErrorKey(), elapsed(start));
 			} catch (Mismatch ex) {
-				return new Result(position[0], count, operations.get(position[0]), ex.reason(), elapsed(start));
+				return new Result(position[0], count, operations.get(position[0]), ex.reason(), elapsed(start), true);
 			}
 			done++;
 		}
@@ -252,6 +273,62 @@ public class DownloadExecutor {
 		}
 	}
 
+	private static void checkManufacturer(Operation.CheckManufacturer check, DeviceAccess access)
+			throws BusException, Mismatch {
+		byte[] value;
+		try {
+			value = access.readProperty(check.objectIndex(), check.propertyId(), 1, 1);
+		} catch (Refused ex) {
+			if (check.application()) {
+				// The device gives no program version: it holds no application naming a manufacturer.
+				return;
+			}
+			throw ex;
+		}
+		if (value.length < 2) {
+			throw new Mismatch(I18NConstants.EXEC_NO_MANUFACTURER__VALUE.fill(Operation.hex(value)));
+		}
+		int manufacturer = (value[0] & 0xFF) << 8 | value[1] & 0xFF;
+		if (manufacturer == check.manufacturer()) {
+			return;
+		}
+		String device = String.format("%04X", manufacturer);
+		String program = String.format("%04X", check.manufacturer());
+		if (!check.application()) {
+			throw new Mismatch(I18NConstants.EXEC_MANUFACTURER__DEVICE_PROGRAM.fill(device, program));
+		}
+		if (manufacturer == 0 || manufacturer == 0xFFFF) {
+			// No application loaded: nothing names the manufacturer.
+			return;
+		}
+		throw new Mismatch(I18NConstants.EXEC_APPLICATION_MANUFACTURER__DEVICE_PROGRAM.fill(device, program));
+	}
+
+	private static void checkApplicationMemory(Operation.CheckApplicationMemory check, DeviceAccess access)
+			throws BusException, Mismatch {
+		byte[] expected = check.expected();
+		int from = 0;
+		while (from < expected.length) {
+			int length = Math.min(expected.length - from, access.memoryChunk());
+			int address = check.address() + from;
+			byte[] read = access.readMemory(address, length);
+			byte[] part = Arrays.copyOfRange(expected, from, from + length);
+			if (!Arrays.equals(read, part)) {
+				int at = 0;
+				while (at < length && at < read.length && read[at] == part[at]) {
+					at++;
+				}
+				// The first differing bytes, at most 8.
+				int end = Math.min(at + 8, length);
+				throw new Mismatch(I18NConstants.EXEC_APPLICATION_MEMORY__ADDRESS_READ_EXPECTED.fill(
+					String.format("%04X", address + at),
+					Operation.hex(Arrays.copyOfRange(read, Math.min(at, read.length), Math.min(end, read.length))),
+					Operation.hex(Arrays.copyOfRange(part, at, end))));
+			}
+			from += length;
+		}
+	}
+
 	private static Duration elapsed(long start) {
 		return Duration.ofNanos(System.nanoTime() - start);
 	}
@@ -280,6 +357,10 @@ public class DownloadExecutor {
 				throw new Mismatch(I18NConstants.EXEC_PROPERTY__OBJECT_PROPERTY_VALUE_EXPECTED.fill(compare.objectIndex(),
 					compare.propertyId(), Operation.hex(value), Operation.hex(compare.expected())));
 			}
+		} else if (operation instanceof Operation.CheckManufacturer check) {
+			checkManufacturer(check, access);
+		} else if (operation instanceof Operation.CheckApplicationMemory check) {
+			checkApplicationMemory(check, access);
 		} else if (operation instanceof Operation.CheckProgramVersion check) {
 			byte[] value = access.readProperty(check.objectIndex(), check.propertyId(), 1, 1);
 			if (!startsWith(value, check.expected())) {

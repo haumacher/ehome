@@ -2030,6 +2030,13 @@
 				<property name="noPartialDownload"
 					type="tl.core:Boolean"
 				/>
+				<!--
+					Whether a download does not compare the manufacturer of the device with the program's
+					(ETS: LegacyDoNotCheckManufacturerId).
+				-->
+				<property name="noManufacturerCheck"
+					type="tl.core:Boolean"
+				/>
 				<!-- Whether written memory is not read back for verification (ETS: LegacyNoMemoryVerifyMode). -->
 				<property name="noMemoryVerify"
 					type="tl.core:Boolean"

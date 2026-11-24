@@ -77,7 +77,11 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 	/**
 	 * The outcome of a download into the virtual device with its trace.
 	 */
-	private record Run(DownloadExecutor.Result result, List<TraceEntry> entries) {
+	private record Run(DownloadService.Outcome outcome, List<TraceEntry> entries) {
+		DownloadExecutor.Result result() {
+			return outcome.result();
+		}
+
 		List<Operation> recorded() {
 			return TraceOperations.operations(entries);
 		}
@@ -109,11 +113,12 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 			// The code segment is allocated all the same.
 			assertTrue(plan.dump(), plan.getOperations().stream().anyMatch(o -> o instanceof Operation.LoadControl control
 				&& Arrays.equals(control.control(), LoadControls.absoluteSegment(0, CODE, CODE_END - CODE, 0xFF, 3, 0x80))));
-			// The checks of the program come after the hardware type, before the first write.
-			assertEquals(List.of("CompareProperty 0/78", "CheckProgramVersion 3/13 " + HEX.formatHex(
+			// The checks of the program come after the manufacturer and the hardware type, before the first
+			// write: the code the download leaves to the device last (haumacher/ehome #224).
+			assertEquals(List.of("CheckManufacturer", "CompareProperty 0/78", "CheckProgramVersion 3/13 " + HEX.formatHex(
 				DownloadPlanner.applicationId(DeviceConfiguration.program(device))), "CheckLoadState 1", "CheckLoadState 2",
-				"CheckLoadState 3", "LoadControl 1"),
-				plan.getOperations().subList(2, 8).stream().map(TestVirtualParametersDownload::brief).toList());
+				"CheckLoadState 3", "CheckApplicationMemory", "LoadControl 1"),
+				plan.getOperations().subList(2, 10).stream().map(TestVirtualParametersDownload::brief).toList());
 			assertTrue(plan.bytesWritten() + " < " + expected.bytesWritten(), plan.bytesWritten() < expected.bytesWritten());
 
 			Run run = download(device, plan, simulated, "parameters");
@@ -138,16 +143,28 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 				assertEquals(LoadControls.STATE_LOADED, simulated.state(lsm));
 			}
 
-			// Refused before anything is written: another program version in the device.
-			byte[] other = DownloadPlanner.applicationId(DeviceConfiguration.program(device));
+			// Another program version in the device: the complete download instead, nothing written before
+			// it (haumacher/ehome #224); the device takes the project's version from the task segment.
+			byte[] version = DownloadPlanner.applicationId(DeviceConfiguration.program(device));
+			byte[] other = version.clone();
 			other[other.length - 1] ^= 1;
 			simulated.initProperty(3, LoadControls.PID_PROGRAM_VERSION, other);
-			refused(device, simulated, "other-version", Operation.CheckProgramVersion.class,
-				"The device holds the program version " + HEX.formatHex(other) + ", the program is "
-					+ HEX.formatHex(DownloadPlanner.applicationId(DeviceConfiguration.program(device)))
-					+ ": only a full download loads the program.");
-			simulated.initProperty(3, LoadControls.PID_PROGRAM_VERSION,
-				DownloadPlanner.applicationId(DeviceConfiguration.program(device)));
+			String otherVersion = "The device holds the program version " + HEX.formatHex(other) + ", the program is "
+				+ HEX.formatHex(version) + ": only a full download loads the program.";
+			Run instead = download(device, plan, simulated, "other-version");
+			assertTrue(instead.result().failure(), instead.result().success());
+			assertEquals(DownloadPlan.Kind.FULL, instead.outcome().plan().getKind());
+			assertEquals(otherVersion, DownloadPlan.english(instead.outcome().completeInstead()));
+			List<Operation> wire = instead.recorded();
+			int firstWrite = 0;
+			while (!wire.get(firstWrite).writes()) {
+				firstWrite++;
+			}
+			// The complete download starts (its mask check) before anything is written.
+			assertTrue(wire.toString(), wire.subList(1, firstWrite).stream().anyMatch(
+				o -> o instanceof Operation.CheckMask) && wire.get(1) instanceof Operation.CheckMask);
+			assertTrue("The code segment is written.", writesCode(instead.entries()));
+			assertTrue(Arrays.equals(version, simulated.property(3, LoadControls.PID_PROGRAM_VERSION, 1, 1)));
 
 			// Refused before anything is written: the application not loaded.
 			simulated.initState(3, LoadControls.STATE_UNLOADED);
@@ -168,7 +185,7 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 		byte[] memory = simulated.memorySnapshot();
 		int[] states = { simulated.state(1), simulated.state(2), simulated.state(3) };
 		Object revision = device.tValueByName("downloadRevision");
-		Run run = download(device, plan, simulated, name);
+		Run run = check(device, plan, simulated, name);
 		assertFalse(name, run.result().success());
 		assertTrue(name + ": " + run.result().failed(), check.isInstance(run.result().failed()));
 		assertEquals(reason, run.result().failure());
@@ -181,16 +198,39 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 		assertEquals(revision, device.tValueByName("downloadRevision"));
 	}
 
-	private static Run download(TLObject device, DownloadPlan plan, SimulatedDevice simulated, String name)
+	/**
+	 * Performs the given plan alone, without the complete download its checks may call for.
+	 */
+	private static Run check(TLObject device, DownloadPlan plan, SimulatedDevice simulated, String name)
 			throws Exception {
-		VirtualInterfaceManager manager = manager("parameters-download-" + name);
+		VirtualInterfaceManager manager = manager("parameters-check-" + name);
 		Endpoint endpoint = loopback();
 		File file = manager.start(simulated, endpoint, TransportTiming.DEFAULT, Map.of("plan", name)).recorder().file();
 		DownloadExecutor.Result[] result = new DownloadExecutor.Result[1];
 		try {
 			writing(() -> {
 				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), plan.getIndividualAddress())) {
-					result[0] = DownloadService.download(device, plan, writer, new DownloadExecutor(),
+					result[0] = new DownloadExecutor().execute(plan, writer, (number, count, operation) -> {
+						// No progress.
+					});
+				}
+			});
+		} finally {
+			manager.stop();
+		}
+		return new Run(new DownloadService.Outcome(plan, result[0], null), read(file).entries());
+	}
+
+	private static Run download(TLObject device, DownloadPlan plan, SimulatedDevice simulated, String name)
+			throws Exception {
+		VirtualInterfaceManager manager = manager("parameters-download-" + name);
+		Endpoint endpoint = loopback();
+		File file = manager.start(simulated, endpoint, TransportTiming.DEFAULT, Map.of("plan", name)).recorder().file();
+		DownloadService.Outcome[] result = new DownloadService.Outcome[1];
+		try {
+			writing(() -> {
+				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), plan.getIndividualAddress())) {
+					result[0] = DownloadService.perform(device, plan, writer, new DownloadExecutor(),
 						(number, count, operation) -> {
 							// No progress.
 						});

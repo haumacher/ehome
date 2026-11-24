@@ -75,7 +75,7 @@ public class TestDeviceChangesProbe extends BasicTestCase {
 			// A download through the executor: the reference from now on, no changes.
 			DownloadPlan plan = DownloadPlanner.plan(actuator, DownloadPlan.Kind.FULL);
 			MockDevice mock = new MockDevice()
-				.setProperty(0, 78, "00000000030d")
+				.setProperty(0, 12, "0083").setProperty(0, 78, "00000000030d")
 				.setProperty(3, 13, "0083000c21")
 				.setState(1, 1).setState(2, 1).setState(3, 1);
 			DownloadExecutor.Result result = DownloadService.download(actuator, plan, mock,

@@ -250,6 +250,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String NAME_ATTR = "name";
 
 	/**
+	 * Part <code>noManufacturerCheck</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String NO_MANUFACTURER_CHECK_ATTR = "noManufacturerCheck";
+
+	/**
 	 * Part <code>noMemoryVerify</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -998,6 +1007,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void removeModule(de.haumacher.ehome.model.operational.ModuleDefinition oldValue) {
 		tRemoveByName(MODULES_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #NO_MANUFACTURER_CHECK_ATTR}.
+	 */
+	default boolean getNoManufacturerCheck() {
+		return (Boolean) tValueByName(NO_MANUFACTURER_CHECK_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #NO_MANUFACTURER_CHECK_ATTR}.
+	 */
+	default void setNoManufacturerCheck(boolean newValue) {
+		tUpdateByName(NO_MANUFACTURER_CHECK_ATTR, newValue);
 	}
 
 	/**
