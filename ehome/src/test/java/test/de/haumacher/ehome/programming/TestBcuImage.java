@@ -117,13 +117,17 @@ public class TestBcuImage extends BasicTestCase {
 		assertEquals(0x011F, image.getAssociationTable().address());
 		assertBytes(block, 0x011F, "03 02 00 03 01 01 00");
 		assertMask(block, 0x011F, "ff ff ff ff ff ff ff");
+		// The rest of the space the static data reserves for the tables, up to the object table, is
+		// not written: the device keeps what it holds there (haumacher/ehome #225).
+		assertMask(block, 0x0126, "00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00");
 
 		// The object table at 0136: 3 objects, RAM flags 00CE; configuration bytes from the flags
-		// (object 2 without association: no communication flag, its value-in-EEPROM bit kept); type
-		// bytes of the associated objects from their size.
+		// (object 2 without association: no communication flag, its value-in-EEPROM bit kept), the
+		// bit 80 kept from the static data, not the update flag (haumacher/ehome #225); type bytes of
+		// the associated objects from their size.
 		assertEquals(0x0136, image.getObjectTable().address());
 		assertEquals(11, image.getObjectTable().data().length);
-		assertBytes(block, 0x0136, "03 ce d0 17 00 d1 4f 00 d2 7b 07");
+		assertBytes(block, 0x0136, "03 ce d0 97 00 d1 cf 00 d2 fb 07");
 
 		// The parameters: 02, 0011 10 11 (the low bits from the static data), 01 2C.
 		assertBytes(block, 0x0150, "02 3b 01 2c");
@@ -177,11 +181,16 @@ public class TestBcuImage extends BasicTestCase {
 		expected.add("#6 WriteMem: 0100 ff (" + SEGMENT + ")");
 		expected.add("#7 WriteMem: 0104 08fff101ff00000000 (" + SEGMENT + ")");
 		expected.add("#8 WriteMem: 010E 61632f1f36000000 (" + SEGMENT + ")");
-		for (int address = 0x0119; address < 0x01FF; address += 12) {
+		// The range 0119-01FE without the space the static data reserves for the tables that the
+		// tables do not take, 0126-0135 (haumacher/ehome #225): the tables up to 0125, then from the
+		// object table at 0136.
+		expected.add("#9 WriteMem: 0119 12 bytes (" + SEGMENT + ")");
+		expected.add("#9 WriteMem: 0125 00 (" + SEGMENT + ")");
+		for (int address = 0x0136; address < 0x01FF; address += 12) {
 			int length = Math.min(12, 0x01FF - address);
-			// The last chunk 01FD-01FE: zeros of the static data.
+			// The last chunk 01F6-01FE: zeros of the static data.
 			expected.add(String.format("#9 WriteMem: %04X %s (" + SEGMENT + ")", address,
-				length == 12 ? "12 bytes" : "0000"));
+				length == 12 ? "12 bytes" : "000000000000000000"));
 		}
 		expected.add("#10 WriteMem: 00CE 000000000000000000 (Inline data)");
 		expected.add("#11 WriteMem: 00D7 000000000000000000 (Inline data)");
@@ -223,7 +232,8 @@ public class TestBcuImage extends BasicTestCase {
 
 	/**
 	 * The executor on a BCU 1 device: the mask checked, every write verified by reading it back, the
-	 * restart; afterwards the device holds the image except at 01FF and the individual address.
+	 * restart; afterwards the device holds the image except at 01FF, the individual address and the
+	 * space of the tables they do not take.
 	 */
 	private void checkDownload() throws Exception {
 		DownloadPlan plan = DownloadPlanner.plan(device(WITH_DATA), DownloadPlan.Kind.FULL);
@@ -240,9 +250,12 @@ public class TestBcuImage extends BasicTestCase {
 			calls.subList(1, 9));
 		assertEquals(List.of("writeMemory 0116 04", "readMemory 0116 1", "writeMemory 010D ff", "readMemory 010D 1",
 			"restart"), calls.subList(calls.size() - 5, calls.size()));
-		// 29 verified writes.
-		assertEquals(1 + 2 * 29 + 1, calls.size());
-		assertEquals(29, calls.stream().filter(c -> c.startsWith("writeMemory")).count());
+		// 28 verified writes, none into the free space of the tables 0126-0135.
+		assertEquals(1 + 2 * 28 + 1, calls.size());
+		assertEquals(28, calls.stream().filter(c -> c.startsWith("writeMemory")).count());
+		for (int address = 0x0126; address < 0x0136; address++) {
+			assertEquals(String.format("%04X", address), 0, block(plan).mask()[address - 0x0100]);
+		}
 
 		Block block = plan.getImage().getBlocks().get(0);
 		byte[] memory = mock.memory();
@@ -256,6 +269,10 @@ public class TestBcuImage extends BasicTestCase {
 		}
 		assertEquals("The individual address stays.", "1001", hex(memory, 0x0117, 2));
 		assertEquals("ff", hex(memory, 0x010D, 1));
+	}
+
+	private static Block block(DownloadPlan plan) {
+		return plan.getImage().getBlocks().get(0);
 	}
 
 	/**

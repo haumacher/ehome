@@ -97,7 +97,10 @@ import java.util.TreeSet;
  * association (the device holds 24 entries for its 24 objects). With dynamic table management ETS
  * places it right after the address table, the pointer 0111 naming that place (the device: 0127
  * after an address table of 8 entries at 0116, where its program's static data has the template
- * at 014D); the static data after the table stays.</li>
+ * at 014D). The rest of the space the static data reserves for the two tables, up to the end of
+ * the association table's place, is not written: the device keeps what it holds there (the template
+ * of the static data on that device, zeros on two valve drives of another program; haumacher/ehome
+ * #225).</li>
  * <li>The program's identity: the resource <code>ApplicationId</code> (0104-0107) holds the low
  * byte of the manufacturer, the application number and its version (the device:
  * <code>01 20 71 01</code>), not the placeholder of the static data.</li>
@@ -106,7 +109,11 @@ import java.util.TreeSet;
  * its value (one byte), the configuration byte (the bits of the BIM M112's, as the static data of
  * BCU 1 programs shows them: D7 for update, transmit, write, communication, low priority), the type
  * byte (codes 0 to 14 only). An object not in effect keeps the configuration of the static data,
- * without the communication flag (the device: D3 where the static data has D7).</li>
+ * without the communication flag (the device: D3 where the static data has D7). The bit
+ * {@link #UPDATE} is not the object's update flag: ETS keeps it from the static data (two valve
+ * drives of different manufacturers, ETS 4.2, hold 9F, CF and DF for objects whose flags all say
+ * update disabled, where the static data has DF; haumacher/ehome #225), so neither the image nor
+ * the read-back take it for the flag. The static data of every BCU 1 program seen has it set.</li>
  * </ul>
  *
  * <h2>BCU 2 (masks 0020, 0021, 0025)</h2>
@@ -150,22 +157,39 @@ public class GroupTables {
 	 *        The position of the type (size) byte in a descriptor.
 	 * @param maxType
 	 *        The largest type code the format knows (see {@link GroupTables#objectType(int)}).
+	 * @param staticBits
+	 *        The bits of the configuration byte ETS keeps from the static data instead of computing
+	 *        them from the object's flags.
 	 */
-	public record ObjectTableFormat(String flavour, int header, int descriptor, int config, int type, int maxType) {
+	public record ObjectTableFormat(String flavour, int header, int descriptor, int config, int type, int maxType,
+			int staticBits) {
 
 		/** The object table of the BIM M112 family (mask 7.x). */
-		public static final ObjectTableFormat M112 =
-			new ObjectTableFormat("GroupObjectTable_M112", OBJECT_TABLE_HEADER, OBJECT_DESCRIPTOR, OBJECT_CONFIG, OBJECT_TYPE, 20);
+		public static final ObjectTableFormat M112 = new ObjectTableFormat("GroupObjectTable_M112", OBJECT_TABLE_HEADER,
+			OBJECT_DESCRIPTOR, OBJECT_CONFIG, OBJECT_TYPE, 20, VALUE_IN_EEPROM);
 
-		/** The object table of BCU 1 (mask 1.2): one-byte pointers, no types beyond 14 bytes. */
-		public static final ObjectTableFormat BCU1 = new ObjectTableFormat("GroupObjectTable_Bcu11", 2, 3, 1, 2, 14);
+		/**
+		 * The object table of BCU 1 (mask 1.2): one-byte pointers, no types beyond 14 bytes; the bit
+		 * {@link GroupTables#UPDATE} is the static data's, not the update flag's (see
+		 * {@link GroupTables}).
+		 */
+		public static final ObjectTableFormat BCU1 =
+			new ObjectTableFormat("GroupObjectTable_Bcu11", 2, 3, 1, 2, 14, VALUE_IN_EEPROM | UPDATE);
 
 		/**
 		 * The object table of BCU 2 (masks 2.0, 2.1, 2.5): the bytes of {@link #BCU1}; the value pointers
 		 * are offsets into the segments the load control "task control 2" names (see
 		 * {@link GroupTables}).
 		 */
-		public static final ObjectTableFormat BCU2 = new ObjectTableFormat("GroupObjectTable_Bcu2", 2, 3, 1, 2, 14);
+		public static final ObjectTableFormat BCU2 =
+			new ObjectTableFormat("GroupObjectTable_Bcu2", 2, 3, 1, 2, 14, VALUE_IN_EEPROM);
+
+		/**
+		 * Whether the given bit of the configuration byte is computed from the object's flag of it.
+		 */
+		public boolean computes(int bit) {
+			return (staticBits & bit) == 0;
+		}
 
 		/**
 		 * The format of the given name, <code>null</code> if it is not supported.
@@ -434,20 +458,35 @@ public class GroupTables {
 	}
 
 	/**
+	 * The configuration byte of a communication object in an object table of the BIM M112 family.
+	 *
+	 * @see #objectConfig(ObjectTableFormat, int, boolean, boolean, boolean, boolean, boolean, int,
+	 *      boolean)
+	 */
+	public static int objectConfig(int staticConfig, boolean update, boolean transmit, boolean write, boolean read,
+			boolean communication, int priority, boolean associated) {
+		return objectConfig(ObjectTableFormat.M112, staticConfig, update, transmit, write, read, communication, priority,
+			associated);
+	}
+
+	/**
 	 * The configuration byte of a communication object.
 	 *
+	 * @param format
+	 *        The format of the object table, which says the bits kept from the static data
+	 *        ({@link ObjectTableFormat#staticBits()}).
 	 * @param staticConfig
-	 *        The configuration byte in the static data of the program; its {@link #VALUE_IN_EEPROM}
-	 *        bit is kept.
+	 *        The configuration byte in the static data of the program; the format's static bits are
+	 *        kept.
 	 * @param priority
 	 *        The priority as {@link #priorityCode(String)} gives it.
 	 * @param associated
 	 *        Whether the object has an association: without one, ETS clears the communication flag.
 	 */
-	public static int objectConfig(int staticConfig, boolean update, boolean transmit, boolean write, boolean read,
-			boolean communication, int priority, boolean associated) {
-		return (staticConfig & VALUE_IN_EEPROM)
-			| (update ? UPDATE : 0)
+	public static int objectConfig(ObjectTableFormat format, int staticConfig, boolean update, boolean transmit,
+			boolean write, boolean read, boolean communication, int priority, boolean associated) {
+		return (staticConfig & format.staticBits())
+			| (update && format.computes(UPDATE) ? UPDATE : 0)
 			| (transmit ? TRANSMIT : 0)
 			| (write ? WRITE : 0)
 			| (read ? READ : 0)

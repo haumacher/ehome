@@ -1255,7 +1255,8 @@ public class ReadBack {
 			if (actual == null) {
 				return true;
 			}
-			int config = GroupTables.objectConfig(actual.intValue(), enabled(placed.getUpdate(), port.getUpdate()),
+			int config = GroupTables.objectConfig(_objectTable.format(), actual.intValue(),
+				enabled(placed.getUpdate(), port.getUpdate()),
 				enabled(placed.getTransmission(), port.getTransmission()),
 				enabled(placed.getCanWrite(), port.getCanWrite()), enabled(placed.getCanRead(), port.getCanRead()),
 				false, GroupTables.priorityCode(classifier(placed.getPriority(), port.getPriority())), false);
@@ -1860,7 +1861,10 @@ public class ReadBack {
 			int config = actual.intValue();
 			// Stored as a deviation from the program only (ObjectFlags): a flag the device holds as
 			// the program gives it leaves the connector without value.
-			ObjectFlags.store(connector, placed, "update", enablement(config, GroupTables.UPDATE));
+			if (format.computes(GroupTables.UPDATE)) {
+				// BCU 1 keeps the bit from the static data: it is no flag of the device (#225).
+				ObjectFlags.store(connector, placed, "update", enablement(config, GroupTables.UPDATE));
+			}
 			ObjectFlags.store(connector, placed, "transmission", enablement(config, GroupTables.TRANSMIT));
 			ObjectFlags.store(connector, placed, "canWrite", enablement(config, GroupTables.WRITE));
 			ObjectFlags.store(connector, placed, "canRead", enablement(config, GroupTables.READ));

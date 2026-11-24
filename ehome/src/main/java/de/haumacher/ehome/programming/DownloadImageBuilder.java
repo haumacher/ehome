@@ -446,6 +446,50 @@ class DownloadImageBuilder {
 		if (associationCombined) {
 			pointer("GroupAssociationTablePtr", associationStart, dynamic);
 			patch(associationLocation.getSegment(), associationBlock);
+			if (dynamic && addressCombined) {
+				freeTableSpace(addressLocation, associationLocation, addressBlock, associationBlock);
+			}
+		}
+	}
+
+	/**
+	 * Leaves out of the image the space the program reserves for its tables in a segment shared with
+	 * other content that the tables of a dynamic table management do not take: from the place of the
+	 * address table to the end of the place the static data reserves for the association table (its
+	 * count and two bytes for each of its <code>MaxEntries</code>), not beyond the object table.
+	 *
+	 * <p>
+	 * The static data has templates of both tables there. ETS writes the tables it computes at the
+	 * start of that space and leaves the rest as the device holds it (BCU 1, haumacher/ehome #225):
+	 * two valve drives of one program hold zeros from the end of their association table to the
+	 * object table, where the static data has the templates, a switching actuator of another program
+	 * holds the template of its static data there; all three last loaded by ETS 4.2, whose load
+	 * procedure verifies what it writes. No rule that writes these bytes gives both; one that leaves
+	 * them does.
+	 * </p>
+	 */
+	private void freeTableSpace(TableLocation addressLocation, TableLocation associationLocation, Block addressBlock,
+			Block associationBlock) {
+		if (associationLocation.getSegment() != addressLocation.getSegment() || associationLocation.getMaxEntries() == null) {
+			return;
+		}
+		Integer reserved = start(associationLocation, null);
+		if (reserved == null) {
+			return;
+		}
+		int end = reserved.intValue() + 1 + 2 * associationLocation.getMaxEntries().intValue();
+		TableLocation objectLocation = _program.getObjectTable();
+		Integer objects = objectLocation != null && objectLocation.getSegment() == associationLocation.getSegment()
+			? start(objectLocation, null) : null;
+		if (objects != null && objects.intValue() > addressBlock.address()) {
+			end = Math.min(end, objects.intValue());
+		}
+		Block segment = _blocks.get(associationLocation.getSegment());
+		for (int address = addressBlock.address(); address < end; address++) {
+			if (addressBlock.contains(address) || associationBlock.contains(address) || !segment.contains(address)) {
+				continue;
+			}
+			segment.mask()[address - segment.address()] = 0;
 		}
 	}
 
@@ -913,7 +957,7 @@ class DownloadImageBuilder {
 				data[position] = (byte) ((data[position] & 0xFF) & ~GroupTables.COMMUNICATION);
 				continue;
 			}
-			data[position] = (byte) GroupTables.objectConfig(data[position] & 0xFF,
+			data[position] = (byte) GroupTables.objectConfig(format, data[position] & 0xFF,
 				enabled("update", connector, placed, port),
 				enabled("transmission", connector, placed, port),
 				enabled("canWrite", connector, placed, port),
