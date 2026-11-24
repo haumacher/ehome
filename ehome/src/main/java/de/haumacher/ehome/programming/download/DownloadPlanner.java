@@ -25,6 +25,7 @@ import de.haumacher.ehome.model.catalog.Manufacturer;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
@@ -241,6 +242,11 @@ public class DownloadPlanner {
 	private Program _program;
 
 	private MaskVersion _mask;
+
+	/**
+	 * The configuration of {@link #_mask} in effect for {@link #_program} (haumacher/ehome #229).
+	 */
+	private MaskConfiguration _configuration;
 
 	private DownloadImage _image;
 
@@ -462,6 +468,7 @@ public class DownloadPlanner {
 			_problems.add(I18NConstants.ERROR_IMAGE__PROBLEM.fill(problem));
 		}
 		_mask = _program.getMask();
+		_configuration = _program.getMaskConfiguration();
 		if (_mask == null) {
 			_problems.add(I18NConstants.ERROR_NO_MASK);
 			return result(device, address, kind);
@@ -599,7 +606,7 @@ public class DownloadPlanner {
 			}
 			case "MergedProcedure":
 			case "DefaultProcedure": {
-				LoadProcedure procedure = parameters ? parameterProcedure(_mask.getProcedures(), false) : null;
+				LoadProcedure procedure = parameters ? parameterProcedure(_mask.getProcedures(_program), false) : null;
 				parameterProcedure = procedure != null;
 				if (procedure == null) {
 					procedure = maskProcedure();
@@ -656,7 +663,7 @@ public class DownloadPlanner {
 
 	private LoadProcedure maskProcedure() {
 		LoadProcedure all = null;
-		for (LoadProcedure procedure : _mask.getProcedures()) {
+		for (LoadProcedure procedure : _mask.getProcedures(_program)) {
 			if (!isLoad(procedure) || !remote(procedure)) {
 				continue;
 			}
@@ -951,7 +958,7 @@ public class DownloadPlanner {
 				completed.add(step.step().getStateMachine());
 			}
 		}
-		boolean properties = LoadStateMachines.propertyMapped(_mask);
+		boolean properties = LoadStateMachines.propertyMapped(_configuration);
 		if (completed.isEmpty() && properties) {
 			// A procedure writing memory alone (BCU 2): the load state machines of the tables and the
 			// application.
@@ -967,7 +974,7 @@ public class DownloadPlanner {
 					checks.add(new Operation.CheckLoadState("", lsm, Integer.valueOf(lsm), null));
 				}
 			} else {
-				LoadStateMachines.InMemory memory = LoadStateMachines.inMemory(_mask, lsm);
+				LoadStateMachines.InMemory memory = LoadStateMachines.inMemory(_configuration, lsm);
 				if (memory != null) {
 					checks.add(new Operation.CheckLoadState("", lsm, null, Integer.valueOf(memory.status())));
 				}
@@ -1059,7 +1066,7 @@ public class DownloadPlanner {
 	 * <code>null</code> if there is none.
 	 */
 	private MaskResource memoryResource(String resourceName) {
-		for (MaskResource resource : _mask.getResources()) {
+		for (MaskResource resource : _mask.getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (resourceName.equals(resource.getName()) && location != null && location.getAddressSpace() != null
 				&& "StandardMemory".equals(location.getAddressSpace().getName()) && location.getStartAddress() != null
@@ -1085,7 +1092,7 @@ public class DownloadPlanner {
 	}
 
 	private boolean feature(String name) {
-		return _mask.getFeatures().stream().anyMatch(f -> name.equals(f.getName()) && Objects.equals(f.getValue(), 1));
+		return _mask.getFeatures(_program).stream().anyMatch(f -> name.equals(f.getName()) && Objects.equals(f.getValue(), 1));
 	}
 
 	private boolean writable(Block block, int index) {
@@ -1234,7 +1241,7 @@ public class DownloadPlanner {
 			_problems.add(I18NConstants.ERROR_LSM_BY_TYPE__STEP.fill(step.label()));
 			return null;
 		}
-		if (LoadStateMachines.propertyMapped(_mask)) {
+		if (LoadStateMachines.propertyMapped(_configuration)) {
 			if (!maskHasObject(lsm)) {
 				if (!optional) {
 					_problems.add(I18NConstants.ERROR_NO_LSM_OBJECT__STEP_MASK_LSM.fill(step.label(), maskName(), lsm));
@@ -1243,7 +1250,7 @@ public class DownloadPlanner {
 			}
 			return new Lsm(lsm, null);
 		}
-		LoadStateMachines.InMemory memory = LoadStateMachines.inMemory(_mask, lsm);
+		LoadStateMachines.InMemory memory = LoadStateMachines.inMemory(_configuration, lsm);
 		if (memory == null) {
 			if (!optional) {
 				_problems.add(I18NConstants.ERROR_NO_LOAD_CONTROL__STEP_MASK_LSM.fill(step.label(), maskName(), lsm));
@@ -1485,7 +1492,7 @@ public class DownloadPlanner {
 	 */
 	private String resourceNames(int address, int size) {
 		Set<String> names = new LinkedHashSet<>();
-		for (MaskResource resource : _mask.getResources()) {
+		for (MaskResource resource : _mask.getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (location == null || location.getAddressSpace() == null
 				|| !"StandardMemory".equals(location.getAddressSpace().getName()) || location.getStartAddress() == null) {
@@ -1563,7 +1570,7 @@ public class DownloadPlanner {
 				break;
 			}
 		}
-		for (MaskResource resource : _mask.getResources()) {
+		for (MaskResource resource : _mask.getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (!IDENTICAL_FLAVOUR.equals(resource.getFlavour()) || location == null || location.getAddressSpace() == null
 				|| !"SystemProperty".equals(location.getAddressSpace().getName()) || location.getInterfaceObject() == null
@@ -1686,11 +1693,11 @@ public class DownloadPlanner {
 	private boolean authorizes() {
 		TLClassifier model = _mask.getManagementModel();
 		return model != null && "Bcu2".equals(model.getName())
-			&& _mask.getFeatures().stream().anyMatch(f -> AUTHORIZE_LEVELS.equals(f.getName()));
+			&& _mask.getFeatures(_program).stream().anyMatch(f -> AUTHORIZE_LEVELS.equals(f.getName()));
 	}
 
 	private boolean maskHasObject(int objectIndex) {
-		for (MaskResource resource : _mask.getResources()) {
+		for (MaskResource resource : _mask.getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (location != null && Objects.equals(location.getInterfaceObject(), objectIndex)) {
 				return true;
@@ -1700,7 +1707,7 @@ public class DownloadPlanner {
 	}
 
 	private boolean stampResource(int objectIndex, int propertyId) {
-		for (MaskResource resource : _mask.getResources()) {
+		for (MaskResource resource : _mask.getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (STAMP_FLAVOUR.equals(resource.getFlavour()) && location != null
 				&& Objects.equals(location.getInterfaceObject(), objectIndex)
@@ -1712,7 +1719,7 @@ public class DownloadPlanner {
 	}
 
 	private ResourceLocation systemProperty(String resourceName) {
-		for (MaskResource resource : _mask.getResources()) {
+		for (MaskResource resource : _mask.getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (resourceName.equals(resource.getName()) && location != null && location.getAddressSpace() != null
 				&& "SystemProperty".equals(location.getAddressSpace().getName()) && location.getInterfaceObject() != null

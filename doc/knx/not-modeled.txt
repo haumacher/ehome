@@ -196,7 +196,6 @@ skip Options@LegacyProxyCommunicationObjects
 skip Options@DeviceCompareAllowCompatibleManufacturerId
 skip Options@Comparable
 skip Options@Reconstructable
-skip Options@LineCoupler0912NewProgrammingStyle
 # Gap 7: UI structure of the parameter dialog.
 skip ParameterSeparator
 skip ParameterBlockRename

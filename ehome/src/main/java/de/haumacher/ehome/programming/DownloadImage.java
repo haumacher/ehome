@@ -14,6 +14,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -177,14 +178,14 @@ public class DownloadImage {
 	}
 
 	/**
-	 * Whether a device of the given mask keeps its individual address in the first entry of its group
-	 * address table, as the mask's resources say (see {@link GroupTables}); otherwise the first entry
+	 * Whether a device of the given mask configuration (see {@link MaskVersion#getConfiguration(Program)})
+	 * keeps its individual address in the first entry of its group address table, as the mask's resources say (see {@link GroupTables}); otherwise the first entry
 	 * is the program's static data.
 	 *
 	 * @param tableAddress
 	 *        The address of the group address table.
 	 */
-	public static boolean individualAddressInTable(MaskVersion mask, int tableAddress) {
+	public static boolean individualAddressInTable(MaskConfiguration mask, int tableAddress) {
 		return DownloadImageBuilder.individualAddressInTable(mask, tableAddress);
 	}
 

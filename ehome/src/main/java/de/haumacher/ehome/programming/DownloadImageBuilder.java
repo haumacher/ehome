@@ -29,6 +29,7 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Location;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Parameter;
@@ -63,7 +64,7 @@ import de.haumacher.ehome.programming.GroupTables.Association;
  * <li>The segments of the address and association tables are written as the tables, not as their
  * static data (a template of the manufacturer). The first entry of the address table is the
  * individual address where the device's mask keeps it there, else the static data
- * ({@link #individualAddressInTable(MaskVersion, int)}).</li>
+ * ({@link #individualAddressInTable(MaskConfiguration, int)}).</li>
  * <li>With dynamic table management the association table follows the address table directly
  * (the device's table pointer then points there).</li>
  * <li>The object table is the static data with the configuration bytes computed from the flags of
@@ -400,7 +401,7 @@ class DownloadImageBuilder {
 		}
 		// The first entry: the individual address where the mask keeps it in the table, else the
 		// program's static data (haumacher/ehome #219).
-		boolean keepsAddress = individualAddressInTable(_program.getMask(), addressStart.intValue());
+		boolean keepsAddress = individualAddressInTable(_program.getMaskConfiguration(), addressStart.intValue());
 		Integer staticEntry = keepsAddress ? null : staticFirstEntry(addressLocation);
 		int firstEntry = keepsAddress || staticEntry == null ? individualAddress.intValue() : staticEntry.intValue();
 		byte[] addressTable = GroupTables.addressTable(firstEntry, addresses);
@@ -503,7 +504,7 @@ class DownloadImageBuilder {
 	 * @param tableAddress
 	 *        The address of the group address table.
 	 */
-	static boolean individualAddressInTable(MaskVersion mask, int tableAddress) {
+	static boolean individualAddressInTable(MaskConfiguration mask, int tableAddress) {
 		if (mask == null) {
 			return false;
 		}
@@ -648,7 +649,7 @@ class DownloadImageBuilder {
 		if (_program.getMask() == null) {
 			return false;
 		}
-		for (MaskResource resource : _program.getMask().getResources()) {
+		for (MaskResource resource : _program.getMask().getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (name.equals(resource.getName()) && location != null && location.getAddressSpace() != null
 				&& "SystemProperty".equals(location.getAddressSpace().getName())) {
@@ -697,7 +698,7 @@ class DownloadImageBuilder {
 		if (program.getMask() == null) {
 			return false;
 		}
-		for (MaskResource resource : program.getMask().getResources()) {
+		for (MaskResource resource : program.getMask().getResources(program)) {
 			if ("GroupAssociationTable".equals(resource.getName())) {
 				return slots(program, resource.getFlavour(), staticObjectCount(program));
 			}
@@ -743,12 +744,12 @@ class DownloadImageBuilder {
 
 	static int tableChecksum(Program program) {
 		MaskVersion mask = program.getMask();
-		if (mask == null || mask.getFeatures().stream()
+		if (mask == null || mask.getFeatures(program).stream()
 			.noneMatch(f -> ALLOC_EXTRA_BYTE.equals(f.getName()) && Objects.equals(f.getValue(), 1))) {
 			return 0;
 		}
 		List<LoadProcedure> procedures = new ArrayList<>(program.getLoadProcedures());
-		procedures.addAll(mask.getProcedures());
+		procedures.addAll(mask.getProcedures(program));
 		for (LoadProcedure procedure : procedures) {
 			for (LoadStep step : procedure.getSteps()) {
 				if (step.getKind() != null && "AbsSegment".equals(step.getKind().getName())
@@ -774,7 +775,7 @@ class DownloadImageBuilder {
 		if (_program.getMask() == null) {
 			return null;
 		}
-		for (MaskResource resource : _program.getMask().getResources()) {
+		for (MaskResource resource : _program.getMask().getResources(_program)) {
 			ResourceLocation location = resource.getLocation();
 			if (name.equals(resource.getName()) && location != null && location.getAddressSpace() != null
 				&& "StandardMemory".equals(location.getAddressSpace().getName()) && location.getStartAddress() != null) {
@@ -809,7 +810,7 @@ class DownloadImageBuilder {
 			return null;
 		}
 		List<String> formats = new ArrayList<>();
-		for (MaskResource candidate : mask.getResources()) {
+		for (MaskResource candidate : mask.getResources(_program)) {
 			if (resource.equals(candidate.getName())) {
 				if (supported.contains(candidate.getFlavour())) {
 					return candidate.getFlavour();
@@ -831,7 +832,7 @@ class DownloadImageBuilder {
 			return null;
 		}
 		if (maskResource != null && _program.getMask() != null) {
-			for (MaskResource resource : _program.getMask().getResources()) {
+			for (MaskResource resource : _program.getMask().getResources(_program)) {
 				if (maskResource.equals(resource.getName()) && resource.getLocation() != null
 					&& resource.getLocation().getAddressSpace() != null
 					&& "StandardMemory".equals(resource.getLocation().getAddressSpace().getName())

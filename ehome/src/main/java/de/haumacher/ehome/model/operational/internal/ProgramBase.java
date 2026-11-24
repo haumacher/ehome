@@ -187,6 +187,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String LANGUAGES_ATTR = "languages";
 
 	/**
+	 * Part <code>lineCouplerNewProgrammingStyle</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR = "lineCouplerNewProgrammingStyle";
+
+	/**
 	 * Part <code>loadProcedureStyle</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -843,6 +852,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setLanguages(String newValue) {
 		tUpdateByName(LANGUAGES_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR}.
+	 */
+	default boolean getLineCouplerNewProgrammingStyle() {
+		return (Boolean) tValueByName(LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR}.
+	 */
+	default void setLineCouplerNewProgrammingStyle(boolean newValue) {
+		tUpdateByName(LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR, newValue);
 	}
 
 	/**

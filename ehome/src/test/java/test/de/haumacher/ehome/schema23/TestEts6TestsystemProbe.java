@@ -107,15 +107,17 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 		// The IP router 1.3.1 is refused from both exports. Its program uses the procedure of its mask
 		// MV-091A, whose master data differ: ETS 4 marks the configuration with the property based
 		// procedure (merge points, load state machines by object type) as the legacy one, ETS 6 the
-		// one writing the coupler's memory, so the procedure in effect and with it some refusals
-		// differ. Both share the refusal of the coupler's filter table.
+		// one writing the coupler's memory. The program is of the old programming style in both
+		// exports, which selects the configuration writing the coupler's memory whichever the master
+		// data mark legacy (haumacher/ehome #229): the same refusals, among them the coupler's filter
+		// table, and no merge point.
 		for (Map<Integer, Plan> plans : List.of(ets4, ets6)) {
 			List<String> problems = plans.get(1).problems();
 			assertTrue(problems.toString(), problems.stream().anyMatch(p -> p.contains("ClearLCFilterTable")));
 			assertTrue(problems.toString(), problems.stream().anyMatch(p -> p.contains("LcFilter")));
+			assertTrue(problems.toString(), problems.stream().noneMatch(p -> p.contains("ERROR_MERGE__STEP_ID")));
 		}
-		assertTrue(ets6.get(1).problems().stream().anyMatch(p -> p.contains("ERROR_MERGE__STEP_ID")));
-		assertTrue(ets4.get(1).problems().stream().noneMatch(p -> p.contains("ERROR_MERGE__STEP_ID")));
+		assertEquals(ets4.get(1).problems(), ets6.get(1).problems());
 		Logger.info("Router 1.3.1, ETS 4: " + ets4.get(1).problems(), TestEts6TestsystemProbe.class);
 		Logger.info("Router 1.3.1, ETS 6: " + ets6.get(1).problems(), TestEts6TestsystemProbe.class);
 

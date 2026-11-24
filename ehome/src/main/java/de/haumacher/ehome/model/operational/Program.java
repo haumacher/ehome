@@ -13,6 +13,24 @@ public interface Program extends de.haumacher.ehome.model.operational.internal.P
 	// Wrapper functionality.
 
 	/**
+	 * The configuration of the program's {@link #getMask() mask version} in effect for it (see
+	 * {@link MaskVersion#getConfiguration(Program)}), <code>null</code> without a mask version or
+	 * configuration.
+	 */
+	default MaskConfiguration getMaskConfiguration() {
+		MaskVersion mask = getMask();
+		return mask == null ? null : mask.getConfiguration(this);
+	}
+
+	/**
+	 * The value of {@link #LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR}, <code>null</code> if it is not set
+	 * (a program imported before haumacher/ehome #229: the old style).
+	 */
+	default Boolean getLineCouplerNewProgrammingStyleOrNull() {
+		return (Boolean) tValueByName(LINE_COUPLER_NEW_PROGRAMMING_STYLE_ATTR);
+	}
+
+	/**
 	 * The name in every application language (an <code>I18NString</code>; {@link #getName()} gives it
 	 * in the user's language).
 	 */

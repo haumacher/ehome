@@ -50,6 +50,8 @@ final class ProgramFileScan {
 
 	private static final byte[] NO_MANUFACTURER_CHECK = name("LegacyDoNotCheckManufacturerId");
 
+	private static final byte[] NEW_COUPLER_STYLE = name("LineCoupler0912NewProgrammingStyle");
+
 	private boolean _assigns;
 
 	private boolean _buttons;
@@ -61,6 +63,8 @@ final class ProgramFileScan {
 	private boolean _textChannelNumbers;
 
 	private boolean _noManufacturerCheck;
+
+	private boolean _newCouplerStyle;
 
 	private List<String> _programIds = new ArrayList<>();
 
@@ -115,6 +119,15 @@ final class ProgramFileScan {
 	}
 
 	/**
+	 * Whether an element <code>Options</code> of the file says the new programming style of the line
+	 * couplers (<code>LineCoupler0912NewProgrammingStyle</code> other than <code>0</code> and
+	 * <code>false</code>).
+	 */
+	boolean mayHaveNewCouplerStyle() {
+		return _newCouplerStyle;
+	}
+
+	/**
 	 * Whether a channel of the file may have a number that is not an integer; <code>true</code> also
 	 * if the IDs of the file are not known (see {@link #getProgramIds()}).
 	 */
@@ -166,6 +179,7 @@ final class ProgramFileScan {
 				}
 			} else if (is(content, nameStart, nameEnd, OPTIONS)) {
 				_noManufacturerCheck |= isSet(attribute(content, nameEnd, NO_MANUFACTURER_CHECK));
+				_newCouplerStyle |= isSet(attribute(content, nameEnd, NEW_COUPLER_STYLE));
 			} else if (is(content, nameStart, nameEnd, APPLICATION_PROGRAM)) {
 				String id = attribute(content, nameEnd, ID);
 				if (id == null || id.indexOf('&') >= 0) {

@@ -260,7 +260,7 @@ public class DeviceComparison {
 			return facts;
 		}
 		facts.add(I18NConstants.FACT_MASK__NUMBER_NAME.fill(String.format("%04X", mask.getNumber()), mask.getName()));
-		for (MaskResource resource : mask.getResources()) {
+		for (MaskResource resource : mask.getResources(program)) {
 			if ("ApplicationId".equals(resource.getName()) && resource.getLocation() != null
 				&& resource.getLocation().getInterfaceObject() != null && resource.getLocation().getPropertyId() != null) {
 				facts.add(I18NConstants.FACT_PROGRAM_VERSION__DEVICE_PROGRAM.fill(version(snapshot),

@@ -25,6 +25,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Segment;
@@ -143,11 +144,12 @@ public class TestMask71Download extends SharedProjectTestCase {
 	 */
 	private static void checkMask(MaskVersion mask) {
 		assertEquals(0x0701, mask.getNumber());
-		assertFalse(LoadStateMachines.propertyMapped(mask));
+		MaskConfiguration configuration = mask.getCurrentConfiguration();
+		assertFalse(LoadStateMachines.propertyMapped(configuration));
 		assertEquals(List.of(new LoadStateMachines.InMemory(1, CONTROL, 0xB6EA), new LoadStateMachines.InMemory(2, CONTROL, 0xB6EB),
 			new LoadStateMachines.InMemory(3, CONTROL, 0xB6EC), new LoadStateMachines.InMemory(4, CONTROL, 0xB6ED)),
-			LoadStateMachines.inMemory(mask));
-		assertNull(LoadStateMachines.inMemory(mask, 5));
+			LoadStateMachines.inMemory(configuration));
+		assertNull(LoadStateMachines.inMemory(configuration, 5));
 	}
 
 	/**
@@ -448,8 +450,8 @@ public class TestMask71Download extends SharedProjectTestCase {
 	 */
 	private static void checkFirstEntry(MaskVersion mask75, MaskVersion mask71) {
 		assertEquals(0x0705, mask75.getNumber());
-		assertTrue(DownloadImage.individualAddressInTable(mask75, 0x4000));
-		assertFalse(DownloadImage.individualAddressInTable(mask71, 0x4000));
+		assertTrue(DownloadImage.individualAddressInTable(mask75.getCurrentConfiguration(), 0x4000));
+		assertFalse(DownloadImage.individualAddressInTable(mask71.getCurrentConfiguration(), 0x4000));
 	}
 
 	/**

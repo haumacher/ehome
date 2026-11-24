@@ -6,11 +6,10 @@ package de.haumacher.ehome.programming.download;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.Objects;
 
 import com.top_logic.basic.util.ResKey;
 
-import de.haumacher.ehome.model.operational.MaskFeature;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
@@ -36,7 +35,7 @@ import de.haumacher.ehome.model.operational.ResourceLocation;
 public final class LoadStateMachines {
 
 	/** The feature of a mask whose load state machines are controlled through properties. */
-	public static final String PROPERTY_MAPPED_LSMS = "PropertyMappedLsms";
+	public static final String PROPERTY_MAPPED_LSMS = MaskVersion.PROPERTY_MAPPED_LSMS;
 
 	/** The flavour of the resources of a load state machine controlled in memory (BIM M112). */
 	public static final String MEMORY_FLAVOUR = "LoadControl_M112";
@@ -66,15 +65,13 @@ public final class LoadStateMachines {
 	}
 
 	/**
-	 * Whether the load state machines of the mask are controlled through properties.
+	 * Whether the load state machines of the mask configuration are controlled through properties;
+	 * <code>false</code> for no configuration.
+	 *
+	 * @see MaskVersion#getConfiguration(Program)
 	 */
-	public static boolean propertyMapped(MaskVersion mask) {
-		for (MaskFeature feature : mask.getFeatures()) {
-			if (PROPERTY_MAPPED_LSMS.equals(feature.getName()) && Objects.equals(feature.getValue(), 1)) {
-				return true;
-			}
-		}
-		return false;
+	public static boolean propertyMapped(MaskConfiguration configuration) {
+		return MaskVersion.propertyMapped(configuration);
 	}
 
 	/**
@@ -91,7 +88,7 @@ public final class LoadStateMachines {
 		if (mask == null) {
 			return null;
 		}
-		for (MaskResource resource : mask.getResources()) {
+		for (MaskResource resource : mask.getResources(program)) {
 			ResourceLocation location = resource.getLocation();
 			if ("GroupAssociationTablePtr".equals(resource.getName()) && "Ptr_StandardMemory100".equals(resource.getFlavour())
 				&& location != null && location.getAddressSpace() != null
@@ -104,12 +101,12 @@ public final class LoadStateMachines {
 	}
 
 	/**
-	 * The load state machine of the mask controlled in memory, <code>null</code> if the mask controls
-	 * its load state machines through properties or names no load control and load state in memory
-	 * for it.
+	 * The load state machine of the mask configuration controlled in memory, <code>null</code> if the
+	 * configuration controls its load state machines through properties or names no load control and
+	 * load state in memory for it, or if there is no configuration.
 	 */
-	public static InMemory inMemory(MaskVersion mask, int stateMachine) {
-		if (propertyMapped(mask) || stateMachine < 1 || stateMachine > PARTS.length) {
+	public static InMemory inMemory(MaskConfiguration mask, int stateMachine) {
+		if (mask == null || propertyMapped(mask) || stateMachine < 1 || stateMachine > PARTS.length) {
 			return null;
 		}
 		String part = PARTS[stateMachine - 1];
@@ -122,9 +119,9 @@ public final class LoadStateMachines {
 	}
 
 	/**
-	 * The load state machines of the mask controlled in memory, in their order.
+	 * The load state machines of the mask configuration controlled in memory, in their order.
 	 */
-	public static List<InMemory> inMemory(MaskVersion mask) {
+	public static List<InMemory> inMemory(MaskConfiguration mask) {
 		List<InMemory> result = new ArrayList<>();
 		for (int stateMachine = 1; stateMachine <= PARTS.length; stateMachine++) {
 			InMemory lsm = inMemory(mask, stateMachine);
@@ -136,12 +133,12 @@ public final class LoadStateMachines {
 	}
 
 	/**
-	 * Reads the load states of a device of the given mask, for a person: per load state machine
+	 * Reads the load states of a device of the given mask configuration, for a person: per load state machine
 	 * "Load state machine <i>n</i>: <i>state</i>", or why it could not be read. Through properties the
 	 * load state machines 1 to 3 (address table, association table, application), in memory every one
 	 * the mask names. Nothing for a mask without load state machines.
 	 */
-	public static List<ResKey> readStates(MaskVersion mask, DeviceReader reader) {
+	public static List<ResKey> readStates(MaskConfiguration mask, DeviceReader reader) {
 		List<ResKey> result = new ArrayList<>();
 		if (propertyMapped(mask)) {
 			for (int lsm = 1; lsm <= 3; lsm++) {
@@ -169,7 +166,7 @@ public final class LoadStateMachines {
 		return result;
 	}
 
-	private static Long memoryAddress(MaskVersion mask, String name) {
+	private static Long memoryAddress(MaskConfiguration mask, String name) {
 		for (MaskResource resource : mask.getResources()) {
 			ResourceLocation location = resource.getLocation();
 			if (name.equals(resource.getName()) && MEMORY_FLAVOUR.equals(resource.getFlavour()) && location != null

@@ -15,12 +15,12 @@ import com.top_logic.util.error.TopLogicException;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
-import de.haumacher.ehome.model.operational.MaskFeature;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
+import de.haumacher.ehome.programming.download.LoadStateMachines;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.PropertyWrite;
 import de.haumacher.ehome.programming.ParameterEncoding;
@@ -34,7 +34,7 @@ import de.haumacher.ehome.virtual.tooling.I18NConstants;
  * <ul>
  * <li>Address: the individual address of the device.</li>
  * <li>Device descriptor: the mask version of its program.</li>
- * <li>Load state machines: by the mask, see {@link #kind(MaskVersion)}; all unloaded. A mask of the
+ * <li>Load state machines: by the mask, see {@link #kind(Program)}; all unloaded. A mask of the
  * management model <code>Bcu2</code> makes a {@link SimulatedDevice#bcu2() BCU 2}.</li>
  * <li>Memory: the static data of the program's absolute segments (zero elsewhere); the memory a
  * download does not write keeps it, as with a device fresh from the factory that holds its
@@ -60,9 +60,6 @@ import de.haumacher.ehome.virtual.tooling.I18NConstants;
  * </p>
  */
 public class ProjectDevices {
-
-	/** The feature of a mask whose load state machines are controlled through properties. */
-	private static final String PROPERTY_MAPPED_LSMS = "PropertyMappedLsms";
 
 	/** The masks of BIM M112 whose load state machines are controlled through memory. */
 	private static final int[] MEMORY_MAPPED_MASKS = { 0x0700, 0x0701 };
@@ -101,7 +98,7 @@ public class ProjectDevices {
 		if (mask == null) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_MASK);
 		}
-		LoadControlKind kind = kind(mask);
+		LoadControlKind kind = kind(program);
 		String name = DownloadPlanner.formatAddress(address) + " (" + device.tValueByName("extId") + ")";
 		boolean bcu2 = mask.getManagementModel() != null && "Bcu2".equals(mask.getManagementModel().getName());
 		SimulatedDevice result = new SimulatedDevice(name, address, mask.getNumber(), kind, rule, bcu2);
@@ -179,15 +176,15 @@ public class ProjectDevices {
 	}
 
 	/**
-	 * How the load state machines of a mask are controlled: through properties with the feature
-	 * <code>PropertyMappedLsms</code>, through memory on the BIM M112 masks 0700 and 0701 (as
-	 * Calimero's device implementation assumes), none otherwise.
+	 * How the load state machines of a device of the given program are controlled: through properties
+	 * with the feature <code>PropertyMappedLsms</code> of the mask configuration in effect for the
+	 * program ({@link MaskVersion#getConfiguration(Program)}), through memory on the BIM M112 masks 0700
+	 * and 0701 (as Calimero's device implementation assumes), none otherwise.
 	 */
-	public static LoadControlKind kind(MaskVersion mask) {
-		for (MaskFeature feature : mask.getFeatures()) {
-			if (PROPERTY_MAPPED_LSMS.equals(feature.getName()) && Objects.equals(feature.getValue(), 1)) {
-				return LoadControlKind.PROPERTIES;
-			}
+	public static LoadControlKind kind(Program program) {
+		MaskVersion mask = program.getMask();
+		if (LoadStateMachines.propertyMapped(program.getMaskConfiguration())) {
+			return LoadControlKind.PROPERTIES;
 		}
 		for (int memoryMapped : MEMORY_MAPPED_MASKS) {
 			if (mask.getNumber() == memoryMapped) {

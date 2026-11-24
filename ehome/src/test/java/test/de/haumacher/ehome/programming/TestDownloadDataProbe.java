@@ -8,15 +8,19 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedData;
 
 import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.basic.util.ResKey;
@@ -75,6 +79,9 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		List<TLObject> projects = new ArrayList<>(instances("ehome.project:Project"));
 		projects.removeAll(before);
 		try {
+			// The mask versions as the master data of EHomeDemo define them, whatever newer master data
+			// other tests of the database imported (the configurations of the coupler MV-091A).
+			SharedData.resetMaskVersions(Files.readAllBytes(Path.of("samples/EHomeDemo.knxproj")));
 			probe();
 		} finally {
 			KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
@@ -93,12 +100,16 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		Program router = program(ROUTER);
 
 		// One mask version object for both programs of mask 7.5; the master data of both files
-		// describe the same 29 masks, imported once.
+		// describe the same 29 masks, imported once (newer master data imported by other tests of the
+		// database may define more).
 		MaskVersion mask = sensor.getMask();
 		assertSame(mask, actuator.getMask());
 		assertEquals(1797, mask.getNumber());
 		assertEquals(1, masks("MV-0705").size());
-		assertEquals(29, masks().size());
+		Set<String> masks = SharedData.ids("samples/EHomeDemo.knxproj", "knx_master.xml", "MaskVersion");
+		assertEquals(masks, SharedData.ids("samples/Test.knxproj", "knx_master.xml", "MaskVersion"));
+		assertEquals(29, masks.size());
+		SharedData.assertOnce("ehome.operational:MaskVersion", masks);
 
 		// The table resources of the mask name the memory the tables live in, which is where the
 		// program puts them: the address table of both programs starts at the mask's location.
@@ -144,11 +155,11 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		assertEquals(2330, coupler.getNumber());
 		assertEquals("Bcu1", coupler.getManagementModel().getName());
 		// The mask describes itself twice: the current configuration (memory writes to the coupler)
-		// and one for older ETS versions (LegacyVersion="1"); the procedures of the mask are those of
-		// the current one.
+		// and one for older ETS versions (LegacyVersion="1"); the procedures for the router are those
+		// of its programming style (the old one: memory writes, haumacher/ehome #229).
 		assertEquals(2, coupler.getConfigurations().size());
 		assertSame(coupler.getConfigurations().get(0), coupler.getCurrentConfiguration());
-		List<LoadProcedure> procedures = new ArrayList<>(coupler.getProcedures());
+		List<LoadProcedure> procedures = new ArrayList<>(coupler.getProcedures(router));
 		assertEquals(List.of("all", "par"), procedures.stream().map(p -> p.getScope().getName()).toList());
 		assertEquals(List.of(12, 9), procedures.stream().map(p -> p.getSteps().size()).toList());
 		for (LoadProcedure generic : procedures) {
@@ -337,7 +348,7 @@ public class TestDownloadDataProbe extends BasicTestCase {
 	}
 
 	private static MaskResource resource(MaskVersion mask, String name) {
-		return mask.getResources().stream()
+		return mask.getCurrentConfiguration().getResources().stream()
 			.filter(r -> name.equals(r.getName()))
 			.findFirst()
 			.orElseThrow(() -> new AssertionError("No resource " + name));

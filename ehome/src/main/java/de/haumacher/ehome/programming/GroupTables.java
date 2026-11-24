@@ -43,7 +43,7 @@ import java.util.TreeSet;
  * <p>
  * The download never writes the individual address: only the programming of the individual address
  * does. Whether the device keeps it in the first entry of the address table, the master data of the
- * mask say (<code>knx_master.xml</code>, {@link DownloadImage#individualAddressInTable(de.haumacher.ehome.model.operational.MaskVersion, int)}):
+ * mask say (<code>knx_master.xml</code>, {@link DownloadImage#individualAddressInTable(de.haumacher.ehome.model.operational.MaskConfiguration, int)}):
  * </p>
  * <ul>
  * <li>BCU 1 and BCU 2 (masks 0010 to 0013, 0020, 0021, 0025): the mask's resource
@@ -262,7 +262,7 @@ public class GroupTables {
 	 * @param firstEntry
 	 *        The first entry: the individual address of the device (area, line and device number in 4,
 	 *        4 and 8 bits) on a mask that keeps it in the table, else the program's static data there
-	 *        ({@link DownloadImage#individualAddressInTable(de.haumacher.ehome.model.operational.MaskVersion, int)}).
+	 *        ({@link DownloadImage#individualAddressInTable(de.haumacher.ehome.model.operational.MaskConfiguration, int)}).
 	 * @param groupAddresses
 	 *        The group addresses in the order of {@link #addressOrder(Collection)}.
 	 */

@@ -179,13 +179,13 @@ public class TestDownloadDataImport extends BasicTestCase {
 			resource(mask, "GroupAssociationTable").getLocation().getPointerResource());
 		assertEquals(List.of("FirstAppObjectIdx=5", "AuthorizeLevels=16", "PropertyMappedLsms=1", "VerifyMode=1",
 			"DownloadStamp=1"),
-			mask.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
-		assertEquals(3, mask.getMemory().size());
-		assertEquals(Long.valueOf(8192), mask.getMemory().get(0).getLength());
-		assertEquals("EEPROM", mask.getMemory().get(0).getMemoryType().getName());
+			mask.getFeatures(program).stream().map(f -> f.getName() + "=" + f.getValue()).toList());
+		assertEquals(3, mask.getMemory(program).size());
+		assertEquals(Long.valueOf(8192), mask.getMemory(program).get(0).getLength());
+		assertEquals("EEPROM", mask.getMemory(program).get(0).getMemoryType().getName());
 		// The generic procedure of the mask: unload everything.
-		assertEquals(1, mask.getProcedures().size());
-		LoadProcedure unload = mask.getProcedures().get(0);
+		assertEquals(1, mask.getProcedures(program).size());
+		LoadProcedure unload = mask.getProcedures(program).get(0);
 		assertEquals("Unload", unload.getKind().getName());
 		assertEquals("all", unload.getScope().getName());
 		assertEquals(List.of("Connect", "Unload", "Unload", "Unload", "Unload", "Disconnect"), kinds(unload));
@@ -195,18 +195,18 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals(List.of(masks("MV-0910").get(0), masks("MV-0911").get(0), masks("MV-0912").get(0)),
 			router.getCompatibleMasks());
 		// The coupler describes itself twice: the current configuration first, then the one for older
-		// ETS versions (LegacyVersion="1"), kept apart; the accessors of the mask read the current one.
+		// ETS versions (LegacyVersion="1"), kept apart.
 		assertEquals(2, router.getConfigurations().size());
 		MaskConfiguration current = router.getConfigurations().get(0);
 		MaskConfiguration legacy = router.getConfigurations().get(1);
 		assertFalse(Boolean.TRUE.equals(current.getLegacyOrNull()));
 		assertEquals(Boolean.TRUE, Boolean.valueOf(legacy.getLegacy()));
 		assertSame(current, router.getCurrentConfiguration());
-		assertEquals(List.of("all", "par"), router.getProcedures().stream().map(p -> p.getScope().getName()).toList());
+		assertEquals(List.of("all", "par"), current.getProcedures().stream().map(p -> p.getScope().getName()).toList());
 		assertEquals(List.of("RestartTime=5000", "UnloadedIndividualAddress=65280", "VerifyMode=1"),
-			router.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
-		assertEquals(4, router.getResources().size());
-		assertEquals(3, router.getMemory().size());
+			current.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
+		assertEquals(4, current.getResources().size());
+		assertEquals(3, current.getMemory().size());
 		assertEquals(List.of("RestartTime=5000", "UnloadedIndividualAddress=65280", "PropertyMappedLsms=1",
 			"VerifyMode=1"),
 			legacy.getFeatures().stream().map(f -> f.getName() + "=" + f.getValue()).toList());
@@ -427,7 +427,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals(1, routerSegments.size());
 		assertEquals(Integer.valueOf(256), routerSegments.get(0).getAddress());
 		assertNull(routerSegments.get(0).getData());
-		assertFalse("The mask version has procedures of its own.", router.getMask().getProcedures().isEmpty());
+		assertFalse("The mask version has procedures of its own.", router.getMask().getProcedures(router).isEmpty());
 
 		Program actuator = program("M-0083_A-000C-21-83B5");
 		assertSame(masks("MV-0705").get(0), actuator.getMask());
@@ -493,7 +493,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 	}
 
 	private static MaskResource resource(MaskVersion mask, String name) {
-		return mask.getResources().stream()
+		return mask.getCurrentConfiguration().getResources().stream()
 			.filter(r -> name.equals(r.getName()))
 			.findFirst()
 			.orElseThrow(() -> new AssertionError("No resource " + name));

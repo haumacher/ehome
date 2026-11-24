@@ -2037,6 +2037,15 @@
 				<property name="noManufacturerCheck"
 					type="tl.core:Boolean"
 				/>
+				<!--
+					Whether the program is of the new programming style of the line couplers (ETS:
+					LineCoupler0912NewProgrammingStyle): on a mask describing itself once per style (the couplers
+					0912 and 091A), the program's style selects the configuration in effect for it (the new style
+					the one with load state machines through properties), see MaskVersion#getConfiguration(Program).
+				-->
+				<property name="lineCouplerNewProgrammingStyle"
+					type="tl.core:Boolean"
+				/>
 				<!-- Whether written memory is not read back for verification (ETS: LegacyNoMemoryVerifyMode). -->
 				<property name="noMemoryVerify"
 					type="tl.core:Boolean"

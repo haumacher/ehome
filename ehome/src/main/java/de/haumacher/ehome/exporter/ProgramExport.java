@@ -410,6 +410,7 @@ final class ProgramExport {
 			.attr("ParameterByteOrder", classifier(_program, "parameterByteOrder"))
 			.attr("LegacyNoPartialDownload", flag(_program, "noPartialDownload"))
 			.attr("LegacyNoMemoryVerifyMode", flag(_program, "noMemoryVerify"))
+			.attr("LineCoupler0912NewProgrammingStyle", flag(_program, "lineCouplerNewProgrammingStyle"))
 			.attr("LegacyKeepObjectTableGaps", flag(_program, "keepObjectTableGaps"))
 			.attr("DeviceInfoIgnoreRunState", flag(_program, "ignoreRunState"))
 			.attr("DeviceInfoIgnoreLoadedState", flag(_program, "ignoreLoadedState"))

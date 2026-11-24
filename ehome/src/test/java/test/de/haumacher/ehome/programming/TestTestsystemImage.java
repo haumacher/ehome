@@ -138,7 +138,7 @@ public class TestTestsystemImage extends SharedProjectTestCase {
 		return null;
 	}
 
-	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
+	static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new java.util.HashMap<>();
 		for (Object area : ((Project) project).getAreas()) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {

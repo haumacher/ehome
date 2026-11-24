@@ -312,6 +312,25 @@ what the plan computes. Not verified before the first download:
   written up to its end with zeros, so that its stamp's CRC describes the memory (the device held
   zeros there after ETS).
 
+## The mask configuration of a program (couplers 0912 and 091A; haumacher/ehome #229)
+
+The features, resources, memory and generic load procedures of a mask version are a configuration
+(ETS: `HawkConfigurationData`); a mask may describe itself more than once, the further ones marked
+`LegacyVersion="1"`. What is in effect for a program is `MaskVersion#getConfiguration(Program)`
+(`Program#getMaskConfiguration()`), and every use of a mask for a program goes through it: the
+download planner, the image, the read-out, the comparison with the device, the read-back and the
+virtual device of the tooling. It is the current configuration (the first not marked legacy), except
+on a mask managed as BCU 1 (`Bcu1`) with one configuration whose load state machines are controlled
+through properties (`PropertyMappedLsms` 1) and one without: the coupler masks 0912 and 091A
+describe themselves once per programming style of the program (comments in `knx_master.xml`), and
+which of the two the master data mark legacy depends on their version (ETS 4 marks the new style
+legacy, ETS 6 the old style of 091A). There the program's `Options@LineCoupler0912NewProgrammingStyle`
+(`Program#lineCouplerNewProgrammingStyle`, absent: the old style) chooses: the new style the
+configuration through properties (merge points, `WriteProp` on object 6), the old style the one
+writing the coupler's memory (`WriteMem` 010E/011A, the filter table) without load states. The bus
+scan knows no program of a device and reads its load states by the current configuration. A program
+imported before gets its style from the next import of its program file.
+
 ## What a download does (mask 7.1, BIM M112, load state machines in memory; haumacher/ehome #22)
 
 A program of mask 7.1 (`MV-0701`, `PropertyMappedLsms` 0) is loaded by the same steps as one of mask

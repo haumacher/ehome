@@ -14,6 +14,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
@@ -188,7 +189,7 @@ public final class ReadOut {
 		if (mask == null) {
 			return;
 		}
-		for (MaskResource resource : mask.getResources()) {
+		for (MaskResource resource : mask.getResources(_program)) {
 			if (!"ApplicationId".equals(resource.getName()) || resource.getLocation() == null) {
 				continue;
 			}
@@ -224,7 +225,7 @@ public final class ReadOut {
 	 * in memory every one the mask names.
 	 */
 	private void loadStates() {
-		MaskVersion mask = _program == null ? null : _program.getMask();
+		MaskConfiguration mask = _program == null ? null : _program.getMaskConfiguration();
 		if (mask == null) {
 			return;
 		}
@@ -345,7 +346,7 @@ public final class ReadOut {
 		if (_program == null || (addressBlock == null && associationBlock == null)) {
 			return;
 		}
-		boolean propertyMapped = _program.getMask() != null && LoadStateMachines.propertyMapped(_program.getMask());
+		boolean propertyMapped = LoadStateMachines.propertyMapped(_program.getMaskConfiguration());
 		_listener.step(de.haumacher.ehome.programming.I18NConstants.BLOCK_ADDRESS_TABLE);
 		Integer addressTable = null;
 		if (addressBlock != null) {

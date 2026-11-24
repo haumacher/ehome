@@ -43,7 +43,6 @@ import de.haumacher.ehome.model.operational.FloatingPointType;
 import de.haumacher.ehome.model.operational.IPAddressType;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Location;
-import de.haumacher.ehome.model.operational.MaskFeature;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Option;
@@ -449,15 +448,7 @@ public class ReadBack {
 	}
 
 	private static boolean propertyMapped(Program program) {
-		if (program.getMask() == null) {
-			return false;
-		}
-		for (MaskFeature feature : program.getMask().getFeatures()) {
-			if ("PropertyMappedLsms".equals(feature.getName()) && Integer.valueOf(1).equals(feature.getValue())) {
-				return true;
-			}
-		}
-		return false;
+		return LoadStateMachines.propertyMapped(program.getMaskConfiguration());
 	}
 
 	/**
@@ -821,7 +812,7 @@ public class ReadBack {
 			if (table == null || table.stateMachine() != null || program == null || program.getMask() == null) {
 				return null;
 			}
-			for (MaskResource resource : program.getMask().getResources()) {
+			for (MaskResource resource : program.getMask().getResources(program)) {
 				if ("GroupObjectTable".equals(resource.getName())) {
 					GroupTables.ObjectTableFormat format = GroupTables.ObjectTableFormat.byFlavour(resource.getFlavour());
 					if (format != null) {
@@ -1830,7 +1821,7 @@ public class ReadBack {
 			return 0;
 		}
 		GroupTables.ObjectTableFormat format = null;
-		for (MaskResource resource : program.getMask().getResources()) {
+		for (MaskResource resource : program.getMask().getResources(program)) {
 			if ("GroupObjectTable".equals(resource.getName())) {
 				format = GroupTables.ObjectTableFormat.byFlavour(resource.getFlavour());
 			}

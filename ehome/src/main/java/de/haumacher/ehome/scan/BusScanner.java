@@ -16,6 +16,7 @@ import com.top_logic.model.TLModule;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.MaskVersions;
 import de.haumacher.ehome.programming.download.BusException;
@@ -462,10 +463,13 @@ public class BusScanner {
 			hardwareType = set(property(reader, DEVICE_OBJECT, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes));
 			orderInfo = text(set(property(reader, DEVICE_OBJECT, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes)));
 			MaskVersion mask = descriptor == null ? null : mask(descriptor.intValue());
-			if (mask != null && !LoadStateMachines.propertyMapped(mask)) {
+			// The scan knows no program of the device: the current configuration of its mask describes it
+			// (a program's style selects among the configurations of a coupler mask, haumacher/ehome #229).
+			MaskConfiguration configuration = mask == null ? null : mask.getCurrentConfiguration();
+			if (configuration != null && !LoadStateMachines.propertyMapped(configuration)) {
 				// A mask whose load state machines are controlled in memory (mask 7.1, BIM M112): the
 				// state of each is a byte of the memory (haumacher/ehome #22).
-				for (LoadStateMachines.InMemory lsm : LoadStateMachines.inMemory(mask)) {
+				for (LoadStateMachines.InMemory lsm : LoadStateMachines.inMemory(configuration)) {
 					try {
 						byte[] state = reader.readMemory(lsm.status(), 1);
 						if (state.length > 0) {
