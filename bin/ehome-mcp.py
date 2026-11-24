@@ -42,9 +42,10 @@ def token(path):
 
 class Session:
 
-	def __init__(self, url, secret):
+	def __init__(self, url, secret, timeout):
 		self.url = url
 		self.secret = secret
+		self.timeout = timeout
 		self.session = None
 		self.next_id = 0
 
@@ -54,7 +55,7 @@ class Session:
 		request.add_header("Content-Type", "application/json")
 		request.add_header("Accept", "application/json, text/event-stream")
 		try:
-			with urllib.request.urlopen(request, timeout=120) as response:
+			with urllib.request.urlopen(request, timeout=self.timeout) as response:
 				if self.session is None:
 					self.session = response.headers.get("mcp-session-id")
 				return response.read().decode("utf-8")
@@ -118,6 +119,8 @@ def main():
 	parser = argparse.ArgumentParser(description="Call the MCP endpoint of E-Home.")
 	parser.add_argument("--url", default=os.environ.get("EHOME_MCP_URL", "http://localhost:8080/ehome/mcp"))
 	parser.add_argument("--token-file", default="~/.config/ehome/mcp-token")
+	parser.add_argument("--timeout", type=float, default=900,
+		help="seconds to wait for an answer (a read-out over the bus takes minutes); default 900")
 	sub = parser.add_subparsers(dest="cmd", required=True)
 	tools = sub.add_parser("tools")
 	tools.add_argument("--full", action="store_true", help="descriptions and input schemas")
@@ -129,7 +132,7 @@ def main():
 	read.add_argument("uri")
 	args = parser.parse_args()
 
-	session = Session(args.url.rstrip("/"), token(args.token_file))
+	session = Session(args.url.rstrip("/"), token(args.token_file), args.timeout)
 	session.open()
 	try:
 		if args.cmd == "tools":
