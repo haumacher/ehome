@@ -191,6 +191,86 @@ public class SnapshotTools {
 	}
 
 	/**
+	 * The memory of a stored snapshot.
+	 */
+	@ToolMethod(description = "Answers the memory of a stored snapshot of a device (listSnapshots, readOutDevice)"
+		+ " as it was read, for analysing a read-out: every range read, 16 bytes per line in hex with the address"
+		+ " of the line, \"??\" for a byte that could not be read; the device descriptor, program identity and"
+		+ " version, the load states, the addresses of the address and association tables, the properties read"
+		+ " (object/property: hex) and the notes of the read-out. 'from' and 'to' (hex addresses, e.g. \"0100\","
+		+ " \"01FF\") limit the memory to that range. Reads the project only, never the bus.",
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
+	public ToolResult snapshotMemory(
+			@P("The snapshot") TLObject snapshot,
+			@P(value = "The first address to answer, in hex; default the first byte read", required = false) String from,
+			@P(value = "The last address to answer, in hex; default the last byte read", required = false) String to) {
+		if (!ExtIds.isA(snapshot, Snapshots.TYPE)) {
+			return failure("'" + id(snapshot) + "' is no snapshot of a device.");
+		}
+		int first;
+		int last;
+		try {
+			first = from == null || from.isBlank() ? 0 : Integer.parseInt(from.trim(), 16);
+			last = to == null || to.isBlank() ? Snapshot.MEMORY_SIZE - 1 : Integer.parseInt(to.trim(), 16);
+		} catch (NumberFormatException ex) {
+			return failure("'from' and 'to' are hex addresses such as \"0100\".");
+		}
+		if (first < 0 || last >= Snapshot.MEMORY_SIZE || first > last) {
+			return failure("The range " + from + " to " + to + " is no range of the 64 KB address space.");
+		}
+		Snapshot loaded = Snapshots.load(snapshot);
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("device", deviceRef(Snapshots.device(snapshot)));
+		result.put("snapshot", snapshot(snapshot));
+		result.put("descriptor", loaded.getDescriptor());
+		result.put("program", loaded.getProgram());
+		result.put("programVersion", loaded.getProgramVersion());
+		List<String> loadStates = new ArrayList<>();
+		for (Snapshot.LoadState state : loaded.getLoadStates()) {
+			loadStates.add(state.stateMachine() + ": " + (state.state() == null ? "not read" : state.state()));
+		}
+		result.put("loadStates", loadStates);
+		result.put("addressTable", hexAddress(loaded.getAddressTable()));
+		result.put("associationTable", hexAddress(loaded.getAssociationTable()));
+		List<Object> ranges = new ArrayList<>();
+		for (Snapshot.Range range : loaded.ranges()) {
+			int start = Math.max(range.address(), first);
+			int end = Math.min(range.end() - 1, last);
+			if (start > end) {
+				continue;
+			}
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("from", String.format("%04X", start));
+			entry.put("to", String.format("%04X", end));
+			List<String> lines = new ArrayList<>();
+			for (int line = start; line <= end; line = (line & ~0xF) + 0x10) {
+				int lineEnd = Math.min((line & ~0xF) + 0xF, end);
+				StringBuilder text = new StringBuilder(String.format("%04X:", line));
+				for (int address = line; address <= lineEnd; address++) {
+					Integer value = loaded.byteAt(address);
+					text.append(' ').append(value == null ? Snapshot.UNKNOWN : String.format("%02X", value));
+				}
+				lines.add(text.toString());
+			}
+			entry.put("lines", lines);
+			ranges.add(entry);
+		}
+		result.put("memory", ranges);
+		Map<String, Object> properties = new LinkedHashMap<>();
+		for (Map.Entry<String, byte[]> property : loaded.getProperties().entrySet()) {
+			properties.put(property.getKey(), Snapshot.hex(property.getValue()));
+		}
+		result.put("properties", properties);
+		result.put("notes", loaded.getNotes());
+		return answer(ranges.isEmpty() ? "The snapshot holds no memory in that range:"
+			: "The memory of the snapshot as read:", result);
+	}
+
+	private static String hexAddress(Integer address) {
+		return address == null ? null : String.format("%04X", address);
+	}
+
+	/**
 	 * Takes a snapshot over into the project.
 	 */
 	@ToolMethod(description = "WRITES THE PROJECT, not the bus. Takes a stored snapshot of a device over into"

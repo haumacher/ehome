@@ -47,6 +47,7 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-snapshots__...`, `ehome-w
 | `readOutDevice` | snapshot | `ReadOutJob` as the command "Read out" (tab Programming): the device read over the project's path to the bus, nothing written into it, the snapshot stored with the device, compared with the download image; the view's check (`Write` on the device, `compareVeto`) (haumacher/ehome #193) |
 | `listSnapshots` | - | the snapshots of a device, newest first (`Snapshots.of`), with label, summary, completeness |
 | `compareSnapshot` | - | `SnapshotFunctions.compare` (the panel's "Compare"): summary, every differing byte run (block, addresses, device's and plan's bytes), the messages per block, nothing truncated |
+| `snapshotMemory` | - | the memory of a snapshot as read (16 bytes per line, `??` for a byte not readable; optionally `from`/`to` in hex), the descriptor, program identity and version, load states, table addresses, properties and notes (#228) |
 | `takeOverSnapshot` | yes | `SnapshotTakeOver` (the panel's "Take over"): parameter values, connections and flags of the snapshot into the project, the device untouched; `Write` on the snapshot; then the comparison |
 | `listGroupAddresses` | - | ranges, and per address (paged) name, identifier, description, type, range, functions, connections with device, room, object, function, channel, direction |
 | `createGroupAddress` | yes, dry run | `GroupAddresses.veto` / `nextFree` / `create`, in the project's notation |

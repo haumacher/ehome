@@ -61,6 +61,7 @@ import de.haumacher.ehome.programming.download.DownloadService;
 import de.haumacher.ehome.programming.download.Operation;
 import de.haumacher.ehome.programming.download.ProgrammingReport;
 import de.haumacher.ehome.programming.download.SnapshotFunctions;
+import de.haumacher.ehome.programming.download.Snapshot;
 import de.haumacher.ehome.programming.download.Snapshots;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
@@ -88,7 +89,7 @@ public class TestSnapshotTools extends BasicTestCase {
 
 	public void testToolsAreBuiltWithTheirModes() {
 		List<Tool> tools = AnnotatedTools.from(new SnapshotTools());
-		assertEquals(4, tools.size());
+		assertEquals(5, tools.size());
 		for (Tool tool : tools) {
 			ToolMode expected = tool.name().endsWith("readOutDevice") || tool.name().endsWith("takeOverSnapshot")
 				? ToolMode.EXTERNAL : ToolMode.READ;
@@ -116,6 +117,44 @@ public class TestSnapshotTools extends BasicTestCase {
 		assertEquals(readOut.text(), Boolean.TRUE, comparison.get("complete"));
 		assertEquals(readOut.text(), List.of(), comparison.get("differences"));
 		assertFalse(((List<?>) comparison.get("messages")).isEmpty());
+
+		// The memory as read (#228): every byte of the snapshot, 16 per line, as the view stores it.
+		Snapshot read = as(_installer, () -> Snapshots.load(first));
+		ToolResult memory = as(_viewer, () -> tools.snapshotMemory(first, null, null));
+		assertFalse(memory.text(), memory.failed());
+		Map<?, ?> dump = json(memory);
+		List<?> ranges = (List<?>) dump.get("memory");
+		assertEquals(read.ranges().size(), ranges.size());
+		int bytes = 0;
+		for (int i = 0; i < ranges.size(); i++) {
+			Map<?, ?> range = (Map<?, ?>) ranges.get(i);
+			Snapshot.Range expected = read.ranges().get(i);
+			assertEquals(String.format("%04X", expected.address()), range.get("from"));
+			assertEquals(String.format("%04X", expected.end() - 1), range.get("to"));
+			StringBuilder hex = new StringBuilder();
+			for (Object line : (List<?>) range.get("lines")) {
+				String text = (String) line;
+				assertTrue(text, text.matches("[0-9A-F]{4}:( ([0-9A-F]{2}|\\?\\?)){1,16}"));
+				hex.append(text.substring(5));
+			}
+			assertEquals(expected.hex(), hex.toString().replace(" ", ""));
+			bytes += expected.data().length;
+		}
+		assertTrue(bytes > 0);
+		assertEquals(read.getProgram(), dump.get("program"));
+		// A range limits the answer to its bytes; a line starts at the range's first address.
+		Snapshot.Range firstRange = read.ranges().get(0);
+		String from = String.format("%04X", firstRange.address() + 1);
+		String to = String.format("%04X", firstRange.address() + 3);
+		Map<?, ?> part = json(as(_viewer, () -> tools.snapshotMemory(first, from, to)));
+		List<?> partRanges = (List<?>) part.get("memory");
+		assertEquals(1, partRanges.size());
+		List<?> partLines = (List<?>) ((Map<?, ?>) partRanges.get(0)).get("lines");
+		String partText = partLines.stream().map(String.class::cast).reduce("", (a, b) -> a + b.substring(5));
+		assertEquals(firstRange.hex().substring(2, 8), partText.replace(" ", ""));
+		assertTrue(((String) partLines.get(0)).startsWith(from + ":"));
+		assertTrue(as(_viewer, () -> tools.snapshotMemory(first, "zz", null)).failed());
+		assertTrue(as(_viewer, () -> tools.snapshotMemory(first, "0200", "0100")).failed());
 
 		// The project loses a connection: the snapshot differs in the tables, with both bytes.
 		int connections = connections().size();
@@ -202,6 +241,7 @@ public class TestSnapshotTools extends BasicTestCase {
 		assertTrue(as(_installer, () -> tools.readOutDevice(AssistantFixture.toolContext(), notADevice)).failed());
 		assertTrue(as(_installer, () -> tools.listSnapshots(notADevice)).failed());
 		assertTrue(as(_installer, () -> tools.compareSnapshot(_device)).failed());
+		assertTrue(as(_installer, () -> tools.snapshotMemory(_device, null, null)).failed());
 		assertTrue(as(_installer, () -> tools.takeOverSnapshot(AssistantFixture.toolContext(), _device)).failed());
 	}
 
