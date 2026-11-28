@@ -223,7 +223,7 @@ never variables of Tomcat's JVM.
 
 Users sign in without a password with a passkey (the engine module `tl-security-passkey`,
 haumacher/ehome #86): each user adds one in the settings (Security, "Sign in with passkey"), the
-login dialog offers "Sign in with passkey", an administrator sees and deletes the passkeys of every
+login page offers "Sign in with passkey", an administrator sees and deletes the passkeys of every
 account in the account administration. A passkey is bound to the host of the address the users open
 in the browser, which the installation states and nothing derives: set `tl_host` in
 `/etc/ehome/ehome.env` to that address, e.g. `tl_host=https://ehome.example.org` (the public `https`

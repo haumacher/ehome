@@ -405,6 +405,14 @@
 			local-network="%EHOME_LOCAL_NETWORK%"
 			programming-write-enabled="%EHOME_PROGRAMMING_WRITE_ENABLED%"
 		/>
+		<!--
+			E-Home shows nothing to a visitor: a session that belongs to no account sees the engine's
+			login page, whatever the URL names, and the requested URL is held, so a deep link leads to
+			its page right after the login.
+		-->
+		<config config:interface="com.top_logic.layout.view.ViewConfig"
+			login-view="login-page.view.xml"
+		/>
 		<config config:interface="com.top_logic.basic.db.schema.setup.config.ApplicationTypes">
 			<type-systems>
 				<type-system name="Default">

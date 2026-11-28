@@ -365,7 +365,7 @@ port, so it keeps its data in `ehome/tmp/`, not in the root `tmp/` the user work
 for a throwaway database. To start on a copy of the data: `-Dh2_name=<dir>/h2;DB_CLOSE_ON_EXIT=FALSE
 -Dtl_storage_path=<dir>/app-data`.
 
-Open `http://localhost:8080/ehome/view/` and log in through the in-app dialog as
+Open `http://localhost:8080/ehome/view/` and log in on the login page it shows as
 `root` / `root1234` (the initial password is read from `tl_initial_password` — environment
 variable or `-D` system property — and applies only to a fresh `tmp/`). The classic
 `/servlet/LayoutServlet` only shows the engine's administration. `-Dtl.port=...` changes the port.
