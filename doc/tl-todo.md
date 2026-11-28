@@ -46,12 +46,15 @@ Shipped, and their workarounds removed:
   `name-access-inventory.txt` is empty;
 - the composition descendants in TL-Script (TL #30192): `SharedObjects` is gone, the partition of
   the parts of an application program is declared in `etsImporter.xml` with `objectDescendants`;
+- a write in its own transactions as a tool (TL #30531, closed invalid with the engine's way):
+  `readOutDevice` and `takeOverSnapshot` are `DATA_WRITE` tools, the take-over records the revision of
+  the outermost commit as the device's download state in an after-commit action (`ReadBack.takeOver`);
 - nothing to remove: a declared grouping by a withheld column (TL #30530), an abstract class created by
   a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
   as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
   it, the bundled catalog serves).
-Shipped, and to be taken up by the app (their entries below): the OAuth sign-in at the MCP endpoint
-(TL #30274); TL #30531 was closed as invalid with the engine's way (its entry below).
+Shipped, and to be taken up by the app (its entry below): the OAuth sign-in at the MCP endpoint
+(TL #30274).
 Still open: TL #29884, #29885, #30048, #30105, #30217, #30311.
 
 Before (8.0.0-alpha13.823, 2026-11-15; the build's tickets from the commits between
@@ -342,15 +345,3 @@ could not be filed on 2026-11-20 because the Trac host was not reachable from th
 - TL #30048: see above (agent access: the follow-ups of the module).
 - TL #30217: see above (a rebuilt tree table keeps its selection without opening its parents).
 - TL #30311: see above (memory of a product import committed step by step).
-
-## No tool mode for a write in its own transactions (TL #30531)
-
-The MCP tools `readOutDevice` and `takeOverSnapshot` (`de.haumacher.ehome.ai.SnapshotTools`) run in
-`ToolMode.EXTERNAL`: `DATA_WRITE` would run them inside the engine's transaction, and the take-over
-(`ReadBack.takeOver`) would then record the revision before its own change as the device's downloaded
-state. The approval prompt of EXTERNAL speaks of sending data to an outside system, which is wrong for
-the take-over. TL #30531 was closed as invalid: a tool in `DATA_WRITE` runs in the turn's transaction,
-and an `AfterCommitAction` registered on `CommitActions` (TL #30218) receives the revision of the
-outermost commit, so the code writes the revision after the commit in both cases. **To do:** switch
-both tools to `DATA_WRITE`, record the downloaded state in an after-commit action, and check that a
-taken-over device does not show as changed since its download.

@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import junit.extensions.TestSetup;
 import junit.framework.Test;
@@ -28,6 +29,7 @@ import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
 import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
@@ -49,7 +51,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.ai.SnapshotTools;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.BusPath;
@@ -66,6 +70,7 @@ import de.haumacher.ehome.programming.download.Snapshots;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 import de.haumacher.ehome.runtime.Json;
+import de.haumacher.ehome.scan.SnapshotTakeOver;
 
 /**
  * The snapshot tools of the assistant (haumacher/ehome #193, {@link SnapshotTools}) on the device of
@@ -74,7 +79,10 @@ import de.haumacher.ehome.runtime.Json;
  * equal to the plan, a removed connection shows as differing table bytes with the device's and the
  * plan's values, the list names the snapshots newest first, and the take-over gives the project the
  * connection back, after which the snapshot compares equal. A viewer reads, compares and lists but is
- * refused the read-out and the take-over; a take-over in a turn that changed data before is refused.
+ * refused the read-out and the take-over. The take-over runs in the turn's transaction as a
+ * <code>DATA_WRITE</code> call does and records the revision the turn commits as the device's download
+ * state, nothing when the turn is rolled back, and the revision of its own commit as the view's command
+ * (TL #30531).
  */
 @SuppressWarnings("javadoc")
 public class TestSnapshotTools extends BasicTestCase {
@@ -92,7 +100,7 @@ public class TestSnapshotTools extends BasicTestCase {
 		assertEquals(5, tools.size());
 		for (Tool tool : tools) {
 			ToolMode expected = tool.name().endsWith("readOutDevice") || tool.name().endsWith("takeOverSnapshot")
-				? ToolMode.EXTERNAL : ToolMode.READ;
+				? ToolMode.DATA_WRITE : ToolMode.READ;
 			assertEquals(tool.name(), expected, tool.mode());
 		}
 	}
@@ -183,8 +191,9 @@ public class TestSnapshotTools extends BasicTestCase {
 		}
 		assertTrue("A table differs: " + compared.text(), table);
 
-		// A second read-out; the list names both, newest first, as the panel does.
-		ToolResult second = as(_installer, () -> tools.readOutDevice(AssistantFixture.toolContext(), _device));
+		// A second read-out, as the turn of an agent runs it: in the turn's transaction, stored with its
+		// commit. The list names both, newest first, as the panel does.
+		ToolResult second = as(_installer, () -> inTurn(context -> tools.readOutDevice(context, _device), true, null));
 		assertFalse(second.text(), second.failed());
 		assertTrue(second.text(),
 			((Number) ((Map<?, ?>) json(second).get("comparison")).get("differingRuns")).intValue() > 0);
@@ -207,28 +216,72 @@ public class TestSnapshotTools extends BasicTestCase {
 		assertEquals(snapshotsBefore + 2, Snapshots.of(_device).size());
 		assertEquals(connections - 1, connections().size());
 
-		// Not inside a turn that changed data before: the take-over commits on its own.
-		ToolResult nested = as(_installer, () -> {
-			ToolContext context = AssistantFixture.toolContext();
-			context.transaction().begin();
-			try {
-				return tools.takeOverSnapshot(context, first);
-			} finally {
-				context.transaction().rollback();
-			}
-		});
-		assertTrue(nested.failed());
-		assertTrue(nested.text(), nested.text().contains("turn of its own"));
+		// A turn rolled back after the take-over: nothing taken over, nothing recorded as downloaded.
+		Object downloadedBefore = ((Device) _device).getDownloadRevision();
+		assertTrue("The removed connection is a change since the download.",
+			DeviceChanges.sinceDownload(_device).getCount() > 0);
+		ToolResult rolledBack = as(_installer, () -> inTurn(context -> tools.takeOverSnapshot(context, first), false, null));
+		assertFalse(rolledBack.text(), rolledBack.failed());
 		assertEquals(connections - 1, connections().size());
+		assertEquals(downloadedBefore, ((Device) _device).getDownloadRevision());
 
-		// The take-over gives the project the connection back; the snapshot then compares equal.
-		ToolResult takenOver = as(_installer, () -> tools.takeOverSnapshot(AssistantFixture.toolContext(), first));
+		// The take-over in the turn's transaction (DATA_WRITE, TL #30531) gives the project the connection
+		// back; the snapshot then compares equal, and the device holds what the project says in the
+		// revision the turn committed: nothing changed since its download.
+		long[] turnRevision = { 0 };
+		ToolResult takenOver =
+			as(_installer, () -> inTurn(context -> tools.takeOverSnapshot(context, first), true, turnRevision));
 		assertFalse(takenOver.text(), takenOver.failed());
 		Map<?, ?> after = json(takenOver);
 		assertFalse(((String) after.get("takenOver")).isBlank());
 		Map<?, ?> afterComparison = (Map<?, ?>) after.get("comparison");
 		assertEquals(takenOver.text(), 0, ((Number) afterComparison.get("differingRuns")).intValue());
 		assertEquals(connections, connections().size());
+		assertEquals(Long.valueOf(turnRevision[0]), ((Device) _device).getDownloadRevision());
+		assertEquals(0, DeviceChanges.sinceDownload(_device).getCount());
+		assertFalse(DeviceChanges.sinceDownload(_device).isChanged(_device));
+
+		// The view's command "Take over" in its own transaction: the revision it committed.
+		TLObject removedAgain = connections().get(0);
+		inTransaction(() -> DeviceSettings.disconnect(removedAgain));
+		assertTrue(DeviceChanges.sinceDownload(_device).getCount() > 0);
+		long beforeCommand = lastCommit();
+		as(_installer, () -> SnapshotTakeOver.takeOver(first));
+		assertEquals(connections, connections().size());
+		// Two commits: the take-over's, then the record of the revision it created.
+		assertEquals(beforeCommand + 2, lastCommit());
+		assertEquals(Long.valueOf(beforeCommand + 1), ((Device) _device).getDownloadRevision());
+		assertEquals(0, DeviceChanges.sinceDownload(_device).getCount());
+	}
+
+	/**
+	 * Runs a tool call as a turn of an agent runs a <code>DATA_WRITE</code> call: in the turn's
+	 * transaction, begun before the call and committed or rolled back after it.
+	 *
+	 * @param committed
+	 *        Where to put the commit number of the turn's commit, <code>null</code> for none.
+	 */
+	private static ToolResult inTurn(Function<ToolContext, ToolResult> call, boolean commit, long[] committed) {
+		ToolContext context = AssistantFixture.toolContext();
+		context.transaction().begin();
+		try {
+			ToolResult result = call.apply(context);
+			if (commit) {
+				context.transaction().commit();
+				if (committed != null) {
+					committed[0] = context.transaction().commitRevision().getCommitNumber();
+				}
+			} else {
+				context.transaction().rollback();
+			}
+			return result;
+		} finally {
+			context.transaction().close();
+		}
+	}
+
+	private static long lastCommit() {
+		return HistoryUtils.getLastRevision().getCommitNumber();
 	}
 
 	public void testNoDeviceNoSnapshot() {

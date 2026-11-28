@@ -76,11 +76,13 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-snapshots__...`, `ehome-w
 - **Answers** name what was created or changed by id and display text.
 - **The open project:** every tab of a project passes the project in the page selection; the
   agent hands its id to the tools, which take any object of the project as well.
-- **Own transactions:** `readOutDevice` and `takeOverSnapshot` have the mode `EXTERNAL` (asked
-  before each call like a change): they commit as the views' commands do, in transactions of their
-  own. The take-over records the revision it committed as the device's state
-  (`Device#downloadRevision`), which the transaction of a `DATA_WRITE` call would falsify; in a turn
-  that changed data before, it is refused.
+- **Transactions:** `readOutDevice` and `takeOverSnapshot` are `DATA_WRITE` tools like the other
+  changing ones: the transactions of the views' code run nested in the turn's, and the turn commits or
+  rolls back their changes with its others. The take-over records the revision of the outermost commit
+  as the device's state (`Device#downloadRevision`) in an after-commit action (`ReadBack.takeOver`,
+  TL #30531): the turn's revision as a tool, the command's own as the view's "Take over", nothing when
+  the turn is rolled back. The read-out reads the bus inside the open transaction, which holds no
+  database connection and no lock until the commit.
 - **Not a tool:** programming a device, deploying, writing to the bus; creating group ranges (the
   view creates a range with its name only and its bounds in the form: there is no rule to run yet,
   the agent names the command).

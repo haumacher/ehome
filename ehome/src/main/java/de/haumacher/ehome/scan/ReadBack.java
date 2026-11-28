@@ -20,10 +20,11 @@ import java.util.Map;
 import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.AfterCommitAction;
 import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.PersistencyLayer;
-import com.top_logic.knowledge.service.Revision;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.service.UpdateEvent;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
@@ -362,27 +363,38 @@ public class ReadBack {
 	/**
 	 * Decodes what was read into the device and, where the device then holds exactly what the
 	 * project says, records that state as downloaded (as a download would): the take-over of
-	 * "Take over" from the bus (haumacher/ehome #180) and from a snapshot (haumacher/ehome #193). Runs
-	 * transactions of its own.
+	 * "Take over" from the bus (haumacher/ehome #180) and from a snapshot (haumacher/ehome #193).
+	 *
+	 * <p>
+	 * Runs in a transaction of its own, or nested in the caller's (the turn of an agent, TL #30531).
+	 * The revision the device then corresponds to is the one the outermost transaction commits: it is
+	 * recorded after that commit ({@link Transaction#afterCommit(AfterCommitAction)}), in a transaction
+	 * of its own; a rolled back change records nothing.
+	 * </p>
 	 */
 	public static Report takeOver(TLObject device, Memory memory) {
 		String deviceLabel = MetaLabelProvider.INSTANCE.getLabel(device);
 		Report report;
-		long committed;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_READ_BACK__DEVICE.fill(deviceLabel))) {
 			report = apply(device, memory);
+			if (report.identical()) {
+				ResKey message = I18NConstants.COMMIT_READ_BACK_IDENTICAL__DEVICE.fill(deviceLabel);
+				// The device holds what the project says in the revision this change is committed with.
+				tx.afterCommit(committed -> DownloadRecord.record(device, DownloadPlan.Kind.FULL,
+					committedRevision(committed), message));
+			}
 			tx.commit();
-			// A read-back that changed nothing commits no revision: the project is as the thread sees it.
-			Revision revision = tx.getCommitRevision();
-			committed = revision != null ? revision.getCommitNumber() : HistoryUtils.getSessionRevision().getCommitNumber();
-		}
-		if (report.identical()) {
-			// The device holds what the project says in the revision just committed.
-			DownloadRecord.record(device, DownloadPlan.Kind.FULL, committed,
-				I18NConstants.COMMIT_READ_BACK_IDENTICAL__DEVICE.fill(deviceLabel));
 		}
 		return report;
+	}
+
+	/**
+	 * The commit number of the revision an outermost commit created; for a commit that changed
+	 * nothing, the revision the thread sees, which holds the project as it is.
+	 */
+	private static long committedRevision(UpdateEvent committed) {
+		return committed != null ? committed.getCommitNumber() : HistoryUtils.getSessionRevision().getCommitNumber();
 	}
 
 	/**

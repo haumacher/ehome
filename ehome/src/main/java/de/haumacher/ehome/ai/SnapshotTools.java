@@ -59,15 +59,14 @@ import de.haumacher.ehome.scan.SnapshotTakeOver;
  * </p>
  *
  * <p>
- * The read-out and the take-over have the mode {@link ToolMode#EXTERNAL}, not
- * {@link ToolMode#DATA_WRITE}: both commit in transactions of their own, as the views run them. The
- * take-over records the revision it committed as the state of the device
- * (<code>Device#downloadRevision</code>, the reference of the changes since the last download); in the
- * transaction a <code>DATA_WRITE</code> call runs in, it would record the revision before its own
- * change. The read-out talks to the bus for seconds to minutes and stores what it read when it is done,
- * as the view's job does, also when a later call of the turn fails. The mode asks the user before each
- * call, as a <code>DATA_WRITE</code> call is asked. A take-over in a turn whose transaction a writing
- * call has opened already is refused.
+ * The read-out and the take-over have the mode {@link ToolMode#DATA_WRITE}: they change the project
+ * only, in the transaction of the turn, committed with the turn's other changes or rolled back with
+ * them. The transactions the views' code opens run nested in it. The take-over records the revision
+ * the turn commits as the state of the device (<code>Device#downloadRevision</code>, the reference of
+ * the changes since the last download) after that commit (TL #30531, see
+ * {@link de.haumacher.ehome.scan.ReadBack#takeOver(TLObject, de.haumacher.ehome.scan.ReadBack.Memory)}).
+ * The read-out talks to the bus for seconds to minutes inside the open transaction; the transaction
+ * holds no database connection and no lock until its commit, the snapshot is a new object.
  * </p>
  */
 public class SnapshotTools {
@@ -86,7 +85,7 @@ public class SnapshotTools {
 		+ " snapshot's id, its label and summary, and the comparison with the download image (as"
 		+ " compareSnapshot). Refused while the path to the bus cannot be used, the device has no address or"
 		+ " no image, or the account may not change the project. " + ToolSupport.REFUSALS,
-		mode = ToolMode.EXTERNAL, group = ToolGroups.DATA_WRITE, check = "readOutRefusal")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, check = "readOutRefusal")
 	public ToolResult readOutDevice(ToolContext context,
 			@P("The device") TLObject device) {
 		ToolResult refusal = readOutVeto(context, device);
@@ -279,10 +278,9 @@ public class SnapshotTools {
 		+ " holds replace the device's in the project; where the device then holds exactly what the project"
 		+ " says, the project records it as downloaded. The device itself is not touched. Answers what was"
 		+ " taken over and the comparison of the snapshot with the download image afterwards (as"
-		+ " compareSnapshot). Refused for a snapshot of another program or mask, if the account may not change"
-		+ " the project, and in a turn that has changed data before (it commits on its own; call it in a turn"
-		+ " of its own). " + ToolSupport.REFUSALS,
-		mode = ToolMode.EXTERNAL, group = ToolGroups.DATA_WRITE, check = "takeOverRefusal")
+		+ " compareSnapshot). Refused for a snapshot of another program or mask, and if the account may not"
+		+ " change the project. " + ToolSupport.REFUSALS,
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, check = "takeOverRefusal")
 	public ToolResult takeOverSnapshot(ToolContext context,
 			@P("The snapshot to take over") TLObject snapshot) {
 		ToolResult refusal = takeOverVeto(context, snapshot);
@@ -300,7 +298,7 @@ public class SnapshotTools {
 		result.put("snapshot", snapshot(snapshot));
 		result.put("takenOver", text);
 		result.put("comparison", comparison(snapshot));
-		return answer("Taken over into the project and saved; the device was not touched.", result);
+		return answer("Taken over into the project; the device was not touched.", result);
 	}
 
 	/**
@@ -318,12 +316,6 @@ public class SnapshotTools {
 		ToolResult denied = writeDenied(context, snapshot);
 		if (denied != null) {
 			return denied;
-		}
-		if (context.transaction().isActive()) {
-			return failure("This turn has changed data already, in a transaction that is not saved yet. The"
-				+ " take-over saves in transactions of its own and records the saved revision as the device's"
-				+ " state; it cannot run inside another change. Call takeOverSnapshot in a turn of its own."
-				+ " Nothing was changed.");
 		}
 		return null;
 	}

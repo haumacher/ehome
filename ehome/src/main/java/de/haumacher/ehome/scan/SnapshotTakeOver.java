@@ -30,8 +30,9 @@ import de.haumacher.ehome.programming.download.Snapshots;
  *
  * <p>
  * As the TL-Script function <code>snapshotTakeOver(snapshot)</code> (registered in
- * <code>ehomeConf.config.xml</code>): returns what was taken over, for a person. It runs transactions
- * of its own and must not run in one.
+ * <code>ehomeConf.config.xml</code>): returns what was taken over, for a person. It runs in a
+ * transaction of its own, or nested in the caller's (a tool in the turn of an agent); the device's
+ * download state is recorded after the outermost commit.
  * </p>
  */
 public class SnapshotTakeOver extends GenericMethod {
