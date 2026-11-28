@@ -2,9 +2,10 @@
 # Copyright (c) 2026 Bernhard Haumacher
 #
 # Drives a running E-Home session through its agent endpoint (doc/agent-access.md): the user issues
-# an access token in E-Home (development menu, "Agent access") and hands over the invitation, one line
-# "<url>/agent-api tlagt_...". The invitation is read from the file named by --invitation (default
-# ~/.config/ehome/agent-invitation, keep it at mode 600) or from the variable EHOME_AGENT_INVITATION;
+# an access token in E-Home (Settings, Access tokens, permission "Operate the user interface") and
+# hands over the invitation, one line "<url>/agent-api tlpat_...". The invitation is read from the file
+# named by --invitation (default ~/.config/ehome/agent-invitation, keep it at mode 600) or from the
+# variable EHOME_AGENT_INVITATION;
 # the token is never printed.
 #
 #   ehome-agent.py windows                       the windows of the session
@@ -31,10 +32,10 @@ def invitation(path):
 			with open(os.path.expanduser(path), encoding="utf-8") as f:
 				text = f.read()
 		except OSError as e:
-			sys.exit("ehome-agent: no invitation (%s); issue a token in E-Home, development menu, Agent access" % e)
+			sys.exit("ehome-agent: no invitation (%s); issue a token in E-Home, Settings, Access tokens" % e)
 	parts = text.split()
-	if len(parts) != 2 or not parts[1].startswith("tlagt_"):
-		sys.exit("ehome-agent: the invitation is not '<url>/agent-api tlagt_...'")
+	if len(parts) != 2 or not parts[1].startswith("tlpat_"):
+		sys.exit("ehome-agent: the invitation is not '<url>/agent-api tlpat_...'")
 	return parts[0].rstrip("/"), parts[1]
 
 
@@ -50,7 +51,7 @@ def call(base, token, method, path, body=None):
 	except urllib.error.HTTPError as e:
 		if e.code == 401:
 			sys.exit("ehome-agent: the token is not admitted (withdrawn, expired, or its session has ended): "
-				"issue a new one in E-Home, development menu, Agent access")
+				"issue a new one in E-Home, Settings, Access tokens")
 		detail = e.read().decode("utf-8", "replace")
 		sys.exit("ehome-agent: %s %s answered %d: %s" % (method, path, e.code, detail))
 	except urllib.error.URLError as e:

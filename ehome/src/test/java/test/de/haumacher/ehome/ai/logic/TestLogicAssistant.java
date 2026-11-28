@@ -39,26 +39,27 @@ import com.top_logic.basic.module.services.ServletContextService;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.model.TLObject;
-import com.top_logic.tl.ai.core.access.AccessTokens;
-import com.top_logic.tl.ai.core.agent.AgentFactory;
-import com.top_logic.tl.ai.core.agent.AgentRuntimeService;
-import com.top_logic.tl.ai.core.agent.ToolContext;
-import com.top_logic.tl.ai.core.agent.TransactionScope;
-import com.top_logic.tl.ai.core.agent.approval.ApprovalCallback;
-import com.top_logic.tl.ai.core.execution.AgentRunner;
-import com.top_logic.tl.ai.core.message.ContentPart;
-import com.top_logic.tl.ai.core.message.Conversation;
-import com.top_logic.tl.ai.core.message.TextContent;
-import com.top_logic.tl.ai.core.message.ToolCall;
-import com.top_logic.tl.ai.core.message.UserMessage;
-import com.top_logic.tl.ai.core.provider.ProviderRequest;
-import com.top_logic.tl.ai.core.provider.ScriptedModel.Reply;
-import com.top_logic.tl.ai.core.provider.ScriptedModel.Script;
-import com.top_logic.tl.ai.core.provider.ScriptedProvider;
-import com.top_logic.tl.ai.core.security.RunEntryPoint;
-import com.top_logic.tl.ai.core.security.RunPrincipal;
-import com.top_logic.tl.ai.core.security.RunSecurity;
-import com.top_logic.tl.ai.tool.api.CancellationToken;
+import com.top_logic.ai.core.access.AccessTokenAuthenticator;
+import com.top_logic.element.accesstoken.AccessTokens;
+import com.top_logic.ai.core.agent.AgentFactory;
+import com.top_logic.ai.core.agent.AgentRuntimeService;
+import com.top_logic.ai.core.agent.ToolContext;
+import com.top_logic.ai.core.agent.TransactionScope;
+import com.top_logic.ai.core.agent.approval.ApprovalCallback;
+import com.top_logic.ai.core.execution.AgentRunner;
+import com.top_logic.ai.core.message.ContentPart;
+import com.top_logic.ai.core.message.Conversation;
+import com.top_logic.ai.core.message.TextContent;
+import com.top_logic.ai.core.message.ToolCall;
+import com.top_logic.ai.core.message.UserMessage;
+import com.top_logic.ai.core.provider.ProviderRequest;
+import com.top_logic.ai.core.provider.ScriptedModel.Reply;
+import com.top_logic.ai.core.provider.ScriptedModel.Script;
+import com.top_logic.ai.core.provider.ScriptedProvider;
+import com.top_logic.ai.core.security.RunEntryPoint;
+import com.top_logic.ai.core.security.RunPrincipal;
+import com.top_logic.ai.core.security.RunSecurity;
+import com.top_logic.ai.tool.api.CancellationToken;
 import com.top_logic.util.TLContext;
 
 import de.haumacher.ehome.model.runtime.Action;
@@ -236,7 +237,8 @@ public class TestLogicAssistant extends BasicTestCase {
 	}
 
 	private String token(Person owner) {
-		return AccessTokens.create(owner, "test", null).plain();
+		return AccessTokens.create(owner, "test", null,
+			List.of(AccessTokenAuthenticator.AGENT_ENDPOINTS_PERMISSION), null).plain();
 	}
 
 	private String open(String token) throws Exception {

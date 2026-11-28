@@ -11,8 +11,8 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-import com.top_logic.tl.ai.tool.api.AnnotatedTools;
-import com.top_logic.tl.ai.tool.api.ToolMethod;
+import com.top_logic.ai.tool.api.AnnotatedTools;
+import com.top_logic.ai.tool.api.ToolMethod;
 
 import de.haumacher.ehome.ai.BuildingTools;
 import de.haumacher.ehome.ai.DeviceTools;

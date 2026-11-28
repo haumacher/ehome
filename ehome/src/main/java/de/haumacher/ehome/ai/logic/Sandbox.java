@@ -17,7 +17,7 @@ import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
-import com.top_logic.tl.ai.core.agent.ToolContext;
+import com.top_logic.ai.core.agent.ToolContext;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.TLContextManager;
 

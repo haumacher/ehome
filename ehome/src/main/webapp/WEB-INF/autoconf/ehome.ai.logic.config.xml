@@ -21,31 +21,31 @@
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
 >
 	<services>
-		<config service-class="com.top_logic.tl.ai.tool.api.registry.ToolRegistryService">
+		<config service-class="com.top_logic.ai.tool.api.registry.ToolRegistryService">
 			<instance>
 				<tool-factories>
 					<factory name="ehome-rules">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.logic.RuleTools"
 						/>
 					</factory>
 					<factory name="ehome-simulation">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.logic.SimulationTools"
 						/>
 					</factory>
 					<factory name="ehome-diagnosis">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.logic.DiagnosisTools"
 						/>
 					</factory>
 					<factory name="ehome-functions">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.logic.FunctionTools"
 						/>
 					</factory>
 					<factory name="ehome-blocks">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.logic.BlockTools"
 						/>
 					</factory>
@@ -53,7 +53,7 @@
 			</instance>
 		</config>
 
-		<config service-class="com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions">
+		<config service-class="com.top_logic.ai.core.agent.TopLogicAgentDefinitions">
 			<instance>
 				<skills>
 					<skill name="EHome_rules"

@@ -1,12 +1,53 @@
 # Waiting for TopLogic
 
 Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) and
-workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha13.823) cannot close yet.
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha13.833) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
 not be minimal is left visible instead.
 
-State of the upgrade to 8.0.0-alpha13.823 (2026-11-15; the build's tickets from the commits between
+State of the upgrade to 8.0.0-alpha13.833 (2026-11-28; the build's tickets from the commits between
+the tags `PREVIEW/TL_8.0.0-alpha13.823` and `PREVIEW/TL_8.0.0-alpha13.833` of the engine's GitHub
+mirror, the Gitea release page being reachable only from the office, the status confirmed in Trac).
+Breaking changes adapted: the Java packages of the AI modules are `com.top_logic.ai.*` (TL #30375, the
+imports of `de.haumacher.ehome.ai` and the class names in `ehome.ai*.config.xml` and
+`ehome.security.config.xml`); the chat has no `<chat-rail>` any more (TL #30568): the dock of
+`app.view.xml` stands in a `<split-panel>` with a `<side-rail>` whose section "presented" holds the
+`<presentation-pane>`, and `<data-list>` has no `collapsible`; the variants of `<text>` are the type
+scale of the design system (TL #29660: `caption` is `label`, `label` is `label-strong`, `title` is
+`heading-sm`); the access tokens of the agent access and of the MCP endpoint are one kind,
+`tl.accounts:AccessToken` with permissions (TL #30367): E-Home's grants and role rule of
+`tl.agent:AccessToken` are gone, the agent tokens of before (`tlagt_`) are deleted by the engine's
+migration and issued anew in the settings (`doc/agent-access.md`, `bin/ehome-agent.py`), the MCP tokens
+keep working with the permission `agent-endpoints`, and a test creates its token with that permission.
+The engine's migrations delete the table of the cookie pools themselves now (TL #30357; E-Home's
+migration `Ticket_30357_Drop_cookie_pool` stays, a database it ran on is left as it is). Replayed on a
+copy of the development database of 8.0.0-alpha13.823: the migrations of `tl-ai-core`, `tl-element`
+and `tl-layout-view-agent` without an error, a second start without a pending migration, a recovered
+table or a model upgrade.
+Shipped, and their workarounds removed:
+- enumeration values readable without a grant (TL #30275, #30437): the security parent rule
+  `ehomeRootForClassifier` and the grant on `tl.model:TLClassifier` are gone,
+  `TestAccessRights.testClassifiersReadable` stays;
+- a role query after a change of the roles on H2 (TL #30313): `testMembersSeeEachOther` asserts
+  `isDiscoverAllowed` after the removal again;
+- the columns of a table follow the roles of the user (TL #30314): the project list of
+  `projects/overview.view.xml` is a table again, without the switch on the number of projects (and
+  without the texts for no project or no match, the table having no empty state);
+- the descriptions of the options of a select (TL #30290, which closed #30406 as a duplicate) and the
+  help of a `<value-input>` (TL #30289): "New devices only" of the scan dialog explains itself, the
+  tooltip of "Scan" says what the command does;
+- nothing to remove: a declared grouping by a withheld column (TL #30530), an abstract class created by
+  a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
+  as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
+  it, the bundled catalog serves).
+Shipped, and to be taken up by the app (their entries below): the composition descendants in TL-Script
+(TL #30192), the Java name of an attribute and the generated interfaces on form buffers (TL #30446,
+#30447), the OAuth sign-in at the MCP endpoint (TL #30274); TL #30531 was closed as invalid with the
+engine's way (its entry below).
+Still open: TL #29884, #29885, #30048, #30105, #30217, #30311.
+
+Before (8.0.0-alpha13.823, 2026-11-15; the build's tickets from the commits between
 the tags `PREVIEW/TL_8.0.0-alpha12.820` and `PREVIEW/TL_8.0.0-alpha13.823` of the engine, confirmed in
 Trac). Breaking changes adapted: a `ModificationListener` receives the pending changes as one
 `PendingChanges` (TL #30225); a `JobMonitor` declares a point of no return (`uncancelable()`, TL #30250).
@@ -104,8 +145,9 @@ adds to set references directly. What stays:
   green), but the app's suite took 136 s instead of 89 s with `SharedObjects` (one run each, the
   slower one on the less loaded machine; TestRoundTrip#testDemo 10.8 s against 8.7 s): the walk asks
   the model for the composite references of every one of the parts. Engine gap: a TL-Script function for the composition descendants
-  of an object that is as fast as the Java walk (TL #30192; #30087 is closed). **When available:** declare the
-  partition in `etsImporter.xml` and remove `SharedObjects`.
+  of an object that is as fast as the Java walk (TL #30192; #30087 is closed). Shipped in 8.0.0-alpha13.833
+  as `objectDescendants`; **to do:** declare the partition in `etsImporter.xml` with it, remove
+  `SharedObjects` if the suite stays as fast.
 - `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`) imports a known
   mask version as a transient candidate (`JoiningModelBinding#setTransient`) and, at the end of the
   import, updates the known one in place from it (newer master data) or compares and warns (older or
@@ -178,82 +220,10 @@ grant them to its users.
 Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `SecurityCoverageCheck` excludes these
 15 modules.
 
-Still open, checked on 8.0.0-alpha13.823.
+Still open, checked on 8.0.0-alpha13.833.
 
 **When fixed** (the engine covers or marks its own modules, or the check can be limited to the
 application's modules): remove `excluded-modules`.
-
-## Enumeration values unreadable without a grant on `tl.model` (TL #30275)
-
-`SecurityConfigurationService.isAllowed` exempts a model element only from the DISCOVER check; the
-READ of a `TLClassifier` is decided by roles like a business object, and E-Home grants nothing on
-`tl.model`. For an installer or a viewer every enumeration value was therefore unreadable, and the
-MCP tools (`ReadFilter` of tl-ai-core) left them out of every object they showed: a schedule's
-weekdays as `[]` ("every day" by the model), its handling of missed firings as `null`
-(haumacher/ehome #141). Root does not see it (administrator bypass).
-
-Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `tl.model:TLClassifier` takes its roles
-from the security root (security parent rule `ehomeRootForClassifier`) and every account (the engine's
-role `SecurityStructure.user` of the group "user", since the roles per project of haumacher/ehome
-#152) and the installers get READ on it; `TestAccessRights.testClassifiersReadable`.
-
-In testing, not in 8.0.0-alpha13.823.
-
-**When fixed** (the engine treats the read of a classifier as model data): remove the rule
-`ehomeRootForClassifier` and the `<class name="tl.model:TLClassifier">` grant; the test stays.
-
-## A role query answers from before a change of the stored roles (TL #30313)
-
-Found with the roles per project (haumacher/ehome #152) in `TestAccessRights.testMembersSeeEachOther`
-on H2 (the test database and the one of the Debian package): after a member was removed from the
-last project it shared with another account, the incremental security update removed the role
-`ehome.Collaborator` from the security storage (`AccessManager.getRoles` and `hasRole` for each role
-alone answer without it), but `hasRole(viewer, account, [PersonalProfile, ehome.Collaborator])` - the
-role query of `isDiscoverAllowed`, the same SQL text the thread had sent before the removal - still
-answered `true`; the same roles in the other order answered `false`. A few other statements on the
-connection in between make it answer right again. The SQL of
-`SecurityStorage.hasRoleFromCollection` is built with literals, so a repeated question has the same
-text; H2's reuse of the last result of a cached statement (`OPTIMIZE_REUSE_RESULTS`) is suspected.
-Consequence: right after a removal, the removed member may still discover the other accounts (or a
-removed reader the project) in the same request or the next one on the same connection.
-
-No workaround. The test asserts the stored roles after the removal and leaves the decision out (a
-comment there names this entry). **When fixed:** assert `isDiscoverAllowed` after the removal in
-`testMembersSeeEachOther` again.
-
-## The columns of a table stay as the roles were when it was built (TL #30314)
-
-Found in the desk check of the roles per project (haumacher/ehome #163, point 2): an installer in no
-project saw the project list with only the column "Ihre Rolle", also right after creating the first
-project, and the column selection offered nothing else; after the next login the columns were there.
-`AttributeColumn.resolve` drops a column whose attribute the user may read on no row
-(`ModelAccessPolicy.onAttributeOfType`: no granted role held on any object,
-`AccessManager.hasRoleOnAnyObject`), and `TableElement.createControl` resolves the columns once, when
-the table is built; a later change of the user's roles (a project created, the user added to one)
-refreshes the rows but not the columns. Reproduction in any app with per-object roles: a `<table>` with
-`<column attribute="name"/>` over a type whose read grant names a role held only through a role rule on
-the object; log in as an account holding that role nowhere, open the table, create an object giving the
-account the role (or let another session add it): the row appears, the column does not.
-
-Workaround in `projects/overview.view.xml`: the table is built only while the user sees a project (a
-`<switch>` on the derived channel `anyProject`), so it is built after the first project arrives;
-without a project the page says that there is none yet. **When fixed** (the column set follows a
-change of the roles, or the table is re-resolved): put the table back in place of the switch; the text
-for no project may stay as the empty state of the table, if the engine offers one.
-
-## A declared grouping by a withheld column fails the table (TL #30530)
-
-Reported from the production server after the update to 1.9.0 (not a change of 1.9.0: the page is
-unchanged since 1.3): an anonymous request of `/ehome/view/datapoints` (page "Datenpunkttypen", a
-visitor before logging in) ends in an internal error, `NullPointerException ... "groupColumn" is null`
-in `ListRowSource.givenGroupOrder`. The table declares `group-by="mainType"`; `AttributeColumn.resolve`
-withholds the column of an attribute the user may not read, but `AbstractTableElement.createTable`
-puts the declared grouping into the initial state unchecked. Logged in, the page works. The same holds
-for every table with `group-by` (`datapoints.view.xml`, `projects/functions.view.xml`,
-`catalogs/program.view.xml`) opened by a person who may not read the grouping attribute; the E-Home
-grants give every account read access to these attributes, so only a visitor not logged in reaches it.
-No workaround: the error page is shown where the page would show nothing anyway. **When fixed**:
-nothing to undo; check that the page opens without login and shows the table ungrouped.
 
 ## A refused command on a composition part (TL #29885)
 
@@ -267,7 +237,7 @@ Since TL #30025 (8.0.0-alpha12.817) a command is hidden for a user who holds no 
 any object. Since the roles per project (haumacher/ehome #152) a user may be the viewer of one project
 and the editor of another: in the first, the commands that write are shown disabled with the reason
 again, and the case of the ticket can show (an account that edits no project at all does not see
-them). Still open, checked on 8.0.0-alpha13.823.
+them). Still open, checked on 8.0.0-alpha13.833.
 
 **On the next upgrade:** check the ticket; nothing to remove.
 
@@ -279,7 +249,7 @@ the refusal only after the submit. Workaround in `projects/device-item.view.xml`
 inputs switch to their read-only form with `!canWrite($device)`, repeating the `<access>` check of
 their `<on-submit>` (haumacher/ehome #65).
 
-Still open, checked on 8.0.0-alpha13.823.
+Still open, checked on 8.0.0-alpha13.833.
 
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
@@ -298,10 +268,10 @@ token.
 E-Home depends on `tl-layout-view-agent` (`doc/agent-access.md`). Since TL #30125 a request without a
 valid credential is answered with 401. TL #30048 collects the unbuilt parts of the design that matter
 for an installation in the cloud, without a workaround in the app: every logged-in account may issue
-a token (an agent then acts with that account's rights, no more); a token of an ended session
-(logout, restart) stays listed until it expires, though it admits nobody; every admitted request
-writes `lastUsed` in a commit of its own, so a polling agent creates a revision per request; there is
-no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha13.823.
+a token (an agent then acts with that account's rights, no more); there is no MCP wrapper (hence
+`bin/ehome-agent.py`). Since 8.0.0-alpha13.833 (TL #30367) the token is an access token of the
+application with the permission to observe or operate the user interface, and an admitted request
+records its use at most once a minute. Still open, checked on 8.0.0-alpha13.833.
 
 **When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
 rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
@@ -333,66 +303,12 @@ client by a client id metadata document or dynamic registration, consents listed
 beside the access tokens, which stay for scripts; the server card, `llms.txt` and the repaired token
 dialogs.
 
-No workaround.
+No workaround. Shipped in 8.0.0-alpha13.833 (module `tl-oauth-server`, `tl-oauth-server-view`,
+`<oauth-access-token-authentication>`, the server card, `llms.txt`).
 
-**When available:** describe the login in `doc/ai.md` (a client is set up with the address alone),
+**To do:** describe the login in `doc/ai.md` (a client is set up with the address alone),
 keep the token path for `bin/ehome-mcp.py`, check the login from a local client against the app on
 8080 and extend the endpoint's test by a request without a token (the metadata in the refusal).
-
-## The table of the cookie pools after their move to tl-ai-browser (TL #30357)
-
-TL #30253 (8.0.0-alpha13.823) moved the browser tools and their cookie pools from `tl-ai-core` into
-the opt-in module `tl-ai-browser`, which E-Home does not use, without a migration for an application
-that stays without it. A database of before keeps the table type `CookiePool`: at the start the engine
-recovers it as an in-app schema (`inapp-schema-1.meta.xml` and `.config.xml`, written into the first
-writable `WEB-INF/autoconf` - in a development start the source folder of `ehome-virtual`, in the
-Debian package the deployed webapp), and the model upgrade deletes the module `tl.ai.cookiepool`, so
-the table is an orphan.
-
-Workaround: the migration `Ticket_30357_Drop_cookie_pool` (`WEB-INF/kbase/migration/ehome/`) deletes
-the table type from the stored schema and drops its table (`<delete-table>`) before the automatic
-schema step, so nothing is recovered (checked on a copy of `tmp/`; a database without the table is
-left as it is).
-
-**When fixed** (the engine removes the type for an application without `tl-ai-browser`): the migration
-stays, as migrations do; nothing to remove.
-
-## The options of a select show no description (TL #30406), a `<value-input>` no help (TL #30289)
-
-The dialog "Scan the bus" (haumacher/ehome #182, #180) offers its searches as a radio group of
-the enum `ScanTarget`. The option list of a select sends only label, image and colour per option, so
-the descriptions of the choices (`ScanTarget.<CONSTANT>.tooltip`, generated into the bundles) are
-never shown; a `<value-input>` has no help text at its label either (TL #30289, approved), which
-leaves the checkbox "New devices only" without its explanation as well. No workaround: the tooltip of
-the command "Search" names what each choice and the checkbox do.
-
-**When fixed:** nothing to remove; check that the radio options of the dialog show their
-descriptions, give "New devices only" its help, and shorten the tooltip of "Search" to what it does
-itself.
-
-## Startup messages on the console of a shared Tomcat (TL #30407)
-
-The Debian package logs into E-Home's own file `/var/log/ehome/ehome.log` (haumacher/ehome #186:
-`WEB-INF/conf/logging/default.xml` of the deploy aspect `debian`, no console appender). The engine
-prints some messages with `System.out` instead of a logger, so they still reach Tomcat's journal,
-which the other applications of the Tomcat share: the banner of `OpenSourceLicenseTool`, the start
-and stop lines of `AbstractStartStopListener` ("up and running", "going down"), and the box of
-`PersonManager` about the initial password (the package always sets one, so the generated password
-itself never appears). No workaround.
-
-**When fixed:** nothing to remove; check in the container test of the package that
-`journalctl -u tomcat10` has no line of E-Home after an install.
-
-## An abstract class created by a migration (TL #30408)
-
-The migration `Issue_183_Device_stubs` (haumacher/ehome #183) creates the abstract class
-`ehome.physical:BusDevice`. The processor `<create-class abstract="true">` writes it into the stored
-model as `<interface final="false">`, which the model service cannot parse at the next start ("Cannot
-parse old model configuration"). Workaround: the class is created with `abstract="false"` and made
-abstract by `<update-class abstract="true"/>` right after (checked on a copy of `tmp/`).
-
-**When fixed:** the migration stays, as migrations do; a later migration creating an abstract class
-can use `abstract="true"` directly.
 
 ## Startup actions of a migration are lost when its start fails (TL ticket to be filed)
 
@@ -418,18 +334,6 @@ could not be filed on 2026-11-20 because the Trac host was not reachable from th
 
 **When fixed:** nothing to undo; the import of master data gets faster.
 
-## The model catalog of the assistant at every start (TL #30443)
-
-At every start `LLMProviderService` reads the models.dev snapshot bundled with tl-ai-core
-(`models-dev-snapshot.json`, 6 MB, 235 providers, 8,991 models) completely into one String, which
-is 18 MB allocated in one go, to keep the 3 models E-Home offers. By default it then downloads the
-current catalog from models.dev in a background thread. On 2026-11-18 a production start in the
-shared Tomcat died with `OutOfMemoryError` in `ModelsDevFetcher.loadSnapshot`. The heap was already
-tight, and this allocation is what failed. No workaround.
-
-**When fixed:** check that the start no longer allocates the whole snapshot, and decide whether a
-production server gets the remote fetch through the configuration variable the ticket asks for.
-
 ## Three model modules without generated wrappers (TL #30446, #27991)
 
 The wrapper generator cannot give one attribute another Java name. `ehome.physical:Device#lastModified`
@@ -443,7 +347,9 @@ are reached by name, and the calls on them stay in the `[migrate]` section of
 `name-access-inventory.txt`. No workaround: renaming the attributes would need a data migration (and
 a column rename of `EHDevice`) for names that are valid in the model.
 
-**When fixed:** give the three modules their `package-binding` (as the other modules), add them to
+Shipped in 8.0.0-alpha13.833: the annotation `java-name` of an attribute (TL #30446).
+
+**To do:** give the three modules their `package-binding` (as the other modules), add them to
 `<modules>` of `tl:generate-java` (with the Java-name annotation of the fix where it needs one), run
 the generator, move the remaining name-based calls on their types to the wrappers, lower the
 inventories, and close haumacher/ehome #198.
@@ -456,26 +362,18 @@ interface of their type, so a cast throws `ClassCastException`. Code reachable w
 (model constraints, options functions, the rule and preset drafts: `RuleFunctions.initialize`,
 `RuleDrafts`, `PresetDrafts`, the constraints of `HistoryConfig` and `Pages`, `DatapointSettings`)
 keeps its name-based access (haumacher/ehome #198); the calls stay in the `[migrate]` section of
-`name-access-inventory.txt`. No workaround.
+`name-access-inventory.txt`. No workaround. Shipped in 8.0.0-alpha13.833 (TL #30447).
 
-**When fixed:** move those calls to the generated accessors, lower the inventory.
+**To do:** move those calls to the generated accessors, lower the inventory.
 
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
-- TL #30087 (closed as invalid): see above (a composition walk in TL-Script fast enough for `SharedObjects`).
-- TL #30192: see above (a fast TL-Script function for the composition descendants of an object).
 - TL #29884, #29885: see above (access coverage of engine modules, the reason of refused commands).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30048: see above (agent access: the follow-ups of the module).
 - TL #30217: see above (a rebuilt tree table keeps its selection without opening its parents).
-- TL #30274: see above (OAuth login and discovery of the MCP endpoint; fixed 2026-11-18, after 8.0.0-alpha13.823: comes with the next upgrade; claude.ai connectors need it).
-- TL #30275: see above (enumeration values unreadable without a grant on `tl.model`; in testing).
 - TL #30311: see above (memory of a product import committed step by step).
-- TL #30357: see above (the table of the cookie pools after their move to `tl-ai-browser`).
-- TL #30313, #30314: see above (a role query after a change of the roles on H2, the columns of a table after a change of the roles).
-- TL #30406, #30289: see above (no description at the options of a select, no help at a `<value-input>`).
-- TL #30407: see above (startup messages of the engine on the console of a shared Tomcat).
 
 ## No tool mode for a write in its own transactions (TL #30531)
 
@@ -483,5 +381,8 @@ The MCP tools `readOutDevice` and `takeOverSnapshot` (`de.haumacher.ehome.ai.Sna
 `ToolMode.EXTERNAL`: `DATA_WRITE` would run them inside the engine's transaction, and the take-over
 (`ReadBack.takeOver`) would then record the revision before its own change as the device's downloaded
 state. The approval prompt of EXTERNAL speaks of sending data to an outside system, which is wrong for
-the take-over. **When fixed**: switch both tools to the new mode and check that a taken-over device
-does not show as changed since its download.
+the take-over. TL #30531 was closed as invalid: a tool in `DATA_WRITE` runs in the turn's transaction,
+and an `AfterCommitAction` registered on `CommitActions` (TL #30218) receives the revision of the
+outermost commit, so the code writes the revision after the commit in both cases. **To do:** switch
+both tools to `DATA_WRITE`, record the downloaded state in an after-commit action, and check that a
+taken-over device does not show as changed since its download.

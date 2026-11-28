@@ -898,7 +898,7 @@
 													</stack>
 													<text
 														tone="helper"
-														variant="caption"
+														variant="label"
 													>
 														<label>
 															<en>"Send from the installation": the device whose object sends to the address of the datapoint sends the value as a group telegram, as a push button or sensor would; for a Zigbee datapoint its virtual device reports the value. "Command": the value is commanded as the UI of a controller does; a datapoint that transmits sends it to the bus or to its Zigbee device.</en>
@@ -1090,7 +1090,7 @@
 													</stack>
 													<text
 														tone="helper"
-														variant="caption"
+														variant="label"
 													>
 														<label>
 															<en>"Report from the device": the virtual device reports the value, as the real one reports a reading or a state; for a button (Action) it is a press, and every press is an update of the datapoint, also with the value it has already. The value is refused outside the range of the function (a level 0..100 %, a battery 0..100 %, a colour temperature 16..1000000 K). "Command": the value is commanded as the UI of a controller does; a light (switch, level, colour temperature) takes it and reports it back, any other function refuses it as read-only. The timeline shows the reports, presses and commands. The devices keep their values for the next simulation of the project and report them at its start.</en>
@@ -1243,7 +1243,7 @@
 												<inset>
 													<text
 														tone="helper"
-														variant="caption"
+														variant="label"
 													>
 														<label>
 															<en>The program data of a device does not say what its application does between its objects. Name here which object follows which: the state object takes every value the switching object receives from the bus and sends it like its own, inverted if checked (for an object of one bit). The pairs take effect when a simulation starts.</en>

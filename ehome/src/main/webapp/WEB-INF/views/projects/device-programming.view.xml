@@ -126,7 +126,7 @@
 				<stack gap="compact">
 					<text input="gateway"/>
 					<text tone="helper"
-						variant="caption"
+						variant="label"
 					>
 						<label>
 							<en>The KNXnet/IP gateway of the project, or its controller connected to E-Home, through which the devices are read and programmed. Through the controller, E-Home passes the frames through the controller's KNX tunnel.</en>

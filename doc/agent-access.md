@@ -4,26 +4,28 @@ An agent outside the browser (Claude Code, a script) can work in a running E-Hom
 the session shows, open views, run commands. That way someone running E-Home in the cloud lets an
 agent help configure or analyze a project without handing over a password. E-Home uses the engine
 module `tl-layout-view-agent` (dependency in `ehome/pom.xml`; engine article `view-layer/agent-access`):
-the endpoint `<host>/ehome/agent-api` and access tokens a user issues from their session.
+the endpoint `<host>/ehome/agent-api` and the access tokens of the application (`tl.accounts:AccessToken`,
+the same tokens as for the MCP endpoint of `doc/ai.md`), issued by a user from their session.
 
 ## Giving an agent access
 
 1. Log in to E-Home and keep the browser tab open: the agent drives this session, and what it does
    appears in the tab.
-2. Development menu of the app bar (*Entwicklung* / *Development*) → *Agentenzugriff* / *Agent access*
-   → *Neues Token* / *New token*: a name, the validity in hours (8 by default), and whether the agent
-   may act (otherwise it only observes).
-3. *Token ausstellen* / *Issue token* shows the **invitation** once, one line
-   `<host>/ehome/agent-api tlagt_<id>_<secret>`. Hand it to the agent; it is not shown again (only
-   its hash is stored).
-4. When the agent is done: the same dialog → select the token → *Zurückziehen* / *Withdraw*. A token
-   also ends with its validity, and with the session (logout, timeout, restart of the server).
+2. Account menu → *Einstellungen* / *Settings* → *Zugriffstokens* / *Access tokens* → *Neues Token* /
+   *New token*: a name, the validity in days, and the permission *Operate the user interface* (the
+   agent acts) or *Observe the user interface* (it only reads).
+3. The dialog that follows shows the **invitation** once, one line
+   `<host>/ehome/agent-api tlpat_<secret>`. Hand it to the agent; it is not shown again (only its hash
+   is stored).
+4. When the agent is done: the same tab → revoke the token. A token also ends with its validity, and
+   its access to the user interface with the session it was issued from (logout, timeout, restart of
+   the server).
 
 What the agent can do is exactly what the account can do in the browser: it sees the projects in
 which the account holds a role (haumacher/ehome #152); in a project it views, the agent reads, in one it
 edits or owns, it also edits, imports, programs and deploys (`ehome.security.config.xml`). A token that may only observe is refused every command. Each account
-sees and withdraws its own tokens (role `ehome.TokenOwner`); an administrator lists all tokens in
-Administration → *Agent access*.
+sees and revokes its own tokens (the engine's role `AccessTokenOwner`); an administrator lists and
+revokes all tokens in Administration → *Access control* → *Access tokens*.
 
 ## For the agent: `bin/ehome-agent.py`
 
@@ -65,12 +67,12 @@ answers it with 401; any other failure with its status and `{"error": ...}`.
   `/etc/ehome/ehome.env`.
 - Every request of an agent runs in the user's session; a command of the agent waits while a command
   of the browser runs, and the other way round.
-- Each admitted request records `lastUsed` on the token in a commit of its own (TL #30048): an agent
-  polling `observe` in a loop grows the database's history; poll only as often as needed.
+- An admitted request records `lastUsed` on the token at most once a minute.
 - Open points of the module, recorded in `doc/tl-todo.md` (TL #30048): any logged-in account may issue
-  a token; a token of an ended session stays listed until it expires; an agent cannot open a session
-  of its own.
+  a token; an agent cannot open a session of its own.
 
 Verified on the desk (2026-11-03): a token issued as `root` in the local app, `windows` and
 `observe --actions` through `bin/ehome-agent.py`, `selectItem` on the sidebar switched the browser tab
-to the controllers, a forged token was refused; `TestSecurityCoverage` covers `tl.agent:AccessToken`.
+to the controllers, a forged token was refused. Since 8.0.0-alpha13.833 (TL #30367) the tokens are
+the application's access tokens; the agent tokens of before (`tlagt_`) were deleted by the engine's
+migration and are issued anew.

@@ -57,19 +57,6 @@
 			inputs="search"
 			observed-types="ehome.project:Project"
 		/>
-		<!--
-			What the list shows: the table ("rows"), that no project's name begins with the text
-			("notFound"), or that the user is in no project ("none"). The table is built only when there
-			are rows (haumacher/ehome #163): the engine decides once, when a table is built, which
-			attribute columns the user may read, from the roles held on any object; an account in no
-			project holds no role of a project, and the table built for it would keep only the column
-			"Your role" even after the first project is created or the user is added to one
-			(doc/tl-todo.md, TL #30314).
-		-->
-		<derived-channel name="listState"
-			expr="if(!$projects.isEmpty(), 'rows', if($search.isEmpty(), 'none', 'notFound'))"
-			inputs="projects, search"
-		/>
 	</channels>
 
 	<panel>
@@ -495,59 +482,35 @@
 					</fields>
 				</inset>
 			</visible-if>
-			<switch input="listState">
-				<case test="$listState == 'rows'">
-					<table
-						observed-types="ehome.project:Project"
-						selection="project"
-						types="ehome.project:Project"
+			<table
+				observed-types="ehome.project:Project"
+				selection="project"
+				types="ehome.project:Project"
+			>
+				<inputs>
+					<input channel="projects"/>
+				</inputs>
+				<columns>
+					<column attribute="name"/>
+					<column attribute="extId"/>
+					<!-- The role of the user in the project (haumacher/ehome #152); empty for an administrator who is no member. -->
+					<computed-column name="role"
+						type="ehome.project:ProjectRole"
 					>
-						<inputs>
-							<input channel="projects"/>
-						</inputs>
-						<columns>
-							<column attribute="name"/>
-							<column attribute="extId"/>
-							<!-- The role of the user in the project (haumacher/ehome #152); empty for an administrator who is no member. -->
-							<computed-column name="role"
-								type="ehome.project:ProjectRole"
-							>
-								<label>
-									<en>Your role</en>
-									<de>Ihre Rolle</de>
-								</label>
-								<value>projectRole($row, currentUser())</value>
-							</computed-column>
-						</columns>
-						<!-- The projects of the user, or those an administrator searched for (the channel "projects"). -->
-						<rows>$projects</rows>
-						<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
-							bind-input-to="project"
-							frame="project"
-						/>
-					</table>
-				</case>
-				<case test="$listState == 'notFound'">
-					<inset>
-						<text>
-							<label>
-								<en>No project's name begins with the text entered.</en>
-								<de>Kein Projektname beginnt mit dem eingegebenen Text.</de>
-							</label>
-						</text>
-					</inset>
-				</case>
-				<default>
-					<inset>
-						<text>
-							<label>
-								<en>No projects yet. The projects you created or imported and the ones you were added to are listed here.</en>
-								<de>Noch keine Projekte. Hier stehen die Projekte, die Sie angelegt oder importiert haben, und die, zu denen Sie hinzugefügt wurden.</de>
-							</label>
-						</text>
-					</inset>
-				</default>
-			</switch>
+						<label>
+							<en>Your role</en>
+							<de>Ihre Rolle</de>
+						</label>
+						<value>projectRole($row, currentUser())</value>
+					</computed-column>
+				</columns>
+				<!-- The projects of the user, or those an administrator searched for (the channel "projects"). -->
+				<rows>$projects</rows>
+				<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
+					bind-input-to="project"
+					frame="project"
+				/>
+			</table>
 		</stack>
 	</panel>
 </view>

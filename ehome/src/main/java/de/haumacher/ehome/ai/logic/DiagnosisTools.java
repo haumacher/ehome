@@ -17,11 +17,11 @@ import java.util.Map;
 
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.model.TLObject;
-import com.top_logic.tl.ai.tool.api.P;
-import com.top_logic.tl.ai.tool.api.ToolGroups;
-import com.top_logic.tl.ai.tool.api.ToolMethod;
-import com.top_logic.tl.ai.tool.api.ToolMode;
-import com.top_logic.tl.ai.tool.api.ToolResult;
+import com.top_logic.ai.tool.api.P;
+import com.top_logic.ai.tool.api.ToolGroups;
+import com.top_logic.ai.tool.api.ToolMethod;
+import com.top_logic.ai.tool.api.ToolMode;
+import com.top_logic.ai.tool.api.ToolResult;
 
 import de.haumacher.ehome.model.monitor.Event;
 import de.haumacher.ehome.model.monitor.Telegram;

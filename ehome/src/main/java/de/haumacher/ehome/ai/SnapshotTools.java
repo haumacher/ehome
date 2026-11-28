@@ -19,12 +19,12 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.layout.view.job.JobPhase;
 import com.top_logic.model.TLObject;
-import com.top_logic.tl.ai.core.agent.ToolContext;
-import com.top_logic.tl.ai.tool.api.P;
-import com.top_logic.tl.ai.tool.api.ToolGroups;
-import com.top_logic.tl.ai.tool.api.ToolMethod;
-import com.top_logic.tl.ai.tool.api.ToolMode;
-import com.top_logic.tl.ai.tool.api.ToolResult;
+import com.top_logic.ai.core.agent.ToolContext;
+import com.top_logic.ai.tool.api.P;
+import com.top_logic.ai.tool.api.ToolGroups;
+import com.top_logic.ai.tool.api.ToolMethod;
+import com.top_logic.ai.tool.api.ToolMode;
+import com.top_logic.ai.tool.api.ToolResult;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 

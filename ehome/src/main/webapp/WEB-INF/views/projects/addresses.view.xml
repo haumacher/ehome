@@ -716,7 +716,7 @@
 								<inset>
 									<text
 										input="connectionText"
-										variant="title"
+										variant="heading-sm"
 									/>
 								</inset>
 								<form

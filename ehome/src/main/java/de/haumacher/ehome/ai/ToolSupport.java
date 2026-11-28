@@ -13,11 +13,11 @@ import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
-import com.top_logic.tl.ai.core.agent.ToolContext;
-import com.top_logic.tl.ai.core.tools.refusal.ApplicationRefusals;
-import com.top_logic.tl.ai.core.tools.refusal.messages.ApplicationRefusal;
-import com.top_logic.tl.ai.core.tools.refusal.messages.Reason;
-import com.top_logic.tl.ai.tool.api.ToolResult;
+import com.top_logic.ai.core.agent.ToolContext;
+import com.top_logic.ai.core.tools.refusal.ApplicationRefusals;
+import com.top_logic.ai.core.tools.refusal.messages.ApplicationRefusal;
+import com.top_logic.ai.core.tools.refusal.messages.Reason;
+import com.top_logic.ai.tool.api.ToolResult;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 

@@ -45,6 +45,7 @@ import com.top_logic.base.services.InitialRolesManager;
 import com.top_logic.basic.module.ModuleUtil;
 import com.top_logic.basic.module.services.ServletContextService;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.element.accesstoken.AccessTokenPermissions;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -56,12 +57,13 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.model.security.SecurityConfigurationService;
-import com.top_logic.tl.ai.core.access.AccessTokens;
-import com.top_logic.tl.ai.core.agent.AgentApplicationService;
-import com.top_logic.tl.ai.core.agent.AgentPolicyService;
-import com.top_logic.tl.ai.core.agent.AgentRuntimeService;
-import com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions;
-import com.top_logic.tl.ai.core.security.AiToolAccessService;
+import com.top_logic.ai.core.access.AccessTokenAuthenticator;
+import com.top_logic.element.accesstoken.AccessTokens;
+import com.top_logic.ai.core.agent.AgentApplicationService;
+import com.top_logic.ai.core.agent.AgentPolicyService;
+import com.top_logic.ai.core.agent.AgentRuntimeService;
+import com.top_logic.ai.core.agent.TopLogicAgentDefinitions;
+import com.top_logic.ai.core.security.AiToolAccessService;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.model.ModelService;
 
@@ -319,7 +321,8 @@ public class TestMcpEndpoint extends BasicTestCase {
 	}
 
 	private String token(Person owner) {
-		return AccessTokens.create(owner, "test", null).plain();
+		return AccessTokens.create(owner, "test", null,
+			List.of(AccessTokenAuthenticator.AGENT_ENDPOINTS_PERMISSION), null).plain();
 	}
 
 	private String open(String token) throws Exception {
@@ -398,7 +401,8 @@ public class TestMcpEndpoint extends BasicTestCase {
 			InitialRolesManager.Module.INSTANCE, InitialGroupManager.Module.INSTANCE, AccessManager.Module.INSTANCE,
 			SecurityConfigurationService.Module.INSTANCE, AiToolAccessService.Module.INSTANCE,
 			TopLogicAgentDefinitions.Module.INSTANCE, AgentApplicationService.Module.INSTANCE,
-			AgentPolicyService.Module.INSTANCE, AgentRuntimeService.Module.INSTANCE));
+			AgentPolicyService.Module.INSTANCE, AgentRuntimeService.Module.INSTANCE,
+			AccessTokenPermissions.Module.INSTANCE));
 	}
 
 }

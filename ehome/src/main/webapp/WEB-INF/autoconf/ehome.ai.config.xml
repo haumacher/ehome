@@ -35,8 +35,8 @@
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
 >
 	<services>
-		<config service-class="com.top_logic.tl.ai.core.agent.AgentApplicationService">
-			<instance class="com.top_logic.tl.ai.core.agent.AgentApplicationService">
+		<config service-class="com.top_logic.ai.core.agent.AgentApplicationService">
+			<instance class="com.top_logic.ai.core.agent.AgentApplicationService">
 				<environment>
 					<application>
 						<en>E-Home</en>
@@ -48,7 +48,7 @@
 						What E-Home is, its terms and what it does differently from ETS: what the model does not
 						tell the assistant. Only for the chat's agent; the prompt improver does not need it.
 					-->
-					<contributor class="com.top_logic.tl.ai.core.agent.TextPromptContributor"
+					<contributor class="com.top_logic.ai.core.agent.TextPromptContributor"
 						agents="TL_SingleAgent"
 						name="application-context"
 					>
@@ -123,31 +123,31 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 			every account, the roles in a project decide per object; ehome.mcp.config.xml publishes both
 			groups over MCP).
 		-->
-		<config service-class="com.top_logic.tl.ai.tool.api.registry.ToolRegistryService">
+		<config service-class="com.top_logic.ai.tool.api.registry.ToolRegistryService">
 			<instance>
 				<tool-factories>
 					<factory name="ehome-building">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.BuildingTools"
 						/>
 					</factory>
 					<factory name="ehome-devices">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.DeviceTools"
 						/>
 					</factory>
 					<factory name="ehome-snapshots">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.SnapshotTools"
 						/>
 					</factory>
 					<factory name="ehome-wiring">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.WiringTools"
 						/>
 					</factory>
 					<factory name="ehome-templates">
-						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+						<implementation class="com.top_logic.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.TemplateTools"
 						/>
 					</factory>
@@ -159,7 +159,7 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 			The chat's agent carries E-Home's tools, and the skills with the knowledge an installer brings to
 			them. Additive, as tl-chat adds its tools to the agent tl-ai-core defines.
 		-->
-		<config service-class="com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions">
+		<config service-class="com.top_logic.ai.core.agent.TopLogicAgentDefinitions">
 			<instance>
 				<skills>
 					<skill name="EHome_buildingLayout"

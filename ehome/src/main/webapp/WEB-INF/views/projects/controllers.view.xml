@@ -358,7 +358,7 @@
 							<text
 								input="codeState"
 								tone="helper"
-								variant="caption"
+								variant="label"
 							/>
 						</inset>
 					</stack>

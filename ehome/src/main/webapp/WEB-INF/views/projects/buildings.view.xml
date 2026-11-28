@@ -579,7 +579,7 @@
 										<inset>
 											<text
 												input="partPath"
-												variant="title"
+												variant="heading-sm"
 											/>
 										</inset>
 										<form

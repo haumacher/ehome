@@ -1030,10 +1030,8 @@ public class TestAccessRights extends BasicTestCase {
 		inTransaction(() -> ProjectMembers.remove(second[0], _viewer));
 		assertFalse(collaborator(_viewer, _owner));
 		assertFalse(collaborator(_owner, _viewer));
-		// The decisions themselves are not asserted after the removal: the security storage answers a
-		// role query with exactly the text of one asked before the removal with the earlier answer
-		// (doc/tl-todo.md, "A role query answers from before a change of the stored roles"), while the
-		// stored roles asked above are right.
+		assertFalse(rights().isDiscoverAllowed(_viewer, _owner));
+		assertFalse(rights().isDiscoverAllowed(_owner, _viewer));
 	}
 
 	/**

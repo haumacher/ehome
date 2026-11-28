@@ -27,6 +27,14 @@
 		<channel name="assistantSession"/>
 		<!-- What the agent shows with its present tool, in the rail of the dock. -->
 		<channel name="assistantPane"/>
+		<!--
+			Whether the rail of the dock is open; what is new in it, the badge of the launcher and of the
+			rail's button; and whether the dock is open, so that the rail counts nothing as seen while it
+			is closed.
+		-->
+		<channel name="assistantRailOpen"/>
+		<channel name="assistantBadge"/>
+		<channel name="assistantOpen"/>
 		<!-- The page on screen and its selection, written by the pages (<page-selection>). -->
 		<channel name="pageView"/>
 		<channel name="pageSelection"/>
@@ -139,72 +147,127 @@
 			<switch input="assistantAllowed">
 				<case test="$assistantAllowed">
 					<chat-dock chat-id="assistant"
+						badge="assistantBadge"
 						icon="css:bi bi-stars"
+						open-channel="assistantOpen"
 					>
 						<label>
 							<en>Assistant</en>
 							<de>Assistent</de>
 						</label>
-						<chat chat-id="assistant"
-							direction="row"
-						>
-							<panel fill="true">
-								<chat-conversation input="assistantSession"
-									present="assistantPane"
-								>
-									<context>
-										<inputs>
-											<input channel="pageView"/>
-										</inputs>
-										<fact name="Open page"
-											stable="false"
-										>
-											<value>view -> if(isEmpty($view), "none", $view)</value>
-										</fact>
-									</context>
-									<selection channel="pageSelection"
-										name="Selected on the page"
-									/>
-								</chat-conversation>
-							</panel>
-							<chat-rail input="assistantPane"
-								open="false"
+						<chat chat-id="assistant">
+							<split-panel orientation="horizontal"
+								resizable="true"
 							>
-								<section name="conversations"
-									icon="css:bi bi-chat-left-text"
-								>
-									<label>
-										<en>Conversations</en>
-										<de>Unterhaltungen</de>
-									</label>
-									<data-list collapsible="false"
-										observed-types="tl.ai.execution:AgentSession"
-										search="false"
-										selection="assistantSession"
+								<panes>
+									<pane size="100"
+										unit="%"
 									>
-										<rows>currentUser().referers(`tl.ai.execution:AgentSession#owner`)
-	.filter(s -> $s.get(`tl.ai.execution:AgentSession#kind`) == `tl.ai.execution:SessionKind#CHAT`)
-	.sort((s -> $s.get(`tl.ai.execution:AgentSession#createdAt`)).comparator().desc())</rows>
-										<lines>
-											<line attribute="title"/>
-											<line attribute="createdAt"/>
-										</lines>
-										<commands>
-											<command class="com.top_logic.layout.view.command.GenericViewCommand"
-												image="css:bi bi-plus-lg"
+										<panel fill="true">
+											<chat-conversation input="assistantSession"
+												present="assistantPane"
+											>
+												<!-- Opens and closes the rail, with what is new in it as its badge. -->
+												<commands>
+													<generic-command
+														active-expr="$assistantRailOpen"
+														badge="assistantBadge"
+														image="css:bi bi-layout-sidebar-reverse"
+														inputs="assistantRailOpen"
+													>
+														<label>
+															<en>Side panel</en>
+															<de>Seitenleiste</de>
+														</label>
+														<execute-script function="!$assistantRailOpen">
+															<with-result>
+																<write-channel name="assistantRailOpen"/>
+															</with-result>
+														</execute-script>
+													</generic-command>
+												</commands>
+												<context>
+													<inputs>
+														<input channel="pageView"/>
+													</inputs>
+													<fact name="Open page"
+														stable="false"
+													>
+														<value>view -> if(isEmpty($view), "none", $view)</value>
+													</fact>
+												</context>
+												<selection channel="pageSelection"
+													name="Selected on the page"
+												/>
+											</chat-conversation>
+										</panel>
+									</pane>
+									<pane size="300"
+										unit="px"
+									>
+										<side-rail badge-channel="assistantBadge"
+											open="false"
+											open-channel="assistantRailOpen"
+											shown="assistantOpen"
+											side="right"
+											width="300"
+										>
+											<!-- What the agent shows with its present tool, in place of the other sections. -->
+											<section name="presented"
+												header="false"
+												icon="css:bi bi-easel"
+												reveal="true"
+												width="420"
 											>
 												<label>
-													<en>New conversation</en>
-													<de>Neue Unterhaltung</de>
+													<en>Presented</en>
+													<de>Gezeigt</de>
 												</label>
-												<write-channel clear="true"
-													name="assistantSession"
+												<visibility expr="!isEmpty($assistantPane)"
+													inputs="assistantPane"
 												/>
-											</command>
-										</commands>
-									</data-list>
-								</section>
-							</chat-rail>
+												<presentation-pane input="assistantPane"/>
+											</section>
+											<section name="conversations"
+												icon="css:bi bi-chat-left-text"
+											>
+												<label>
+													<en>Conversations</en>
+													<de>Unterhaltungen</de>
+												</label>
+												<visibility expr="isEmpty($assistantPane)"
+													inputs="assistantPane"
+												/>
+												<data-list observed-types="tl.ai.execution:AgentSession"
+													search="false"
+													selection="assistantSession"
+												>
+													<rows>currentUser().referers(`tl.ai.execution:AgentSession#owner`)
+	.filter(s -> $s.get(`tl.ai.execution:AgentSession#kind`) == `tl.ai.execution:SessionKind#CHAT`)
+	.sort((s -> $s.get(`tl.ai.execution:AgentSession#createdAt`)).comparator().desc())</rows>
+													<lines>
+														<line attribute="title"/>
+														<line attribute="createdAt"/>
+													</lines>
+													<commands>
+														<command class="com.top_logic.layout.view.command.GenericViewCommand"
+															image="css:bi bi-plus-lg"
+														>
+															<label>
+																<en>New conversation</en>
+																<de>Neue Unterhaltung</de>
+															</label>
+															<write-channel clear="true"
+																name="assistantSession"
+															/>
+														</command>
+													</commands>
+												</data-list>
+											</section>
+										</side-rail>
+									</pane>
+								</panes>
+							</split-panel>
 						</chat>
 					</chat-dock>
 				</case>

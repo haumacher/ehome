@@ -326,7 +326,7 @@
 							<text
 								input="readState"
 								tone="helper"
-								variant="caption"
+								variant="label"
 							/>
 							<text
 								input="liveProblem"

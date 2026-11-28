@@ -417,7 +417,7 @@
 																</on-submit>
 															</value-input>
 															<text tone="helper"
-																variant="caption"
+																variant="label"
 															>
 																<label>
 																	<en>The type applies to every object of the selected kind, in every device running the program, in every project; a type entered at a device in a project wins. Empty: the manufacturer's type applies.</en>

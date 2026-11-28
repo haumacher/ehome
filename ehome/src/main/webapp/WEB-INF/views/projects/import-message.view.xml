@@ -38,7 +38,7 @@
 					appearance="pill"
 					input="level"
 					tone="error"
-					variant="caption"
+					variant="label"
 				/>
 			</visible-if>
 			<visible-if
@@ -49,7 +49,7 @@
 					appearance="pill"
 					input="level"
 					tone="warning"
-					variant="caption"
+					variant="label"
 				/>
 			</visible-if>
 			<visible-if
@@ -60,13 +60,13 @@
 					appearance="pill"
 					input="level"
 					tone="secondary"
-					variant="caption"
+					variant="label"
 				/>
 			</visible-if>
 			<text
 				input="file"
 				tone="helper"
-				variant="caption"
+				variant="label"
 			/>
 		</stack>
 		<text input="text"/>

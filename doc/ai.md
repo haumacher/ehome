@@ -214,7 +214,9 @@ The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/
 **personal access tokens** only - no anonymous access, no password:
 
 1. In E-Home: account menu → *Settings* → *Access tokens* → *New token*: a name (the client), the
-   validity in days. The token (`tlpat_...`) is shown **once**.
+   validity in days and the permission *Agent interfaces (MCP/A2A)*; a token without it is refused at
+   `/ehome/mcp` (TL #30367: the same tokens serve the agent access of `doc/agent-access.md` with their
+   own permissions). The token (`tlpat_...`) is shown **once**.
 2. Keep it in a file of mode 600, never in a repository:
    ```bash
    install -d -m 700 ~/.config/ehome
@@ -228,7 +230,7 @@ The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/
    For the Debian installation behind its proxy: `https://<host>/ehome/mcp` (also with a trailing
    slash, `/ehome/mcp/`, since 8.0.0-alpha13.823).
 4. Revoke a token in the same settings tab; an administrator lists and revokes every token under
-   *Administration* → *Access tokens*.
+   *Administration* → *Access control* → *Access tokens*.
 
 What the endpoint publishes (`<exposed-tools>`): the tool groups `model.read`, `data.read` and
 `data.write` - the groups of the chat, E-Home's own tools included. A call is decided for the token's

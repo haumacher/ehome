@@ -60,7 +60,7 @@
 		</visible-if>
 		<text
 			input="caption"
-			variant="caption"
+			variant="label"
 		/>
 		<visible-if
 			expr="$note != null"

@@ -19,7 +19,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 
 import com.top_logic.model.TLObject;
-import com.top_logic.tl.ai.tool.api.ToolResult;
+import com.top_logic.ai.tool.api.ToolResult;
 
 import de.haumacher.ehome.ai.logic.RuleTools;
 import de.haumacher.ehome.ai.logic.SimulationTools;

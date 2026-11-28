@@ -9,7 +9,7 @@ import java.util.List;
 
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
-import com.top_logic.tl.ai.core.agent.ToolContext;
+import com.top_logic.ai.core.agent.ToolContext;
 
 /**
  * What the commit messages of E-Home's writing tools share (TL #30276): the texts naming the objects

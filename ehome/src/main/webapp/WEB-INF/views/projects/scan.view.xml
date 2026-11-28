@@ -122,8 +122,8 @@
 								<de>Suchen</de>
 							</label>
 							<tooltip>
-								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written. "Devices in programming mode": the devices whose programming button is pressed, within seconds. "Line": every address of the line entered. "Couplers and routers": device 0 of every line. "The gateway itself": the KNXnet/IP gateway through its local device management, not through a controller. "New devices only": the addresses at which the project has a device are not read.</en>
-								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben. „Geräte im Programmiermodus“: die Geräte, deren Programmiertaste gedrückt ist, in Sekunden. „Linie“: jede Adresse der eingegebenen Linie. „Koppler und Router“: Gerät 0 jeder Linie. „Das Gateway selbst“: das KNXnet/IP-Gateway über sein lokales Gerätemanagement, nicht über einen Controller. „Nur neue Geräte“: Die Adressen, an denen das Projekt ein Gerät hat, werden nicht gelesen.</de>
+								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written.</en>
+								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben.</de>
 							</tooltip>
 							<access>
 								<!-- The scan prepares the take-over into the project. -->
@@ -170,7 +170,7 @@
 										<en>Search for</en>
 										<de>Suchen nach</de>
 									</label>
-									<!-- The labels of the targets are those of the Java enum; its tooltips are not shown by a radio group (TL #30406). -->
+									<!-- The labels and the explanations of the targets are those of the Java enum. -->
 									<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
 										display="radio"
 										order="as-given"
@@ -199,6 +199,10 @@
 									<label>
 										<en>New devices only</en>
 										<de>Nur neue Geräte</de>
+										<tooltip>
+											<en>The addresses at which the project has a device are not read.</en>
+											<de>Die Adressen, an denen das Projekt ein Gerät hat, werden nicht gelesen.</de>
+										</tooltip>
 									</label>
 								</value-input>
 							</fields>

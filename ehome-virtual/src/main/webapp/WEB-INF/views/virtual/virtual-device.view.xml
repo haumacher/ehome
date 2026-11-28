@@ -159,7 +159,7 @@
 						/>
 					</visible-if>
 					<text tone="helper"
-						variant="caption"
+						variant="label"
 					>
 						<label>
 							<en>A KNXnet/IP interface of E-Home whose bus holds only a simulated copy of this device: its address, its mask version, the static memory of its program. Nothing is forwarded to a real bus or gateway. Every service a programming tool sends to the device is recorded in a trace.</en>

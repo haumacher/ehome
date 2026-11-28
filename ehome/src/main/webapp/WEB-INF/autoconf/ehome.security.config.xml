@@ -113,14 +113,9 @@
 	it again in Java (de.haumacher.ehome.runtime.LastValidImages). The open enrollment code of a project (ehome.project:Project#enrollmentCode) is read by
 	its owners and editors only: whoever knows it can enroll a controller for the project.
 
-	The access tokens of the agent access (module tl-layout-view-agent, tl.agent:AccessToken,
-	doc/agent-access.md) are their owner's: an account holds ehome.TokenOwner on the tokens it issued
-	(a role rule along AccessToken#owner) and reads and withdraws them in the dialog "Agent access" of
-	the development menu; nobody else sees them but a technical administrator, who lists all tokens in
-	the engine's administration. The token is issued and checked in Java (IssueAccessTokenAction, AgentAccess), which
-	the model access check does not cover; only the hash of its secret is stored. The two transient
-	types of the dialog (the form of a new token and the invitation shown once) are never persisted and
-	are marked internal.
+	The access tokens (tl.accounts:AccessToken, issued in the settings dialog for the agent access of
+	doc/agent-access.md and for the MCP endpoint of doc/ai.md) are their owner's by the policy of the
+	engine (tl-element, role AccessTokenOwner); only the hash of a token's secret is stored.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -136,7 +131,6 @@
 					<role name="ehome.Editor"/>
 					<role name="ehome.Viewer"/>
 					<role name="ehome.Collaborator"/>
-					<role name="ehome.TokenOwner"/>
 				</roles>
 			</instance>
 		</config>
@@ -315,16 +309,6 @@
 								<group-with-name name="ehome.administrators"/>
 							</path>
 						</rule>
-						<rule id="ehomeOwnerOfAccessToken"
-							meta-element="tl.agent:AccessToken"
-							role="ehome.TokenOwner"
-						>
-							<path>
-								<step attribute="tl.agent:AccessToken#owner"
-									inverse="false"
-								/>
-							</path>
-						</rule>
 					</rules>
 				</role-rules>
 				<security-parents>
@@ -355,13 +339,6 @@
 					<rule id="ehomeRootForDeviceTemplates"
 						inherit="true"
 						meta-element="ehome.template:DeviceTemplates"
-					>
-						<singleton module="SecurityStructure"/>
-					</rule>
-					<!-- The values of the enumerations, see the grant of tl.model:TLClassifier below (TL #30275). -->
-					<rule id="ehomeRootForClassifier"
-						inherit="true"
-						meta-element="tl.model:TLClassifier"
 					>
 						<singleton module="SecurityStructure"/>
 					</rule>
@@ -493,37 +470,18 @@
 					<part name="ehome.project:Project#newInstallationKey">
 						<grant operation="Read"/>
 					</part>
-					<!-- An agent access token: its owner reads and withdraws it. -->
-					<class name="tl.agent:AccessToken">
-						<grant operation="Read" roles="ehome.TokenOwner"/>
-						<grant operation="Delete" roles="ehome.TokenOwner"/>
-					</class>
-					<class name="tl.agent:NewAccessToken" internal="true"/>
-					<class name="tl.agent:IssuedAccessToken" internal="true"/>
 					<!--
-						The AI modules (haumacher/ehome #126, #129). Their conversations, memories and personal
-						access tokens are their owner's by the policies the modules ship
-						(tl-ai-core.chatSecurity.config.xml, tl-ai-core.accessTokens.config.xml). The types
-						below are read and written by the modules' code and by technical administrators only: the form of
-						a new personal access token (transient, never persisted), the agents and skills authored
+						The AI modules (haumacher/ehome #126, #129). Their conversations and memories are their
+						owner's by the policy the module ships (tl-ai-core.chatSecurity.config.xml). The types
+						below are read and written by the modules' code and by technical administrators only: the agents and skills authored
 						in the running application (E-Home's agents are configured, technical administrators author
 						further ones), the pages an agent publishes (the group "workspace", granted to nobody),
 						and the period of the agent monitor of the administration (transient).
 					-->
-					<class name="tl.ai.access:AccessTokenRequest" internal="true"/>
 					<class name="tl.ai.core:Agent" internal="true"/>
 					<class name="tl.ai.core:Skill" internal="true"/>
 					<class name="tl.ai.htmlpages:GeneratedHtmlPage" internal="true"/>
 					<class name="tl.ai.monitor:Period" internal="true"/>
-					<!--
-						The values of the enumerations (a schedule's weekdays, the kind of a function, ...) are
-						model data both roles read, or the MCP tools leave them out of every object a user reads
-						(haumacher/ehome #141). Workaround of TL #30275: the engine decides the read of a
-						classifier by roles instead of treating it as model data (doc/tl-todo.md).
-					-->
-					<class name="tl.model:TLClassifier">
-						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
-					</class>
 					<!-- The open enrollment code of a project: its owners and editors only, a viewer must not enroll a controller. -->
 					<part name="ehome.project:Project#enrollmentCode">
 						<grant operation="Read" roles="ehome.Owner, ehome.Editor"/>
@@ -585,7 +543,7 @@
 			still decide: a viewer's client is refused every change of the project. E-Home starts no agent
 			on a schedule.
 		-->
-		<config service-class="com.top_logic.tl.ai.core.security.AiToolAccessService">
+		<config service-class="com.top_logic.ai.core.security.AiToolAccessService">
 			<instance>
 				<tool-access>
 					<role name="SecurityStructure.user">

@@ -36,7 +36,7 @@
 				<text input="summary"/>
 				<text input="read"
 					tone="helper"
-					variant="caption"
+					variant="label"
 				/>
 				<panel>
 					<title>

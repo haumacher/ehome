@@ -20,7 +20,7 @@
 		<text
 			css-class="ehomeChangeGroup"
 			input="title"
-			variant="label"
+			variant="label-strong"
 		/>
 		<object-list
 			element-channel="item"
