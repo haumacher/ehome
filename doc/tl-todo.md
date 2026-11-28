@@ -49,12 +49,13 @@ Shipped, and their workarounds removed:
 - a write in its own transactions as a tool (TL #30531, closed invalid with the engine's way):
   `readOutDevice` and `takeOverSnapshot` are `DATA_WRITE` tools, the take-over records the revision of
   the outermost commit as the device's download state in an after-commit action (`ReadBack.takeOver`);
+- the OAuth sign-in at the MCP endpoint (TL #30274, no workaround before): `tl-oauth-server` and
+  `tl-oauth-server-view`, `<oauth-access-token-authentication>` before the personal access tokens,
+  the server card and `llms.txt` (`doc/ai.md`, `doc/debian.md`);
 - nothing to remove: a declared grouping by a withheld column (TL #30530), an abstract class created by
   a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
   as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
   it, the bundled catalog serves).
-Shipped, and to be taken up by the app (its entry below): the OAuth sign-in at the MCP endpoint
-(TL #30274).
 Still open: TL #29884, #29885, #30048, #30105, #30217, #30311.
 
 Before (8.0.0-alpha13.823, 2026-11-15; the build's tickets from the commits between
@@ -289,29 +290,6 @@ selected node under a closed one. In `projects/devices.view.xml` (haumacher/ehom
 opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
-
-## OAuth login and discovery of the MCP endpoint (TL #30274)
-
-`/ehome/mcp` admits personal access tokens only (`doc/ai.md`, "External agents over MCP"): a client
-is set up with a token copied by hand and a hand-written `Authorization` header. A client that only
-knows the browser login of the MCP specification cannot connect, and nothing tells an agent given
-the application's address that the endpoint exists. `tl-ai-mcp-server` 8.0.0-alpha13.823 has the
-token filter (`McpAuthenticationFilter`) and no authorization server.
-
-The engine ticket covers what E-Home needs (specification round of 2026-11-12: E-Home is its own
-authorization server, the user logs in with the E-Home account; a local client is the acceptance
-case): the application as the authorization server with the normal login and a consent page,
-discovery by the protected resource metadata, authorization code with PKCE, refresh tokens, the
-client by a client id metadata document or dynamic registration, consents listed and revocable
-beside the access tokens, which stay for scripts; the server card, `llms.txt` and the repaired token
-dialogs.
-
-No workaround. Shipped in 8.0.0-alpha13.833 (module `tl-oauth-server`, `tl-oauth-server-view`,
-`<oauth-access-token-authentication>`, the server card, `llms.txt`).
-
-**To do:** describe the login in `doc/ai.md` (a client is set up with the address alone),
-keep the token path for `bin/ehome-mcp.py`, check the login from a local client against the app on
-8080 and extend the endpoint's test by a request without a token (the metadata in the refusal).
 
 ## Startup actions of a migration are lost when its start fails (TL ticket to be filed)
 

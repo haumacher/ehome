@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,6 +44,8 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
+import com.top_logic.oauth.server.model.OAuthGrant;
+import com.top_logic.oauth.server.model.TlOauthServerFactory;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.SearchBuilder;
@@ -729,6 +732,50 @@ public class TestAccessRights extends BasicTestCase {
 		}
 		assertTrue("An editor sets the token.", rights().isAllowed(_editor, _controller, token, WRITE));
 		assertFalse(rights().isAllowed(_viewer, _controller, token, WRITE));
+	}
+
+	/**
+	 * The OAuth sign-in at the MCP endpoint (TL #30274): the authorization a person gave a client is
+	 * the person's own. An account in no group of E-Home reads its own grant (the list of the settings,
+	 * "Authorized clients") and nobody else's; neither a project's owner nor an E-Home administrator
+	 * reads it, and nobody writes it through the model (revoking goes through the authorization
+	 * server). The tokens, codes and registered clients are read by nobody through the model.
+	 */
+	public void testOAuthGrantsAreTheOwners() {
+		OAuthGrant[] grants = new OAuthGrant[2];
+		inTransaction(() -> {
+			grants[0] = grant(_stranger, "stranger");
+			grants[1] = grant(_viewer, "viewer");
+		});
+		assertTrue(allowed(_stranger, grants[0], READ));
+		assertFalse(allowed(_stranger, grants[1], READ));
+		assertTrue(allowed(_viewer, grants[1], READ));
+		for (Person person : List.of(_owner, _installer, _admin)) {
+			assertFalse(person.getName(), allowed(person, grants[0], READ));
+		}
+		for (Person person : List.of(_stranger, _viewer)) {
+			assertFalse(person.getName(), allowed(person, grants[0], WRITE));
+			assertFalse(person.getName(), allowed(person, grants[0], DELETE));
+		}
+		assertEquals(List.of(grants[0]), as(_stranger, () -> new ArrayList<>(
+			SearchExpression.asCollection(eval("x -> all(`tl.oauth.server:OAuthGrant`)", null)))));
+		for (String internal : List.of("OAuthToken", "OAuthAuthorizationCode", "OAuthClient",
+			"OAuthPendingAuthorization")) {
+			assertTrue(internal, as(_stranger, () -> SearchExpression.asCollection(
+				eval("x -> all(`tl.oauth.server:" + internal + "`)", null))).isEmpty());
+		}
+	}
+
+	private OAuthGrant grant(Person owner, String client) {
+		OAuthGrant result = TlOauthServerFactory.getInstance().createOAuthGrant();
+		_created.add(result);
+		result.setOwner(owner);
+		result.setClientId("tlocl_" + client);
+		result.setClientName(client);
+		result.setResource("http://localhost/ehome/mcp");
+		result.setCreatedAt(new Date());
+		result.setCodeHash("ehomeTestAccessRights-" + client);
+		return result;
 	}
 
 	/**

@@ -9,7 +9,8 @@ rules, functions, schedules and pages follow in #128.
 ## What is in the app
 
 - **Modules** (`ehome/pom.xml`): `tl-ai-core` (agents, providers, tools, security), `tl-chat` (the
-  chat), `tl-ai-mcp-server` (the MCP endpoint). Not `tl-ai-views` (agents rewriting views have no
+  chat), `tl-ai-mcp-server` (the MCP endpoint), `tl-oauth-server` and `tl-oauth-server-view` (the
+  OAuth sign-in at the endpoint, its consent page and the list of the authorized clients). Not `tl-ai-views` (agents rewriting views have no
   place in an end-user product) and not A2A.
 - **The chat** (`WEB-INF/views/app.view.xml`): a launcher in the corner of the shell opens the
   conversation over the page; the rail beside it lists the account's conversations and shows what
@@ -212,8 +213,44 @@ account (`<budget>` of `AgentPolicyService`) is not set.
 
 ## External agents over MCP
 
-The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/mcp`). It admits
-**personal access tokens** only - no anonymous access, no password:
+The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/mcp`; also with a
+trailing slash). There is no anonymous access and no password; a client acts as an account of
+E-Home in one of two ways (`WEB-INF/autoconf/ehome.mcp.config.xml`, in this order):
+
+### Sign in with the E-Home account (OAuth)
+
+E-Home is the OAuth authorization server of its own endpoint (TL #30274). A client is set up with
+the address alone:
+
+```bash
+claude mcp add --transport http --scope user ehome https://<host>/ehome/mcp
+# development: claude mcp add --transport http --scope user ehome http://localhost:8080/ehome/mcp
+```
+
+On its first connection (in Claude Code: `/mcp`, the server, *Authenticate*) the client is answered
+`401` with `WWW-Authenticate: Bearer ..., resource_metadata="<host>/ehome/.well-known/oauth-protected-resource/mcp"`,
+reads there that E-Home (`<host>/ehome`) is the authorization server, reads its metadata
+(`/ehome/.well-known/oauth-authorization-server`, also `openid-configuration`), registers itself
+(`/ehome/oauth/register`) and opens the browser on E-Home: the login page, then the consent page
+(*Allow access*: the client, the host it returns to, the endpoint, the account; *Allow* or *Deny*).
+From then on the client sends its access token (`tloat_...`, one hour) and renews it with its refresh
+token (`tlort_...`, 30 days from the last renewal) by itself; nothing is copied by hand. Any account
+signs in, an account in no group of E-Home too: the client can then do exactly what the account can.
+
+- Every account sees its clients in *Settings* → *Authorized clients* and revokes them there; an
+  administrator sees every authorization under *Administration* → *Access control* → *OAuth
+  authorizations*. An authorization nobody uses any more is removed after its tokens expired (the
+  hourly clean-up of the engine); deleting an account deletes its authorizations.
+- OAuth 2.1 requires TLS: the sign-in works over `https` (the Debian installation behind its proxy,
+  `doc/debian.md`) and over `http` on the loopback interface only (development). Opened by the LAN
+  address over `http`, the authorization endpoint refuses the request; there, use a personal access
+  token.
+- The address in the documents (issuer, resource) is `tl_host` or the address of the request; a
+  client requires it to be exactly the address it was set up with.
+
+### Personal access tokens (scripts)
+
+For `bin/ehome-mcp.py` and other scripts, and for a client without the OAuth sign-in:
 
 1. In E-Home: account menu → *Settings* → *Access tokens* → *New token*: a name (the client), the
    validity in days and the permission *Agent interfaces (MCP/A2A)*; a token without it is refused at
@@ -224,15 +261,22 @@ The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/
    install -d -m 700 ~/.config/ehome
    (umask 077; cat > ~/.config/ehome/mcp-token)   # paste the token, then Ctrl-D
    ```
-3. Connect Claude Code:
+3. A client with the token in a header:
    ```bash
    claude mcp add --transport http ehome http://localhost:8080/ehome/mcp \
        --header "Authorization: Bearer $(cat ~/.config/ehome/mcp-token)"
    ```
-   For the Debian installation behind its proxy: `https://<host>/ehome/mcp` (also with a trailing
-   slash, `/ehome/mcp/`, since 8.0.0-alpha13.823).
 4. Revoke a token in the same settings tab; an administrator lists and revokes every token under
    *Administration* → *Access control* → *Access tokens*.
+
+### How an agent finds the endpoint
+
+An agent given only the address of E-Home reads `<host>/ehome/llms.txt` (what E-Home is, the
+authorization server, the endpoint, both credentials, the `claude mcp add` commands and the
+instructions of the server), the AI Catalog `<host>/ehome/.well-known/ai-catalog.json` and the server
+card `<host>/ehome/mcp/server-card` (name, description, endpoint; read without a credential). The name
+of the card is derived from the address (the host reversed and `ehome`), so every installation has
+its own. A refused request answers in plain text with the same guidance.
 
 What the endpoint publishes (`<exposed-tools>`): the tool groups `model.read`, `data.read` and
 `data.write` - the groups of the chat, E-Home's own tools included. A call is decided for the token's

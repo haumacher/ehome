@@ -243,6 +243,31 @@ every setting it becomes a JNDI entry of E-Home's own context, never a variable 
 missing; nothing is sent anywhere. `tl_anthropic_models` and `tl_ai_default_model` choose other
 models. The use is billed to the account of the key.
 
-The MCP endpoint for external agents (`/ehome/mcp`, `doc/ai.md`) is on and admits personal access
-tokens only. Behind the nginx of the example, its location `/ehome/mcp` passes the server-sent events
+The MCP endpoint for external agents (`/ehome/mcp`, `doc/ai.md`) is on and admits the OAuth sign-in
+with the E-Home account (E-Home is its own authorization server, TL #30274) and personal access
+tokens. Behind the nginx of the example, its location `/ehome/mcp` passes the server-sent events
 unbuffered; a proxy of its own needs the same (`proxy_buffering off` or its equivalent).
+
+The sign-in needs from the installation:
+
+- **TLS.** OAuth 2.1 refuses the authorization over plain `http` on any host but the loopback
+  interface: the sign-in works through the `https` address of the proxy, not over the LAN address of
+  Tomcat (there, a client uses a personal access token).
+- **The public address.** The issuer and the resource in the metadata are the address of the
+  request (the proxy's `Host` and `X-Forwarded-Proto`, which the context's `RemoteIpValve` applies)
+  or `tl_host` when it is set; a client requires the issuer to be exactly the address it asked for.
+  Set `tl_host` to the `https` address users open (as for the passkeys, above), so that no proxy
+  setting can make the documents name another one.
+- **The well-known paths at the root of the host.** A client derives the metadata locations by
+  inserting the well-known path before the context path (RFC 8414, RFC 9728):
+  `https://<host>/.well-known/oauth-authorization-server/ehome`,
+  `https://<host>/.well-known/oauth-protected-resource/ehome/mcp`. These requests reach the root of
+  the host, not E-Home's context; the proxy forwards them to `/ehome/.well-known/<type>[/rest]`
+  (the location `~ ^/\.well-known/([^/]+)/ehome(/.*)?$` of the example). It forwards, never
+  redirects, and answers any other path below `/.well-known/` with `404` rather than sending it to
+  E-Home, so that a client goes on to its next candidate. (Claude Code takes the protected resource
+  metadata from the challenge of the `401` and finds the server's metadata at
+  `/ehome/.well-known/openid-configuration` even without the forwarding; another client may not.)
+- Nothing else: the consent page is a page of E-Home behind its login, the data are tables of
+  E-Home's database (created at the first start of a version with the sign-in), and the engine
+  removes expired codes, tokens, unused registrations and authorizations every hour.

@@ -10,16 +10,23 @@ import static test.de.haumacher.ehome.ai.AssistantFixture.deviceTitles;
 import static test.de.haumacher.ehome.ai.AssistantFixture.tid;
 
 import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.DispatcherType;
 
@@ -57,6 +64,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.model.security.SecurityConfigurationService;
+import com.top_logic.oauth.server.OAuthAuthorizationServer;
+import com.top_logic.oauth.server.OAuthServerServlet;
+import com.top_logic.oauth.server.ProtectedResources;
 import com.top_logic.ai.core.access.AccessTokenAuthenticator;
 import com.top_logic.element.accesstoken.AccessTokens;
 import com.top_logic.ai.core.agent.AgentApplicationService;
@@ -74,11 +84,16 @@ import de.haumacher.ehome.runtime.Json;
 /**
  * The MCP endpoint of E-Home (haumacher/ehome #129, <code>WEB-INF/autoconf/ehome.mcp.config.xml</code>)
  * over HTTP, as Claude Code calls it: the authentication filter and the transport servlet of
- * <code>tl-ai-mcp-server</code> in a Jetty of their own, with personal access tokens of an installer and
- * a viewer.
+ * <code>tl-ai-mcp-server</code> and the servlet of the authorization server of <code>tl-oauth-server</code>
+ * in a Jetty of their own, with personal access tokens of an installer and a viewer and with the OAuth
+ * sign-in (TL #30274).
  *
  * <ul>
- * <li>Without a token, or with a token that does not exist, a request is refused with 401.</li>
+ * <li>Without a token, or with a token that does not exist, a request is refused with 401 and a Bearer
+ * challenge naming the protected resource metadata.</li>
+ * <li>A client knowing only the address finds the authorization server through the protected resource
+ * metadata and its metadata, reads the server card without a credential, registers itself, is allowed
+ * by an installer (the consent page's approval) and calls the endpoint with its access token.</li>
  * <li>An installer's client initializes a session, lists the published tools - reading and writing -
  * and reads the devices of a project with the query tool.</li>
  * <li>A resource read of a controller by an installer leaves out its bearer token, which nobody but an
@@ -124,6 +139,14 @@ public class TestMcpEndpoint extends BasicTestCase {
 		filter.setAsyncSupported(true);
 		ServletHolder servlet = context.addServlet(MCPTransportServlet.class, "/mcp/*");
 		servlet.setAsyncSupported(true);
+		// The mapping of the web fragment of tl-oauth-server.
+		ServletHolder oauth = new ServletHolder(OAuthServerServlet.class);
+		for (String path : List.of(OAuthAuthorizationServer.METADATA_PATH,
+			OAuthAuthorizationServer.OPENID_CONFIGURATION_PATH, ProtectedResources.METADATA_PATH + "/*",
+			OAuthAuthorizationServer.TOKEN_PATH, OAuthAuthorizationServer.AUTHORIZATION_PATH,
+			OAuthAuthorizationServer.REGISTRATION_PATH)) {
+			context.addServlet(oauth, path);
+		}
 		_server.setHandler(context);
 		_server.start();
 
@@ -141,9 +164,115 @@ public class TestMcpEndpoint extends BasicTestCase {
 	}
 
 	public void testWithoutTokenRefused() throws Exception {
-		assertEquals(401, post(null, null, initialize()).statusCode());
+		HttpResponse<String> anonymous = post(null, null, initialize());
+		assertEquals(401, anonymous.statusCode());
+		String challenge = anonymous.headers().allValues("WWW-Authenticate").stream().collect(Collectors.joining(", "));
+		// The OAuth sign-in comes first: a client looks for resource_metadata only after a Bearer challenge.
+		assertTrue(challenge, challenge.startsWith("Bearer "));
+		assertTrue(challenge, challenge.contains("resource_metadata=\"" + base() + "/.well-known/oauth-protected-resource/mcp\""));
 		assertEquals(401,
 			post("tlpat_0000000000000000000000000000000000000000000", null, initialize()).statusCode());
+		assertEquals(401,
+			post(OAuthAuthorizationServer.ACCESS_TOKEN_PREFIX + "0000000000000000000000000000000000000000000", null,
+				initialize()).statusCode());
+	}
+
+	/**
+	 * What a client set up with the address alone finds (TL #30274): the protected resource metadata
+	 * named in the challenge, the metadata of the authorization server it names, and the server card,
+	 * all without a credential.
+	 */
+	@SuppressWarnings("unchecked")
+	public void testDiscovery() throws Exception {
+		Map<String, Object> resource = getJson("/.well-known/oauth-protected-resource/mcp");
+		assertEquals(base() + "/mcp", resource.get("resource"));
+		assertEquals(List.of(base()), resource.get("authorization_servers"));
+
+		for (String path : List.of("/.well-known/oauth-authorization-server", "/.well-known/openid-configuration")) {
+			Map<String, Object> server = getJson(path);
+			assertEquals(path, base(), server.get("issuer"));
+			assertEquals(path, base() + "/oauth/authorize", server.get("authorization_endpoint"));
+			assertEquals(path, base() + "/oauth/token", server.get("token_endpoint"));
+			assertEquals(path, base() + "/oauth/register", server.get("registration_endpoint"));
+			assertEquals(path, List.of("S256"), server.get("code_challenge_methods_supported"));
+		}
+
+		HttpResponse<String> card = get("/mcp/server-card");
+		assertEquals(card.body(), 200, card.statusCode());
+		Map<String, Object> json = (Map<String, Object>) Json.parse(card.body(), 16);
+		assertEquals("E-Home", json.get("title"));
+		assertTrue(card.body(), String.valueOf(json.get("description")).contains("KNX"));
+		Map<String, Object> remote = ((List<Map<String, Object>>) json.get("remotes")).get(0);
+		assertEquals(base() + "/mcp", remote.get("url"));
+		// The sign-in needs no header; the header of the personal access token is optional.
+		for (Map<String, Object> header : (List<Map<String, Object>>) remote.getOrDefault("headers", List.of())) {
+			assertFalse(card.body(), Boolean.TRUE.equals(header.get("isRequired")));
+		}
+
+		assertEquals(404, get("/.well-known/oauth-protected-resource/other").statusCode());
+	}
+
+	/**
+	 * The sign-in of a client as the MCP authorization profile describes it (TL #30274): it registers
+	 * itself, the installer allows it on the consent page (here the approval the page's command
+	 * calls), the client exchanges the code with its PKCE verifier and calls the endpoint as the
+	 * installer; it renews the access token with the refresh token. A personal access token keeps
+	 * working beside it.
+	 */
+	@SuppressWarnings("unchecked")
+	public void testOAuthSignIn() throws Exception {
+		String redirect = "http://127.0.0.1:33418/callback";
+		HttpResponse<String> registration = postJson("/oauth/register", Json.write(Map.of(
+			"client_name", "TestMcpEndpoint", "redirect_uris", List.of(redirect),
+			"token_endpoint_auth_method", "none", "grant_types", List.of("authorization_code", "refresh_token"),
+			"response_types", List.of("code"))));
+		assertEquals(registration.body(), 201, registration.statusCode());
+		String clientId = (String) ((Map<String, Object>) Json.parse(registration.body(), 16)).get("client_id");
+
+		byte[] secret = new byte[32];
+		new SecureRandom().nextBytes(secret);
+		String verifier = Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
+		String challenge = Base64.getUrlEncoder().withoutPadding().encodeToString(
+			MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
+		String resource = base() + "/mcp";
+		HttpResponse<String> authorize = get("/oauth/authorize?" + form(Map.of("response_type", "code",
+			"client_id", clientId, "redirect_uri", redirect, "code_challenge", challenge,
+			"code_challenge_method", "S256", "resource", resource, "state", "s1")));
+		assertEquals(authorize.body(), 302, authorize.statusCode());
+		String consent = authorize.headers().firstValue("Location").orElseThrow();
+		assertTrue(consent, consent.contains(CONTEXT + "/view/oauth-consent.view.xml?pending="));
+		String pending = consent.substring(consent.indexOf("pending=") + "pending=".length());
+
+		// The request stored the pending authorization in the thread of the servlet.
+		PersistencyLayer.getKnowledgeBase().refetch();
+		URI answer = OAuthAuthorizationServer.getInstance().approve(pending, _fixture.installer());
+		Map<String, String> query = parameters(answer.getRawQuery());
+		assertTrue(answer.toString(), answer.toString().startsWith(redirect));
+		assertEquals("s1", query.get("state"));
+
+		HttpResponse<String> tokens = postForm("/oauth/token", Map.of("grant_type", "authorization_code",
+			"code", query.get("code"), "redirect_uri", redirect, "client_id", clientId, "code_verifier", verifier,
+			"resource", resource));
+		assertEquals(tokens.body(), 200, tokens.statusCode());
+		Map<String, Object> pair = (Map<String, Object>) Json.parse(tokens.body(), 16);
+		String access = (String) pair.get("access_token");
+		assertTrue(access, access.startsWith(OAuthAuthorizationServer.ACCESS_TOKEN_PREFIX));
+
+		String session = open(access);
+		List<String> tools = toolNames(call(access, session, "tools/list", Map.of()));
+		assertTrue("The installer's tools: " + tools, tools.contains(CREATE_PARTS));
+		String read = Json.write(call(access, session, "tools/call",
+			Map.of("name", QUERY, "arguments", Map.of("expression", deviceTitles()))));
+		assertTrue("The client reads as the installer: " + read, read.contains(ACTUATOR));
+
+		HttpResponse<String> refreshed = postForm("/oauth/token", Map.of("grant_type", "refresh_token",
+			"refresh_token", (String) pair.get("refresh_token"), "client_id", clientId, "resource", resource));
+		assertEquals(refreshed.body(), 200, refreshed.statusCode());
+		String renewed = (String) ((Map<String, Object>) Json.parse(refreshed.body(), 16)).get("access_token");
+		open(renewed);
+
+		// The token of a script, beside the sign-in.
+		open(token(_fixture.installer()));
 	}
 
 	public void testInstallerListsToolsAndReadsAProject() throws Exception {
@@ -325,6 +454,49 @@ public class TestMcpEndpoint extends BasicTestCase {
 			List.of(AccessTokenAuthenticator.AGENT_ENDPOINTS_PERMISSION), null).plain();
 	}
 
+	private String base() {
+		return "http://127.0.0.1:" + _connector.getLocalPort() + CONTEXT;
+	}
+
+	private HttpResponse<String> get(String path) throws Exception {
+		return _http.send(HttpRequest.newBuilder(URI.create(base() + path)).GET().build(),
+			HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> getJson(String path) throws Exception {
+		HttpResponse<String> answer = get(path);
+		assertEquals(path + ": " + answer.body(), 200, answer.statusCode());
+		return (Map<String, Object>) Json.parse(answer.body(), 16);
+	}
+
+	private HttpResponse<String> postJson(String path, String body) throws Exception {
+		return send(path, "application/json", body);
+	}
+
+	private HttpResponse<String> postForm(String path, Map<String, String> values) throws Exception {
+		return send(path, "application/x-www-form-urlencoded", form(values));
+	}
+
+	private HttpResponse<String> send(String path, String contentType, String body) throws Exception {
+		return _http.send(HttpRequest.newBuilder(URI.create(base() + path)).header("Content-Type", contentType)
+			.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8)).build(),
+			HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+	}
+
+	private static String form(Map<String, String> values) {
+		return values.entrySet().stream()
+			.map(e -> URLEncoder.encode(e.getKey(), StandardCharsets.UTF_8) + "="
+				+ URLEncoder.encode(e.getValue(), StandardCharsets.UTF_8))
+			.collect(Collectors.joining("&"));
+	}
+
+	private static Map<String, String> parameters(String query) {
+		return Arrays.stream(query.split("&")).map(p -> p.split("=", 2)).collect(Collectors.toMap(
+			p -> URLDecoder.decode(p[0], StandardCharsets.UTF_8),
+			p -> URLDecoder.decode(p[1], StandardCharsets.UTF_8)));
+	}
+
 	private String open(String token) throws Exception {
 		HttpResponse<String> answer = post(token, null, initialize());
 		assertEquals(answer.body(), 200, answer.statusCode());
@@ -352,7 +524,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 
 	private HttpResponse<String> post(String token, String session, String body) throws Exception {
 		HttpRequest.Builder request =
-			HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + _connector.getLocalPort() + CONTEXT + "/mcp"))
+			HttpRequest.newBuilder(URI.create(base() + "/mcp"))
 				.header("Content-Type", "application/json")
 				.header("Accept", "application/json, text/event-stream")
 				.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
@@ -402,7 +574,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 			SecurityConfigurationService.Module.INSTANCE, AiToolAccessService.Module.INSTANCE,
 			TopLogicAgentDefinitions.Module.INSTANCE, AgentApplicationService.Module.INSTANCE,
 			AgentPolicyService.Module.INSTANCE, AgentRuntimeService.Module.INSTANCE,
-			AccessTokenPermissions.Module.INSTANCE));
+			AccessTokenPermissions.Module.INSTANCE, OAuthAuthorizationServer.Module.INSTANCE));
 	}
 
 }
