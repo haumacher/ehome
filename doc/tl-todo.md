@@ -58,7 +58,7 @@ Shipped, and their workarounds removed:
   a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
   as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
   it, the bundled catalog serves).
-Still open: TL #29884, #29885, #30048, #30105, #30217, #30311; filed: #30601.
+Still open: TL #29884, #29885, #30048, #30105, #30217, #30311; filed: #30601, #30602.
 
 Before (8.0.0-alpha13.823, 2026-11-15; the build's tickets from the commits between
 the tags `PREVIEW/TL_8.0.0-alpha12.820` and `PREVIEW/TL_8.0.0-alpha13.823` of the engine, confirmed in
@@ -301,6 +301,18 @@ import of the test suites (haumacher/ehome #208, measured by sampling). No worka
 
 **When fixed:** nothing to undo; the import of master data gets faster.
 
+## claude.ai cannot sign in at the MCP endpoint (TL #30602)
+
+A custom connector of claude.ai signs in with the client ID metadata document
+`https://claude.ai/oauth/mcp-oauth-client-metadata`, whose `grant_types` list
+`urn:ietf:params:oauth:grant-type:jwt-bearer` beside `authorization_code` and `refresh_token`.
+`OAuthAuthorizationServer.checkPublicClient` accepts only a subset of the two grant types it supports
+and refuses the document; the person sees the generic page "not known here or could not be verified"
+(`oauth-refused.view.xml`, reason `UNKNOWN_CLIENT`), the log the actual reason. Claude Code and other
+clients that register dynamically or list only these grant types sign in. No workaround.
+
+**When fixed:** nothing to undo; connect claude.ai to the production server and the local app.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -310,3 +322,4 @@ import of the test suites (haumacher/ehome #208, measured by sampling). No worka
 - TL #30217: see above (a rebuilt tree table keeps its selection without opening its parents).
 - TL #30311: see above (memory of a product import committed step by step).
 - TL #30601: see above (adding to a reference in the XML import is quadratic).
+- TL #30602: see above (claude.ai cannot sign in at the MCP endpoint).
