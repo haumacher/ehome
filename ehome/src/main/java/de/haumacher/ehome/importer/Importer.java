@@ -76,6 +76,8 @@ import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ParameterCalculation;
 import de.haumacher.ehome.model.operational.ParameterValidation;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.PluginRequirements;
@@ -247,7 +249,7 @@ public class Importer {
 				zip.closeEntry();
 			}
 		};
-		Handler handler = handler();
+		Handler handler = _configured;
 		// The files the manufacturers ship with their data (haumacher/ehome #154).
 		BaggageImport baggage = new BaggageImport(_baggageSizeLimit);
 		Map<String, Map<String, byte[]>> projectArchives = new LinkedHashMap<>();
@@ -325,7 +327,7 @@ public class Importer {
 		try (InputStream in = source.open()) {
 			ZipInputStream zip = new ZipInputStream(in);
 			FilterInputStream entryIn = entryStream(zip);
-			Handler handler = handler();
+			Handler handler = _configured;
 			String last = null;
 			ZipEntry entry;
 			while ((entry = nextEntry(zip, last)) != null) {
@@ -388,7 +390,7 @@ public class Importer {
 		try {
 			try (ImportContext context = newContext()) {
 				scanModules(context, content);
-				importXml(context, handler(), name, new ByteArrayInputStream(content));
+				importXml(context, _configured, name, new ByteArrayInputStream(content));
 				ProgramFacts facts = new ProgramFacts(content);
 				completeAssigns(facts);
 				completeButtons(facts);
@@ -1273,17 +1275,6 @@ public class Importer {
 	}
 
 	/**
-	 * The handler of the entries of an archive for one import context: the mapping of
-	 * <code>etsImporter.xml</code>, which asks the parts of the existing application programs after
-	 * the shared objects of its <code>&lt;resolve-existing&gt;</code> (see {@link SharedObjects}).
-	 */
-	private Handler handler() {
-		SharedObjects shared = new SharedObjects(_binding);
-		Handler configured = _configured;
-		return (importContext, xml) -> importContext.withIdLookup(shared, xml, configured);
-	}
-
-	/**
 	 * Removes the parameter settings and connectors of the devices the import created whose part of
 	 * the application program it could not resolve, and reports them per device.
 	 *
@@ -1299,13 +1290,13 @@ public class Importer {
 	private void dropUnresolvedProgramParts() {
 		Map<TLObject, int[]> dropped = new LinkedHashMap<>();
 		for (TLObject setting : getCreated(SETTING_TYPE)) {
-			if (setting.tValid() && setting.tValueByName("parameter") == null) {
+			if (setting.tValid() && ((ParameterSetting) setting).getParameter() == null) {
 				dropped.computeIfAbsent(setting.tContainer(), d -> new int[2])[0]++;
 				setting.tDelete();
 			}
 		}
 		for (TLObject connector : getCreated(CONNECTOR_TYPE)) {
-			if (connector.tValid() && connector.tValueByName("port") == null) {
+			if (connector.tValid() && ((Connector) connector).getPort() == null) {
 				dropped.computeIfAbsent(connector.tContainer(), d -> new int[2])[1]++;
 				connector.tDelete();
 			}

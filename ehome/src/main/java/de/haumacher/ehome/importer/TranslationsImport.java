@@ -50,8 +50,8 @@ import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
  * languages it lacks, see {@link ProgramLanguages}, and the texts of the parts the import added to it
  * (see {@link CompleteModules}). The translations of a language a known program has look up only the
  * parts the import added, not the program's other parts, whose lookup would make all parts of the
- * program known to the import (see {@link SharedObjects}): an import of a known program costs what it
- * adds.
+ * program known to the import (the partition of the program in <code>etsImporter.xml</code>): an
+ * import of a known program costs what it adds.
  * </p>
  */
 public class TranslationsImport<C extends TranslationsImport.Config<?>> extends ConfiguredImportHandler<C> {

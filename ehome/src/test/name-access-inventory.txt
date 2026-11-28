@@ -20,4 +20,3 @@ src/main/java/de/haumacher/ehome/projectfile/ProjectFileImport.java = 1
 src/main/java/de/haumacher/ehome/ai/logic/AutomationChange.java = 1
 
 [migrate]
-src/main/java/de/haumacher/ehome/importer/Importer.java = 2

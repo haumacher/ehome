@@ -43,14 +43,15 @@ Shipped, and their workarounds removed:
   (haumacher/ehome #198);
 - the generated interfaces on form buffers and drafts (TL #30447): constraints, options functions and
   the rule and preset drafts use the typed accessors; the `[migrate]` section of
-  `name-access-inventory.txt` holds two calls of `importer/Importer` only;
+  `name-access-inventory.txt` is empty;
+- the composition descendants in TL-Script (TL #30192): `SharedObjects` is gone, the partition of
+  the parts of an application program is declared in `etsImporter.xml` with `objectDescendants`;
 - nothing to remove: a declared grouping by a withheld column (TL #30530), an abstract class created by
   a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
   as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
   it, the bundled catalog serves).
-Shipped, and to be taken up by the app (their entries below): the composition descendants in TL-Script
-(TL #30192), the OAuth sign-in at the MCP endpoint (TL #30274); TL #30531 was closed as invalid with the
-engine's way (its entry below).
+Shipped, and to be taken up by the app (their entries below): the OAuth sign-in at the MCP endpoint
+(TL #30274); TL #30531 was closed as invalid with the engine's way (its entry below).
 Still open: TL #29884, #29885, #30048, #30105, #30217, #30311.
 
 Before (8.0.0-alpha13.823, 2026-11-15; the build's tickets from the commits between
@@ -139,21 +140,14 @@ adds to set references directly. What stays:
   decide, not record), and `<program-imported>` (`ProgramImported`), the last handler of a new
   program, records its language and decides the held-back warnings about hidden parameter values
   (`HiddenProgramValues`, haumacher/ehome #83). Nothing to undo.
-- TL #29975 shipped the `partition` of `<resolve-existing>`; the `objects` of a partition are all
-  parts of a program, about ten thousand reached through 24 composite references of
-  `ehome.operational`. Workaround: `SharedObjects`, an `IdLookup` that `Importer` installs with
-  `ImportContext#withIdLookup` and that walks the composition of a program in Java. TL #30087 asked
-  for a TL-Script walk of the composition and was closed as invalid with a recipe in plain TL-Script
-  (the composite references of the object's type and its generalizations, from
-  `tl.model:TLClass#generalizations`, `TLStructuredType#localParts` and `TLReference#composite`, in a
-  `recursion`). An inner `<resolve-existing>` with that recipe as `objects` (and the program ID at
-  the start of a part's ID as `partition`) imports the same (checked on 8.0.0-alpha12.817, the suite
-  green), but the app's suite took 136 s instead of 89 s with `SharedObjects` (one run each, the
-  slower one on the less loaded machine; TestRoundTrip#testDemo 10.8 s against 8.7 s): the walk asks
-  the model for the composite references of every one of the parts. Engine gap: a TL-Script function for the composition descendants
-  of an object that is as fast as the Java walk (TL #30192; #30087 is closed). Shipped in 8.0.0-alpha13.833
-  as `objectDescendants`; **to do:** declare the partition in `etsImporter.xml` with it, remove
-  `SharedObjects` if the suite stays as fast.
+- The parts of an application program, about ten thousand reached through 24 composite references of
+  `ehome.operational`, are looked up per program: an inner `<resolve-existing>` of `etsImporter.xml`
+  with the program ID at the start of a part's ID as `partition` (TL #29975) and the program's
+  `objectDescendants` as `objects` (TL #30192, shipped in 8.0.0-alpha13.833). It replaced
+  `SharedObjects`, an `IdLookup` of the app walking the composition in Java (the plain-TL-Script recipe
+  of TL #30087 had made the suite 136 s instead of 89 s). The app's suite is as fast with it: 217 s
+  against 224 s with `SharedObjects`, the mean of three runs each, back to back on a machine loaded by
+  other builds (TestRoundTrip#testDemo 10.8 s against 12.6 s). Nothing to undo.
 - `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`) imports a known
   mask version as a transient candidate (`JoiningModelBinding#setTransient`) and, at the end of the
   import, updates the known one in place from it (newer master data) or compares and warns (older or

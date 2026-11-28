@@ -352,30 +352,6 @@ public class JoiningModelBinding implements ModelBinding {
 	}
 
 	/**
-	 * Makes an existing object known under the given ID, so that the import resolves the ID to it
-	 * (see {@link SharedObjects}).
-	 *
-	 * <p>
-	 * Unlike {@link #assignId(Object, String)}, the object does not count as found (see
-	 * {@link #getResolved()}) until the import asks for it.
-	 * </p>
-	 */
-	public void register(Object value, String id) {
-		put(id, value);
-	}
-
-	/**
-	 * Makes the existing object with the given key known under the given ID, unless the import knows
-	 * an object under the ID already; the object is resolved when the import asks for the ID (see
-	 * {@link #register(Object, String)}).
-	 */
-	public void registerKey(ObjectKey key, String id) {
-		if (id != null) {
-			_ids.putIfAbsent(id, key);
-		}
-	}
-
-	/**
 	 * Assigns the ID to the given object.
 	 *
 	 * <p>

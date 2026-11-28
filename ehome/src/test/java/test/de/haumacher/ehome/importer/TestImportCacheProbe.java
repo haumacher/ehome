@@ -50,7 +50,7 @@ public class TestImportCacheProbe extends BasicTestCase {
 		ResKey original = null;
 		try {
 			importProject(DETAILS);
-			importProject(DETAILS); // the second import remembers the parts of the known program
+			importProject(DETAILS); // the second import finds the known program
 			String programId = SharedData.ids(DETAILS, "M-0008/M-0008_A-.*", "ApplicationProgram").iterator().next();
 
 			Parameter victim = null;
