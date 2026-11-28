@@ -185,7 +185,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 			Map.of("name", UPDATE, "arguments", Map.of("id", id, "values", Map.of("title", "Renamed")))));
 		// Refused by the role in the project, not by the tool access (haumacher/ehome #152).
 		assertTrue("The refusal names the object: " + write, write.contains("may not change"));
-		assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
+		assertEquals(ACTUATOR, _fixture.actuator().getTitle());
 	}
 
 	/**
@@ -302,7 +302,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 			String updated = Json.write(call(token, session, "tools/call", Map.of("name", UPDATE,
 				"arguments", Map.of("id", tid(_fixture.actuator()), "values", Map.of("title", "Renamed")))));
 			assertTrue("The object tool refuses: " + updated, updated.contains("may not change"));
-			assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
+			assertEquals(ACTUATOR, _fixture.actuator().getTitle());
 		} finally {
 			kb.refetch();
 			try (Transaction tx = kb.beginTransaction()) {

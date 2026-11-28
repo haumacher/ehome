@@ -37,6 +37,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.ProjectDatapoint;
@@ -110,13 +113,14 @@ public class TestTimelines extends BasicTestCase {
 	protected void setUp() throws Exception {
 		super.setUp();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_main = create("ehome.datapoint:DatapointMainType");
-			_main.tUpdateByName("number", Integer.valueOf(20));
-			_main.tUpdateByName("extId", "TEST-TIMELINES-20");
-			TLObject hvac = create("ehome.datapoint:DatapointSubtype");
-			hvac.tUpdateByName("number", Integer.valueOf(102));
-			hvac.tUpdateByName("extId", "TEST-TIMELINES-20-102");
-			_main.tUpdateByName("subtypes", List.of(hvac));
+			DatapointMainType main = (DatapointMainType) create("ehome.datapoint:DatapointMainType");
+			main.setNumber(20);
+			main.setExtId("TEST-TIMELINES-20");
+			DatapointSubtype hvac = (DatapointSubtype) create("ehome.datapoint:DatapointSubtype");
+			hvac.setNumber(102);
+			hvac.setExtId("TEST-TIMELINES-20-102");
+			main.setSubtypes(List.of(hvac));
+			_main = main;
 
 			_project = (Project) create("ehome.project:Project");
 			_project.setName("Heating program");
@@ -423,13 +427,14 @@ public class TestTimelines extends BasicTestCase {
 		TLObject main;
 		WriteAction write;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			main = create("ehome.datapoint:DatapointMainType");
-			main.tUpdateByName("number", Integer.valueOf(1));
-			main.tUpdateByName("extId", "TEST-TIMELINES-1");
-			TLObject sw = create("ehome.datapoint:DatapointSubtype");
-			sw.tUpdateByName("number", Integer.valueOf(1));
-			sw.tUpdateByName("extId", "TEST-TIMELINES-1-001");
-			main.tUpdateByName("subtypes", List.of(sw));
+			DatapointMainType mainType = (DatapointMainType) create("ehome.datapoint:DatapointMainType");
+			mainType.setNumber(1);
+			mainType.setExtId("TEST-TIMELINES-1");
+			DatapointSubtype sw = (DatapointSubtype) create("ehome.datapoint:DatapointSubtype");
+			sw.setNumber(1);
+			sw.setExtId("TEST-TIMELINES-1-001");
+			mainType.setSubtypes(List.of(sw));
+			main = mainType;
 			GroupAddress light = address("Light", 3, sw);
 			Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(_project.getGroupAddresses());
 			addresses.add(light);
@@ -534,7 +539,7 @@ public class TestTimelines extends BasicTestCase {
 		GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
 		address.setName(name);
 		address.setAddress(new GA((1 << 11) | (4 << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.setDatapointTypes(List.of(type));
+		address.setDatapointTypes(List.of((DatapointType) type));
 		address.setRuntimeWritable(Boolean.TRUE);
 		return address;
 	}

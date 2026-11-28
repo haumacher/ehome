@@ -11,12 +11,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
@@ -42,21 +43,24 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.CodeSegment;
+import de.haumacher.ehome.model.operational.DateType;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
-import de.haumacher.ehome.model.operational.NumericType;
-import de.haumacher.ehome.model.operational.TextType;
-import de.haumacher.ehome.model.operational.TimeType;
-import de.haumacher.ehome.model.operational.DateType;
 import de.haumacher.ehome.model.operational.FloatingPointType;
 import de.haumacher.ehome.model.operational.IPAddressType;
 import de.haumacher.ehome.model.operational.Location;
+import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.TextType;
+import de.haumacher.ehome.model.operational.TimeType;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -319,9 +323,9 @@ public class TestDownloadImage extends SharedProjectTestCase {
 		assertEquals(image.dump(), List.of(), image.getProblems());
 		List<Integer> addresses = new ArrayList<>();
 		int connections = 0;
-		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-			for (Object connection : (Collection<?>) ((TLObject) connector).tValueByName("connections")) {
-				addresses.add(((GroupAddress) ((TLObject) connection).tValueByName("target")).getAddress().getValue());
+		for (Connector connector : ((Device) device).getConnectors()) {
+			for (Connection connection : connector.getConnections()) {
+				addresses.add(connection.getTarget().getAddress().getValue());
 				connections++;
 			}
 		}
@@ -391,21 +395,21 @@ public class TestDownloadImage extends SharedProjectTestCase {
 			links.add(new int[] { u16(addresses, 1 + 2 * index), object });
 		}
 		Collections.shuffle(links, new Random(42));
-		List<TLObject> connectors = new ArrayList<>();
+		Set<Connector> connectors = new HashSet<>();
 		for (int[] link : links) {
 			Port port = program.getPorts().stream().filter(p -> p.getIndex() == link[1]).findFirst().orElseThrow();
-			TLObject connector = create("ehome.physical:Connector");
-			connector.tUpdateByName("port", port.getInterfaces().iterator().next());
-			connector.tUpdateByName("active", Boolean.TRUE);
+			Connector connector = (Connector) create("ehome.physical:Connector");
+			connector.setPort(port.getInterfaces().iterator().next());
+			connector.setActive(true);
 			GroupAddress target = (GroupAddress) create("ehome.logical:GroupAddress");
 			target.setAddress(new GA(link[0], GroupAddressStyle.ThreeLevel));
-			TLObject connection = create("ehome.physical:Connection");
-			connection.tUpdateByName("kind", TLModelUtil.findPart("ehome.physical:ConnectionType#send"));
-			connection.tUpdateByName("target", target);
-			connector.tUpdateByName("connections", List.of(connection));
+			Connection connection = (Connection) create("ehome.physical:Connection");
+			connection.setKind((TLClassifier) TLModelUtil.findPart("ehome.physical:ConnectionType#send"));
+			connection.setTarget(target);
+			connector.setConnections(Set.of(connection));
 			connectors.add(connector);
 		}
-		device.tUpdateByName("connectors", connectors);
+		((Device) device).setConnectors(connectors);
 	}
 
 	private static TLObject create(String type) {
@@ -473,8 +477,19 @@ public class TestDownloadImage extends SharedProjectTestCase {
 		if (type instanceof IPAddressType) {
 			return 128;
 		}
-		Object bits = type.tType().getPart("bits") == null ? null : type.tValueByName("bits");
-		return bits instanceof Integer value ? value : 0;
+		if (type instanceof EnumerationType enumeration) {
+			return enumeration.getBits();
+		}
+		if (type instanceof NumericType numeric) {
+			return numeric.getBits();
+		}
+		if (type instanceof TextType text) {
+			return text.getBits();
+		}
+		if (type instanceof TimeType time) {
+			return time.getBits();
+		}
+		return 0;
 	}
 
 	private static int value(Integer value) {
@@ -561,7 +576,7 @@ public class TestDownloadImage extends SharedProjectTestCase {
 
 	private TLObject device(String extId) {
 		List<TLObject> result = instances("ehome.physical:Device").stream()
-			.filter(d -> extId.equals(d.tValueByName("extId")))
+			.filter(d -> extId.equals(((Device) d).getExtId()))
 			.filter(d -> _projects.contains(root(d)))
 			.toList();
 		assertEquals(extId, 1, result.size());

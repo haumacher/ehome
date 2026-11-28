@@ -25,6 +25,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
@@ -89,10 +92,10 @@ public class TestParametersDownloadProbe extends BasicTestCase {
 	}
 
 	static TLObject firstConnection(TLObject device) {
-		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-			Collection<?> connections = (Collection<?>) ((TLObject) connector).tValueByName("connections");
+		for (Connector connector : ((Device) device).getConnectors()) {
+			Collection<? extends Connection> connections = connector.getConnections();
 			if (!connections.isEmpty()) {
-				return (TLObject) connections.iterator().next();
+				return connections.iterator().next();
 			}
 		}
 		throw new AssertionError("No connection.");

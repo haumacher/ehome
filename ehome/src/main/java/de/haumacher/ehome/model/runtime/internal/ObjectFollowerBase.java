@@ -59,28 +59,28 @@ public interface ObjectFollowerBase extends com.top_logic.model.TLObject {
 	/**
 	 * Getter for part {@link #DEVICE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getDevice() {
-		return (com.top_logic.model.TLObject) tValueByName(DEVICE_ATTR);
+	default de.haumacher.ehome.model.physical.Device getDevice() {
+		return (de.haumacher.ehome.model.physical.Device) tValueByName(DEVICE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #DEVICE_ATTR}.
 	 */
-	default void setDevice(com.top_logic.model.TLObject newValue) {
+	default void setDevice(de.haumacher.ehome.model.physical.Device newValue) {
 		tUpdateByName(DEVICE_ATTR, newValue);
 	}
 
 	/**
 	 * Getter for part {@link #FOLLOWER_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getFollower() {
-		return (com.top_logic.model.TLObject) tValueByName(FOLLOWER_ATTR);
+	default de.haumacher.ehome.model.physical.Connector getFollower() {
+		return (de.haumacher.ehome.model.physical.Connector) tValueByName(FOLLOWER_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #FOLLOWER_ATTR}.
 	 */
-	default void setFollower(com.top_logic.model.TLObject newValue) {
+	default void setFollower(de.haumacher.ehome.model.physical.Connector newValue) {
 		tUpdateByName(FOLLOWER_ATTR, newValue);
 	}
 
@@ -101,14 +101,14 @@ public interface ObjectFollowerBase extends com.top_logic.model.TLObject {
 	/**
 	 * Getter for part {@link #SOURCE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getSource() {
-		return (com.top_logic.model.TLObject) tValueByName(SOURCE_ATTR);
+	default de.haumacher.ehome.model.physical.Connector getSource() {
+		return (de.haumacher.ehome.model.physical.Connector) tValueByName(SOURCE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #SOURCE_ATTR}.
 	 */
-	default void setSource(com.top_logic.model.TLObject newValue) {
+	default void setSource(de.haumacher.ehome.model.physical.Connector newValue) {
 		tUpdateByName(SOURCE_ATTR, newValue);
 	}
 

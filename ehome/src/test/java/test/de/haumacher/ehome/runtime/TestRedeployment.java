@@ -57,6 +57,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.project.Project;
@@ -192,7 +193,7 @@ public class TestRedeployment extends BasicTestCase {
 					.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
 				added.setName("Added after A");
 				added.setAddress(new GA(61, null));
-				added.setDatapointTypes(List.of(GroupAddressTypes.declaredType(temperature)));
+				added.setDatapointTypes(List.of((DatapointType) GroupAddressTypes.declaredType(temperature)));
 				Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(project.getGroupAddresses());
 				addresses.add(added);
 				project.setGroupAddresses(addresses);

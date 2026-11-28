@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.top_logic.contact.business.PersonContact;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.model.TLClassifier;
@@ -272,7 +273,8 @@ public class ProjectMembers {
 	public static List<Person> byMail(String address) {
 		List<Person> result = new ArrayList<>();
 		for (TLObject contact : Queries.withTextIgnoringCase(CONTACT_TYPE, "email", address.trim())) {
-			if (contact.tValueByName("account") instanceof Person person && addable(person) && !result.contains(person)) {
+			if (contact instanceof PersonContact typed && typed.getPerson() instanceof Person person && addable(person)
+				&& !result.contains(person)) {
 				result.add(person);
 			}
 		}

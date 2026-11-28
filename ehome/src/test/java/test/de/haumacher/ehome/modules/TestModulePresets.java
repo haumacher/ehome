@@ -30,6 +30,7 @@ import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -57,10 +58,11 @@ public class TestModulePresets extends BasicTestCase {
 		TLObject[] template = { null };
 		try {
 			TLObject device = actuator(SharedData.newProjects(before));
-			TLObject assignment = instances("ehome.catalog:ProgramAssignment").stream()
-				.filter(a -> "M-0083_H-3.2E13-2_HP-000C-23-216C".equals(((ProgramAssignment) a).getExtId())).findFirst()
+			ProgramAssignment assignment = instances("ehome.catalog:ProgramAssignment").stream()
+				.map(ProgramAssignment.class::cast)
+				.filter(a -> "M-0083_H-3.2E13-2_HP-000C-23-216C".equals(a.getExtId())).findFirst()
 				.orElseThrow();
-			inTransaction(() -> device.tUpdateByName("program", assignment));
+			inTransaction(() -> ((Device) device).setProgram(assignment));
 			assertNull(DeviceTemplates.template(DeviceConfiguration.program(device)));
 			List<String> channels = Presets.channels(device);
 			String a = channel(channels, "MD-2_M-1_MI-1");

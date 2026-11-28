@@ -29,6 +29,8 @@ import com.top_logic.util.TLContextManager;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -827,8 +829,8 @@ public class DownloadQueue {
 		if (address != null) {
 			return address.longValue();
 		}
-		Object number = device.tValueByName("address");
-		return 0x10000L + (number instanceof Number n ? n.longValue() : 0xFFFF);
+		Integer number = device instanceof BusDevice busDevice ? busDevice.getAddress() : null;
+		return 0x10000L + (number != null ? number.longValue() : 0xFFFF);
 	}
 
 	/**
@@ -847,7 +849,7 @@ public class DownloadQueue {
 	public static List<TLObject> pendingDevices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject device : DeviceChanges.devices(project)) {
-			if (Boolean.TRUE.equals(device.tValueByName("downloadPending"))) {
+			if (Boolean.TRUE.equals(device.tValue(EhomePhysicalFactory.getDownloadPendingDeviceAttr()))) {
 				result.add(device);
 			}
 		}

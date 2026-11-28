@@ -87,7 +87,7 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 			for (TLObject function : added) {
 				if (FunctionProposal.unused(function)) {
 					// Without senders: where its device is.
-					assertSame(((Function) function).getDevice().tValueByName("location"),
+					assertSame(((Function) function).getDevice().getLocation(),
 						((Function) function).getRoom());
 				} else {
 					assertEquals("Küche", ((Function) function).getRoom().getName());

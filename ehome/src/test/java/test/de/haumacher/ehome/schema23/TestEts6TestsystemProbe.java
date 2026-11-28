@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,6 +50,10 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -370,7 +373,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 		for (TLObject device : devices) {
 			DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 			List<String> problems = plan.getProblems().stream().map(p -> normalized(String.valueOf(p))).toList();
-			result.put((Integer) device.tValueByName("address"),
+			result.put(((BusDevice) device).getAddress(),
 				new Plan(problems, plan.getOperations(), inactiveConfigs(device, written(plan.getOperations()))));
 		}
 		return result;
@@ -400,7 +403,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 		DeviceConfiguration configuration = new DeviceConfiguration(device);
 		Set<Port> inEffect = new HashSet<>(configuration.getActiveInterfaces().keySet());
 		for (TLObject connector : configuration.getConnectors()) {
-			if (connector.tValueByName("port") instanceof Interface placed) {
+			if (((Connector) connector).getPort() instanceof Interface placed) {
 				inEffect.add(placed.getPort());
 			}
 		}
@@ -448,10 +451,10 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	private static List<TLObject> devices(List<TLObject> projects) {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject project : projects) {
-			for (Object area : ((Project) project).getAreas()) {
-				for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-					for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-						result.add((TLObject) device);
+			for (Area area : ((Project) project).getAreas()) {
+				for (Line line : area.getLines()) {
+					for (BusDevice device : line.getDevices()) {
+						result.add(device);
 					}
 				}
 			}

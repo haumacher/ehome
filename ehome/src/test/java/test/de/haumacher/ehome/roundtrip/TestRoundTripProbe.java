@@ -11,7 +11,6 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +24,6 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
@@ -37,6 +35,10 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -101,7 +103,7 @@ public class TestRoundTripProbe extends BasicTestCase {
 				.findFirst().orElseThrow();
 			addressNumber = 1;
 			Interface free = DeviceSettings.interfaces(actuator).stream()
-				.filter(i -> DeviceSettings.connections(actuator, i).stream().noneMatch(c -> c.tValueByName("target") == address))
+				.filter(i -> DeviceSettings.connections(actuator, i).stream().noneMatch(c -> ((Connection) c).getTarget() == address))
 				.findFirst().orElseThrow();
 			objectIndex = free.getPort().getIndex();
 			connectionsBefore = DeviceSettings.connections(actuator, free).size();
@@ -141,9 +143,9 @@ public class TestRoundTripProbe extends BasicTestCase {
 			List<TLObject> connections = DeviceSettings.connections(actuator, placed);
 			assertEquals(connectionsBefore + 1, connections.size());
 			TLObject connection = connections.stream()
-				.filter(c -> ((GroupAddress) c.tValueByName("target")).getAddress().getValue() == addressNumber)
+				.filter(c -> ((Connection) c).getTarget().getAddress().getValue() == addressNumber)
 				.findFirst().orElseThrow();
-			assertEquals("receive", ((TLClassifier) connection.tValueByName("kind")).getName());
+			assertEquals("receive", ((Connection) connection).getKind().getName());
 
 			DownloadImage again = DownloadImage.compute(actuator);
 			assertEquals(again.getProblems().toString(), 0, again.getProblems().size());
@@ -173,10 +175,10 @@ public class TestRoundTripProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new java.util.HashMap<>();
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				for (BusDevice device : line.getDevices()) {
+					result.put(device.getAddress(), device);
 				}
 			}
 		}

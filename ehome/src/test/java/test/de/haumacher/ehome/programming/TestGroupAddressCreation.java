@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -46,6 +45,10 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -181,7 +184,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 			connection = (TLObject) asRoot(() -> connect.execute(tastsensor, taste1, kind, created));
 			tx.commit();
 		}
-		assertSame(created, connection.tValueByName("target"));
+		assertSame(created, ((Connection) connection).getTarget());
 		assertTrue(DeviceSettings.connections(tastsensor, taste1).contains(connection));
 		assertEquals(List.of(connection), asRoot(() -> GroupAddressConnections.connections(created)));
 
@@ -206,9 +209,9 @@ public class TestGroupAddressCreation extends BasicTestCase {
 
 	private static TLObject device(TLObject project, int address) {
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					if (Integer.valueOf(address).equals(((TLObject) device).tValueByName("address"))) {
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
+					if (Integer.valueOf(address).equals(((BusDevice) device).getAddress())) {
 						return (TLObject) device;
 					}
 				}

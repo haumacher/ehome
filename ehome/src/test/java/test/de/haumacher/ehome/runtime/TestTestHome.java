@@ -30,6 +30,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -216,7 +217,7 @@ public class TestTestHome extends BasicTestCase {
 		TLObject temperature = SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
 			.filter(a -> "Raumtemperatur".equals(((GroupAddress) a).getName())).findFirst().orElseThrow();
 		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> "DPST-9-1".equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> "DPST-9-1".equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			GroupAddressTypes.setType(temperature, type);
 			// The keys' switching objects transmit on their addresses, so the derivation does not make

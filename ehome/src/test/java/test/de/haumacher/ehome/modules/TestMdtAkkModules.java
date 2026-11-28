@@ -31,6 +31,7 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -89,7 +90,7 @@ public class TestMdtAkkModules extends BasicTestCase {
 			try (Transaction tx = kb().beginTransaction()) {
 				// Switched to the program of AKK V2.3 for its hardware (in the app: the field "Program"
 				// of the device's form).
-				device.tUpdateByName("program", assignment());
+				((Device) device).setProgram(assignment());
 				tx.commit();
 			}
 			assertSame(program, DeviceConfiguration.program(device));
@@ -216,9 +217,10 @@ public class TestMdtAkkModules extends BasicTestCase {
 		return null;
 	}
 
-	private static TLObject assignment() {
+	private static ProgramAssignment assignment() {
 		return instances("ehome.catalog:ProgramAssignment").stream()
-			.filter(a -> ASSIGNMENT.equals(((ProgramAssignment) a).getExtId())).findFirst().orElseThrow();
+			.map(ProgramAssignment.class::cast)
+			.filter(a -> ASSIGNMENT.equals(a.getExtId())).findFirst().orElseThrow();
 	}
 
 	private static Program program() {

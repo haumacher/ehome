@@ -28,6 +28,7 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -481,9 +482,9 @@ public class RuntimeFunctions extends GenericMethod {
 	 */
 	public static List<TLObject> groupAddresses(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		if (project != null) {
-			// The project may be the form's overlay of it (the time master's options): read by name.
-			collect(project.tValueByName("groupAddresses"), "ehome.logical:GroupAddress", result);
+		if (project instanceof Project typed) {
+			// The project may be the form's overlay of it (the time master's options).
+			collect(typed.getGroupAddresses(), "ehome.logical:GroupAddress", result);
 		}
 		result.sort(BY_ADDRESS);
 		return result;
@@ -521,9 +522,9 @@ public class RuntimeFunctions extends GenericMethod {
 	 */
 	public static List<TLObject> buildingParts(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		if (project != null) {
-			// The project may be the form's overlay of it (the options of a form's object): read by name.
-			collect(project.tValueByName("buildings"), null, result);
+		if (project instanceof Project typed) {
+			// The project may be the form's overlay of it (the options of a form's object).
+			collect(typed.getBuildings(), null, result);
 
 		}
 		return result;

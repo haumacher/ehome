@@ -481,8 +481,8 @@ public interface ProjectBase extends de.haumacher.ehome.model.core.Externalized,
 	 * Getter for part {@link #AREAS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.Set<? extends com.top_logic.model.TLObject> getAreas() {
-		return (java.util.Set<? extends com.top_logic.model.TLObject>) tValueByName(AREAS_ATTR);
+	default java.util.Set<? extends de.haumacher.ehome.model.physical.Area> getAreas() {
+		return (java.util.Set<? extends de.haumacher.ehome.model.physical.Area>) tValueByName(AREAS_ATTR);
 	}
 
 	/**
@@ -492,31 +492,31 @@ public interface ProjectBase extends de.haumacher.ehome.model.core.Externalized,
 	 * The caller has to take care of the transaction handling.
 	 * </p>
 	 */
-	default java.util.Set<com.top_logic.model.TLObject> getAreasModifiable() {
+	default java.util.Set<de.haumacher.ehome.model.physical.Area> getAreasModifiable() {
 		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(AREAS_ATTR);
 		@SuppressWarnings("unchecked")
-		java.util.Set<com.top_logic.model.TLObject> result = (java.util.Set<com.top_logic.model.TLObject>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		java.util.Set<de.haumacher.ehome.model.physical.Area> result = (java.util.Set<de.haumacher.ehome.model.physical.Area>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
 		return result;
 	}
 
 	/**
 	 * Setter for part {@link #AREAS_ATTR}.
 	 */
-	default void setAreas(java.util.Set<com.top_logic.model.TLObject> newValue) {
+	default void setAreas(java.util.Set<de.haumacher.ehome.model.physical.Area> newValue) {
 		tUpdateByName(AREAS_ATTR, newValue);
 	}
 
 	/**
 	 * Adds a value to the {@link #AREAS_ATTR} reference.
 	 */
-	default void addArea(com.top_logic.model.TLObject newValue) {
+	default void addArea(de.haumacher.ehome.model.physical.Area newValue) {
 		tAddByName(AREAS_ATTR, newValue);
 	}
 
 	/**
 	 * Removes the given value from the {@link #AREAS_ATTR} reference.
 	 */
-	default void removeArea(com.top_logic.model.TLObject oldValue) {
+	default void removeArea(de.haumacher.ehome.model.physical.Area oldValue) {
 		tRemoveByName(AREAS_ATTR, oldValue);
 	}
 
@@ -1555,8 +1555,8 @@ public interface ProjectBase extends de.haumacher.ehome.model.core.Externalized,
 	 * Getter for part {@link #UNASSIGNED_DEVICES_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.List<? extends com.top_logic.model.TLObject> getUnassignedDevices() {
-		return (java.util.List<? extends com.top_logic.model.TLObject>) tValueByName(UNASSIGNED_DEVICES_ATTR);
+	default java.util.List<? extends de.haumacher.ehome.model.physical.BusDevice> getUnassignedDevices() {
+		return (java.util.List<? extends de.haumacher.ehome.model.physical.BusDevice>) tValueByName(UNASSIGNED_DEVICES_ATTR);
 	}
 
 	/**
@@ -1566,31 +1566,31 @@ public interface ProjectBase extends de.haumacher.ehome.model.core.Externalized,
 	 * The caller has to take care of the transaction handling.
 	 * </p>
 	 */
-	default java.util.List<com.top_logic.model.TLObject> getUnassignedDevicesModifiable() {
+	default java.util.List<de.haumacher.ehome.model.physical.BusDevice> getUnassignedDevicesModifiable() {
 		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(UNASSIGNED_DEVICES_ATTR);
 		@SuppressWarnings("unchecked")
-		java.util.List<com.top_logic.model.TLObject> result = (java.util.List<com.top_logic.model.TLObject>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		java.util.List<de.haumacher.ehome.model.physical.BusDevice> result = (java.util.List<de.haumacher.ehome.model.physical.BusDevice>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
 		return result;
 	}
 
 	/**
 	 * Setter for part {@link #UNASSIGNED_DEVICES_ATTR}.
 	 */
-	default void setUnassignedDevices(java.util.List<com.top_logic.model.TLObject> newValue) {
+	default void setUnassignedDevices(java.util.List<de.haumacher.ehome.model.physical.BusDevice> newValue) {
 		tUpdateByName(UNASSIGNED_DEVICES_ATTR, newValue);
 	}
 
 	/**
 	 * Adds a value to the {@link #UNASSIGNED_DEVICES_ATTR} reference.
 	 */
-	default void addUnassignedDevice(com.top_logic.model.TLObject newValue) {
+	default void addUnassignedDevice(de.haumacher.ehome.model.physical.BusDevice newValue) {
 		tAddByName(UNASSIGNED_DEVICES_ATTR, newValue);
 	}
 
 	/**
 	 * Removes the given value from the {@link #UNASSIGNED_DEVICES_ATTR} reference.
 	 */
-	default void removeUnassignedDevice(com.top_logic.model.TLObject oldValue) {
+	default void removeUnassignedDevice(de.haumacher.ehome.model.physical.BusDevice oldValue) {
 		tRemoveByName(UNASSIGNED_DEVICES_ATTR, oldValue);
 	}
 

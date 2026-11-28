@@ -38,6 +38,8 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.ProjectIndex;
@@ -156,8 +158,8 @@ public class TestGroupAddressTypes extends BasicTestCase {
 	}
 
 	private static Number derivedNumber(TLObject address) {
-		TLObject type = (TLObject) derived(address, "effectiveDatapointType");
-		return (Number) type.tValueByName("number");
+		DatapointType type = (DatapointType) derived(address, "effectiveDatapointType");
+		return type.getNumber();
 	}
 
 	private static int value(TLObject address) {
@@ -197,7 +199,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 
 	private static TLObject subtype(String extId) {
 		return instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> extId.equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> extId.equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static Map<?, ?> datapoint(RuntimeImage image, String id) {

@@ -42,6 +42,7 @@ import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ParameterValidation;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -297,7 +298,7 @@ public class TestParameterValidations extends BasicTestCase {
 
 	private static TLObject device(List<TLObject> before, int address) {
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", SharedData.newProjects(before)).stream()
-			.filter(d -> Integer.valueOf(address).equals(d.tValueByName("address"))).toList();
+			.filter(d -> Integer.valueOf(address).equals(((Device) d).getAddress())).toList();
 		assertEquals(1, devices.size());
 		return devices.get(0);
 	}

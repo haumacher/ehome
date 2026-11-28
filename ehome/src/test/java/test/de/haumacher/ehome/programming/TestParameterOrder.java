@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,6 +34,9 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -187,7 +189,7 @@ public class TestParameterOrder extends BasicTestCase {
 
 	private static void clearSettings(TLObject device) {
 		try (Transaction tx = kb().beginTransaction()) {
-			for (Object setting : new ArrayList<>((Collection<?>) device.tValueByName("settings"))) {
+			for (Object setting : new ArrayList<>(((Device) device).getSettings())) {
 				((TLObject) setting).tDelete();
 			}
 			tx.commit();
@@ -196,8 +198,8 @@ public class TestParameterOrder extends BasicTestCase {
 
 	private static TLObject device(TLObject project) {
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
 					Program program = DeviceConfiguration.program((TLObject) device);
 					if (program != null && PROGRAM.equals(program.getExtId())) {
 						return (TLObject) device;

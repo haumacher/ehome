@@ -53,6 +53,7 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 
 /**
  * Test of the typed parameter values ({@link ParameterValues}, <code>ehome.operational:ParameterValue</code>):
@@ -112,12 +113,12 @@ public class TestParameterValues extends BasicTestCase {
 	}
 
 	private static String key(TLObject holder) {
-		if (holder.tType().getPart("extId") != null) {
-			return (String) holder.tValueByName("extId");
+		if (holder instanceof Externalized externalized) {
+			return externalized.getExtId();
 		}
 		// A setting: the device and the placed parameter it sets.
-		return holder.tContainer().tValueByName("extId") + "/"
-			+ ((TLObject) holder.tValueByName("parameter")).tValueByName("extId");
+		ParameterSetting setting = (ParameterSetting) holder;
+		return ((Externalized) setting.tContainer()).getExtId() + "/" + setting.getParameter().getExtId();
 	}
 
 	/**
@@ -203,10 +204,11 @@ public class TestParameterValues extends BasicTestCase {
 		assertTrue((String) derived(decimal, "displayValue"), ((String) derived(decimal, "displayValue")).matches("20[.,]5"));
 
 		// The device of the fixture sets the floating point parameter.
-		TLObject setting = instances("ehome.physical:ParameterSetting").stream()
-			.filter(s -> ((ParameterView) s.tValueByName("parameter")).getParameter() == decimal)
+		ParameterSetting setting = instances("ehome.physical:ParameterSetting").stream()
+			.map(ParameterSetting.class::cast)
+			.filter(s -> s.getParameter().getParameter() == decimal)
 			.findFirst().orElseThrow();
-		assertEquals(Double.valueOf(21.75), setting.tValueByName("decimal"));
+		assertEquals(Double.valueOf(21.75), setting.getDecimal());
 		assertEquals("21.75", derived(setting, "encodedValue"));
 		// Shown with the one decimal place of the type's display format.
 		assertTrue((String) derived(setting, "displayValue"), ((String) derived(setting, "displayValue")).matches("21[.,]8"));
@@ -256,11 +258,11 @@ public class TestParameterValues extends BasicTestCase {
 
 	private void checkConstraints() throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		TLObject number = setting("Vergleichswert (0...255)");
-		TLObject led = setting("Funktion der Status-LED rechts");
+		ParameterSetting number = setting("Vergleichswert (0...255)");
+		ParameterSetting led = setting("Funktion der Status-LED rechts");
 		Parameter text = parameter("9003");
 		Parameter decimal = parameter("9001");
-		EnumerationType ledType = (EnumerationType) ((ParameterView) led.tValueByName("parameter")).getParameter().getType();
+		EnumerationType ledType = (EnumerationType) led.getParameter().getParameter().getType();
 		EnumerationValue foreign = instances("ehome.operational:EnumerationType").stream()
 			.map(EnumerationType.class::cast)
 			.filter(t -> t != ledType)
@@ -274,13 +276,13 @@ public class TestParameterValues extends BasicTestCase {
 		assertNull(problem(decimal, "decimal"));
 
 		try (Transaction tx = kb.beginTransaction()) {
-			number.tUpdateByName("number", 255L);
+			number.setNumber(255L);
 			assertNull(problem(number, "number"));
-			number.tUpdateByName("number", 256L);
+			number.setNumber(256L);
 			assertNotNull("Number above the maximum accepted.", problem(number, "number"));
 			assertTrue(problem(number, "number").toString(), problem(number, "number").toString().contains("255"));
 
-			led.tUpdateByName("choice", foreign);
+			led.setChoice(foreign);
 			assertNotNull("Entry of another type accepted.", problem(led, "choice"));
 
 			// Size and pattern of a text are warnings, never errors.
@@ -303,7 +305,7 @@ public class TestParameterValues extends BasicTestCase {
 			assertNotNull("Decimal above the maximum accepted.", problem(decimal, "decimal"));
 
 			// A value that does not fit its type is kept as text, not lost, and reported.
-			Parameter numberParameter = ((ParameterView) number.tValueByName("parameter")).getParameter();
+			Parameter numberParameter = number.getParameter().getParameter();
 			numberParameter.setNumber(null);
 			assertNotNull(ParameterValues.decode(numberParameter, "300"));
 			assertNull(numberParameter.getNumber());
@@ -316,7 +318,7 @@ public class TestParameterValues extends BasicTestCase {
 
 		// The constraints guard the database as well, not only the forms.
 		try (Transaction tx = kb.beginTransaction()) {
-			number.tUpdateByName("number", 300L);
+			number.setNumber(300L);
 			try {
 				tx.commit();
 				fail("Number above the maximum committed.");
@@ -324,7 +326,7 @@ public class TestParameterValues extends BasicTestCase {
 				// Expected.
 			}
 		}
-		assertEquals(Long.valueOf(42), number.tValueByName("number"));
+		assertEquals(Long.valueOf(42), number.getNumber());
 
 		// A text violating its pattern is a warning only: it is committed, so that a manufacturer's
 		// pattern never rejects an import.
@@ -376,11 +378,11 @@ public class TestParameterValues extends BasicTestCase {
 		return null;
 	}
 
-	private static TLObject setting(String name) {
-		List<TLObject> result = new ArrayList<>();
+	private static ParameterSetting setting(String name) {
+		List<ParameterSetting> result = new ArrayList<>();
 		for (TLObject setting : instances("ehome.physical:ParameterSetting")) {
 			if (name.equals(((String) derived(setting, "name")).trim())) {
-				result.add(setting);
+				result.add((ParameterSetting) setting);
 			}
 		}
 		assertFalse(result.isEmpty());

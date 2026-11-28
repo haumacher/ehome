@@ -29,6 +29,7 @@ import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -177,7 +178,7 @@ public class ProgrammingFunctions extends GenericMethod {
 				return compareVeto(device);
 			case downloadConfirmation:
 				return (kind == DownloadPlan.Kind.PARAMETERS ? I18NConstants.CONFIRM_PARAMETERS__DEVICE_ADDRESS_PATH_CHANGES
-					: I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES).fill(device.tValueByName("name"),
+					: I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES).fill(((Device) device).getName(),
 						address(device), BusPath.describe(device), changes(device));
 			case downloadParametersOnly:
 				return Boolean.valueOf(parametersOnlyByDefault(device));
@@ -186,7 +187,7 @@ public class ProgrammingFunctions extends GenericMethod {
 			case layoutVeto:
 				return lockedOr(device, () -> downloadVeto(device, DownloadPlan.Kind.LAYOUT));
 			case layoutConfirmation:
-				return I18NConstants.CONFIRM_LAYOUT__DEVICE_ADDRESS_GATEWAY_DIFFERENCES.fill(device.tValueByName("name"),
+				return I18NConstants.CONFIRM_LAYOUT__DEVICE_ADDRESS_GATEWAY_DIFFERENCES.fill(((Device) device).getName(),
 					address(device), BusPath.describe(device), ModuleInstances.differenceText(device));
 			case busPath:
 				return BusPath.describe(device);
@@ -220,7 +221,7 @@ public class ProgrammingFunctions extends GenericMethod {
 	 * holds the program is checked by the download itself before it writes.
 	 */
 	public static boolean parametersOnlyByDefault(TLObject device) {
-		if (!(device.tValueByName("loaded") instanceof Collection<?> loaded)
+		if (!(((Device) device).getLoaded() instanceof Collection<?> loaded)
 			|| loaded.stream().noneMatch(part -> part instanceof TLClassifier c && "ApplicationProgram".equals(c.getName()))) {
 			return false;
 		}

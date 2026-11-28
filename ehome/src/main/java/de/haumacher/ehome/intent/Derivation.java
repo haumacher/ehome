@@ -32,6 +32,7 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.GroupRange;
@@ -40,6 +41,9 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.PresetUse;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Control;
 import de.haumacher.ehome.model.runtime.DerivedPart;
@@ -641,16 +645,16 @@ public final class Derivation {
 	 * another preset than the one the origin's mark recorded.
 	 */
 	private ResKey hand(TLObject device, String channel, TLObject preset, TLObject origin) {
-		TLObject use = Presets.use(device, channel);
-		if (use == null || use.tValueByName("preset") == preset) {
+		PresetUse use = (PresetUse) Presets.use(device, channel);
+		if (use == null || use.getPreset() == preset) {
 			return null;
 		}
 		DerivedPart mark = findMark("preset", origin, m -> m.getDevice() == device
 			&& channel.equals(m.getChannel()));
-		if (mark != null && mark.getPreset() == use.tValueByName("preset")) {
+		if (mark != null && mark.getPreset() == use.getPreset()) {
 			return null;
 		}
-		return I18NConstants.ERROR_HAND_PRESET__PRESET.fill(presetLabel((TLObject) use.tValueByName("preset")));
+		return I18NConstants.ERROR_HAND_PRESET__PRESET.fill(presetLabel(use.getPreset()));
 	}
 
 	private Participant controlParticipant(Control control, Participant function) {
@@ -786,7 +790,7 @@ public final class Derivation {
 					mark.setAddress(slot._address);
 					mark.setName(slot._name);
 					mark.setIdentifier(slot._identifier);
-					mark.setDatapointType(slot._boundType);
+					mark.setDatapointType((DatapointType) slot._boundType);
 					mark.setNumber(Integer.valueOf(slot._number));
 					mark.setFunctionName(functionName(function._function, _resources));
 				});
@@ -834,8 +838,8 @@ public final class Derivation {
 					function._origin, function._label));
 				DerivedPart mark = slot._mark;
 				_operations.get(Phase.ADDRESSES).add(() -> {
-					address.setDatapointTypes(List.of(type));
-					mark.setDatapointType(type);
+					address.setDatapointTypes(List.of((DatapointType) type));
+					mark.setDatapointType((DatapointType) type);
 				});
 			}
 		}
@@ -885,7 +889,7 @@ public final class Derivation {
 			mark.setAddress(slot._address);
 			mark.setName(slot._name);
 			mark.setIdentifier(slot._identifier);
-			mark.setDatapointType(slot._type);
+			mark.setDatapointType((DatapointType) slot._type);
 			mark.setNumber(Integer.valueOf(slot._number));
 			mark.setFunctionName(functionName);
 		});
@@ -1078,7 +1082,7 @@ public final class Derivation {
 			}
 			_operations.get(Phase.MARKS).add(() -> {
 				DerivedPart created = newMark("preset", participant);
-				created.setDevice(device);
+				created.setDevice((Device) device);
 				created.setChannel(channel);
 				created.setPreset(preset);
 			});
@@ -1094,9 +1098,9 @@ public final class Derivation {
 			if (device == null || channel == null || wanted.contains(useKey(device, channel))) {
 				continue;
 			}
-			TLObject use = Presets.use(device, channel);
+			PresetUse use = (PresetUse) Presets.use(device, channel);
 			Preset preset = mark.getPreset();
-			if (use != null && use.tValueByName("preset") == preset) {
+			if (use != null && use.getPreset() == preset) {
 				_items.add(new Item(Action.REMOVE, What.PRESET, presetObject(device, channel),
 					_resources.getString(I18NConstants.DETAIL_PRESET_REMOVE__PRESET.fill(presetLabel(preset))),
 					origin(mark), originLabel(mark)));
@@ -1162,7 +1166,7 @@ public final class Derivation {
 			}
 			_operations.get(Phase.MARKS).add(() -> {
 				DerivedPart created = newMark("value", participant);
-				created.setDevice(device);
+				created.setDevice((Device) device);
 				ModuleParts.bind(created, ModuleParts.PARAMETER, view);
 				created.setValue(value.encoded());
 			});
@@ -1330,7 +1334,7 @@ public final class Derivation {
 				String key = device.tId() + ":" + placed.getPort().getIndex();
 				TLObject other = sends(device, placed);
 				if (other != null || !sending.add(key)) {
-					TLObject target = other == null ? null : (TLObject) other.tValueByName("target");
+					TLObject target = other == null ? null : ((Connection) other).getTarget();
 					_items.add(new Item(Action.KEEP, What.CONNECTION, connectionObject(link),
 						_resources.getString(I18NConstants.KEEP_SENDS_ALREADY__ADDRESS.fill(
 							target == null ? "" : addressLabel(target))),
@@ -1389,7 +1393,7 @@ public final class Derivation {
 	private void connectionMark(Link link) {
 		DerivedPart mark = newMark("connection", link.participant());
 		mark.setRole(link.role());
-		mark.setDevice(link.participant()._device);
+		mark.setDevice((Device) link.participant()._device);
 		ModuleParts.bind(mark, ModuleParts.PORT, link.placed());
 		mark.setAddress(link.slot()._address);
 		mark.setConnectionKind(connectionKind(link.kind()));
@@ -1401,7 +1405,8 @@ public final class Derivation {
 	 */
 	private static TLObject actual(TLObject device, Interface placed, TLObject address, String kind) {
 		for (TLObject connection : DeviceSettings.connections(device, placed)) {
-			if (connection.tValueByName("target") == address && kind.equals(name(connection.tValueByName("kind")))) {
+			Connection typed = (Connection) connection;
+			if (typed.getTarget() == address && kind.equals(name(typed.getKind()))) {
 				return connection;
 			}
 		}
@@ -1414,7 +1419,7 @@ public final class Derivation {
 	 */
 	private TLObject sends(TLObject device, Interface placed) {
 		for (TLObject connection : DeviceSettings.connections(device, placed)) {
-			if (SEND.equals(name(connection.tValueByName("kind"))) && !_removedConnections.contains(connection)) {
+			if (SEND.equals(name(((Connection) connection).getKind())) && !_removedConnections.contains(connection)) {
 				return connection;
 			}
 		}

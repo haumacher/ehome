@@ -33,8 +33,16 @@ import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
+import de.haumacher.ehome.model.operational.ParameterValue;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleInstances;
@@ -208,8 +216,8 @@ public class DeviceChanges {
 		if (effective == null || effective == Reference.DEVICE && referenceRevision(device) == null) {
 			effective = referenceRevision(device) != null ? Reference.DEVICE : Reference.DEFAULT;
 		}
-		CacheKey key = new CacheKey(device, effective, device.tValueByName("lastModified"),
-			device.tValueByName("downloadRevision"), HistoryUtils.getSessionRevision().getCommitNumber());
+		CacheKey key = new CacheKey(device, effective, ((Device) device).getConfigurationChanged(),
+			((Device) device).getDownloadRevision(), HistoryUtils.getSessionRevision().getCommitNumber());
 		synchronized (CACHE) {
 			DeviceChanges cached = CACHE.get(key);
 			if (cached != null) {
@@ -255,7 +263,7 @@ public class DeviceChanges {
 	 * revision it was imported in; <code>null</code> if no download of the device is known.
 	 */
 	public static Revision referenceRevision(TLObject device) {
-		if (device.tValueByName("downloadRevision") instanceof Number number) {
+		if (((Device) device).getDownloadRevision() instanceof Long number) {
 			return HistoryUtils.getRevision(number.longValue());
 		}
 		long created = device.tHandle().getCreateCommitNumber();
@@ -266,14 +274,13 @@ public class DeviceChanges {
 		}
 		Revision creation = HistoryUtils.getRevision(created);
 		TLObject imported = WrapperHistoryUtils.getWrapper(creation, device);
-		return imported != null && imported.tValueByName("lastDownload") != null ? creation : null;
+		return imported != null && ((Device) imported).getLastDownload() != null ? creation : null;
 	}
 
 	private void computeAgainstDefaults() {
 		Map<Option, Object> shown = _configuration.getShownItems();
 		List<Entry> entries = new ArrayList<>();
-		for (Object setting : (Collection<?>) _device.tValueByName("settings")) {
-			TLObject value = (TLObject) setting;
+		for (ParameterSetting value : ((Device) _device).getSettings()) {
 			ParameterView view = ModuleParts.parameter(value);
 			if (view != null) {
 				TLObject holder = DeviceConfiguration.defaultHolder(view);
@@ -286,8 +293,7 @@ public class DeviceChanges {
 		}
 		// The flags and priorities other than the program's.
 		Map<Interface, TLObject> seen = new LinkedHashMap<>();
-		for (Object element : (Collection<?>) _device.tValueByName("connectors")) {
-			TLObject connector = (TLObject) element;
+		for (Connector connector : ((Device) _device).getConnectors()) {
 			Interface placed = ModuleParts.port(connector);
 			if (placed != null && seen.putIfAbsent(placed, connector) == null && ObjectFlags.differs(connector, placed)) {
 				entries.add(new Entry(placed, shown.get(placed), null, null, null, null, null,
@@ -303,15 +309,15 @@ public class DeviceChanges {
 
 		// Values: every placement with a setting now or then.
 		Map<PartRef, TLObject> referenceSettings = new LinkedHashMap<>();
-		for (Object setting : (Collection<?>) historic.tValueByName("settings")) {
-			TLObject value = (TLObject) setting;
-			if (value.tValueByName("parameter") instanceof TLObject view) {
+		for (ParameterSetting value : ((Device) historic).getSettings()) {
+			ParameterView view = value.getParameter();
+			if (view != null) {
 				referenceSettings.putIfAbsent(new PartRef(identity(view), ModuleParts.instanceId(value)), value);
 			}
 		}
 		Set<ParameterView> views = new LinkedHashSet<>();
-		for (Object setting : (Collection<?>) _device.tValueByName("settings")) {
-			ParameterView view = ModuleParts.parameter((TLObject) setting);
+		for (ParameterSetting setting : ((Device) _device).getSettings()) {
+			ParameterView view = ModuleParts.parameter(setting);
 			if (view != null) {
 				views.add(view);
 			}
@@ -394,8 +400,8 @@ public class DeviceChanges {
 			result.put(ref(active.getKey()), active.getValue());
 		}
 		for (TLObject device : List.of(_device, historic)) {
-			for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-				if (current((TLObject) connector, "port") instanceof Interface placed && placed.tValid()
+			for (Connector connector : ((Device) device).getConnectors()) {
+				if (current(connector, "port") instanceof Interface placed && placed.tValid()
 					&& placed.getPort() != null) {
 					result.putIfAbsent(ref(placed.getPort()), placed);
 				}
@@ -441,21 +447,17 @@ public class DeviceChanges {
 
 	private static Map<PartRef, List<TLObject>> connectionsByPort(TLObject device) {
 		Map<PartRef, List<TLObject>> result = new LinkedHashMap<>();
-		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-			TLObject value = (TLObject) connector;
-			if (!(value.tValueByName("port") instanceof Interface placed)
+		for (Connector value : ((Device) device).getConnectors()) {
+			if (!(value.getPort() instanceof Interface placed)
 				|| !(placed.getPort() instanceof TLObject port)) {
 				continue;
 			}
-			Collection<?> connections = (Collection<?>) value.tValueByName("connections");
+			Set<? extends Connection> connections = value.getConnections();
 			if (connections.isEmpty()) {
 				continue;
 			}
 			PartRef key = new PartRef(identity(port), ModuleParts.instanceId(value));
-			List<TLObject> list = result.computeIfAbsent(key, x -> new ArrayList<>());
-			for (Object connection : connections) {
-				list.add((TLObject) connection);
-			}
+			result.computeIfAbsent(key, x -> new ArrayList<>()).addAll(connections);
 		}
 		return result;
 	}
@@ -465,9 +467,8 @@ public class DeviceChanges {
 	 */
 	private static Map<PartRef, TLObject> connectorsByPort(TLObject device) {
 		Map<PartRef, TLObject> result = new LinkedHashMap<>();
-		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-			TLObject value = (TLObject) connector;
-			if (value.tValueByName("port") instanceof Interface placed
+		for (Connector value : ((Device) device).getConnectors()) {
+			if (value.getPort() instanceof Interface placed
 				&& placed.getPort() instanceof TLObject port) {
 				result.putIfAbsent(new PartRef(identity(port), ModuleParts.instanceId(value)), value);
 			}
@@ -484,8 +485,8 @@ public class DeviceChanges {
 	}
 
 	private static String key(TLObject connection) {
-		Object target = connection.tValueByName("target");
-		Object kind = connection.tValueByName("kind");
+		GroupAddress target = ((Connection) connection).getTarget();
+		TLClassifier kind = ((Connection) connection).getKind();
 		return (target instanceof TLObject address ? identity(address).toString() : "-") + "|"
 			+ (kind instanceof TLClassifier classifier ? classifier.getName() : "-");
 	}
@@ -614,9 +615,9 @@ public class DeviceChanges {
 			}
 			return String.join("; ", texts);
 		}
-		Object display = entry.referenceHolder().tValueByName("displayValue");
-		if (display != null && !display.toString().isEmpty()) {
-			return display.toString();
+		String display = ((ParameterValue) entry.referenceHolder()).getDisplayValue();
+		if (display != null && !display.isEmpty()) {
+			return display;
 		}
 		return entry.referenceValue() == null ? "–" : entry.referenceValue();
 	}
@@ -631,9 +632,9 @@ public class DeviceChanges {
 		}
 		List<String> texts = new ArrayList<>();
 		for (TLObject connection : connections) {
-			Object target = connection.tValueByName("target");
-			Object address = target instanceof GroupAddress groupAddress ? groupAddress.getAddress() : null;
-			Object kind = connection.tValueByName("kind");
+			GroupAddress target = ((Connection) connection).getTarget();
+			Object address = target != null ? target.getAddress() : null;
+			TLClassifier kind = ((Connection) connection).getKind();
 			String kindText = kind instanceof TLClassifier classifier ? MetaLabelProvider.INSTANCE.getLabel(
 				kind(classifier.getName())) : "";
 			texts.add(Resources.getInstance().getString(
@@ -707,14 +708,14 @@ public class DeviceChanges {
 			if (current.contains(key(connection))) {
 				continue;
 			}
-			GroupAddress target = (GroupAddress) connection.tValueByName("target");
+			GroupAddress target = ((Connection) connection).getTarget();
 			TLObject address = target == null ? null : WrapperHistoryUtils.getCurrent(target);
 			if (address == null || !address.tValid()) {
 				throw new TopLogicException(I18NConstants.ERROR_ADDRESS_GONE__ADDRESS_OBJECT.fill(
 					target == null ? "?" : Objects.toString(target.getAddress()),
 					GroupAddressConnections.objectLabel(placed)));
 			}
-			TLClassifier kind = kind(((TLClassifier) connection.tValueByName("kind")).getName());
+			TLClassifier kind = kind(((Connection) connection).getKind().getName());
 			DeviceSettings.connect(_device, placed, address, kind);
 		}
 	}
@@ -777,8 +778,8 @@ public class DeviceChanges {
 	public static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
+			for (Line line : ((Area) area).getLines()) {
+				for (BusDevice device : line.getDevices()) {
 					addDevice(result, device);
 				}
 			}

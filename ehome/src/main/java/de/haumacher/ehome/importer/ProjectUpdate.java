@@ -33,6 +33,10 @@ import de.haumacher.ehome.knx.ProjectParts;
 import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ExpressionRenames;
@@ -261,7 +265,11 @@ public final class ProjectUpdate {
 	}
 
 	private static boolean sameProduct(TLObject a, TLObject b) {
-		return a.tValueByName("type") == b.tValueByName("type") && a.tValueByName("program") == b.tValueByName("program");
+		if (!(a instanceof Device first) || !(b instanceof Device second)) {
+			// Stubs of devices the catalog does not identify name no product.
+			return true;
+		}
+		return first.getType() == second.getType() && first.getProgram() == second.getProgram();
 	}
 
 	/**
@@ -277,15 +285,17 @@ public final class ProjectUpdate {
 		TLObject containerKey = !source ? container : container == _source ? _target : _counterparts.get(container);
 		switch (kind) {
 			case AREA:
-				return List.of(String.valueOf(obj.tValueByName("address")));
+				return List.of(String.valueOf(((Area) obj).getAddress()));
 			case LINE:
-				return containerKey == null ? null : List.of(containerKey, String.valueOf(obj.tValueByName("address")));
-			case DEVICE:
+				return containerKey == null ? null : List.of(containerKey, String.valueOf(((Line) obj).getAddress()));
+			case DEVICE: {
 				// An unassigned device has no address in a line.
-				if (containerKey == null || containerKey == _target || obj.tValueByName("address") == null) {
+				Integer number = ((BusDevice) obj).getAddress();
+				if (containerKey == null || containerKey == _target || number == null) {
 					return null;
 				}
-				return List.of(containerKey, String.valueOf(obj.tValueByName("address")));
+				return List.of(containerKey, String.valueOf(number));
+			}
 			case GROUP_ADDRESS:
 				return ((GroupAddress) obj).getAddress() instanceof GA address ? List.of(Integer.valueOf(address.getValue())) : null;
 			case GROUP_RANGE:

@@ -42,6 +42,9 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
@@ -643,8 +646,8 @@ public class DeviceSettings {
 		} else {
 			connector = connectors.get(0);
 		}
-		if (!Boolean.TRUE.equals(connector.tValueByName("active"))) {
-			connector.tUpdateByName("active", Boolean.TRUE);
+		if (!Boolean.TRUE.equals(connector.tValue(EhomePhysicalFactory.getActiveConnectorAttr()))) {
+			((Connector) connector).setActive(true);
 		}
 		TLObject connection = create("ehome.physical:Connection");
 		connection.tUpdateByName(KIND, kind);
@@ -695,7 +698,7 @@ public class DeviceSettings {
 	}
 
 	private static void touch(TLObject device) {
-		device.tUpdateByName("lastModified", new Date());
+		((Device) device).setConfigurationChanged(new Date());
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {

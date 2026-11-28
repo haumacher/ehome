@@ -50,6 +50,9 @@ import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.BuildingDevices;
@@ -199,7 +202,7 @@ public class DeviceTools {
 				Map<String, Object> entry = new LinkedHashMap<>();
 				entry.put("id", id(line));
 				entry.put("line", DevicePlanning.lineText(line));
-				entry.put("name", line.tValueByName("name"));
+				entry.put("name", ((Line) line).getName());
 				entry.put("nextFreeNumber", DevicePlanning.nextFree(line));
 				List<Object> devices = new ArrayList<>();
 				for (TLObject device : ExtIds.list(line, "devices")) {
@@ -224,11 +227,12 @@ public class DeviceTools {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", id(device));
 		result.put("address", GroupAddressConnections.addressText(device));
-		result.put("name", device.tValueByName("title"));
+		BusDevice busDevice = (BusDevice) device;
+		result.put("name", busDevice.getTitle());
 		if (ExtIds.isA(device, DEVICE)) {
-			TLObject variant = device.tValueByName("type") instanceof TLObject type ? type : null;
+			TLObject variant = ((Device) device).getType();
 			result.put("product", variant == null ? null : DevicePlanning.variantLabel(variant));
-			TLObject assignment = device.tValueByName("program") instanceof TLObject program ? program : null;
+			TLObject assignment = ((Device) device).getProgram();
 			result.put("program", assignment == null ? null : DevicePlanning.programLabel(assignment));
 		} else {
 			// The stub of a device a scan found that the catalog does not identify (haumacher/ehome #183).
@@ -236,7 +240,7 @@ public class DeviceTools {
 				+ GroupAddressConnections.deviceLabel(device) + "; the user assigns it after importing the"
 				+ " manufacturer's product data.");
 		}
-		TLObject location = device.tValueByName("location") instanceof TLObject part ? part : null;
+		TLObject location = busDevice.getLocation();
 		result.put("location", location == null ? null : ref(location, BuildingDevices.path(location)));
 		return result;
 	}

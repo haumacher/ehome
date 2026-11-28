@@ -16,6 +16,10 @@
 	-->
 	<module name="ehome.zigbee.catalog">
 		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.zigbee.catalog.internal"
+				interface-package="de.haumacher.ehome.model.zigbee.catalog"
+			/>
 			<singletons>
 				<singleton type="ZigbeeCatalog"/>
 			</singletons>
@@ -33,7 +37,11 @@
 					multiple="true"
 					ordered="true"
 					type="ZigbeeDeviceType"
-				/>
+				>
+					<annotations>
+						<java-name value="deviceTypes"/>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<!-- What a device of a manufacturer and model is, and what its functions mean. -->

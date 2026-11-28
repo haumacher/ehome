@@ -36,6 +36,8 @@ import de.haumacher.ehome.model.operational.PropertyLocation;
 import de.haumacher.ehome.model.operational.Repeat;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
+import de.haumacher.ehome.model.physical.ModuleInstance;
 
 /**
  * The effective values of the parts of a dynamic module in an instance (haumacher/ehome #119, rule
@@ -365,11 +367,12 @@ public final class ModuleParts {
 	 * in effect.
 	 */
 	public static boolean inEffect(TLObject connector) {
-		if (Boolean.FALSE.equals(connector.tValueByName("active"))) {
+		if (Boolean.FALSE.equals(connector.tValue(EhomePhysicalFactory.getActiveConnectorAttr()))) {
 			return false;
 		}
 		Object stored = connector.tType().getPart(INSTANCE) == null ? null : connector.tValueByName(INSTANCE);
-		return !(stored instanceof TLObject instance) || !Boolean.FALSE.equals(instance.tValueByName("active"));
+		return !(stored instanceof ModuleInstance instance)
+			|| !Boolean.FALSE.equals(instance.tValue(EhomePhysicalFactory.getActiveModuleInstanceAttr()));
 	}
 
 	/**

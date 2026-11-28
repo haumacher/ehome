@@ -16,6 +16,10 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
+import de.haumacher.ehome.model.datapoint.DatapointTypes;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 
 /**
@@ -91,8 +95,8 @@ public final class GroupAddressTypes {
 		TLObject declared = declaredType(groupAddress);
 		Dpt dpt = dpt(declared);
 		if (dpt != null) {
-			Object description = declared.tValueByName("description");
-			String text = description instanceof ResKey key ? Resources.getInstance().getString(key, null) : null;
+			ResKey description = ((DatapointType) declared).getDescription();
+			String text = description != null ? Resources.getInstance().getString(description, null) : null;
 			return text == null || text.isEmpty() ? dpt.code() : dpt.code() + " " + text;
 		}
 		Dpt bySize = bySize(groupAddress);
@@ -158,15 +162,15 @@ public final class GroupAddressTypes {
 	 * for none.
 	 */
 	public static Dpt dpt(TLObject type) {
-		if (type == null || !(type.tValueByName("number") instanceof Integer number)) {
+		if (!(type instanceof DatapointType typed)) {
 			return null;
 		}
-		if (isA(type, SUBTYPE)) {
-			TLObject main = type.tContainer();
-			if (main == null || !(main.tValueByName("number") instanceof Integer mainNumber)) {
+		int number = typed.getNumber();
+		if (typed instanceof DatapointSubtype subtype) {
+			if (!(subtype.tContainer() instanceof DatapointMainType main)) {
 				return null;
 			}
-			return new Dpt(mainNumber, number);
+			return new Dpt(main.getNumber(), number);
 		}
 		return Dpt.mainType(number);
 	}
@@ -190,8 +194,8 @@ public final class GroupAddressTypes {
 		if (size == null) {
 			return result;
 		}
-		for (TLObject main : mainTypes()) {
-			if (main.tValueByName("sizeInBit") instanceof Integer mainSize && mainSize.equals(size)) {
+		for (DatapointMainType main : mainTypes()) {
+			if (size.equals(main.getSizeInBit())) {
 				addTypes(main, result);
 			}
 		}
@@ -204,7 +208,7 @@ public final class GroupAddressTypes {
 	 */
 	public static List<TLObject> allTypes() {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject main : mainTypes()) {
+		for (DatapointMainType main : mainTypes()) {
 			addTypes(main, result);
 		}
 		return result;
@@ -283,41 +287,35 @@ public final class GroupAddressTypes {
 		return result;
 	}
 
-	private static void addTypes(TLObject main, List<TLObject> result) {
-		Collection<?> subtypes = (Collection<?>) main.tValueByName("subtypes");
+	private static void addTypes(DatapointMainType main, List<TLObject> result) {
+		List<? extends DatapointSubtype> subtypes = main.getSubtypes();
 		if (subtypes == null || subtypes.isEmpty()) {
 			result.add(main);
 			return;
 		}
-		for (Object subtype : subtypes) {
-			result.add((TLObject) subtype);
-		}
+		result.addAll(subtypes);
 	}
 
 	private static TLObject mainType(int number) {
-		for (TLObject main : mainTypes()) {
-			if (main.tValueByName("number") instanceof Integer mainNumber && mainNumber.intValue() == number) {
+		for (DatapointMainType main : mainTypes()) {
+			if (main.getNumber() == number) {
 				return main;
 			}
 		}
 		return null;
 	}
 
-	private static List<TLObject> mainTypes() {
-		List<TLObject> result = new ArrayList<>();
+	private static List<DatapointMainType> mainTypes() {
 		TLModule module = TLModelUtil.findType(MAIN_TYPE).getModule();
-		TLObject root = module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
-		if (root != null) {
-			for (Object main : (Collection<?>) root.tValueByName("types")) {
-				result.add((TLObject) main);
-			}
+		if (!(module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME) instanceof DatapointTypes root)) {
+			return new ArrayList<>();
 		}
-		return result;
+		return new ArrayList<>(root.getMainTypes());
 	}
 
 	private static Integer sizeInBit(TLObject type) {
 		TLObject main = isA(type, SUBTYPE) ? type.tContainer() : type;
-		return main != null && main.tValueByName("sizeInBit") instanceof Integer size ? size : null;
+		return main instanceof DatapointMainType mainType ? mainType.getSizeInBit() : null;
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {

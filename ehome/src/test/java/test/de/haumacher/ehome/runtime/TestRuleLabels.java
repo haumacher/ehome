@@ -33,6 +33,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.ProjectDatapoint;
 import de.haumacher.ehome.model.project.Project;
@@ -478,27 +481,27 @@ public class TestRuleLabels extends BasicTestCase {
 		GroupAddress result = create("ehome.logical:GroupAddress");
 		result.setName(name);
 		result.setAddress(GA.parse(address, GroupAddressStyle.ThreeLevel));
-		result.setDatapointTypes(List.of(type));
+		result.setDatapointTypes(List.of((DatapointType) type));
 		return result;
 	}
 
 	private TLObject mainType(int number, String extId) {
-		TLObject type = create("ehome.datapoint:DatapointMainType");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", extId);
+		DatapointMainType type = create("ehome.datapoint:DatapointMainType");
+		type.setNumber(number);
+		type.setExtId(extId);
 		_types.add(type);
 		return type;
 	}
 
 	private static TLObject subtype(int number, String extId) {
-		TLObject type = create("ehome.datapoint:DatapointSubtype");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", extId);
+		DatapointSubtype type = create("ehome.datapoint:DatapointSubtype");
+		type.setNumber(number);
+		type.setExtId(extId);
 		return type;
 	}
 
 	private static void subtypes(TLObject main, List<TLObject> subtypes) {
-		main.tUpdateByName("subtypes", subtypes);
+		((DatapointMainType) main).setSubtypes(subtypes.stream().map(DatapointSubtype.class::cast).toList());
 	}
 
 	@SuppressWarnings("unchecked")

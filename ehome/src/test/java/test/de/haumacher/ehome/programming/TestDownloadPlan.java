@@ -34,6 +34,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -327,9 +328,9 @@ public class TestDownloadPlan extends BasicTestCase {
 				}
 			}
 		}
-		Collection<?> loaded = (Collection<?>) device.tValueByName("loaded");
+		Collection<?> loaded = ((Device) device).getLoaded();
 		assertEquals(5, loaded.size());
-		assertNotNull(device.tValueByName("lastDownload"));
+		assertNotNull(((Device) device).getLastDownload());
 	}
 
 	/**
@@ -400,8 +401,8 @@ public class TestDownloadPlan extends BasicTestCase {
 	 */
 	private void checkFailure() throws Exception {
 		TLObject device = device(SENSOR);
-		Object loadedBefore = device.tValueByName("loaded");
-		Object downloadBefore = device.tValueByName("lastDownload");
+		Object loadedBefore = ((Device) device).getLoaded();
+		Object downloadBefore = ((Device) device).getLastDownload();
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 		MockDevice mock = sensorDevice(plan).scriptLoadControl(
 			(object, control) -> object == 2 && control[0] == LoadControls.EVENT_LOAD ? LoadControls.STATE_ERROR : null);
@@ -414,8 +415,8 @@ public class TestDownloadPlan extends BasicTestCase {
 		assertEquals("Load state machine 2 reports the state \"Error\" after the load control \"Start loading\", expected \"Loading\".",
 			result.failure());
 		assertEquals("writeLoadControl 2 01000000000000000000", mock.calls().get(mock.calls().size() - 1));
-		assertEquals(loadedBefore, device.tValueByName("loaded"));
-		assertEquals(downloadBefore, device.tValueByName("lastDownload"));
+		assertEquals(loadedBefore, ((Device) device).getLoaded());
+		assertEquals(downloadBefore, ((Device) device).getLastDownload());
 	}
 
 	/**
@@ -677,7 +678,7 @@ public class TestDownloadPlan extends BasicTestCase {
 
 	private TLObject device(String extId) {
 		List<TLObject> result = instances("ehome.physical:Device").stream()
-			.filter(d -> extId.equals(d.tValueByName("extId")))
+			.filter(d -> extId.equals(((Device) d).getExtId()))
 			.filter(d -> _projects.contains(root(d)))
 			.toList();
 		assertEquals(extId, 1, result.size());

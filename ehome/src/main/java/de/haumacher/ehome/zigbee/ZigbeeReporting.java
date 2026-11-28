@@ -13,6 +13,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeFunctionEntry;
 
 /**
  * The reporting of the functions of Zigbee devices (haumacher/ehome #64, homecontrol
@@ -275,11 +276,15 @@ public final class ZigbeeReporting {
 
 	/**
 	 * Why the installer's override of the function (<code>ehome.zigbee:ZigbeeFunction</code>, or a
-	 * form object over it) is refused; <code>null</code> if it is valid or the function's key is
-	 * unknown (a newer controller's: E-Home does not know its reporting).
+	 * form object over it) or the recommendation of a catalog entry
+	 * (<code>ehome.zigbee.catalog:ZigbeeFunctionEntry</code>) is refused; <code>null</code> if it is
+	 * valid or the function's key is unknown (a newer controller's: E-Home does not know its
+	 * reporting).
 	 */
 	public static Refusal check(TLObject function) {
-		ZigbeeFunctionTable.Info info = ZigbeeFunctionTable.byKey(String.valueOf(function.tValueByName("function")));
+		String key = function instanceof ZigbeeFunctionEntry entry ? entry.getFunction()
+			: ((ZigbeeFunction) function).getFunction();
+		ZigbeeFunctionTable.Info info = ZigbeeFunctionTable.byKey(String.valueOf(key));
 		if (info == null) {
 			return null;
 		}

@@ -61,6 +61,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.ai.TemplateTools;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
@@ -448,7 +449,7 @@ public class TestTemplateTools extends BasicTestCase {
 
 	private static TLObject subtype(String extId) {
 		return instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> extId.equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> extId.equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 	}
 
 	private static TLClassifier kind(String name) {

@@ -29,6 +29,7 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Program;
 
 /**
@@ -81,7 +82,7 @@ public class TestSharedObjectsProbe extends BasicTestCase {
 				boolean identified = shared && type.getPart("extId") != null;
 				Map<String, TLObject> byId = new HashMap<>();
 				for (TLObject obj : instances(TLModelUtil.qualifiedName(type))) {
-					String id = identified ? (String) obj.tValueByName("extId") : null;
+					String id = identified ? ((Externalized) obj).getExtId() : null;
 					if (id != null) {
 						TLObject clash = byId.put(id, obj);
 						assertNull("Shared object " + id + " of " + type + " twice.", clash);

@@ -4,7 +4,6 @@
 package de.haumacher.ehome.template;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,6 +27,8 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.template.DeviceTemplate;
 import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.programming.DeviceChanges;
@@ -194,10 +195,8 @@ public final class DeviceTemplates {
 			if (program == null) {
 				continue;
 			}
-			for (Object element : (Collection<?>) device.tValueByName("connectors")) {
-				TLObject connector = (TLObject) element;
-				if (!(connector.tValueByName("port") instanceof Interface placed)
-					|| ((Collection<?>) connector.tValueByName("connections")).isEmpty()) {
+			for (Connector connector : ((Device) device).getConnectors()) {
+				if (!(connector.getPort() instanceof Interface placed) || connector.getConnections().isEmpty()) {
 					continue;
 				}
 				int size = ObjectTypes.size(placed);

@@ -26,6 +26,11 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.modules.ModuleParts;
 
 /**
@@ -111,13 +116,25 @@ final class ProjectExport {
 
 	private static List<TLObject> byAddress(List<TLObject> objects) {
 		List<TLObject> result = Values.sortedById(objects);
-		result.sort(Comparator.comparing(o -> (Integer) o.tValueByName("address"),
-			Comparator.nullsLast(Comparator.naturalOrder())));
+		result.sort(Comparator.comparing(ProjectExport::address, Comparator.nullsLast(Comparator.naturalOrder())));
 		return result;
 	}
 
+	/**
+	 * The number of an area, a line or a device in its container, <code>null</code> if it has none.
+	 */
+	private static Integer address(TLObject obj) {
+		if (obj instanceof Area area) {
+			return area.getAddress();
+		}
+		if (obj instanceof Line line) {
+			return line.getAddress();
+		}
+		return ((BusDevice) obj).getAddress();
+	}
+
 	private void writeDevice(XmlOut out, TLObject device) throws XMLStreamException {
-		Collection<?> loaded = (Collection<?>) device.tValueByName("loaded");
+		Collection<TLClassifier> loaded = device instanceof Device typed ? typed.getLoaded() : null;
 		out.open("DeviceInstance")
 			.attr("Id", extId(device))
 			.attr("Name", string(device, "title"))
@@ -131,7 +148,7 @@ final class ProjectExport {
 			.attr("LastDownload", date(device, "lastDownload"));
 		for (String[] part : LOADED) {
 			boolean isLoaded = loaded != null
-				&& loaded.stream().anyMatch(p -> ((TLClassifier) p).getName().equals(part[0]));
+				&& loaded.stream().anyMatch(p -> p.getName().equals(part[0]));
 			out.attr(part[1], isLoaded ? "1" : "0");
 		}
 
@@ -180,11 +197,11 @@ final class ProjectExport {
 		}
 		// The schema puts the sending connection first.
 		connections.sort(Comparator
-			.comparing((TLObject c) -> ((TLClassifier) c.tValueByName("kind")).getName().equals("send") ? 0 : 1)
+			.comparing((TLObject c) -> ((Connection) c).getKind().getName().equals("send") ? 0 : 1)
 			.thenComparing(c -> extId(ref(c, "target")), Values::compareIds));
 		out.open("Connectors");
 		for (TLObject connection : connections) {
-			boolean send = ((TLClassifier) connection.tValueByName("kind")).getName().equals("send");
+			boolean send = ((Connection) connection).getKind().getName().equals("send");
 			out.open(send ? "Send" : "Receive")
 				.attr("GroupAddressRefId", extId(ref(connection, "target")))
 				.attr("Acknowledge", Values.trueOnly(connection, "acknowledge", "1"))

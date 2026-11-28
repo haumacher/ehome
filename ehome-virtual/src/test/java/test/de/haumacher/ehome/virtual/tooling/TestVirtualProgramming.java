@@ -39,6 +39,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.virtual.server.Endpoint;
 import de.haumacher.ehome.virtual.tooling.device.MappedLoadStateRule;
 import de.haumacher.ehome.virtual.tooling.device.ProjectDevices;
@@ -98,7 +99,7 @@ public class TestVirtualProgramming extends BasicTestCase {
 			assertTrue(notes.toString(), notes.get("property 0/56").startsWith("max APDU length 47, a substitute"));
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				device.tUpdateByName("serialNumber", PROJECT_SERIAL);
+				((Device) device).setSerialNumber(PROJECT_SERIAL);
 				tx.commit();
 			}
 			SimulatedDevice simulated = ProjectDevices.create(device, MappedLoadStateRule.ECHO);

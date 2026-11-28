@@ -16,6 +16,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.physical.BusDevice;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.planning.DevicePlanning;
 
@@ -57,7 +58,7 @@ public class DeviceNumberRepair implements StartupAction {
 		TLClass type = (TLClass) TLModelUtil.findType(PROJECT_TYPE);
 		for (Project project : MetaElementUtil.getAllDirectInstancesOf(type, Project.class)) {
 			for (TLObject device : new ArrayList<TLObject>(project.getUnassignedDevices())) {
-				if (device.tValueByName("address") instanceof Integer address
+				if (((BusDevice) device).getAddress() instanceof Integer address
 					&& address.intValue() > DevicePlanning.MAX_NUMBER) {
 					if (place(project, device, address.intValue())) {
 						placed++;
@@ -97,14 +98,15 @@ public class DeviceNumberRepair implements StartupAction {
 		String addressText = FoundDevice.formatAddress(full);
 		String what = MetaLabelProvider.INSTANCE.getLabel(device.tType()) + " " + addressText + " of "
 			+ MetaLabelProvider.INSTANCE.getLabel(project);
-		if (DeviceStubs.isStub(device) && device.tValueByName("serialNumber") instanceof String hex
+		BusDevice busDevice = (BusDevice) device;
+		if (DeviceStubs.isStub(device) && busDevice.getSerialNumber() instanceof String hex
 			&& hex.matches("[0-9A-Fa-f]+") && hex.length() % 2 == 0) {
-			device.tUpdateByName("serialNumber", Base64.getEncoder().encodeToString(HexFormat.of().parseHex(hex)));
+			busDevice.setSerialNumber(Base64.getEncoder().encodeToString(HexFormat.of().parseHex(hex)));
 		}
 		boolean free = InstallationBuilder.device(project, full) == null;
-		device.tUpdateByName("address", Integer.valueOf(number));
+		busDevice.setAddress(Integer.valueOf(number));
 		if (free) {
-			((Project) project).removeUnassignedDevice(device);
+			((Project) project).removeUnassignedDevice(busDevice);
 			TLObject line = InstallationBuilder.line(project, full >>> 12 & 0x0F, full >>> 8 & 0x0F);
 			InstallationBuilder.add(line, "devices", device);
 			Logger.info(what + " placed in its line with the device number " + number + ".", DeviceNumberRepair.class);

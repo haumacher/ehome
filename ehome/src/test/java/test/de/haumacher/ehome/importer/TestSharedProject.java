@@ -23,6 +23,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.EhomeLogicalFactory;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.EhomeProjectFactory;
@@ -59,7 +60,7 @@ public class TestSharedProject extends BasicTestCase {
 		String name = address.getName();
 		int types = address.getDatapointTypes().size();
 		int parts = SharedData.composition(project).size();
-		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
+		DatapointType type = (DatapointType) instances("ehome.datapoint:DatapointSubtype").stream()
 			.filter(t -> !address.getDatapointTypes().contains(t)).findFirst().get();
 		int vetoes = SharedData.sharedProjectVetoes();
 

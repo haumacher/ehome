@@ -5,6 +5,7 @@ package test.de.haumacher.ehome.runtime;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -18,6 +19,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -48,7 +50,7 @@ public class TestRuleDrafts extends BasicTestCase {
 			long revision = revision();
 			TLObject draft = RuleDrafts.draft(project, "schedules", runtime("AstroSchedule"));
 			assertTrue(draft.tTransient());
-			assertEquals("entry-2", draft.tValueByName("identifier"));
+			assertEquals("entry-2", ((AstroSchedule) draft).getIdentifier());
 			assertEquals(List.of("label", "identifier", "sun", "offset", "days", "output"), RuleDrafts.fields(draft));
 
 			// The fields of the dialog are checked at the place the entry goes to.
@@ -68,9 +70,10 @@ public class TestRuleDrafts extends BasicTestCase {
 			assertEquals(List.of(existing), RuleFunctions.objects(project, "schedules"));
 
 			// Create: one entry at the end, with the values entered.
-			draft.tUpdateByName("offset", "-30min");
-			draft.tUpdateByName(AstroSchedule.LABEL_ATTR, ResKey.text("Dusk"));
-			draft.tUpdateByName("days", List.of(weekday("saturday"), weekday("sunday")));
+			AstroSchedule entry = (AstroSchedule) draft;
+			entry.setOffset("-30min");
+			entry.setLabel(ResKey.text("Dusk"));
+			entry.setDays(Set.of(weekday("saturday"), weekday("sunday")));
 			TLObject created;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				created = RuleDrafts.add(draft);
@@ -109,12 +112,13 @@ public class TestRuleDrafts extends BasicTestCase {
 			assertEquals(List.of(), RuleFunctions.objects(reaction, "actions"));
 
 			TLObject timer = RuleDrafts.draft(rule, "timers", runtime("RuleTimer"));
-			assertEquals("t1", timer.tValueByName("identifier"));
-			timer.tUpdateByName("identifier", "off");
-			timer.tUpdateByName("duration", "5min");
-			TLObject second = RuleDrafts.draft(project, "rules", runtime("Rule"));
-			assertEquals("rule-2", second.tValueByName("identifier"));
-			second.tUpdateByName(Rule.NAME_ATTR, ResKey.text("Second"));
+			RuleTimer timerDraft = (RuleTimer) timer;
+			assertEquals("t1", timerDraft.getIdentifier());
+			timerDraft.setIdentifier("off");
+			timerDraft.setDuration("5min");
+			Rule second = (Rule) RuleDrafts.draft(project, "rules", runtime("Rule"));
+			assertEquals("rule-2", second.getIdentifier());
+			second.setNameKey(ResKey.text("Second"));
 			TLObject stored;
 			TLObject secondRule;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -150,8 +154,8 @@ public class TestRuleDrafts extends BasicTestCase {
 			TLObject section = RuleDrafts.pageDraft(project, first, Pages.SECTION);
 			assertEquals(revision, revision());
 
-			section.tUpdateByName("title", com.top_logic.basic.util.ResKey.text("Living room"));
-			page.tUpdateByName(de.haumacher.ehome.model.runtime.Page.NAME_ATTR, ResKey.text("Added"));
+			((PageSection) section).setTitle(ResKey.text("Living room"));
+			((de.haumacher.ehome.model.runtime.Page) page).setNameKey(ResKey.text("Added"));
 			TLObject added;
 			TLObject addedPage;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -188,7 +192,7 @@ public class TestRuleDrafts extends BasicTestCase {
 		}
 	}
 
-	private static Object weekday(String name) {
+	private static TLClassifier weekday(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:Weekday")).getClassifier(name);
 	}
 

@@ -27,6 +27,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
@@ -250,9 +252,9 @@ public class TestRuntimeImage extends BasicTestCase {
 		GroupAddress address = (GroupAddress) SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
 			.filter(a -> addressName.equals(((GroupAddress) a).getName())).findFirst().orElseThrow();
 		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> typeId.equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> typeId.equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			address.setDatapointTypes(List.of(type));
+			address.setDatapointTypes(List.of((DatapointType) type));
 			tx.commit();
 		}
 	}

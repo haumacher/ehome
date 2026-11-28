@@ -13,6 +13,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -46,10 +47,14 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Connector;
 import de.haumacher.ehome.model.template.DeviceTemplate;
+import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.ProjectIndex;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -95,7 +100,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 			List<TLObject> connections = GroupAddressConnections.connections(temperature);
 			assertEquals(1, connections.size());
 			TLObject connector = connections.get(0).tContainer();
-			Interface placed = (Interface) connector.tValueByName("port");
+			Interface placed = ((Connector) connector).getPort();
 			TLObject program = program(placed);
 			assertEquals("M-0008_A-10D7-11-A0E5-O000A", ExtIds.extId(program));
 			assertEquals(16, ObjectTypes.size(placed));
@@ -153,7 +158,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 			assertEquals(celsius, derived(connector, "effectiveDatapointType"));
 			assertEquals(List.of(celsius), derived(connector, "inheritedDatapointTypes"));
 			assertEquals(List.of(celsius), derived(connector, "effectiveDatapointTypes"));
-			assertEquals(List.of(), connector.tValueByName("datapointTypes"));
+			assertEquals(List.of(), ((Connector) connector).getDatapointTypes());
 			assertEquals(celsius, ObjectTypes.effective(connector.tContainer(), placed));
 			assertEquals(new Dpt(9, 1), GroupAddressTypes.effective(temperature));
 			assertEquals(celsius, derived(temperature, "effectiveDatapointType"));
@@ -177,7 +182,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 			TLObject device = connector.tContainer();
 			Interface unconnected = DeviceSettings.interfaces(device).stream()
 				.filter(i -> ObjectTypes.connector(device, i) != null
-					&& ((Collection<?>) ObjectTypes.connector(device, i).tValueByName("connections")).isEmpty())
+					&& ((Connector) ObjectTypes.connector(device, i)).getConnections().isEmpty())
 				.findFirst().orElseThrow();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				ObjectTypes.connector(device, unconnected).tDelete();
@@ -197,7 +202,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(created, ObjectTypes.connector(device, unconnected));
-			assertEquals(List.of(), created.tValueByName("datapointTypes"));
+			assertEquals(List.of(), ((Connector) created).getDatapointTypes());
 			assertEquals(List.of(ofItsSize), derived(created, "effectiveDatapointTypes"));
 			assertEquals(ofItsSize, derived(created, "effectiveDatapointType"));
 			setTypes(unconnectedOverlay);
@@ -241,7 +246,12 @@ public class TestDeviceTemplates extends BasicTestCase {
 
 	private static void setTypes(TLObject holder, TLObject... types) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			holder.tUpdateByName("datapointTypes", List.of(types));
+			List<DatapointType> list = Arrays.stream(types).map(DatapointType.class::cast).toList();
+			if (holder instanceof Connector connector) {
+				connector.setDatapointTypes(list);
+			} else {
+				((ObjectOverlay) holder).setDatapointTypes(list);
+			}
 			tx.commit();
 		}
 	}
@@ -307,7 +317,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 
 	private static TLObject subtype(String extId) {
 		return instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> extId.equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> extId.equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 	}
 
 	public static Test suite() {

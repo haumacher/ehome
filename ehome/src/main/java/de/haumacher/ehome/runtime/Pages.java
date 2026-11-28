@@ -614,8 +614,8 @@ public final class Pages {
 	 * <code>null</code> if it fits.
 	 */
 	public static ResKey consolidationProblem(Object consolidation, Object series) {
-		if (!"consumption".equals(name(consolidation)) || !(series instanceof TLObject obj)
-			|| !(obj.tValueByName("datapoint") instanceof TLObject datapoint)) {
+		if (!"consumption".equals(name(consolidation)) || !(series instanceof ChartSeries obj)
+			|| !(obj.getDatapoint() instanceof TLObject datapoint)) {
 			return null;
 		}
 		return ValueTypes.BOOLEAN.equals(valueType(datapoint)) ? I18NConstants.CONSUMPTION_OF_BOOLEAN : null;
@@ -642,11 +642,11 @@ public final class Pages {
 	 * <code>null</code> if it is right.
 	 */
 	public static ResKey referenceProblem(Object reference) {
-		if (!(reference instanceof TLObject obj)) {
+		if (!(reference instanceof ChartReference obj)) {
 			return null;
 		}
-		boolean value = obj.tValueByName("value") != null;
-		Object datapoint = obj.tValueByName("datapoint");
+		boolean value = obj.getValue() != null;
+		Object datapoint = obj.getDatapoint();
 		if (value == (datapoint != null)) {
 			return I18NConstants.REFERENCE_VALUE_OR_DATAPOINT;
 		}

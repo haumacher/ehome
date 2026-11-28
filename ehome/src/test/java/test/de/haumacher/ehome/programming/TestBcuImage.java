@@ -26,6 +26,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -334,7 +335,7 @@ public class TestBcuImage extends BasicTestCase {
 
 	private TLObject device(String extId) {
 		List<TLObject> result = instances("ehome.physical:Device").stream()
-			.filter(d -> extId.equals(d.tValueByName("extId")))
+			.filter(d -> extId.equals(((Device) d).getExtId()))
 			.filter(d -> _projects.contains(root(d)))
 			.toList();
 		assertEquals(extId, 1, result.size());

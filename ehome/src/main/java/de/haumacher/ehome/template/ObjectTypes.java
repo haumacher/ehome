@@ -14,6 +14,8 @@ import com.top_logic.model.util.TLModelUtil;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.template.ObjectOverlay;
 import de.haumacher.ehome.modules.ModuleParts;
 
@@ -119,8 +121,7 @@ public final class ObjectTypes {
 			return null;
 		}
 		TLObject fallback = null;
-		for (Object element : (Collection<?>) device.tValueByName("connectors")) {
-			TLObject connector = (TLObject) element;
+		for (Connector connector : ((Device) device).getConnectors()) {
 			if (ModuleParts.port(connector) instanceof Interface other) {
 				if (other.equals(placed)) {
 					return connector;

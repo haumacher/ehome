@@ -44,6 +44,10 @@ import de.haumacher.ehome.model.operational.Repeat;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
@@ -359,9 +363,9 @@ public class DeviceConfiguration {
 		for (TLObject instance : ModuleInstances.stored(device)) {
 			_storedInstances.putIfAbsent((String) instance.tValueByName(ModuleInstances.NAME), instance);
 		}
-		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
-			TLObject value = (TLObject) setting;
-			if (value.tValueByName("parameter") instanceof ParameterView view) {
+		for (ParameterSetting value : ((Device) device).getSettings()) {
+			ParameterView view = value.getParameter();
+			if (view != null) {
 				String instance = ModuleParts.instanceId(value);
 				_settings.putIfAbsent(instance == null ? view : new PartKey(view, instance), value);
 			}
@@ -440,11 +444,7 @@ public class DeviceConfiguration {
 	 * catalog does not identify, haumacher/ehome #183, has no attribute for one).
 	 */
 	public static Program program(TLObject device) {
-		if (device.tType().getPart("program") == null) {
-			return null;
-		}
-		Object assignment = device.tValueByName("program");
-		if (assignment instanceof ProgramAssignment programAssignment
+		if (device instanceof Device known && known.getProgram() instanceof ProgramAssignment programAssignment
 			&& programAssignment.getProgram() instanceof Program program) {
 			return program;
 		}
@@ -478,8 +478,7 @@ public class DeviceConfiguration {
 	 * </p>
 	 */
 	public static TLObject valueHolder(TLObject device, ParameterView view) {
-		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
-			TLObject value = (TLObject) setting;
+		for (ParameterSetting value : ((Device) device).getSettings()) {
 			if (ModuleParts.refersTo(value, ModuleParts.PARAMETER, view)) {
 				return value;
 			}
@@ -1245,9 +1244,8 @@ public class DeviceConfiguration {
 	 */
 	public List<TLObject> getConnectors() {
 		List<TLObject> result = new ArrayList<>();
-		for (Object connector : (Collection<?>) _device.tValueByName("connectors")) {
-			TLObject value = (TLObject) connector;
-			if (Boolean.FALSE.equals(value.tValueByName("active"))) {
+		for (Connector value : ((Device) _device).getConnectors()) {
+			if (Boolean.FALSE.equals(value.tValue(EhomePhysicalFactory.getActiveConnectorAttr()))) {
 				continue;
 			}
 			String instance = ModuleParts.instanceId(value);

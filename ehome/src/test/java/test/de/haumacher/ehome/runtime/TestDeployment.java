@@ -33,6 +33,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.project.Project;
@@ -208,7 +209,7 @@ public class TestDeployment extends BasicTestCase {
 					.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
 				copy.setName("Copy");
 				copy.setAddress(original.getAddress());
-				copy.setDatapointTypes(List.of(GroupAddressTypes.declaredType(original)));
+				copy.setDatapointTypes(List.of((DatapointType) GroupAddressTypes.declaredType(original)));
 				Set<GroupAddressDefinition> addresses = new LinkedHashSet<>(project.getGroupAddresses());
 				addresses.add(copy);
 				project.setGroupAddresses(addresses);

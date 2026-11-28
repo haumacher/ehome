@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,8 +54,10 @@ import de.haumacher.ehome.model.runtime.Reaction;
 import de.haumacher.ehome.model.runtime.ReadAction;
 import de.haumacher.ehome.model.runtime.RestartTimerAction;
 import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleChoice;
 import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.RuleTimeline;
 import de.haumacher.ehome.model.runtime.RuleTimer;
 import de.haumacher.ehome.model.runtime.ScheduleEntry;
 import de.haumacher.ehome.model.runtime.ScheduleTrigger;
@@ -62,6 +65,8 @@ import de.haumacher.ehome.model.runtime.SetParameterAction;
 import de.haumacher.ehome.model.runtime.SilenceTrigger;
 import de.haumacher.ehome.model.runtime.StartTimerAction;
 import de.haumacher.ehome.model.runtime.StartTrigger;
+import de.haumacher.ehome.model.runtime.TimelineAssignment;
+import de.haumacher.ehome.model.runtime.TimelinePlan;
 import de.haumacher.ehome.model.runtime.TimelinePoint;
 import de.haumacher.ehome.model.runtime.TimerTrigger;
 import de.haumacher.ehome.model.runtime.WeeklySchedule;
@@ -617,74 +622,81 @@ public class RuleFunctions extends GenericMethod {
 	static void initialize(TLObject result, TLObject owner, TLClass type, List<TLObject> parts) {
 		switch (type.getName()) {
 			case "Rule": {
-				result.tUpdateByName("identifier", unique("rule", parts, "-"));
+				Rule rule = (Rule) result;
+				rule.setIdentifier(unique("rule", parts, "-"));
 				long order = 0;
-				for (TLObject rule : parts) {
-					if (rule.tValueByName("order") instanceof Number number) {
+				for (TLObject other : parts) {
+					if (((Rule) other).getOrder() instanceof Integer number) {
 						order = Math.max(order, number.longValue());
 					}
 				}
-				result.tUpdateByName("order", Integer.valueOf((int) order + 1));
-				result.tUpdateByName("enabled", Boolean.TRUE);
-				result.tUpdateByName("enabledAdjustable", Boolean.TRUE);
+				rule.setOrder(Integer.valueOf((int) order + 1));
+				rule.setEnabled(true);
+				rule.setEnabledAdjustable(true);
 				if (!result.tTransient()) {
 					// Its state datapoint at once (haumacher/ehome #140), not only at the commit.
 					StateDatapoints.ensure(result);
 				}
 				break;
 			}
-			case "RuleParameter":
-				result.tUpdateByName("identifier", unique("p", parts, ""));
-				result.tUpdateByName("type", RuleImport.classifier("RuleParameterType", "real"));
-				result.tUpdateByName("default", "0.0");
-				result.tUpdateByName("adjustable", Boolean.TRUE);
+			case "RuleParameter": {
+				RuleParameter parameter = (RuleParameter) result;
+				parameter.setIdentifier(unique("p", parts, ""));
+				parameter.setType(RuleImport.classifier("RuleParameterType", "real"));
+				parameter.setDefault("0.0");
+				parameter.setAdjustable(true);
 				break;
+			}
 			case "RuleChoice": {
-				Object parameterType = owner.tValueByName("type");
-				String typeName = parameterType instanceof TLClassifier classifier ? classifier.getName() : "integer";
+				TLClassifier parameterType = ((RuleParameter) owner).getType();
+				String typeName = parameterType != null ? parameterType.getName() : "integer";
 				Type valueType = Type.fromName(typeName);
-				result.tUpdateByName("value", valueType == null ? "0"
+				((RuleChoice) result).setValue(valueType == null ? "0"
 					: RuleText.printValue(RuleExport.stubValue(typeName), valueType));
 				break;
 			}
-			case "RuleTimer":
-				result.tUpdateByName("identifier", unique("t", parts, ""));
-				result.tUpdateByName("duration", "1min");
+			case "RuleTimer": {
+				RuleTimer timer = (RuleTimer) result;
+				timer.setIdentifier(unique("t", parts, ""));
+				timer.setDuration("1min");
 				break;
+			}
 			case "RuleState":
-				result.tUpdateByName("identifier", unique("s", parts, ""));
+				((RuleState) result).setIdentifier(unique("s", parts, ""));
 				break;
 			case "RuleTimeline":
 				// A timeline the controller accepts: one day plan without points, assigned by default
 				// (homecontrol spec/rules.md 2.8); in a draft, the plan and its assignment are drafts.
-				result.tUpdateByName("adjustable", Boolean.TRUE);
+				((RuleTimeline) result).setAdjustable(true);
 				create(result, "plans", (TLClass) com.top_logic.model.util.TLModelUtil.findType("ehome.runtime:TimelinePlan"));
 				create(result, "assignments",
 					(TLClass) com.top_logic.model.util.TLModelUtil.findType("ehome.runtime:TimelineAssignment"));
 				break;
 			case "TimelinePlan":
-				result.tUpdateByName("identifier", unique("plan", parts, ""));
+				((TimelinePlan) result).setIdentifier(unique("plan", parts, ""));
 				break;
 			case "TimelinePoint": {
-				result.tUpdateByName("time", "06:00");
+				TimelinePoint point = (TimelinePoint) result;
+				point.setTime("06:00");
 				TLObject timeline = owner.tContainer();
 				TLObject rule = timeline == null ? null : timeline.tContainer();
-				List<TLObject> states = rule == null ? List.of() : RuleExport.objects(rule.tValueByName("states"));
+				List<TLObject> states = rule == null ? List.of() : RuleExport.objects(((Rule) rule).getStates());
 				if (!states.isEmpty()) {
-					result.tUpdateByName("state", states.get(0));
+					point.setState((RuleState) states.get(0));
 				}
 				break;
 			}
 			case "TimelineAssignment": {
-				List<TLObject> plans = RuleExport.objects(owner.tValueByName("plans"));
+				TimelineAssignment assignment = (TimelineAssignment) result;
+				List<TLObject> plans = RuleExport.objects(((RuleTimeline) owner).getPlans());
 				if (!plans.isEmpty()) {
-					result.tUpdateByName("plan", plans.get(0));
+					assignment.setPlan((TimelinePlan) plans.get(0));
 				}
 				// The default first; then the weekdays no assignment names yet.
 				Set<String> assigned = new HashSet<>();
 				boolean withDefault = false;
 				for (TLObject other : parts) {
-					List<TLObject> days = RuleExport.objects(other.tValueByName("days"));
+					List<TLObject> days = RuleExport.objects(((TimelineAssignment) other).getDays());
 					withDefault |= days.isEmpty();
 					for (Object day : days) {
 						if (day instanceof TLClassifier classifier) {
@@ -693,35 +705,41 @@ public class RuleFunctions extends GenericMethod {
 					}
 				}
 				if (withDefault) {
-					List<TLClassifier> free = new ArrayList<>();
+					Set<TLClassifier> free = new LinkedHashSet<>();
 					for (int day = 1; day <= 7; day++) {
 						if (!assigned.contains(RuleExport.weekday(day))) {
 							free.add(RuleImport.classifier("Weekday", RuleExport.weekday(day)));
 						}
 					}
-					result.tUpdateByName("days", free);
+					assignment.setDays(free);
 				}
 				break;
 			}
-			case "DatapointTrigger":
-				result.tUpdateByName("on", RuleImport.classifier("UpdateKind", "change"));
-				result.tUpdateByName("origin", RuleImport.classifier("UpdateOrigin", "any"));
+			case "DatapointTrigger": {
+				DatapointTrigger trigger = (DatapointTrigger) result;
+				trigger.setOn(RuleImport.classifier("UpdateKind", "change"));
+				trigger.setOrigin(RuleImport.classifier("UpdateOrigin", "any"));
 				break;
+			}
 			case "SilenceTrigger":
-				result.tUpdateByName("after", "10min");
+				((SilenceTrigger) result).setAfter("10min");
 				break;
-			case "StartTrigger":
-				result.tUpdateByName("onBoot", Boolean.TRUE);
-				result.tUpdateByName("onImage", Boolean.TRUE);
-				result.tUpdateByName("onEnable", Boolean.TRUE);
+			case "StartTrigger": {
+				StartTrigger trigger = (StartTrigger) result;
+				trigger.setOnBoot(true);
+				trigger.setOnImage(true);
+				trigger.setOnEnable(true);
 				break;
+			}
 			case "LogAction":
-				result.tUpdateByName("level", RuleImport.classifier("LogLevel", "info"));
+				((LogAction) result).setLevel(RuleImport.classifier("LogLevel", "info"));
 				break;
-			case ApplicationDatapoints.TYPE:
-				result.tUpdateByName("identifier", unique("value", parts, ""));
-				result.tUpdateByName("type", RuleImport.classifier("DatapointValueType", ValueTypes.BOOLEAN));
+			case ApplicationDatapoints.TYPE: {
+				ApplicationDatapoint datapoint = (ApplicationDatapoint) result;
+				datapoint.setIdentifier(unique("value", parts, ""));
+				datapoint.setType(RuleImport.classifier("DatapointValueType", ValueTypes.BOOLEAN));
 				break;
+			}
 			default:
 				if (type.getName().endsWith("Schedule")) {
 					schedule(result, parts);
@@ -730,31 +748,26 @@ public class RuleFunctions extends GenericMethod {
 		}
 	}
 
-	private static void schedule(TLObject entry, List<TLObject> entries) {
-		entry.tUpdateByName("identifier", unique("entry", entries, "-"));
-		entry.tUpdateByName("enabled", Boolean.TRUE);
-		entry.tUpdateByName("enabledAdjustable", Boolean.TRUE);
-		entry.tUpdateByName("missed", RuleImport.classifier("MissedFiring", "skip"));
-		switch (entry.tType().getName()) {
-			case "WeeklySchedule":
-			case "DatesSchedule":
-				entry.tUpdateByName("time", "06:00");
-				break;
-			case "YearlySchedule":
-				entry.tUpdateByName("month", Integer.valueOf(1));
-				entry.tUpdateByName("day", Integer.valueOf(1));
-				entry.tUpdateByName("time", "00:00");
-				break;
-			case "AstroSchedule":
-				entry.tUpdateByName("sun", RuleImport.classifier("SunEvent", "sunset"));
-				break;
-			case "IntervalSchedule":
-				entry.tUpdateByName("every", "15min");
-				entry.tUpdateByName("from", "06:00");
-				entry.tUpdateByName("until", "22:00");
-				break;
-			default:
-				break;
+	private static void schedule(TLObject obj, List<TLObject> entries) {
+		ScheduleEntry entry = (ScheduleEntry) obj;
+		entry.setIdentifier(unique("entry", entries, "-"));
+		entry.setEnabled(true);
+		entry.setEnabledAdjustable(true);
+		entry.setMissed(RuleImport.classifier("MissedFiring", "skip"));
+		if (entry instanceof WeeklySchedule weekly) {
+			weekly.setTime("06:00");
+		} else if (entry instanceof DatesSchedule dates) {
+			dates.setTime("06:00");
+		} else if (entry instanceof YearlySchedule yearly) {
+			yearly.setMonth(Integer.valueOf(1));
+			yearly.setDay(Integer.valueOf(1));
+			yearly.setTime("00:00");
+		} else if (entry instanceof AstroSchedule astro) {
+			astro.setSun(RuleImport.classifier("SunEvent", "sunset"));
+		} else if (entry instanceof IntervalSchedule interval) {
+			interval.setEvery("15min");
+			interval.setFrom("06:00");
+			interval.setUntil("22:00");
 		}
 	}
 
@@ -916,8 +929,8 @@ public class RuleFunctions extends GenericMethod {
 	 */
 	private static void timerSuggestions(Suggestions result, TLObject rule, Matcher timer) {
 		String typed = timer.group(2);
-		// The rule may be a form's overlay of it: its timers are read by name, the timers themselves are stored.
-		for (TLObject object : RuleExport.objects(rule.tValueByName("timers"))) {
+		// The rule may be a form's overlay of it; the timers themselves are stored.
+		for (TLObject object : RuleExport.objects(((Rule) rule).getTimers())) {
 			RuleTimer candidate = (RuleTimer) object;
 			if (candidate.getIdentifier() instanceof String id && matches(typed, id, null)) {
 				Object duration = candidate.getDuration();
@@ -971,7 +984,7 @@ public class RuleFunctions extends GenericMethod {
 			}
 		}
 		String typed = state.group(2);
-		for (TLObject candidate : RuleExport.objects(owner.tValueByName("states"))) {
+		for (TLObject candidate : RuleExport.objects(((Rule) owner).getStates())) {
 			if (((RuleState) candidate).getIdentifier() instanceof String id && matches(typed, id, null)) {
 				result.add("\"" + id + "\"", null, state.start(2) - 1);
 			}
@@ -985,7 +998,7 @@ public class RuleFunctions extends GenericMethod {
 	private static void parameterSuggestions(Suggestions result, TLObject rule, Matcher parameter) {
 		Resources resources = Resources.getInstance();
 		String typed = parameter.group(1) != null ? parameter.group(1) : parameter.group(2);
-		for (TLObject candidate : RuleExport.objects(rule.tValueByName("parameters"))) {
+		for (TLObject candidate : RuleExport.objects(((Rule) rule).getParameters())) {
 			if (((RuleParameter) candidate).getIdentifier() instanceof String id) {
 				String label = parameterLabel(rule, id, resources);
 				if (matches(typed, id, label)) {
@@ -1048,7 +1061,7 @@ public class RuleFunctions extends GenericMethod {
 			return;
 		}
 		Matcher word = LITERAL_START.matcher(before);
-		if (!word.matches() || !(part.tValueByName("datapoint") instanceof TLObject datapoint)
+		if (!word.matches() || !(((WriteAction) part).getDatapoint() instanceof TLObject datapoint)
 			|| !"boolean".equals(Pages.valueType(datapoint))) {
 			return;
 		}
@@ -1355,16 +1368,17 @@ public class RuleFunctions extends GenericMethod {
 		if (rule == null) {
 			return null;
 		}
+		Rule typed = (Rule) rule;
 		if (parameter.equals("enabled")) {
-			return text(rule.tValueByName("name"), resources);
+			return text(typed.getNameKey(), resources);
 		}
 		if (parameter.equals(de.haumacher.ehome.rules.RuleSet.STATE_DATAPOINT)
-			&& !RuleExport.objects(rule.tValueByName("states")).isEmpty()) {
+			&& !RuleExport.objects(typed.getStates()).isEmpty()) {
 			// The datapoint of the rule's state (haumacher/ehome #140).
-			String name = text(rule.tValueByName("name"), resources);
+			String name = text(typed.getNameKey(), resources);
 			return name == null ? null : resources.getString(I18NConstants.STATE_DATAPOINT_LABEL__RULE.fill(name));
 		}
-		for (TLObject object : RuleExport.objects(rule.tValueByName("parameters"))) {
+		for (TLObject object : RuleExport.objects(typed.getParameters())) {
 			RuleParameter candidate = (RuleParameter) object;
 			if (parameter.equals(candidate.getIdentifier())) {
 				String title = text(candidate.getTitle(), resources);

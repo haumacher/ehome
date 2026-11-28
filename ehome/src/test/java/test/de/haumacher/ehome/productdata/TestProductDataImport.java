@@ -55,6 +55,7 @@ import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 
 /**
  * Test case for the import of the product file of a manufacturer (<code>.knxprod</code>) with
@@ -242,8 +243,8 @@ public class TestProductDataImport extends BasicTestCase {
 			.filter(d -> !devicesBefore.contains(d))
 			.toList();
 		assertEquals(1, devices.size());
-		assertSame(variant, devices.get(0).tValueByName("type"));
-		assertSame(assignment, devices.get(0).tValueByName("program"));
+		assertSame(variant, ((Device) devices.get(0)).getType());
+		assertSame(assignment, ((Device) devices.get(0)).getProgram());
 
 		// The product data after the project: still nothing new.
 		importProduct(FIXTURES + "TestNewProduct.knxprod");

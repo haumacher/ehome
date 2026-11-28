@@ -157,14 +157,13 @@ contains, in order:
     code"), checked on a copy of `tmp/`.
   - **Model access goes through the generated interfaces** (`de.haumacher.ehome.model.<module>`,
     typed getters and setters), in product code and in tests; `t(Value|Update|Add|Remove)ByName`
-    with a literal name only in the generic places CLAUDE.md lists ("Generated code"). Eleven of the
-    14 model modules are bound; `ehome.physical`, `ehome.datapoint` and `ehome.zigbee.catalog` are
-    not yet (attribute names clashing with the wrapper API, haumacher/ehome #198). `TestNameAccess`
-    (each module) checks the calls against `src/test/name-access-inventory.txt`, a ratchet: a new
-    call fails; a migration lowers the file's entry in `[migrate]` (at 0 the entry goes), by hand or
-    by `./mvnw test -DskipTests=false -Dtest=TestNameAccess -Dehome.nameAccess.regenerate=true` in
-    the module, and the diff of the inventory shows no entry growing. Only a call on an object of an
-    unbound module may raise an entry, named in the report.
+    with a literal name only in the generic places CLAUDE.md lists ("Generated code"). All 14 model
+    modules are bound (a clashing attribute has a `<java-name>`, CLAUDE.md), and form buffers and
+    drafts implement the generated interfaces too. `TestNameAccess` (each module) checks the calls
+    against `src/test/name-access-inventory.txt`, a ratchet: a new call fails; `[migrate]` holds only
+    the last calls to move (two in `importer/Importer`), and a migration lowers their entry (at 0
+    the entry goes), by hand or by `./mvnw test -DskipTests=false -Dtest=TestNameAccess
+    -Dehome.nameAccess.regenerate=true` in the module; no entry may grow or be added.
   - `mvn` and `./mvnw` are the same Maven here (3.9.16, installed in `~/tools/maven` and first on
     the PATH); the distribution's 3.8.7 is below TopLogic 8's minimum, so if `mvn -v` ever shows
     it again, the PATH entry in `~/.bashrc`/`~/.profile` is missing.

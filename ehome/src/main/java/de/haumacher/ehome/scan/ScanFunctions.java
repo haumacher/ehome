@@ -22,6 +22,9 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
@@ -195,8 +198,8 @@ public class ScanFunctions extends GenericMethod {
 			return null;
 		}
 		TLObject area = node.tContainer();
-		if (area == null || !(area.tValueByName("address") instanceof Integer areaNumber)
-			|| !(node.tValueByName("address") instanceof Integer lineNumber)) {
+		if (!(area instanceof Area areaNode) || !(areaNode.getAddress() instanceof Integer areaNumber)
+			|| !(((Line) node).getAddress() instanceof Integer lineNumber)) {
 			return null;
 		}
 		BusScanner.Line line = BusScanner.Line.parse(areaNumber + "." + lineNumber);
@@ -280,7 +283,7 @@ public class ScanFunctions extends GenericMethod {
 		switch (match.kind()) {
 			case UNIDENTIFIED:
 				if (DeviceStubs.isDevice(device)) {
-					return I18NConstants.ERROR_UNIDENTIFIED_EXISTS__DEVICE_REASON.fill(device.tValueByName("name"),
+					return I18NConstants.ERROR_UNIDENTIFIED_EXISTS__DEVICE_REASON.fill(((Device) device).getName(),
 						match.reasonKey());
 				}
 				return null;

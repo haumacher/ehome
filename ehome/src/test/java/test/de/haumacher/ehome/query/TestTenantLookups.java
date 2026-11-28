@@ -21,6 +21,7 @@ import test.de.haumacher.ehome.runtime.ControllerFixture;
 import test.de.haumacher.ehome.security.AccountFixture;
 import test.de.haumacher.ehome.view.ViewCommandScan;
 
+import com.top_logic.ai.core.execution.model.AgentSession;
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.basic.config.ConfigurationItem;
 import com.top_logic.basic.config.PropertyDescriptor;
@@ -60,6 +61,8 @@ import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.model.runtime.Deployment;
@@ -296,14 +299,14 @@ public class TestTenantLookups extends BasicTestCase {
 			// nobody sets.
 			o[4] = parameterPlaced(type, "Set 172");
 			o[5] = parameterPlaced(type, "Unset 172");
-			TLObject setting = create("ehome.physical:ParameterSetting");
-			setting.tUpdateByName("parameter", ExtIds.list(o[4], "views").get(0));
-			setting.tUpdateByName("choice", o[1]);
+			ParameterSetting setting = create("ehome.physical:ParameterSetting");
+			setting.setParameter((ParameterView) ExtIds.list(o[4], "views").get(0));
+			setting.setChoice((EnumerationValue) o[1]);
 
 			// A communication object whose placement a device uses, one unused.
 			o[6] = portPlaced();
 			o[7] = portPlaced();
-			create("ehome.physical:Connector").tUpdateByName("port", ExtIds.list(o[6], "interfaces").get(0));
+			this.<Connector> create("ehome.physical:Connector").setPort((Interface) ExtIds.list(o[6], "interfaces").get(0));
 		});
 		ResKey held = ProgramStructure.deleteVeto(o[0]);
 		assertEquals(I18NConstants.ERROR_ENTRY_IN_USE__ENTRY_HOLDER.fill(o[0], o[3]), held);
@@ -398,11 +401,10 @@ public class TestTenantLookups extends BasicTestCase {
 	}
 
 	private TLObject session(Person owner, String kind, long created) {
-		TLObject result = create("tl.ai.execution:AgentSession");
-		result.tUpdateByName("owner", owner);
-		result.tUpdateByName("kind",
-			((TLEnumeration) TLModelUtil.findType("tl.ai.execution:SessionKind")).getClassifier(kind));
-		result.tUpdateByName("createdAt", new Date(created));
+		AgentSession result = create("tl.ai.execution:AgentSession");
+		result.setOwner(owner);
+		result.setKind(((TLEnumeration) TLModelUtil.findType("tl.ai.execution:SessionKind")).getClassifier(kind));
+		result.setCreatedAt(new Date(created));
 		return result;
 	}
 
@@ -458,7 +460,7 @@ public class TestTenantLookups extends BasicTestCase {
 	private Person person(String name, String mail) {
 		Person result = AccountFixture.person(name, null);
 		if (mail != null) {
-			((TLObject) result.getUser()).tUpdateByName("email", mail);
+			result.getUser().setEMail(mail);
 		}
 		_persons.add(result);
 		return result;

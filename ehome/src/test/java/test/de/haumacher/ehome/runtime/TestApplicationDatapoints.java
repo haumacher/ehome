@@ -32,6 +32,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -85,16 +87,17 @@ public class TestApplicationDatapoints extends BasicTestCase {
 		WeeklySchedule entry;
 		WriteAction write;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			dpt = create("ehome.datapoint:DatapointMainType");
-			dpt.tUpdateByName("number", Integer.valueOf(1));
-			dpt.tUpdateByName("extId", "TEST-APPLICATION-DATAPOINTS-1");
+			DatapointMainType mainType = create("ehome.datapoint:DatapointMainType");
+			mainType.setNumber(1);
+			mainType.setExtId("TEST-APPLICATION-DATAPOINTS-1");
+			dpt = mainType;
 			project = create("ehome.project:Project");
 			project.setName("Application datapoints");
 			project.setExtId("P-TEST-59");
 			GroupAddress address = create("ehome.logical:GroupAddress");
 			address.setName("Licht");
 			address.setAddress(new GA(0x0801, GroupAddressStyle.ThreeLevel));
-			address.setDatapointTypes(List.of(dpt));
+			address.setDatapointTypes(List.of((DatapointType) dpt));
 			address.setRuntimeWritable(Boolean.TRUE);
 			project.setGroupAddresses(Set.of(address));
 

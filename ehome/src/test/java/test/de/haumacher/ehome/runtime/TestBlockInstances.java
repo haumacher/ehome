@@ -42,6 +42,8 @@ import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.ProjectDatapoint;
@@ -647,9 +649,9 @@ public class TestBlockInstances extends BasicTestCase {
 	// ---- building the project ----------------------------------------------------------------
 
 	private TLObject mainType(int number) {
-		TLObject type = create("ehome.datapoint:DatapointMainType");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", "TEST-BLOCKS-" + number);
+		DatapointMainType type = create("ehome.datapoint:DatapointMainType");
+		type.setNumber(number);
+		type.setExtId("TEST-BLOCKS-" + number);
 		_types.add(type);
 		return type;
 	}
@@ -658,7 +660,7 @@ public class TestBlockInstances extends BasicTestCase {
 		GroupAddress address = create("ehome.logical:GroupAddress");
 		address.setName(name);
 		address.setAddress(new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.setDatapointTypes(List.of(type));
+		address.setDatapointTypes(List.of((DatapointType) type));
 		return address;
 	}
 

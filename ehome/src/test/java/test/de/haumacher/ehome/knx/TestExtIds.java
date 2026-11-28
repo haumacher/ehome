@@ -40,6 +40,7 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
 import de.haumacher.ehome.model.project.Project;
 
 /**
@@ -118,7 +119,7 @@ public class TestExtIds extends BasicTestCase {
 			channel.addContent(block);
 
 			area = create("ehome.physical:Area");
-			((Project) project).addArea(area);
+			((Project) project).addArea((Area) area);
 			line = create("ehome.physical:Line");
 			add(ExtIds.members(project, Kind.AREA).iterator().next(), "lines", line);
 			address = create("ehome.logical:GroupAddress");

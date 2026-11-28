@@ -19,9 +19,17 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.template.ObjectTypes;
@@ -111,7 +119,7 @@ public class GroupAddressConnections {
 	public static String label(TLObject connection) {
 		Interface placed = object(connection);
 		return deviceLabel(device(connection)) + SEPARATOR + placed.getPort().getIndex() + " "
-			+ objectName(device(connection), placed, Resources.getInstance()) + SEPARATOR + MetaLabelProvider.INSTANCE.getLabel(connection.tValueByName("kind"));
+			+ objectName(device(connection), placed, Resources.getInstance()) + SEPARATOR + MetaLabelProvider.INSTANCE.getLabel(((Connection) connection).getKind());
 	}
 
 	/**
@@ -124,14 +132,14 @@ public class GroupAddressConnections {
 		if (device == null) {
 			return "";
 		}
-		Object title = device.tValueByName("title");
+		String title = ((BusDevice) device).getTitle();
 		String name;
-		if (title != null && !title.toString().isEmpty()) {
-			name = title.toString();
+		if (title != null && !title.isEmpty()) {
+			name = title;
 		} else if (isA(device, STUB_TYPE)) {
 			name = stubProduct(device);
 		} else {
-			name = MetaLabelProvider.INSTANCE.getLabel(device.tValueByName("type"));
+			name = MetaLabelProvider.INSTANCE.getLabel(((Device) device).getType());
 		}
 		String address = DownloadImage.individualAddressText(device);
 		return address == null ? name : name + " (" + address + ")";
@@ -198,7 +206,7 @@ public class GroupAddressConnections {
 	 */
 	public static String objectName(Interface placed, Resources resources) {
 		Port port = placed.getPort();
-		String result = placed.tValueByName("name") instanceof ResKey name ? localize(resources, name) : null;
+		String result = placed.getNameKey() instanceof ResKey name ? localize(resources, name) : null;
 		if (result == null) {
 			result = localize(resources, port.getText());
 		}
@@ -221,9 +229,9 @@ public class GroupAddressConnections {
 	 * {@link #function(TLObject)}.
 	 */
 	public static String function(TLObject connection, Resources resources) {
-		Object own = connection.tContainer().tValueByName("function");
-		if (own != null && !own.toString().isEmpty()) {
-			return own.toString();
+		String own = ((Connector) connection.tContainer()).getFunction();
+		if (own != null && !own.isEmpty()) {
+			return own;
 		}
 		Interface placed = object(connection);
 		String result = localize(resources, placed.getFunction());
@@ -285,10 +293,9 @@ public class GroupAddressConnections {
 	public static List<ResKey> deviceProblems(TLObject device) {
 		List<ResKey> result = new ArrayList<>();
 		List<TLObject> connectors = new ArrayList<>();
-		for (Object value : (Collection<?>) device.tValueByName("connectors")) {
-			TLObject connector = (TLObject) value;
+		for (Connector connector : ((Device) device).getConnectors()) {
 			if (ModuleParts.port(connector) != null
-				&& !((Collection<?>) connector.tValueByName("connections")).isEmpty()
+				&& !connector.getConnections().isEmpty()
 				&& !ObjectsInEffect.inEffect(connector)) {
 				connectors.add(connector);
 			}
@@ -309,8 +316,7 @@ public class GroupAddressConnections {
 	 * effect or connected to none.
 	 */
 	public static ResKey objectProblem(TLObject device, Interface placed) {
-		for (Object value : (Collection<?>) device.tValueByName("connectors")) {
-			TLObject connector = (TLObject) value;
+		for (Connector connector : ((Device) device).getConnectors()) {
 			Interface own = ModuleParts.port(connector);
 			if (own != null && own.getPort().equals(placed.getPort()) && !ObjectsInEffect.inEffect(connector)) {
 				ResKey problem = connectorProblem(device, connector);
@@ -332,8 +338,8 @@ public class GroupAddressConnections {
 
 	private static ResKey connectorProblem(TLObject device, TLObject connector) {
 		List<String> addresses = new ArrayList<>();
-		for (Object value : (Collection<?>) connector.tValueByName("connections")) {
-			if (((TLObject) value).tValueByName("target") instanceof GroupAddress target) {
+		for (Connection value : ((Connector) connector).getConnections()) {
+			if (value.getTarget() instanceof GroupAddress target) {
 				Object address = target.getAddress();
 				addresses.add(address == null ? "?" : address.toString());
 			}
@@ -389,7 +395,7 @@ public class GroupAddressConnections {
 
 	private static List<ResKey> problems(TLObject groupAddress, List<ConnectedObject> objects) {
 		List<ResKey> result = new ArrayList<>();
-		TLObject addressType = first(groupAddress.tValueByName("datapointTypes"));
+		TLObject addressType = first(((GroupAddress) groupAddress).getDatapointTypes());
 		Integer addressMain = mainNumber(addressType);
 		Integer addressSize = addressType == null ? null : sizeInBit(addressType);
 		Set<Integer> sizes = new LinkedHashSet<>();
@@ -469,10 +475,8 @@ public class GroupAddressConnections {
 		TLObject project = project(obj);
 		if (project != null) {
 			for (Object area : ((Project) project).getAreas()) {
-				for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-					for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-						result.add((TLObject) device);
-					}
+				for (Line line : ((Area) area).getLines()) {
+					result.addAll(line.getDevices());
 				}
 			}
 			for (Object device : ((Project) project).getUnassignedDevices()) {
@@ -513,11 +517,10 @@ public class GroupAddressConnections {
 	 */
 	public static String objectLabel(TLObject device, Interface placed, Resources resources) {
 		TLObject connector = device == null ? null : ObjectTypes.connector(device, placed);
-		Object ownText = connector == null ? null : connector.tValueByName("text");
-		String text = ownText != null && !ownText.toString().isEmpty() ? ownText.toString()
-			: objectName(device, placed, resources);
-		Object ownFunction = connector == null ? null : connector.tValueByName("function");
-		String function = ownFunction != null && !ownFunction.toString().isEmpty() ? ownFunction.toString()
+		String ownText = connector == null ? null : ((Connector) connector).getText();
+		String text = ownText != null && !ownText.isEmpty() ? ownText : objectName(device, placed, resources);
+		String ownFunction = connector == null ? null : ((Connector) connector).getFunction();
+		String function = ownFunction != null && !ownFunction.isEmpty() ? ownFunction
 			: localize(resources, placed.getFunction());
 		if (function == null) {
 			function = localize(resources, placed.getPort().getFunction());
@@ -531,7 +534,7 @@ public class GroupAddressConnections {
 	}
 
 	private static boolean isSend(TLObject connection) {
-		return connection.tValueByName("kind") instanceof TLClassifier classifier
+		return ((Connection) connection).getKind() instanceof TLClassifier classifier
 			&& "send".equals(classifier.getName());
 	}
 
@@ -540,12 +543,12 @@ public class GroupAddressConnections {
 			return null;
 		}
 		TLObject main = isA(type, "ehome.datapoint:DatapointSubtype") ? type.tContainer() : type;
-		return main != null && main.tValueByName("number") instanceof Integer number ? number : null;
+		return main instanceof DatapointType mainType ? Integer.valueOf(mainType.getNumber()) : null;
 	}
 
 	private static Integer sizeInBit(TLObject type) {
 		TLObject main = isA(type, "ehome.datapoint:DatapointSubtype") ? type.tContainer() : type;
-		return main != null && main.tValueByName("sizeInBit") instanceof Integer size ? size : null;
+		return main instanceof DatapointMainType mainType ? mainType.getSizeInBit() : null;
 	}
 
 	private static TLObject first(Object values) {

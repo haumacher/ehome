@@ -23,6 +23,9 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 
@@ -140,22 +143,20 @@ public class BuildingDevices {
 	public static List<TLObject> connections(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject device : allDevices(part)) {
-			if (device.tType().getPart("connectors") == null) {
+			if (!(device instanceof Device known)) {
 				// The stub of a device the catalog does not identify has no objects.
 				continue;
 			}
-			for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-				for (Object connection : (Collection<?>) ((TLObject) connector).tValueByName("connections")) {
-					TLObject value = (TLObject) connection;
-					if (value.tValueByName("target") instanceof TLObject
-						&& GroupAddressConnections.object(value) != null) {
+			for (Connector connector : known.getConnectors()) {
+				for (Connection value : connector.getConnections()) {
+					if (value.getTarget() != null && GroupAddressConnections.object(value) != null) {
 						result.add(value);
 					}
 				}
 			}
 		}
 		result.sort(Comparator
-			.comparingInt((TLObject c) -> addressValue((GroupAddress) c.tValueByName("target")))
+			.comparingInt((TLObject c) -> addressValue(((Connection) c).getTarget()))
 			.thenComparing(c -> isSend(c) ? 0 : 1)
 			.thenComparing(c -> GroupAddressConnections.device(c), BY_ADDRESS)
 			.thenComparingInt(c -> GroupAddressConnections.object(c).getPort().getIndex()));
@@ -435,7 +436,7 @@ public class BuildingDevices {
 	}
 
 	private static boolean isSend(TLObject connection) {
-		return connection.tValueByName("kind") instanceof TLClassifier classifier
+		return connection instanceof Connection link && link.getKind() instanceof TLClassifier classifier
 			&& "send".equals(classifier.getName());
 	}
 

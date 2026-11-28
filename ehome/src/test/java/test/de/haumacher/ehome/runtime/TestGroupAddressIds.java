@@ -43,6 +43,8 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -96,9 +98,10 @@ public class TestGroupAddressIds extends BasicTestCase {
 	protected void setUp() throws Exception {
 		super.setUp();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_dpt = create("ehome.datapoint:DatapointMainType");
-			_dpt.tUpdateByName("number", Integer.valueOf(1));
-			_dpt.tUpdateByName("extId", "TEST-GROUP-ADDRESS-IDS-1");
+			DatapointMainType dpt = create("ehome.datapoint:DatapointMainType");
+			dpt.setNumber(1);
+			dpt.setExtId("TEST-GROUP-ADDRESS-IDS-1");
+			_dpt = dpt;
 			_project = create("ehome.project:Project");
 			_project.setName("Group address ids");
 			_licht = address("Licht Küche", "1/2/3");
@@ -352,7 +355,7 @@ public class TestGroupAddressIds extends BasicTestCase {
 			result.setName(name);
 		}
 		result.setAddress(GA.parse(address, GroupAddressStyle.ThreeLevel));
-		result.setDatapointTypes(List.of(_dpt));
+		result.setDatapointTypes(List.of((DatapointType) _dpt));
 		return result;
 	}
 

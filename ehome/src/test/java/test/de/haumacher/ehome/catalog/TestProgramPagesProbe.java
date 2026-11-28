@@ -5,7 +5,6 @@ package test.de.haumacher.ehome.catalog;
 
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +28,9 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 
@@ -110,10 +112,10 @@ public class TestProgramPagesProbe extends SharedProjectTestCase {
 	}
 
 	private static TLObject device(TLObject project) {
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					return (TLObject) device;
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				for (BusDevice device : line.getDevices()) {
+					return device;
 				}
 			}
 		}

@@ -40,6 +40,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceChanges;
@@ -197,8 +199,8 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 			setGateway(project);
 
 			// Three devices one after another; the sensor (second) fails at its hardware type, the copy follows.
-			Object sensorRevision = sensor.tValueByName("downloadRevision");
-			Object sensorDownload = sensor.tValueByName("lastDownload");
+			Long sensorRevision = ((Device) sensor).getDownloadRevision();
+			Date sensorDownload = ((Device) sensor).getLastDownload();
 			// The virtual copy keeps what its download wrote, for the parameters only of the later runs.
 			SimulatedDevice virtualCopy = ProjectDevices.create(copy, MappedLoadStateRule.ECHO);
 			try (Bench bench = new Bench()) {
@@ -231,12 +233,12 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 				assertBefore(sensorTrace, copyTrace);
 			}
 			// Each download recorded singly; the failed one left the sensor's record as it was.
-			Object actuatorDownload = actuator.tValueByName("lastDownload");
-			Object copyDownload = copy.tValueByName("lastDownload");
+			Date actuatorDownload = ((Device) actuator).getLastDownload();
+			Date copyDownload = ((Device) copy).getLastDownload();
 			assertNotNull(actuatorDownload);
 			assertNotNull(copyDownload);
-			assertEquals(sensorRevision, sensor.tValueByName("downloadRevision"));
-			assertEquals(sensorDownload, sensor.tValueByName("lastDownload"));
+			assertEquals(sensorRevision, ((Device) sensor).getDownloadRevision());
+			assertEquals(sensorDownload, ((Device) sensor).getLastDownload());
 			assertPending(project);
 			assertTrue(DownloadQueue.pendingDevices(project).contains(sensor));
 			assertFalse(DownloadQueue.pendingDevices(project).contains(actuator));
@@ -288,10 +290,10 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 				assertTrue(second.entries().isEmpty());
 			}
 			assertTrue("The second download of the actuator is recorded.",
-				((Date) actuator.tValueByName("lastDownload")).after((Date) actuatorDownload));
-			assertEquals(sensorDownload, sensor.tValueByName("lastDownload"));
-			Date copyBefore = (Date) copy.tValueByName("lastDownload");
-			assertTrue(copyBefore.after((Date) copyDownload));
+				((Device) actuator).getLastDownload().after(actuatorDownload));
+			assertEquals(sensorDownload, ((Device) sensor).getLastDownload());
+			Date copyBefore = ((Device) copy).getLastDownload();
+			assertTrue(copyBefore.after(copyDownload));
 
 			// Enqueued while another download of the project holds the lock: waits for it, then runs.
 			try (Bench bench = new Bench()) {
@@ -309,7 +311,7 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 				assertEquals(describe(third), List.of(State.DONE), states(third));
 				assertNull(DownloadLock.veto(project));
 			}
-			assertTrue(((Date) copy.tValueByName("lastDownload")).after(copyBefore));
+			assertTrue(((Device) copy).getLastDownload().after(copyBefore));
 
 			// Enqueued by a person whose context is gone when the worker runs (the person logged out): the
 			// download runs to its end as that person. The worker starts only after the context of the
@@ -361,7 +363,7 @@ public class TestVirtualDownloadQueue extends BasicTestCase {
 	private static void assertPending(TLObject project) {
 		List<TLObject> expected = new ArrayList<>();
 		for (TLObject device : DeviceChanges.devices(project)) {
-			if (Boolean.TRUE.equals(device.tValueByName("downloadPending"))) {
+			if (Boolean.TRUE.equals(device.tValue(EhomePhysicalFactory.getDownloadPendingDeviceAttr()))) {
 				expected.add(device);
 			}
 		}

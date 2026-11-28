@@ -432,7 +432,7 @@ public class ProgramPages {
 			|| contains(port.getText(), term)
 			|| contains(port.getFunction(), term)
 			|| contains(port.getDescription(), term)
-			|| placed != null && (contains(placed.tValueByName("name"), term)
+			|| placed != null && (contains(placed.getNameKey(), term)
 				|| contains(placed.getFunction(), term)
 				|| contains(placed.getDescription(), term));
 	}

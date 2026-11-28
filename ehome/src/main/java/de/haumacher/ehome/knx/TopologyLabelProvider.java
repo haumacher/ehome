@@ -6,6 +6,9 @@ package de.haumacher.ehome.knx;
 import com.top_logic.layout.LabelProvider;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Line;
+
 /**
  * The label of an area or a line of the topology: its name, and without one its address
  * (<code>1</code> for an area, <code>1.1</code> for a line), as ETS shows it (haumacher/ehome #168).
@@ -23,9 +26,9 @@ public class TopologyLabelProvider implements LabelProvider {
 		if (!(object instanceof TLObject obj) || !obj.tValid()) {
 			return null;
 		}
-		Object name = obj.tValueByName("name");
-		if (name instanceof String text && !text.isBlank()) {
-			return text;
+		String name = obj instanceof Area area ? area.getName() : obj instanceof Line line ? line.getName() : null;
+		if (name != null && !name.isBlank()) {
+			return name;
 		}
 		return address(obj);
 	}
@@ -35,16 +38,22 @@ public class TopologyLabelProvider implements LabelProvider {
 	 * none.
 	 */
 	static String address(TLObject obj) {
-		Object address = obj.tValueByName("address");
-		if (address == null) {
-			return null;
+		if (obj instanceof Line line) {
+			Integer address = line.getAddress();
+			if (address == null) {
+				return null;
+			}
+			if (line.tContainer() instanceof Area area) {
+				Integer areaAddress = area.getAddress();
+				return (areaAddress == null ? "?" : areaAddress) + "." + address;
+			}
+			return address.toString();
 		}
-		TLObject area = obj.tContainer();
-		if (area != null && area.tType().getPart("lines") != null) {
-			Object areaAddress = area.tValueByName("address");
-			return (areaAddress == null ? "?" : areaAddress) + "." + address;
+		if (obj instanceof Area area) {
+			Integer address = area.getAddress();
+			return address == null ? null : address.toString();
 		}
-		return address.toString();
+		return null;
 	}
 
 }

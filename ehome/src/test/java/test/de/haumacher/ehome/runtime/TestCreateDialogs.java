@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -31,6 +30,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.RoomController;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.BlockInstance;
@@ -282,8 +282,8 @@ public class TestCreateDialogs extends BasicTestCase {
 		try {
 			TLObject project = projects.get(0);
 			TLObject device = SharedData.within("ehome.physical:Device", projects).stream()
-				.filter(d -> ((Collection<?>) d.tValueByName("connectors")).size() > 1).findFirst().orElseThrow();
-			List<?> connectors = new ArrayList<>((Collection<?>) device.tValueByName("connectors"));
+				.filter(d -> ((Device) d).getConnectors().size() > 1).findFirst().orElseThrow();
+			List<?> connectors = new ArrayList<>(((Device) device).getConnectors());
 			long revision = revision();
 			TLObject draft = TransientObjectFactory.INSTANCE.createObject(runtime("ObjectFollower"), project);
 			draft.tUpdateByName(ObjectFollower.DEVICE_ATTR, device);

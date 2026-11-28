@@ -9,8 +9,14 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.logical.EhomeLogicalFactory;
+import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -116,7 +122,7 @@ public final class DatapointSettings {
 	 * address is its sending one and its transmit flag is set.
 	 */
 	public static boolean transmits(TLObject connection) {
-		boolean send = connection.tValueByName("kind") instanceof TLClassifier kind && "send".equals(kind.getName());
+		boolean send = ((Connection) connection).getKind() instanceof TLClassifier kind && "send".equals(kind.getName());
 		return communicates(connection) && send && enabled("transmission", connection);
 	}
 
@@ -127,16 +133,13 @@ public final class DatapointSettings {
 	public static String sender(TLObject address) {
 		for (TLObject connection : GroupAddressConnections.connections(address)) {
 			if (transmits(connection)) {
-				TLObject connector = connection.tContainer();
-				TLObject device = connector.tContainer();
-				Object name = connector.tValueByName("displayName");
-				if (name == null || name.toString().isBlank()) {
-					name = connector.tValueByName("text");
+				Connector connector = (Connector) connection.tContainer();
+				Device device = (Device) connector.tContainer();
+				String name = connector.getDisplayName();
+				if (name == null || name.isBlank()) {
+					name = connector.getText();
 				}
-				if (name instanceof com.top_logic.basic.util.ResKey key) {
-					name = com.top_logic.util.Resources.getInstance().getString(key);
-				}
-				return (device == null ? "" : device.tValueByName("name") + ": ") + (name == null ? "?" : name);
+				return (device == null ? "" : device.getName() + ": ") + (name == null ? "?" : name);
 			}
 		}
 		return null;
@@ -198,7 +201,7 @@ public final class DatapointSettings {
 	 * derivation.
 	 */
 	public static boolean writable(TLObject address) {
-		Object set = address.tValueByName("runtimeWritable");
+		Object set = address instanceof GroupAddress typed ? typed.getRuntimeWritable() : null;
 		return set instanceof Boolean value ? value.booleanValue() : derive(address).writable();
 	}
 
@@ -206,7 +209,7 @@ public final class DatapointSettings {
 	 * Whether the datapoint of the address is read on start: the setting, else the derivation.
 	 */
 	public static boolean readOnStart(TLObject address) {
-		Object set = address.tValueByName("runtimeReadOnStart");
+		Object set = address instanceof GroupAddress typed ? typed.getRuntimeReadOnStart() : null;
 		return set instanceof Boolean value ? value.booleanValue() : derive(address).readOnStart();
 	}
 
@@ -214,14 +217,14 @@ public final class DatapointSettings {
 	 * Whether the controller answers reads of the address.
 	 */
 	public static boolean readable(TLObject address) {
-		return Boolean.TRUE.equals(address.tValueByName("runtimeReadable"));
+		return Boolean.TRUE.equals(address.tValue(EhomeLogicalFactory.getRuntimeReadableGroupAddressAttr()));
 	}
 
 	/**
 	 * Whether the controller keeps the datapoint's value across restarts.
 	 */
 	public static boolean persist(TLObject address) {
-		return Boolean.TRUE.equals(address.tValueByName("runtimePersist"));
+		return Boolean.TRUE.equals(address.tValue(EhomeLogicalFactory.getRuntimePersistGroupAddressAttr()));
 	}
 
 	/**
@@ -231,12 +234,12 @@ public final class DatapointSettings {
 	 */
 	public static String unit(TLObject address) {
 		if (ApplicationDatapoints.isApplicationDatapoint(address)) {
-			Object unit = address.tValueByName("unit");
-			return unit == null || unit.toString().isBlank() ? null : unit.toString().trim();
+			String unit = ((ApplicationDatapoint) address).getUnit();
+			return unit == null || unit.isBlank() ? null : unit.trim();
 		}
-		Object set = address.tValueByName("runtimeUnit");
-		if (set != null && !set.toString().isBlank()) {
-			return set.toString().trim();
+		String set = address instanceof GroupAddress typed ? typed.getRuntimeUnit() : null;
+		if (set != null && !set.isBlank()) {
+			return set.trim();
 		}
 		Dpt dpt = GroupAddressTypes.effective(address);
 		String unit = dpt == null ? null : DatapointCodec.unitSymbol(dpt);
@@ -247,8 +250,9 @@ public final class DatapointSettings {
 	 * Where the flags writable and read on start of the address come from, for the user.
 	 */
 	public static ResKey flagsSource(TLObject address) {
-		boolean writable = address.tValueByName("runtimeWritable") != null;
-		boolean readOnStart = address.tValueByName("runtimeReadOnStart") != null;
+		GroupAddress typed = (GroupAddress) address;
+		boolean writable = typed.getRuntimeWritable() != null;
+		boolean readOnStart = typed.getRuntimeReadOnStart() != null;
 		if (writable && readOnStart) {
 			return I18NConstants.FLAGS_SET;
 		}

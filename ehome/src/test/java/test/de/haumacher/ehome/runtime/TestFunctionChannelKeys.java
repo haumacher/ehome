@@ -64,7 +64,7 @@ public class TestFunctionChannelKeys extends BasicTestCase {
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				function.setChannel(other);
-				function.getDevice().tUpdateByName("title", "TEST Taster umbenannt");
+				function.getDevice().setTitle("TEST Taster umbenannt");
 				tx.commit();
 			}
 			assertEquals(List.of(), TestFunctionProposal.apply(project));

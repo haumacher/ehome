@@ -93,7 +93,8 @@ public final class ApplicationDatapoints {
 	 * The value type of the application datapoint (<code>boolean</code>, ..., the spec's names).
 	 */
 	public static String valueType(TLObject datapoint) {
-		return datapoint.tValueByName("type") instanceof TLClassifier type ? type.getName() : ValueTypes.BOOLEAN;
+		return datapoint instanceof ApplicationDatapoint typed && typed.getType() instanceof TLClassifier type
+			? type.getName() : ValueTypes.BOOLEAN;
 	}
 
 	/**

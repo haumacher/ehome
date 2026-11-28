@@ -16,6 +16,8 @@ import com.top_logic.model.annotate.util.ConstraintCheck;
 import com.top_logic.model.form.OverlayLookup;
 import com.top_logic.model.util.Pointer;
 
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeFunctionEntry;
+
 /**
  * Constraint of the recommended datapoint type of a function entry of the Zigbee catalog
  * (<code>ehome.zigbee.catalog:ZigbeeFunctionEntry#type</code>): it must fit the value type the
@@ -43,11 +45,11 @@ public class CatalogTypeConstraint extends AbstractConfiguredInstance<CatalogTyp
 	@Override
 	public ResKey check(TLObject object, TLStructuredTypePart attribute) {
 		Object type = object.tValue(attribute);
-		Object function = object.tValueByName("function");
+		String function = ((ZigbeeFunctionEntry) object).getFunction();
 		if (!(type instanceof TLClassifier classifier) || function == null) {
 			return null;
 		}
-		return check(function.toString(), classifier.getName());
+		return check(function, classifier.getName());
 	}
 
 	/**

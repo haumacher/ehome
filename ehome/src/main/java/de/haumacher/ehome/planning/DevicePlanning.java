@@ -29,6 +29,8 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.PresetUse;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.BuildingDevices;
@@ -324,7 +326,7 @@ public final class DevicePlanning {
 		}
 		TLObject device = InstallationBuilder.createDevice(line, ((Number) number).intValue(), variant, program, List.of());
 		if (title != null && !title.isBlank()) {
-			device.tUpdateByName("title", title.trim());
+			((Device) device).setTitle(title.trim());
 		}
 		if (location != null) {
 			BuildingDevices.place(device, location);
@@ -343,7 +345,7 @@ public final class DevicePlanning {
 		if (line == null) {
 			return I18NConstants.ERROR_NOT_IN_LINE__DEVICE.fill(GroupAddressConnections.deviceLabel(device));
 		}
-		if (device.tValueByName("type") == null || device.tValueByName("program") == null) {
+		if (((Device) device).getType() == null || ((Device) device).getProgram() == null) {
 			return I18NConstants.ERROR_NO_CATALOG_ENTRY__DEVICE.fill(GroupAddressConnections.deviceLabel(device));
 		}
 		if (nextFree(line) == null) {
@@ -369,7 +371,7 @@ public final class DevicePlanning {
 		}
 		TLObject line = line(device);
 		TLObject copy = InstallationBuilder.createDevice(line, nextFree(line).intValue(),
-			(TLObject) device.tValueByName("type"), (TLObject) device.tValueByName("program"), List.of());
+			((Device) device).getType(), ((Device) device).getProgram(), List.of());
 		// The module instances of the original (haumacher/ehome #119), so that the copied settings of
 		// module parameters name the copy's instances of the same IDs.
 		Map<String, TLObject> instances = copyInstances(device, copy);
@@ -389,11 +391,11 @@ public final class DevicePlanning {
 		copy.tUpdateByName(SETTINGS, settings);
 		// The records of the presets applied to the original's channels (haumacher/ehome #146), whose
 		// values the copy has.
-		List<TLObject> presets = new ArrayList<>();
-		for (TLObject use : ExtIds.list(device, "presets")) {
-			presets.add(copySetting(use));
+		List<PresetUse> presets = new ArrayList<>();
+		for (PresetUse use : ((Device) device).getPresets()) {
+			presets.add((PresetUse) copySetting(use));
 		}
-		copy.tUpdateByName("presets", presets);
+		((Device) copy).setPresets(presets);
 		ModuleInstances.update(copy);
 		// The R values of its calculations from the copied L values (haumacher/ehome #123).
 		DeviceCalculations.recompute(copy);

@@ -37,13 +37,19 @@ Shipped, and their workarounds removed:
 - the descriptions of the options of a select (TL #30290, which closed #30406 as a duplicate) and the
   help of a `<value-input>` (TL #30289): "New devices only" of the scan dialog explains itself, the
   tooltip of "Scan" says what the command does;
+- the Java name of an attribute (TL #30446): `ehome.physical`, `ehome.datapoint` and
+  `ehome.zigbee.catalog` have their bindings, `Device#lastModified`, `DatapointTypes#types` and
+  `ZigbeeCatalog#types` their `<java-name>`, and the calls on their types use the generated accessors
+  (haumacher/ehome #198);
+- the generated interfaces on form buffers and drafts (TL #30447): constraints, options functions and
+  the rule and preset drafts use the typed accessors; the `[migrate]` section of
+  `name-access-inventory.txt` holds two calls of `importer/Importer` only;
 - nothing to remove: a declared grouping by a withheld column (TL #30530), an abstract class created by
   a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
   as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
   it, the bundled catalog serves).
 Shipped, and to be taken up by the app (their entries below): the composition descendants in TL-Script
-(TL #30192), the Java name of an attribute and the generated interfaces on form buffers (TL #30446,
-#30447), the OAuth sign-in at the MCP endpoint (TL #30274); TL #30531 was closed as invalid with the
+(TL #30192), the OAuth sign-in at the MCP endpoint (TL #30274); TL #30531 was closed as invalid with the
 engine's way (its entry below).
 Still open: TL #29884, #29885, #30048, #30105, #30217, #30311.
 
@@ -333,38 +339,6 @@ import of the test suites (haumacher/ehome #208, measured by sampling). No worka
 could not be filed on 2026-11-20 because the Trac host was not reachable from the session.
 
 **When fixed:** nothing to undo; the import of master data gets faster.
-
-## Three model modules without generated wrappers (TL #30446, #27991)
-
-The wrapper generator cannot give one attribute another Java name. `ehome.physical:Device#lastModified`
-generates `getLastModified()` returning a `Date`, which clashes with `Wrapper.getLastModified()`
-(`Long`); `ehome.datapoint:DatapointTypes#types` and `ehome.zigbee.catalog:ZigbeeCatalog#types`
-generate `getTypes()` against `PersistentTLScope.getTypes()` (the singletons' scope supertype, #27991).
-The binding does not compile, so `ehome.physical`, `ehome.datapoint` and `ehome.zigbee.catalog` stay
-out of the generator's list in `ehome/pom.xml` (haumacher/ehome #198): their types (`Device`, `Line`,
-`Area`, `ParameterSetting`, `ModuleInstance`, `PresetUse`, the datapoint types, the Zigbee catalog)
-are reached by name, and the calls on them stay in the `[migrate]` section of
-`name-access-inventory.txt`. No workaround: renaming the attributes would need a data migration (and
-a column rename of `EHDevice`) for names that are valid in the model.
-
-Shipped in 8.0.0-alpha13.833: the annotation `java-name` of an attribute (TL #30446).
-
-**To do:** give the three modules their `package-binding` (as the other modules), add them to
-`<modules>` of `tl:generate-java` (with the Java-name annotation of the fix where it needs one), run
-the generator, move the remaining name-based calls on their types to the wrappers, lower the
-inventories, and close haumacher/ehome #198.
-
-## Form overlays and drafts are no instances of the generated interfaces (TL #30447)
-
-The editing buffer of a form (`TLObjectOverlay`, `TLFormObject`, `ObjectEditing`) and a draft of a
-create dialog (`TransientTLObjectImpl` from `TransientObjectFactory`) do not implement the generated
-interface of their type, so a cast throws `ClassCastException`. Code reachable with such an object
-(model constraints, options functions, the rule and preset drafts: `RuleFunctions.initialize`,
-`RuleDrafts`, `PresetDrafts`, the constraints of `HistoryConfig` and `Pages`, `DatapointSettings`)
-keeps its name-based access (haumacher/ehome #198); the calls stay in the `[migrate]` section of
-`name-access-inventory.txt`. No workaround. Shipped in 8.0.0-alpha13.833 (TL #30447).
-
-**To do:** move those calls to the generated accessors, lower the inventory.
 
 ## Upstream tickets to follow
 

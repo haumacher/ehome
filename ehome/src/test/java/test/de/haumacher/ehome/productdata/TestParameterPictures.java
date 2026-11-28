@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.Locale;
@@ -48,6 +47,9 @@ import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.PictureType;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -137,18 +139,18 @@ public class TestParameterPictures extends BasicTestCase {
 			.filter(a -> PROGRAM.equals(a.getProgram().getExtId()))
 			.findFirst().orElseThrow();
 		Project project;
-		TLObject device;
+		Device device;
 		try (Transaction tx = kb.beginTransaction()) {
-			device = create("ehome.physical:Device");
-			device.tUpdateByName("address", 77);
-			device.tUpdateByName("type", variant);
-			device.tUpdateByName("program", assignment);
-			TLObject line = create("ehome.physical:Line");
-			line.tUpdateByName("address", 1);
-			line.tUpdateByName("devices", List.of(device));
-			TLObject area = create("ehome.physical:Area");
-			area.tUpdateByName("address", 1);
-			area.tUpdateByName("lines", List.of(line));
+			device = (Device) create("ehome.physical:Device");
+			device.setAddress(77);
+			device.setType(variant);
+			device.setProgram(assignment);
+			Line line = (Line) create("ehome.physical:Line");
+			line.setAddress(1);
+			line.setDevices(Set.of(device));
+			Area area = (Area) create("ehome.physical:Area");
+			area.setAddress(1);
+			area.setLines(Set.of(line));
 			project = (Project) create("ehome.project:Project");
 			project.setName("TEST Bilder");
 			project.setAreas(Set.of(area));
@@ -200,7 +202,7 @@ public class TestParameterPictures extends BasicTestCase {
 				}
 				assertNull(DeviceSettings.setting(device, picture));
 			}
-			assertEquals(1, ((Collection<?>) device.tValueByName("settings")).size());
+			assertEquals(1, device.getSettings().size());
 
 			// The download: the same bytes as without the pictures.
 			DownloadImage shown = DownloadImage.compute(device);

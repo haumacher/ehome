@@ -9,7 +9,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import junit.framework.Test;
@@ -37,6 +36,8 @@ import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -77,15 +78,14 @@ public class TestProductDataImportProbe extends BasicTestCase {
 		Project project = (Project) projects.get(0);
 		Parameter created = null;
 		try {
-			TLObject line = (TLObject) ((Collection<?>) project.getAreas()
-				.iterator().next().tValueByName("lines")).iterator().next();
-			TLObject device;
+			Line line = project.getAreas().iterator().next().getLines().iterator().next();
+			Device device;
 			try (Transaction tx = kb.beginTransaction()) {
-				device = create("ehome.physical:Device");
-				device.tUpdateByName("address", 77);
-				device.tUpdateByName("type", variant);
-				device.tUpdateByName("program", assignment);
-				add(line, "devices", device);
+				device = (Device) create("ehome.physical:Device");
+				device.setAddress(77);
+				device.setType(variant);
+				device.setProgram(assignment);
+				line.addDevice(device);
 				tx.commit();
 			}
 
@@ -153,12 +153,6 @@ public class TestProductDataImportProbe extends BasicTestCase {
 
 	private static TLObject create(String typeName) {
 		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
-	}
-
-	private static void add(TLObject container, String reference, TLObject element) {
-		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
-		elements.add(element);
-		container.tUpdateByName(reference, elements);
 	}
 
 	public static Test suite() {

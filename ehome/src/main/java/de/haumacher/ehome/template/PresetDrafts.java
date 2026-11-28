@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.impl.TransientObjectFactory;
 import com.top_logic.model.util.TLModelUtil;
@@ -21,6 +22,10 @@ import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.template.Preset;
+import de.haumacher.ehome.model.template.PresetObject;
+import de.haumacher.ehome.model.template.PresetPurpose;
+import de.haumacher.ehome.model.template.PresetValue;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceSettings;
 
@@ -58,15 +63,15 @@ public final class PresetDrafts {
 	public static Map<String, Object> request(TLObject device, String channel) {
 		List<Presets.Candidate> candidates = Presets.candidates(device, channel);
 		TLObject root = DeviceTemplates.root();
-		TLObject draft = transientObject("ehome.template:Preset", root);
-		draft.tUpdateByName("channel", channel);
-		draft.tUpdateByName("purpose", TLModelUtil.findPart("ehome.template:PresetPurpose#actuator"));
+		Preset draft = (Preset) transientObject("ehome.template:Preset", root);
+		draft.setChannel(channel);
+		draft.setPurpose(PresetPurpose.actuatorClassifier());
 		Map<TLObject, ParameterView> values = new LinkedHashMap<>();
 		List<TLObject> proposed = new ArrayList<>();
 		for (Presets.Candidate candidate : candidates) {
-			TLObject value = transientObject("ehome.template:PresetValue", root);
+			PresetValue value = (PresetValue) transientObject("ehome.template:PresetValue", root);
 			ParameterView view = ModuleParts.template(candidate.view());
-			value.tUpdateByName("parameter", view);
+			value.setParameter(view);
 			ParameterType type = ParameterValues.valueType(view);
 			value.tUpdateByName(ParameterValues.valueAttribute(type), candidate.value());
 			values.put(value, candidate.view());
@@ -75,12 +80,14 @@ public final class PresetDrafts {
 			}
 		}
 		Map<TLObject, Interface> objects = new LinkedHashMap<>();
+		List<PresetObject> draftObjects = new ArrayList<>();
 		for (Interface placed : Presets.channelObjects(device, channel)) {
-			TLObject object = transientObject("ehome.template:PresetObject", null);
-			object.tUpdateByName("placement", ModuleParts.template(placed));
+			PresetObject object = (PresetObject) transientObject("ehome.template:PresetObject", null);
+			object.setPlacement(ModuleParts.template(placed));
 			objects.put(object, placed);
+			draftObjects.add(object);
 		}
-		draft.tUpdateByName("objects", new ArrayList<>(objects.keySet()));
+		draft.setObjects(draftObjects);
 		synchronized (DRAFTS) {
 			DRAFTS.put(draft, new Draft(device, channel, values, objects));
 			for (TLObject object : objects.keySet()) {
@@ -135,8 +142,8 @@ public final class PresetDrafts {
 			return result;
 		}
 		TLObject template = preset.tContainer();
-		Object key = preset.tValueByName("channel");
-		return template == null || key == null ? result : Presets.templateChannelObjects(template, key.toString());
+		String key = ((Preset) preset).getChannel();
+		return template == null || key == null ? result : Presets.templateChannelObjects(template, key);
 	}
 
 	/**
@@ -159,8 +166,8 @@ public final class PresetDrafts {
 				return ChannelShape.objectLabel(draft.device(), placed);
 			}
 		}
-		return object.tValueByName("placement") instanceof Interface placed ? ChannelShape.objectLabel(null, placed)
-			: null;
+		Interface placed = ((PresetObject) object).getPlacement();
+		return placed != null ? ChannelShape.objectLabel(null, placed) : null;
 	}
 
 	/**
@@ -226,13 +233,15 @@ public final class PresetDrafts {
 		}
 		Map<Interface, TLObject> roles = new LinkedHashMap<>();
 		List<Interface> channelObjects = Presets.channelObjects(info.device(), info.channel());
-		if (draft.tValueByName("objects") instanceof Collection<?> objects) {
-			for (Object element : objects) {
-				TLObject object = (TLObject) element;
-				if (!(object.tValueByName("role") instanceof TLObject role)) {
+		Preset preset = (Preset) draft;
+		List<? extends PresetObject> objects = preset.getObjects();
+		if (objects != null) {
+			for (PresetObject object : objects) {
+				TLObject role = object.getRole();
+				if (role == null) {
 					continue;
 				}
-				Object placement = object.tValueByName("placement");
+				Interface placement = object.getPlacement();
 				Interface placed = channelObjects.stream().filter(p -> ModuleParts.template(p) == placement).findFirst()
 					.orElse(null);
 				if (placed == null) {
@@ -241,9 +250,10 @@ public final class PresetDrafts {
 				roles.put(placed, role);
 			}
 		}
-		Collection<?> operations = draft.tValueByName("operations") instanceof Collection<?> values ? values : List.of();
-		TLObject result = Presets.save(info.device(), info.channel(), (String) draft.tValueByName("name"),
-			(TLObject) draft.tValueByName("purpose"), (TLObject) draft.tValueByName("kind"), operations, views, roles);
+		List<TLClassifier> values = preset.getOperations();
+		Collection<?> operations = values != null ? values : List.of();
+		TLObject result = Presets.save(info.device(), info.channel(), preset.getName(), preset.getPurpose(),
+			preset.getKind(), operations, views, roles);
 		synchronized (DRAFTS) {
 			DRAFTS.remove(draft);
 		}

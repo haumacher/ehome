@@ -54,6 +54,10 @@ import de.haumacher.ehome.knx.GALabelProvider;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.knx.WithinGroupRange;
 import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
+import de.haumacher.ehome.model.datapoint.DatapointTypes;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.GroupRange;
@@ -67,6 +71,11 @@ import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 
 /**
@@ -168,7 +177,7 @@ public class TestEtsImport extends BasicTestCase {
 				SharedData.ids(sample, "M-[^/]+/M-[^/]+_A-[^/]+\\.xml", "ApplicationProgram"));
 		}
 		for (TLObject device : SharedData.within("ehome.physical:Device", _projects)) {
-			assertNotNull(device.tValueByName("program"));
+			assertNotNull(((Device) device).getProgram());
 		}
 
 		checkTranslations();
@@ -189,7 +198,7 @@ public class TestEtsImport extends BasicTestCase {
 	private void checkDeviceDetails() throws Exception {
 		// The device of the Test sample was never downloaded.
 		TLObject plain = projectObject("ehome.physical:Device", "P-01A0-0_DI-1", _first);
-		assertTrue(((Collection<?>) plain.tValueByName("loaded")).isEmpty());
+		assertTrue(((Device) plain).getLoaded().isEmpty());
 		assertEquals(Boolean.TRUE, derived(plain, "downloadPending"));
 
 		// The fixture adds names, descriptions, the download state, an inactive communication object
@@ -198,17 +207,17 @@ public class TestEtsImport extends BasicTestCase {
 		_projects = SharedData.newProjects(_before);
 		TLObject device = byTitle("Taster Küche");
 		assertEquals("Taster Küche", derived(device, "name"));
-		assertEquals("Neben der Tür", device.tValueByName("description"));
-		assertEquals("Unterputzdose links", device.tValueByName("installationHints"));
-		assertEquals("0008:1234ABCD", device.tValueByName("serialNumber"));
-		assertNotNull(device.tValueByName("lastModified"));
-		assertNotNull(device.tValueByName("lastDownload"));
-		assertEquals(5, ((Collection<?>) device.tValueByName("loaded")).size());
+		assertEquals("Neben der Tür", ((Device) device).getDescription());
+		assertEquals("Unterputzdose links", ((Device) device).getInstallationHints());
+		assertEquals("0008:1234ABCD", ((Device) device).getSerialNumber());
+		assertNotNull(((Device) device).getConfigurationChanged());
+		assertNotNull(((Device) device).getLastDownload());
+		assertEquals(5, ((Device) device).getLoaded().size());
 		assertEquals(Boolean.FALSE, derived(device, "downloadPending"));
 
-		Collection<?> connectors = (Collection<?>) device.tValueByName("connectors");
-		assertEquals(1, connectors.stream().filter(c -> Boolean.FALSE.equals(((TLObject) c).tValueByName("active"))).count());
-		assertEquals(connectors.size() - 1, connectors.stream().filter(c -> Boolean.TRUE.equals(((TLObject) c).tValueByName("active"))).count());
+		Collection<? extends Connector> connectors = ((Device) device).getConnectors();
+		assertEquals(1, connectors.stream().filter(c -> !c.getActive()).count());
+		assertEquals(connectors.size() - 1, connectors.stream().filter(c -> c.getActive()).count());
 
 		TLObject unassigned = byTitle("Taster Reserve");
 		TLObject project = unassigned.tContainer();
@@ -376,7 +385,7 @@ public class TestEtsImport extends BasicTestCase {
 
 	private TLObject byTitle(String title) {
 		List<TLObject> result = SharedData.within("ehome.physical:Device", _projects).stream()
-			.filter(d -> title.equals(d.tValueByName("title")))
+			.filter(d -> title.equals(((BusDevice) d).getTitle()))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);
@@ -390,7 +399,7 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals("Function of right status LED", ResKeyUtil.getTranslation(description, Locale.ENGLISH));
 
 		// The datapoint types are English in the master data, with German translations.
-		ResKey temperature = (ResKey) datapointType("DPST-9-1").tValueByName("description");
+		ResKey temperature = ((DatapointType) datapointType("DPST-9-1")).getDescription();
 		assertEquals("Temperatur (°C)", ResKeyUtil.getTranslation(temperature, Locale.GERMAN));
 		assertEquals("temperature (°C)", ResKeyUtil.getTranslation(temperature, Locale.ENGLISH));
 	}
@@ -406,7 +415,7 @@ public class TestEtsImport extends BasicTestCase {
 	 */
 	private static TLObject projectObject(String typeName, String extId, TLObject project) {
 		List<TLObject> result = SharedData.within(typeName, List.of(project)).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.filter(obj -> extId.equals(((Externalized) obj).getExtId()))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);
@@ -433,27 +442,27 @@ public class TestEtsImport extends BasicTestCase {
 
 		// An enumeration value is the entry of the parameter's own type, written by its number.
 		TLObject led = setting(settings, "Funktion der Status-LED rechts");
-		EnumerationValue entry = (EnumerationValue) led.tValueByName("choice");
+		EnumerationValue entry = ((ParameterSetting) led).getChoice();
 		assertNotNull(entry);
 		assertEquals(9, entry.getValue());
 		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", ResKeyUtil.getTranslation(entry.getNameKey(), Locale.GERMAN));
-		EnumerationType ledType = (EnumerationType) ((ParameterView) led.tValueByName("parameter")).getParameter().getType();
+		EnumerationType ledType = (EnumerationType) ((ParameterSetting) led).getParameter().getParameter().getType();
 		assertTrue(ledType.getValues().contains(entry));
 		assertEquals("9", derived(led, "encodedValue"));
 		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", derived(led, "displayValue"));
 		assertEquals("Betätigungsanzeige", derived(led, "displayDefault"));
 		// The catalog shows the same parameter with its default.
-		TLObject view = (TLObject) led.tValueByName("parameter");
+		TLObject view = ((ParameterSetting) led).getParameter();
 		assertEquals("Funktion der Status-LED rechts", ((String) derived(view, "title")).trim());
 		assertEquals("Betätigungsanzeige", derived(view, "displayDefault"));
 		assertNotNull(derived(view, "effectiveAccess"));
 
 		TLObject number = setting(settings, "Vergleichswert (0...255)");
-		assertEquals(Long.valueOf(42), number.tValueByName("number"));
+		assertEquals(Long.valueOf(42), ((ParameterSetting) number).getNumber());
 		assertEquals("42", derived(number, "encodedValue"));
 		assertEquals("42", derived(number, "displayValue"));
 		assertEquals("0", derived(number, "displayDefault"));
-		NumericType numberType = (NumericType) ((ParameterView) number.tValueByName("parameter")).getParameter().getType();
+		NumericType numberType = (NumericType) ((ParameterSetting) number).getParameter().getParameter().getType();
 		assertEquals(0L, numberType.getMin());
 		assertEquals(255L, numberType.getMax());
 	}
@@ -481,30 +490,30 @@ public class TestEtsImport extends BasicTestCase {
 		SharedData.assertOnce("ehome.datapoint:DatapointMainType", mainTypes);
 		SharedData.assertOnce("ehome.datapoint:DatapointSubtype", subtypes);
 		TLObject root = TLModelUtil.findType("ehome.datapoint:DatapointTypes").getModule().getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
-		List<?> types = (List<?>) root.tValueByName("types");
+		List<?> types = ((DatapointTypes) root).getMainTypes();
 		assertEquals(Set.copyOf(instances("ehome.datapoint:DatapointMainType")), Set.copyOf(types));
 		assertEquals(types.size(), Set.copyOf(types).size());
 
 		TLObject temperature = datapointType("DPST-9-1");
 		assertEquals("9.001", derived(temperature, "code"));
-		assertEquals("DPT_Value_Temp", temperature.tValueByName("name"));
+		assertEquals("DPT_Value_Temp", ((DatapointSubtype) temperature).getName());
 		assertEquals(16, derived(temperature, "sizeInBit"));
 		assertEquals("9.001 temperature (°C)", asRoot(() -> TLContext.getContext().withLocale(Locale.ENGLISH, () -> MetaLabelProvider.INSTANCE.getLabel(temperature))));
 		TLObject floats = datapointType("DPT-9");
 		assertEquals("9.*", derived(floats, "code"));
-		assertEquals(datapointType("DPST-1-1"), datapointType("DPT-1").tValueByName("defaultSubtype"));
+		assertEquals(datapointType("DPST-1-1"), ((DatapointMainType) datapointType("DPT-1")).getDefaultSubtype());
 
 		// The temperature object of the sample device has its datapoint type set in the project.
 		assertTrue(_projects.contains(project));
 		List<TLObject> connectors = SharedData.within("ehome.physical:Connector", _projects).stream()
-			.filter(c -> !((List<?>) c.tValueByName("datapointTypes")).isEmpty())
+			.filter(c -> !((Connector) c).getDatapointTypes().isEmpty())
 			.toList();
 		assertFalse("No datapoint type of a communication object imported.", connectors.isEmpty());
 		for (TLObject connector : connectors) {
 			assertEquals(temperature, derived(connector, "effectiveDatapointType"));
 			// The group addresses the object sends to or receives from have its type, too.
-			for (Object connection : (Collection<?>) connector.tValueByName("connections")) {
-				TLObject address = (TLObject) ((TLObject) connection).tValueByName("target");
+			for (Connection connection : ((Connector) connector).getConnections()) {
+				TLObject address = connection.getTarget();
 				assertEquals(temperature, derived(address, "effectiveDatapointType"));
 			}
 		}
@@ -544,7 +553,7 @@ public class TestEtsImport extends BasicTestCase {
 		List<TLObject> result = Stream.concat(
 			instances("ehome.datapoint:DatapointMainType").stream(),
 			instances("ehome.datapoint:DatapointSubtype").stream())
-			.filter(t -> extId.equals(t.tValueByName("extId")))
+			.filter(t -> extId.equals(((DatapointType) t).getExtId()))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);

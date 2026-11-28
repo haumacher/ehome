@@ -28,8 +28,12 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.intent.Controls;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.model.template.Preset;
@@ -132,10 +136,10 @@ public final class IntentFixture {
 	 */
 	public static IntentFixture create(TLObject actuator, TLObject keys) {
 		IntentFixture result = new IntentFixture();
-		result.actuatorType = (TLObject) actuator.tValueByName("type");
-		result.actuatorProgram = (TLObject) actuator.tValueByName("program");
-		result.keysType = (TLObject) keys.tValueByName("type");
-		result.keysProgram = (TLObject) keys.tValueByName("program");
+		result.actuatorType = ((Device) actuator).getType();
+		result.actuatorProgram = ((Device) actuator).getProgram();
+		result.keysType = ((Device) keys).getType();
+		result.keysProgram = ((Device) keys).getProgram();
 		result.channelA = key(actuator, "Channel A", "Kanal A");
 		result.channelB = key(actuator, "Channel B", "Kanal B");
 		result.channelC = key(actuator, "Channel C", "Kanal C");
@@ -215,7 +219,7 @@ public final class IntentFixture {
 		Map<String, Integer> result = new LinkedHashMap<>();
 		for (Interface placed : Presets.channelObjects(device, channel)) {
 			TLObject type = ObjectTypes.effective(device, placed);
-			String name = type == null ? "" : String.valueOf(type.tValueByName("name"));
+			String name = type instanceof DatapointSubtype subtype ? String.valueOf(subtype.getName()) : "";
 			if ("DPT_Switch".equals(name)) {
 				result.putIfAbsent("command", placed.getPort().getIndex());
 			} else if ("DPT_State".equals(name)) {
@@ -262,11 +266,11 @@ public final class IntentFixture {
 			result[0] = project;
 			project.setName(name);
 			project.setGroupAddressStyle((TLClassifier) TLModelUtil.findPart("ehome.logical:GroupAddressStyle#ThreeLevel"));
-			TLObject area = create("ehome.physical:Area");
-			area.tUpdateByName("address", 1);
+			Area area = (Area) create("ehome.physical:Area");
+			area.setAddress(1);
 			add(result[0], "areas", area);
-			TLObject line = create("ehome.physical:Line");
-			line.tUpdateByName("address", 1);
+			Line line = (Line) create("ehome.physical:Line");
+			line.setAddress(1);
 			add(area, "lines", line);
 		});
 		_projects.add(result[0]);
@@ -352,8 +356,8 @@ public final class IntentFixture {
 		TLObject[] result = { null };
 		inTransaction(() -> {
 			TLObject line = DevicePlanning.line(like);
-			result[0] = DevicePlanning.create(line, (TLObject) like.tValueByName("type"),
-				(TLObject) like.tValueByName("program"), DevicePlanning.nextFree(line), "Planned", null);
+			result[0] = DevicePlanning.create(line, ((Device) like).getType(),
+				((Device) like).getProgram(), DevicePlanning.nextFree(line), "Planned", null);
 		});
 		return result[0];
 	}

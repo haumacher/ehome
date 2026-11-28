@@ -46,6 +46,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.runtime.RuntimeImage;
@@ -147,7 +148,7 @@ public class TestBuildingOrder extends BasicTestCase {
 		assertEquals(List.of(living, board), parts(floor));
 		assertEquals(List.of(kitchen), parts(upper));
 		assertSame(upper, kitchen.tContainer());
-		assertSame(kitchen, device.tValueByName("location"));
+		assertSame(kitchen, ((Device) device).getLocation());
 		// The floor of the user before the imported one.
 		drop(move, List.of(upper), house, floor);
 		assertEquals(List.of(upper, floor), parts(house));

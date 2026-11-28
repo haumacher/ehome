@@ -27,6 +27,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -50,7 +51,7 @@ public class TestFunctionRooms extends BasicTestCase {
 			assertEquals(1, projects.size());
 			TLObject project = projects.get(0);
 			TLObject actuator = device(project, "1.0.1");
-			assertEquals("Verteiler", name(actuator.tValueByName("location")));
+			assertEquals("Verteiler", name(((Device) actuator).getLocation()));
 
 			apply(project);
 			assertEquals(Map.of(
@@ -76,7 +77,7 @@ public class TestFunctionRooms extends BasicTestCase {
 
 			// The key in "Wohnzimmer" not placed: the light has no placed sender, its actuator sits in
 			// the distribution board, so it has no room; the blind is in the room of the other key.
-			TLObject living = (TLObject) device(project, "1.0.4").tValueByName("location");
+			TLObject living = ((Device) device(project, "1.0.4")).getLocation();
 			update(device(project, "1.0.4"), "location", null);
 			deleteFunctions(project);
 			apply(project);

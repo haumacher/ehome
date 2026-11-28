@@ -32,6 +32,7 @@ import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -184,7 +185,7 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.PARAMETERS);
 		byte[] memory = simulated.memorySnapshot();
 		int[] states = { simulated.state(1), simulated.state(2), simulated.state(3) };
-		Object revision = device.tValueByName("downloadRevision");
+		Long revision = ((Device) device).getDownloadRevision();
 		Run run = check(device, plan, simulated, name);
 		assertFalse(name, run.result().success());
 		assertTrue(name + ": " + run.result().failed(), check.isInstance(run.result().failed()));
@@ -195,7 +196,7 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 		assertEquals(states[2], simulated.state(3));
 		assertTrue(name + ": " + run.recorded(), run.recorded().stream().noneMatch(Operation::writes));
 		// A failed download leaves the device's record as it was.
-		assertEquals(revision, device.tValueByName("downloadRevision"));
+		assertEquals(revision, ((Device) device).getDownloadRevision());
 	}
 
 	/**

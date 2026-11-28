@@ -55,8 +55,8 @@ public interface BuildingDefinitionBase extends de.haumacher.ehome.model.core.Ex
 	 * Getter for part {@link #DEVICES_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.Set<? extends com.top_logic.model.TLObject> getDevices() {
-		return (java.util.Set<? extends com.top_logic.model.TLObject>) tValueByName(DEVICES_ATTR);
+	default java.util.Set<? extends de.haumacher.ehome.model.physical.BusDevice> getDevices() {
+		return (java.util.Set<? extends de.haumacher.ehome.model.physical.BusDevice>) tValueByName(DEVICES_ATTR);
 	}
 
 	/**

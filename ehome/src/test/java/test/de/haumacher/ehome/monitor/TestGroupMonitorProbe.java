@@ -11,7 +11,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +33,10 @@ import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.monitor.Recording;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.MonitorRow;
@@ -91,7 +94,7 @@ public class TestGroupMonitorProbe extends BasicTestCase {
 			assertEquals("on", channelRow.get("value"));
 			// The sender of a telegram on channel A is the device the address view names.
 			String senderName = String.valueOf(asRoot(() -> TLContext.getContext().withLocale(Locale.ENGLISH,
-				() -> senderOfChannelA.tValueByName("name")))).replaceAll(" \\(\\d+\\)$", "");
+				() -> ((Device) senderOfChannelA).getName()))).replaceAll(" \\(\\d+\\)$", "");
 			assertTrue(channelRow.get("sender") + " is not " + senderName, String.valueOf(channelRow.get("sender")).startsWith(senderName));
 			assertTrue(String.valueOf(keyRow.get("sender")), String.valueOf(keyRow.get("sender")).contains("1.3.50"));
 			List<MonitorRow> log = rows(state.get("log"));
@@ -158,10 +161,10 @@ public class TestGroupMonitorProbe extends BasicTestCase {
 
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new java.util.HashMap<>();
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				for (BusDevice device : line.getDevices()) {
+					result.put(device.getAddress(), device);
 				}
 			}
 		}

@@ -34,7 +34,6 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.layout.provider.MetaLabelProvider;
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
@@ -46,18 +45,21 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.FillTextParameter;
-import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.ConfigFragment;
-import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ModuleArgument;
 import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ModulePlacement;
 import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterValue;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Repeat;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.planning.DevicePlanning;
@@ -250,8 +252,8 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals(Set.of(F + "P-1_R-1", F + "MD-1_M-1_MI-1_P-1_R-1", F + "MD-1_M-1_MI-1_P-2_R-1",
 			F + "MD-1_M-2_MI-1_P-2_R-1"), settings.keySet());
 		assertEquals(Integer.valueOf(1),
-			Integer.valueOf(((EnumerationValue) settings.get(F + "MD-1_M-1_MI-1_P-1_R-1").tValueByName("choice")).getValue()));
-		assertEquals("WZ", settings.get(F + "MD-1_M-1_MI-1_P-2_R-1").tValueByName("text"));
+			Integer.valueOf(((ParameterSetting) settings.get(F + "MD-1_M-1_MI-1_P-1_R-1")).getChoice().getValue()));
+		assertEquals("WZ", ((ParameterSetting) settings.get(F + "MD-1_M-1_MI-1_P-2_R-1")).getText());
 
 		// The objects on their instances with their group addresses, numbered by the instances.
 		Map<String, TLObject> connectors = connectors(device);
@@ -349,8 +351,8 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals(Set.of(R + "P-1_R-1", R + "MD-1_M-1_MI-2_P-2_R-1", R + "MD-1_M-1_MI-3_P-2_R-1",
 			R + "MD-2_M-1_MI-2_P-1_R-1", R + "MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_P-1_R-1"), settings.keySet());
 		checkEditorTexts(device);
-		assertEquals("Süd", settings.get(R + "MD-1_M-1_MI-2_P-2_R-1").tValueByName("text"));
-		assertEquals(Long.valueOf(7), settings.get(R + "MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_P-1_R-1").tValueByName("number"));
+		assertEquals("Süd", ((ParameterSetting) settings.get(R + "MD-1_M-1_MI-2_P-2_R-1")).getText());
+		assertEquals(Long.valueOf(7), ((ParameterSetting) settings.get(R + "MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_P-1_R-1")).getNumber());
 
 		Map<String, TLObject> connectors = connectors(device);
 		TLObject signal = connectors.get(R + "MD-1_M-1_MI-2_O-1-0_R-1");
@@ -457,7 +459,7 @@ public class TestDynamicModules extends BasicTestCase {
 		assertTrue(stored(device).contains("MD-1_M-1_MI-3 5x3 6x1 true {ParamsOffsetBase=224, ObjNumberBase=7, SigNo=3}"));
 		DeviceConfiguration three = new DeviceConfiguration(device);
 		assertTrue(three.getConnectors().contains(connector));
-		assertEquals("Ost", three.valueHolder(shownViews(three).get(R + "MD-1_M-1_MI-3_P-2_R-1")).tValueByName("text"));
+		assertEquals("Ost", ((ParameterValue) three.valueHolder(shownViews(three).get(R + "MD-1_M-1_MI-3_P-2_R-1"))).getText());
 		image = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL).getImage();
 		assertTrue(associatedObjects(image).contains(7));
 		assertEquals(Integer.valueOf('O'), image.byteAt(SEGMENT + 225));
@@ -513,8 +515,8 @@ public class TestDynamicModules extends BasicTestCase {
 		assertTrue(stored(device).toString(),
 			stored(device).contains("MD-1_M-2_MI-1 12x1 true {ParamOffsBase=112, ObjNumberBase=3, ChNo=B}"));
 		DeviceConfiguration configuration = new DeviceConfiguration(device);
-		assertEquals("Bad", configuration.valueHolder(shownViews(configuration).get(F + "MD-1_M-2_MI-1_P-2_R-1"))
-			.tValueByName("text"));
+		assertEquals("Bad", ((ParameterValue) configuration.valueHolder(shownViews(configuration).get(F + "MD-1_M-2_MI-1_P-2_R-1")))
+			.getText());
 		TLObject connector = connectors(device).get(F + "MD-1_M-2_MI-1_O-2-0_R-1");
 		assertTrue(configuration.getConnectors().contains(connector));
 		assertEquals(List.of(3), associatedObjects(DownloadPlanner.plan(device, DownloadPlan.Kind.FULL).getImage()));
@@ -527,8 +529,8 @@ public class TestDynamicModules extends BasicTestCase {
 	private void checkPlanning(TLObject imported) {
 		TLObject planned;
 		try (Transaction tx = kb().beginTransaction()) {
-			planned = DevicePlanning.create(imported.tContainer(), (TLObject) imported.tValueByName("type"),
-				(TLObject) imported.tValueByName("program"), Integer.valueOf(10), "TEST geplant", null);
+			planned = DevicePlanning.create(imported.tContainer(), ((Device) imported).getType(),
+				((Device) imported).getProgram(), Integer.valueOf(10), "TEST geplant", null);
 			tx.commit();
 		}
 		assertTrue(list(planned, "settings").isEmpty());
@@ -731,7 +733,7 @@ public class TestDynamicModules extends BasicTestCase {
 
 	private static TLObject device(List<TLObject> before, int address) {
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", SharedData.newProjects(before)).stream()
-			.filter(d -> Integer.valueOf(address).equals(d.tValueByName("address"))).toList();
+			.filter(d -> Integer.valueOf(address).equals(((BusDevice) d).getAddress())).toList();
 		assertEquals(1, devices.size());
 		return devices.get(0);
 	}
@@ -748,8 +750,8 @@ public class TestDynamicModules extends BasicTestCase {
 
 	private static Set<String> connections(TLObject connector) {
 		return list(connector, "connections").stream()
-			.map(c -> ((TLClassifier) c.tValueByName("kind")).getName() + " "
-				+ ((GroupAddress) c.tValueByName("target")).getExtId())
+			.map(c -> ((Connection) c).getKind().getName() + " "
+				+ ((Connection) c).getTarget().getExtId())
 			.collect(Collectors.toSet());
 	}
 

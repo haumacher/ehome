@@ -47,6 +47,8 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceChanges.Entry;
@@ -103,14 +105,14 @@ public class TestDeviceChanges extends BasicTestCase {
 		TLObject tastsensor = devices.get(50);
 
 		// ETS had downloaded the actuator: the import is its reference, nothing is changed.
-		assertNotNull(actuator.tValueByName("lastDownload"));
+		assertNotNull(((Device) actuator).getLastDownload());
 		assertNotNull(DeviceChanges.referenceRevision(actuator));
 		assertEquals(0, DeviceChanges.sinceDownload(actuator).getCount());
 		assertFalse(DeviceChanges.sinceDownload(actuator).isChanged(actuator));
 
 		// A download recorded through the download service: the plan's revision is the reference.
 		download(actuator);
-		Object revision = actuator.tValueByName("downloadRevision");
+		Object revision = ((Device) actuator).getDownloadRevision();
 		assertNotNull(revision);
 		DeviceChanges afterDownload = DeviceChanges.sinceDownload(actuator);
 		assertEquals(((Number) revision).longValue(), afterDownload.getRevision().getCommitNumber());
@@ -196,7 +198,7 @@ public class TestDeviceChanges extends BasicTestCase {
 
 		// Against the defaults: the settings of the device, no connections.
 		DeviceChanges defaults = DeviceChanges.of(actuator, Reference.DEFAULT);
-		assertEquals(((Collection<?>) actuator.tValueByName("settings")).size(), defaults.getCount());
+		assertEquals(((Device) actuator).getSettings().size(), defaults.getCount());
 		assertNull(defaults.getEntry(placed));
 
 		// Other devices are unaffected.
@@ -377,7 +379,7 @@ public class TestDeviceChanges extends BasicTestCase {
 	private static TLObject unconnectedAddress(TLObject device, Interface placed) {
 		List<Object> connected = new ArrayList<>();
 		for (TLObject connection : DeviceSettings.connections(device, placed)) {
-			connected.add(connection.tValueByName("target"));
+			connected.add(((Connection) connection).getTarget());
 		}
 		for (TLObject address : DeviceSettings.groupAddresses(device)) {
 			if (!connected.contains(address)) {
@@ -397,15 +399,15 @@ public class TestDeviceChanges extends BasicTestCase {
 	}
 
 	private static String connectionKey(TLObject connection) {
-		GroupAddress target = (GroupAddress) connection.tValueByName("target");
+		GroupAddress target = ((Connection) connection).getTarget();
 		return target.getAddress().toString() + " "
-			+ ((TLClassifier) connection.tValueByName("kind")).getName();
+			+ ((Connection) connection).getKind().getName();
 	}
 
 	static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
 		for (TLObject device : DeviceChanges.devices(project)) {
-			result.put((Integer) device.tValueByName("address"), device);
+			result.put(((Device) device).getAddress(), device);
 		}
 		return result;
 	}

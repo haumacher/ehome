@@ -38,6 +38,8 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.GroupRange;
@@ -469,14 +471,14 @@ public class TestFunctionProposal extends BasicTestCase {
 
 	static void setDatapointType(TLObject address, String typeId) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			((GroupAddress) address).setDatapointTypes(List.of(datapointType(typeId)));
+			((GroupAddress) address).setDatapointTypes(List.of((DatapointType) datapointType(typeId)));
 			tx.commit();
 		}
 	}
 
 	private static TLObject datapointType(String typeId) {
 		return instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> typeId.equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> typeId.equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 	}
 
 	static void update(TLObject obj, String attribute, Object value) {
@@ -516,7 +518,7 @@ public class TestFunctionProposal extends BasicTestCase {
 			GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
 			address.setName(name);
 			address.setAddress(GA.parse(threeLevel, GroupAddressStyle.ThreeLevel));
-			address.setDatapointTypes(List.of(datapointType(typeId)));
+			address.setDatapointTypes(List.of((DatapointType) datapointType(typeId)));
 			Set<GroupAddressDefinition> parts = new LinkedHashSet<>(((GroupRange) range).getParts());
 			parts.add(address);
 			((GroupRange) range).setParts(parts);

@@ -24,6 +24,7 @@ import com.top_logic.model.TLStructuredTypePart;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.physical.BusDevice;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.rules.RuleText;
@@ -437,7 +438,7 @@ public final class GroupAddressIds {
 		TLObject room = null;
 		for (TLObject connection : GroupAddressConnections.connections(address)) {
 			TLObject device = GroupAddressConnections.device(connection);
-			Object location = device == null ? null : device.tValueByName("location");
+			Object location = device instanceof BusDevice bus ? bus.getLocation() : null;
 			if (!(location instanceof TLObject place)) {
 				return null;
 			}

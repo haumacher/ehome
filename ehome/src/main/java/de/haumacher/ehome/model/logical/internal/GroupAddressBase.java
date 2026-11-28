@@ -223,8 +223,8 @@ public interface GroupAddressBase extends de.haumacher.ehome.model.logical.Group
 	 * Getter for part {@link #DATAPOINT_TYPES_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.List<? extends com.top_logic.model.TLObject> getDatapointTypes() {
-		return (java.util.List<? extends com.top_logic.model.TLObject>) tValueByName(DATAPOINT_TYPES_ATTR);
+	default java.util.List<? extends de.haumacher.ehome.model.datapoint.DatapointType> getDatapointTypes() {
+		return (java.util.List<? extends de.haumacher.ehome.model.datapoint.DatapointType>) tValueByName(DATAPOINT_TYPES_ATTR);
 	}
 
 	/**
@@ -234,31 +234,31 @@ public interface GroupAddressBase extends de.haumacher.ehome.model.logical.Group
 	 * The caller has to take care of the transaction handling.
 	 * </p>
 	 */
-	default java.util.List<com.top_logic.model.TLObject> getDatapointTypesModifiable() {
+	default java.util.List<de.haumacher.ehome.model.datapoint.DatapointType> getDatapointTypesModifiable() {
 		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(DATAPOINT_TYPES_ATTR);
 		@SuppressWarnings("unchecked")
-		java.util.List<com.top_logic.model.TLObject> result = (java.util.List<com.top_logic.model.TLObject>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		java.util.List<de.haumacher.ehome.model.datapoint.DatapointType> result = (java.util.List<de.haumacher.ehome.model.datapoint.DatapointType>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
 		return result;
 	}
 
 	/**
 	 * Setter for part {@link #DATAPOINT_TYPES_ATTR}.
 	 */
-	default void setDatapointTypes(java.util.List<com.top_logic.model.TLObject> newValue) {
+	default void setDatapointTypes(java.util.List<de.haumacher.ehome.model.datapoint.DatapointType> newValue) {
 		tUpdateByName(DATAPOINT_TYPES_ATTR, newValue);
 	}
 
 	/**
 	 * Adds a value to the {@link #DATAPOINT_TYPES_ATTR} reference.
 	 */
-	default void addDatapointType(com.top_logic.model.TLObject newValue) {
+	default void addDatapointType(de.haumacher.ehome.model.datapoint.DatapointType newValue) {
 		tAddByName(DATAPOINT_TYPES_ATTR, newValue);
 	}
 
 	/**
 	 * Removes the given value from the {@link #DATAPOINT_TYPES_ATTR} reference.
 	 */
-	default void removeDatapointType(com.top_logic.model.TLObject oldValue) {
+	default void removeDatapointType(de.haumacher.ehome.model.datapoint.DatapointType oldValue) {
 		tRemoveByName(DATAPOINT_TYPES_ATTR, oldValue);
 	}
 
@@ -272,8 +272,8 @@ public interface GroupAddressBase extends de.haumacher.ehome.model.logical.Group
 	/**
 	 * Getter for part {@link #EFFECTIVE_DATAPOINT_TYPE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getEffectiveDatapointType() {
-		return (com.top_logic.model.TLObject) tValueByName(EFFECTIVE_DATAPOINT_TYPE_ATTR);
+	default de.haumacher.ehome.model.datapoint.DatapointType getEffectiveDatapointType() {
+		return (de.haumacher.ehome.model.datapoint.DatapointType) tValueByName(EFFECTIVE_DATAPOINT_TYPE_ATTR);
 	}
 
 	/**

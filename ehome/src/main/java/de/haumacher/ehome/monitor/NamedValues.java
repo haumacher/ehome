@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.monitor;
 
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -15,9 +14,11 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey.LiteralKey;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.model.TLClass;
-import com.top_logic.model.TLObject;
-import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.EhomeDatapointFactory;
+import de.haumacher.ehome.model.datapoint.NamedValue;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 
 /**
@@ -25,16 +26,6 @@ import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
  * (<code>ehome.datapoint:DatapointSubtype#values</code>), with their texts in a language.
  */
 public class NamedValues {
-
-	private static final String SUBTYPE = "ehome.datapoint:DatapointSubtype";
-
-	private static final String EXT_ID = "extId";
-
-	private static final String VALUES = "values";
-
-	private static final String VALUE = "value";
-
-	private static final String TEXT = "text";
 
 	/**
 	 * A named value: its number and its text.
@@ -52,16 +43,14 @@ public class NamedValues {
 	 *        The text of a value without a text in the language or in English, by its number.
 	 */
 	public static List<Named> of(Dpt dpt, Locale locale, IntFunction<String> fallback) {
-		TLObject subtype = subtype(dpt);
+		DatapointSubtype subtype = subtype(dpt);
 		if (subtype == null) {
 			return List.of();
 		}
-		return ((Collection<?>) subtype.tValueByName(VALUES)).stream()
-			.map(TLObject.class::cast)
-			.filter(v -> v.tValueByName(VALUE) instanceof Number)
+		return subtype.getValues().stream()
 			.map(v -> {
-				int number = ((Number) v.tValueByName(VALUE)).intValue();
-				return new Named(number, text((ResKey) v.tValueByName(TEXT), locale, () -> fallback.apply(number)));
+				int number = v.getValue();
+				return new Named(number, text(v.getText(), locale, () -> fallback.apply(number)));
 			})
 			.sorted(Comparator.comparingInt(Named::value))
 			.toList();
@@ -72,17 +61,15 @@ public class NamedValues {
 	 * (ignoring case), <code>null</code> if none does.
 	 */
 	public static Integer valueOf(Dpt dpt, String text) {
-		TLObject subtype = subtype(dpt);
+		DatapointSubtype subtype = subtype(dpt);
 		if (subtype == null) {
 			return null;
 		}
 		String wanted = text.trim();
-		for (Object element : (Collection<?>) subtype.tValueByName(VALUES)) {
-			TLObject value = (TLObject) element;
-			if (value.tValueByName(VALUE) instanceof Number number
-				&& translations((ResKey) value.tValueByName(TEXT)).values().stream()
-					.anyMatch(t -> t.trim().equalsIgnoreCase(wanted))) {
-				return number.intValue();
+		for (NamedValue value : subtype.getValues()) {
+			if (translations(value.getText()).values().stream()
+				.anyMatch(t -> t.trim().equalsIgnoreCase(wanted))) {
+				return value.getValue();
 			}
 		}
 		return null;
@@ -92,30 +79,26 @@ public class NamedValues {
 	 * Whether the master data name values of the given subtype.
 	 */
 	public static boolean has(Dpt dpt) {
-		TLObject subtype = subtype(dpt);
-		return subtype != null && !((Collection<?>) subtype.tValueByName(VALUES)).isEmpty();
+		DatapointSubtype subtype = subtype(dpt);
+		return subtype != null && !subtype.getValues().isEmpty();
 	}
 
 	/**
 	 * The size in bits of the values of the given subtype, <code>null</code> if not known.
 	 */
 	public static Integer sizeInBit(Dpt dpt) {
-		TLObject subtype = subtype(dpt);
-		if (subtype == null || subtype.tContainer() == null) {
-			return null;
-		}
-		Object size = subtype.tContainer().tValueByName("sizeInBit");
-		return size instanceof Number number ? Integer.valueOf(number.intValue()) : null;
+		DatapointSubtype subtype = subtype(dpt);
+		return subtype != null && subtype.tContainer() instanceof DatapointMainType main ? main.getSizeInBit() : null;
 	}
 
-	private static TLObject subtype(Dpt dpt) {
+	private static DatapointSubtype subtype(Dpt dpt) {
 		if (dpt == null || dpt.isMainType()) {
 			return null;
 		}
 		String id = "DPST-" + dpt.main() + "-" + dpt.sub();
-		TLClass type = (TLClass) TLModelUtil.findType(SUBTYPE);
-		for (TLObject subtype : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			if (id.equals(subtype.tValueByName(EXT_ID))) {
+		TLClass type = EhomeDatapointFactory.getDatapointSubtypeType();
+		for (DatapointSubtype subtype : MetaElementUtil.getAllDirectInstancesOf(type, DatapointSubtype.class)) {
+			if (id.equals(subtype.getExtId())) {
 				return subtype;
 			}
 		}

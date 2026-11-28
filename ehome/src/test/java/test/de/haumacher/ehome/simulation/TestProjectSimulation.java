@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,6 +29,8 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ObjectFollower;
 import de.haumacher.ehome.model.runtime.Rule;
@@ -251,7 +252,7 @@ public class TestProjectSimulation extends BasicTestCase {
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.runtime:ObjectFollower");
 		ObjectFollower result = (ObjectFollower) ModelService.getInstance().getFactory().createObject(type);
 		if (device != null) {
-			result.setDevice(device);
+			result.setDevice((Device) device);
 			result.setSource(object(device, source));
 			result.setFollower(object(device, follower));
 			result.setInverted(inverted);
@@ -261,10 +262,10 @@ public class TestProjectSimulation extends BasicTestCase {
 		((Project) project).setSimulationFollowers(followers);
 	}
 
-	private static TLObject object(TLObject device, int number) {
-		for (Object item : (Collection<?>) device.tValueByName("connectors")) {
-			TLObject connector = (TLObject) item;
-			if (connector.tValueByName("port") instanceof Interface placed && placed.getPort().getIndex() == number) {
+	private static Connector object(TLObject device, int number) {
+		for (Connector connector : ((Device) device).getConnectors()) {
+			Interface placed = connector.getPort();
+			if (placed != null && placed.getPort().getIndex() == number) {
 				return connector;
 			}
 		}

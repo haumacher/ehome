@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -36,11 +35,17 @@ import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.catalog.Manufacturer;
 import de.haumacher.ehome.model.catalog.Product;
 import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.planning.I18NConstants;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -68,14 +73,14 @@ public class TestDevicePlanning extends BasicTestCase {
 		TLObject project = importTestsystem();
 		try {
 			TLObject line = line(project);
-			TLObject tastsensor = device(line, TASTSENSOR);
-			TLObject variant = (TLObject) tastsensor.tValueByName("type");
+			Device tastsensor = device(line, TASTSENSOR);
+			Variant variant = tastsensor.getType();
 
 			// The catalog offers the product, with its programs, the newest first.
 			assertTrue(DevicePlanning.variants().contains(variant));
 			assertTrue(DevicePlanning.variantLabel(variant), DevicePlanning.variantLabel(variant).contains("5133 00"));
 			List<TLObject> programs = DevicePlanning.programs(variant);
-			assertTrue(programs.contains(tastsensor.tValueByName("program")));
+			assertTrue(programs.contains(tastsensor.getProgram()));
 			assertSame(programs.get(0), DevicePlanning.defaultProgram(variant));
 
 			// A second program of the product with the same name and version (as ETS exports of the same
@@ -85,7 +90,7 @@ public class TestDevicePlanning extends BasicTestCase {
 				Product product = (Product) programs.get(0).tContainer();
 				Program twin = de.haumacher.ehome.model.operational.EhomeOperationalFactory.getInstance()
 					.createProgram(known.tContainer());
-				twin.tUpdateByName("name", known.tValueByName("name"));
+				twin.setNameKey(known.getNameKey());
 				twin.setApplicationVersion(known.getApplicationVersion());
 				twin.setExtId("M-0008_A-TEST-TWIN");
 				((Manufacturer) known.tContainer()).addProgram(twin);
@@ -117,20 +122,20 @@ public class TestDevicePlanning extends BasicTestCase {
 			}
 
 			// A planned device: variant, program, address, nothing else.
-			TLObject planned;
+			Device planned;
 			try (Transaction tx = kb.beginTransaction()) {
-				planned = DevicePlanning.create(line, variant, null, Long.valueOf(51), "Taster Flur", null);
+				planned = (Device) DevicePlanning.create(line, variant, null, Long.valueOf(51), "Taster Flur", null);
 				tx.commit();
 			}
 			assertSame(line, planned.tContainer());
-			assertSame(variant, planned.tValueByName("type"));
-			assertSame(programs.get(0), planned.tValueByName("program"));
-			assertEquals(Integer.valueOf(51), planned.tValueByName("address"));
-			assertEquals("Taster Flur", planned.tValueByName("title"));
+			assertSame(variant, planned.getType());
+			assertSame(programs.get(0), planned.getProgram());
+			assertEquals(Integer.valueOf(51), planned.getAddress());
+			assertEquals("Taster Flur", planned.getTitle());
 			assertEquals(0, list(planned, "settings").size());
 			assertEquals(0, list(planned, "connectors").size());
-			assertEquals(0, ((Collection<?>) planned.tValueByName("loaded")).size());
-			assertNotNull(planned.tValueByName("lastModified"));
+			assertEquals(0, planned.getLoaded().size());
+			assertNotNull(planned.getConfigurationChanged());
 			String extId = ExtIds.extId(planned);
 			assertNotNull(extId);
 			assertTrue(extId, extId.startsWith(ExtIds.extId(project) + "-0_DI-"));
@@ -146,17 +151,17 @@ public class TestDevicePlanning extends BasicTestCase {
 			assertFalse(settings.isEmpty());
 			assertFalse(list(tastsensor, "connectors").isEmpty());
 			assertNull(DevicePlanning.duplicateVeto(tastsensor));
-			TLObject copy;
+			Device copy;
 			try (Transaction tx = kb.beginTransaction()) {
-				copy = DevicePlanning.duplicate(tastsensor);
+				copy = (Device) DevicePlanning.duplicate(tastsensor);
 				tx.commit();
 			}
 			assertSame(line, copy.tContainer());
-			assertEquals(Integer.valueOf(52), copy.tValueByName("address"));
-			assertSame(variant, copy.tValueByName("type"));
-			assertSame(tastsensor.tValueByName("program"), copy.tValueByName("program"));
+			assertEquals(Integer.valueOf(52), copy.getAddress());
+			assertSame(variant, copy.getType());
+			assertSame(tastsensor.getProgram(), copy.getProgram());
 			assertEquals(0, list(copy, "connectors").size());
-			assertEquals(0, ((Collection<?>) copy.tValueByName("loaded")).size());
+			assertEquals(0, copy.getLoaded().size());
 			assertNotNull(ExtIds.extId(copy));
 			assertEquals(values(tastsensor), values(copy));
 			for (TLObject setting : list(copy, "settings")) {
@@ -181,7 +186,7 @@ public class TestDevicePlanning extends BasicTestCase {
 				assertSame(planned, conflict.device());
 				tx.commit();
 			}
-			assertSame(programs.get(0), planned.tValueByName("program"));
+			assertSame(programs.get(0), planned.getProgram());
 		} finally {
 			delete(project);
 		}
@@ -204,12 +209,12 @@ public class TestDevicePlanning extends BasicTestCase {
 		String programId;
 		try {
 			TLObject line = line(project);
-			TLObject tastsensor = device(line, TASTSENSOR);
-			TLObject planned;
+			Device tastsensor = device(line, TASTSENSOR);
+			Device planned;
 			TLObject copy;
 			try (Transaction tx = kb.beginTransaction()) {
-				planned = DevicePlanning.create(line, (TLObject) tastsensor.tValueByName("type"),
-					(TLObject) tastsensor.tValueByName("program"), Integer.valueOf(51), null, null);
+				planned = (Device) DevicePlanning.create(line, tastsensor.getType(), tastsensor.getProgram(),
+					Integer.valueOf(51), null, null);
 				changeValue(planned);
 				copy = DevicePlanning.duplicate(planned);
 				tx.commit();
@@ -220,8 +225,8 @@ public class TestDevicePlanning extends BasicTestCase {
 			assertEquals(plannedValues, copyValues);
 			plannedId = ExtIds.extId(planned);
 			copyId = ExtIds.extId(copy);
-			variantId = ExtIds.extId((TLObject) planned.tValueByName("type"));
-			programId = ExtIds.extId((TLObject) planned.tValueByName("program"));
+			variantId = ExtIds.extId(planned.getType());
+			programId = ExtIds.extId(planned.getProgram());
 			try (OutputStream out = new FileOutputStream(export)) {
 				KnxprojExporter.export(project, out);
 			}
@@ -232,13 +237,13 @@ public class TestDevicePlanning extends BasicTestCase {
 		TLObject reimported = importProject(export.getPath());
 		try {
 			TLObject line = line(reimported);
-			TLObject planned = device(line, 51);
-			TLObject copy = device(line, 52);
+			Device planned = device(line, 51);
+			Device copy = device(line, 52);
 			assertEquals(plannedId, ExtIds.extId(planned));
 			assertEquals(copyId, ExtIds.extId(copy));
-			for (TLObject device : List.of(planned, copy)) {
-				assertEquals(variantId, ExtIds.extId((TLObject) device.tValueByName("type")));
-				assertEquals(programId, ExtIds.extId((TLObject) device.tValueByName("program")));
+			for (Device device : List.of(planned, copy)) {
+				assertEquals(variantId, ExtIds.extId(device.getType()));
+				assertEquals(programId, ExtIds.extId(device.getProgram()));
 				assertEquals(0, list(device, "connectors").size());
 			}
 			assertEquals(plannedValues, values(planned));
@@ -275,7 +280,7 @@ public class TestDevicePlanning extends BasicTestCase {
 	private static Map<String, String> values(TLObject device) {
 		Map<String, String> result = new java.util.TreeMap<>();
 		for (TLObject setting : list(device, "settings")) {
-			result.put(ExtIds.extId((TLObject) setting.tValueByName("parameter")), ParameterValues.encode(setting));
+			result.put(ExtIds.extId(((ParameterSetting) setting).getParameter()), ParameterValues.encode(setting));
 		}
 		return result;
 	}
@@ -324,9 +329,9 @@ public class TestDevicePlanning extends BasicTestCase {
 	 */
 	private static TLObject line(TLObject project) {
 		for (TLObject area : list(project, "areas")) {
-			if (Integer.valueOf(1).equals(area.tValueByName("address"))) {
+			if (Integer.valueOf(1).equals(((Area) area).getAddress())) {
 				for (TLObject line : list(area, "lines")) {
-					if (Integer.valueOf(3).equals(line.tValueByName("address"))) {
+					if (Integer.valueOf(3).equals(((Line) line).getAddress())) {
 						return line;
 					}
 				}
@@ -336,10 +341,10 @@ public class TestDevicePlanning extends BasicTestCase {
 		return null;
 	}
 
-	private static TLObject device(TLObject line, int number) {
+	private static Device device(TLObject line, int number) {
 		for (TLObject device : list(line, "devices")) {
-			if (Integer.valueOf(number).equals(device.tValueByName("address"))) {
-				return device;
+			if (Integer.valueOf(number).equals(((BusDevice) device).getAddress())) {
+				return (Device) device;
 			}
 		}
 		fail("No device " + number + " in the line.");

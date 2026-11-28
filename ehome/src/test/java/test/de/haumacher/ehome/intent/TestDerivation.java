@@ -33,7 +33,6 @@ import test.de.haumacher.ehome.importer.SharedData;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.model.util.TLModelUtil;
@@ -51,6 +50,8 @@ import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.PresetUse;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Control;
 import de.haumacher.ehome.model.runtime.Function;
@@ -208,7 +209,7 @@ public class TestDerivation extends BasicTestCase {
 		assertEquals("licht.state", stateAddress.getIdentifier());
 		assertEquals(List.of(ObjectTypes.effective(actuator, switching)), commandAddress.getDatapointTypes());
 		assertEquals("1", encoded(keys, concept));
-		assertEquals(_f.toggle, Presets.use(keys, _f.key1).tValueByName("preset"));
+		assertEquals(_f.toggle, ((PresetUse) Presets.use(keys, _f.key1)).getPreset());
 		assertConnected(actuator, switching, commandAddress, "receive");
 		assertConnected(actuator, state, stateAddress, "send");
 		assertConnected(keys, keyObject, commandAddress, "send");
@@ -551,8 +552,8 @@ public class TestDerivation extends BasicTestCase {
 
 	private static TLObject actual(TLObject device, Interface placed, TLObject address, String kind) {
 		for (TLObject connection : DeviceSettings.connections(device, placed)) {
-			if (connection.tValueByName("target") == address
-				&& kind.equals(((TLClassifier) connection.tValueByName("kind")).getName())) {
+			if (((Connection) connection).getTarget() == address
+				&& kind.equals(((Connection) connection).getKind().getName())) {
 				return connection;
 			}
 		}

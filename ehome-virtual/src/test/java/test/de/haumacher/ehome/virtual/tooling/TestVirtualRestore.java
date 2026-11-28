@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.virtual.tooling.VirtualTesting.manager;
 import static test.de.haumacher.ehome.virtual.tooling.VirtualTesting.writing;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -28,6 +29,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -102,8 +104,8 @@ public class TestVirtualRestore extends BasicTestCase {
 			}
 			download(device, simulated, manager, endpoint, "changed");
 			assertFalse("The device differs from A.", holds(simulated, a));
-			Object downloadRevision = device.tValueByName("downloadRevision");
-			Object lastDownload = device.tValueByName("lastDownload");
+			Long downloadRevision = ((Device) device).getDownloadRevision();
+			Date lastDownload = ((Device) device).getLastDownload();
 
 			// Restore A.
 			DownloadPlan plan = DownloadPlanner.restore(device, a, false);
@@ -128,8 +130,8 @@ public class TestVirtualRestore extends BasicTestCase {
 			Snapshot again = readOut(device, simulated, manager, endpoint, "again");
 			assertTrue("A new read-out equals A.", sameReading(a, again));
 			// The project is not changed: the record of the device's download stays.
-			assertEquals(downloadRevision, device.tValueByName("downloadRevision"));
-			assertEquals(lastDownload, device.tValueByName("lastDownload"));
+			assertEquals(downloadRevision, ((Device) device).getDownloadRevision());
+			assertEquals(lastDownload, ((Device) device).getLastDownload());
 
 			// Restoring A again: the device holds it, nothing is written.
 			running = manager.start(simulated, endpoint, TransportTiming.DEFAULT, Map.of("restore", "equal"));

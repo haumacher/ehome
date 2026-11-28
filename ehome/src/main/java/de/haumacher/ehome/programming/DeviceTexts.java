@@ -3,7 +3,7 @@
  */
 package de.haumacher.ehome.programming;
 
-import java.util.Collection;
+import java.util.List;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.provider.MetaLabelProvider;
@@ -18,6 +18,9 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.ChannelInstance;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
 import de.haumacher.ehome.modules.ModuleParts;
 
 /**
@@ -93,17 +96,17 @@ public final class DeviceTexts {
 	 * project deactivated.
 	 */
 	private static String withInstance(TLObject device, Channel channel, String label) {
-		TLObject instance = channelInstance(device, channel);
+		ChannelInstance instance = (ChannelInstance) channelInstance(device, channel);
 		if (instance == null) {
 			return label;
 		}
 		String result = label;
-		Object description = instance.tValueByName("description");
-		if (description != null && !description.toString().isBlank()) {
+		String description = instance.getDescription();
+		if (description != null && !description.isBlank()) {
 			result = Resources.getInstance().getString(
-				I18NConstants.CHANNEL_DESCRIPTION__CHANNEL_DESCRIPTION.fill(label, description.toString().trim()));
+				I18NConstants.CHANNEL_DESCRIPTION__CHANNEL_DESCRIPTION.fill(label, description.trim()));
 		}
-		if (Boolean.FALSE.equals(instance.tValueByName("active"))) {
+		if (Boolean.FALSE.equals(instance.tValue(EhomePhysicalFactory.getActiveChannelInstanceAttr()))) {
 			result = Resources.getInstance().getString(I18NConstants.CHANNEL_INACTIVE__CHANNEL.fill(result));
 		}
 		return result;
@@ -114,23 +117,22 @@ public final class DeviceTexts {
 	 * the device (<code>ehome.physical:ChannelInstance</code>), <code>null</code> if nothing.
 	 */
 	public static TLObject channelInstance(TLObject device, Channel channel) {
-		if (device == null || device.tType().getPart("channelInstances") == null) {
+		if (!(device instanceof Device known)) {
 			return null;
 		}
-		Collection<?> instances = (Collection<?>) device.tValueByName("channelInstances");
+		List<? extends ChannelInstance> instances = known.getChannelInstances();
 		if (instances.isEmpty()) {
 			return null;
 		}
 		String id = ModuleParts.partId(channel);
 		Program program = ModuleParts.programOf(channel);
 		String programId = program == null ? null : program.getExtId();
-		for (Object element : instances) {
-			TLObject instance = (TLObject) element;
-			Object ref = instance.tValueByName("channel");
+		for (ChannelInstance instance : instances) {
+			String ref = instance.getChannel();
 			if (ref == null) {
 				continue;
 			}
-			String full = ref.toString().trim();
+			String full = ref.trim();
 			if (!full.startsWith("M-") && programId != null) {
 				// ETS 6 names the channel relative to the program.
 				full = programId + "_" + full;

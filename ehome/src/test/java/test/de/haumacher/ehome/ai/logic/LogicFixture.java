@@ -35,6 +35,8 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -229,7 +231,7 @@ public class LogicFixture {
 		GroupAddress result = (GroupAddress) create("ehome.logical:GroupAddress");
 		result.setName(name);
 		result.setAddress(GA.parse(address, GroupAddressStyle.ThreeLevel));
-		result.setDatapointTypes(List.of(type));
+		result.setDatapointTypes(List.of((DatapointType) type));
 		if (writable) {
 			result.setRuntimeWritable(Boolean.TRUE);
 		}
@@ -237,9 +239,9 @@ public class LogicFixture {
 	}
 
 	private TLObject mainType(int number) {
-		TLObject type = create("ehome.datapoint:DatapointMainType");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", "TEST-LOGIC-" + _prefix + "-" + number);
+		DatapointMainType type = (DatapointMainType) create("ehome.datapoint:DatapointMainType");
+		type.setNumber(number);
+		type.setExtId("TEST-LOGIC-" + _prefix + "-" + number);
 		_types.add(type);
 		return type;
 	}

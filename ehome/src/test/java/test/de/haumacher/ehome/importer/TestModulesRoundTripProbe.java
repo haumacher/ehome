@@ -23,14 +23,16 @@ import test.de.haumacher.ehome.etsImport.RecordingJobMonitor;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
-import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.projectfile.ProjectFile;
@@ -100,7 +102,7 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 	 * value, the object by its ID with its label and its group addresses.
 	 */
 	private static void signature(TLObject device, TreeSet<String> result) {
-		String prefix = device.tValueByName("address") + " ";
+		String prefix = ((BusDevice) device).getAddress() + " ";
 		for (TLObject setting : list(device, "settings")) {
 			StringBuilder values = new StringBuilder();
 			for (TLStructuredTypePart part : setting.tType().getAllParts()) {
@@ -109,7 +111,8 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 				}
 				Object value = setting.tValue(part);
 				if (value instanceof TLObject target) {
-					value = target.tValueByName("extId") != null ? target.tValueByName("extId") : target.tValueByName("value");
+					String extId = ((Externalized) target).getExtId();
+					value = extId != null ? extId : Integer.valueOf(((EnumerationValue) target).getValue());
 				}
 				values.append(' ').append(part.getName()).append('=').append(value);
 			}
@@ -118,8 +121,8 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 		for (TLObject connector : list(device, "connectors")) {
 			TreeSet<String> connections = new TreeSet<>();
 			for (TLObject connection : list(connector, "connections")) {
-				connections.add(((TLClassifier) connection.tValueByName("kind")).getName() + " "
-					+ ((GroupAddress) connection.tValueByName("target")).getExtId());
+				connections.add(((Connection) connection).getKind().getName() + " "
+					+ ((Connection) connection).getTarget().getExtId());
 			}
 			result.add(prefix + "object " + ModuleParts.partId(connector, ModuleParts.PORT) + " '"
 				+ derived(connector, "displayName") + "' " + connections);

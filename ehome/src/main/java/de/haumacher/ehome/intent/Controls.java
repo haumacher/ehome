@@ -18,6 +18,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.runtime.Control;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.model.template.Preset;
@@ -49,8 +50,8 @@ public final class Controls {
 	 */
 	public static List<TLObject> functionPresets(TLObject function) {
 		List<TLObject> result = new ArrayList<>();
-		Object device = function == null ? null : function.tValueByName("device");
-		Object channel = function == null ? null : function.tValueByName("channel");
+		Object device = function instanceof Function typed ? typed.getDevice() : null;
+		Object channel = function instanceof Function typed ? typed.getChannel() : null;
 		if (device instanceof TLObject actuator && channel != null) {
 			for (TLObject preset : Presets.offered(actuator, channel.toString())) {
 				if (!Presets.isSourcePreset(preset)) {
@@ -125,7 +126,7 @@ public final class Controls {
 		}
 		Control control =
 			(Control) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(CONTROL));
-		control.setDevice(device);
+		control.setDevice((Device) device);
 		control.setChannel(channel);
 		control.setPreset((Preset) preset);
 		control.setOperation((TLClassifier) operation);

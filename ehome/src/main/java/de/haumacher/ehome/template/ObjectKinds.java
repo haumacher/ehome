@@ -28,6 +28,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
@@ -288,7 +289,7 @@ public final class ObjectKinds {
 		}
 		Map<Interface, ObjectOverlay> overlays = overlays(template);
 		List<ObjectOverlay> created = new ArrayList<>();
-		List<TLObject> types = type == null ? List.of() : List.of(type);
+		List<DatapointType> types = type == null ? List.of() : List.of((DatapointType) type);
 		for (Interface placed : placements(kind)) {
 			ObjectOverlay overlay = overlays.get(placed);
 			if (overlay == null) {

@@ -36,6 +36,8 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceChanges.Entry;
@@ -110,8 +112,8 @@ public class TestObjectFlags extends BasicTestCase {
 		Interface temperature = placement(device, TEMPERATURE);
 		assertEquals("Disabled", ObjectFlags.programValue(temperature, "canRead"));
 		TLObject connector = ObjectTypes.connector(device, temperature);
-		assertEquals("Enabled", name(connector.tValueByName("canRead")));
-		assertNull(connector.tValueByName("canWrite"));
+		assertEquals("Enabled", name(((Connector) connector).getCanRead()));
+		assertNull(((Connector) connector).getCanWrite());
 		assertEquals(Boolean.TRUE, script(GET).execute(device, temperature, "canRead"));
 		assertEquals(Boolean.TRUE, script(CHANGED).execute(device, temperature));
 		assertEquals("Vorgabe: K Ü, Niedrig", TestDeviceChanges.asRoot(Locale.GERMAN,
@@ -143,7 +145,7 @@ public class TestObjectFlags extends BasicTestCase {
 		TLObject reimported = TestRoundTrip.importProject(exported, projects);
 		TLObject device = device(reimported);
 		Interface temperature = placement(device, TEMPERATURE);
-		assertEquals("Enabled", name(ObjectTypes.connector(device, temperature).tValueByName("canRead")));
+		assertEquals("Enabled", name(((Connector) ObjectTypes.connector(device, temperature)).getCanRead()));
 		assertEquals(Boolean.TRUE, script(CHANGED).execute(device, temperature));
 	}
 
@@ -164,8 +166,8 @@ public class TestObjectFlags extends BasicTestCase {
 		// Set the read flag: stored at the device, written into the object table.
 		assertEquals(Boolean.TRUE, run(() -> script(SET).execute(device, key, "canRead", Boolean.TRUE)));
 		TLObject connector = ObjectTypes.connector(device, key);
-		assertEquals("Enabled", name(connector.tValueByName("canRead")));
-		assertNull(connector.tValueByName("update"));
+		assertEquals("Enabled", name(((Connector) connector).getCanRead()));
+		assertNull(((Connector) connector).getUpdate());
 		assertEquals(0x5F, config(device, number));
 		assertEquals(Boolean.TRUE, script(CHANGED).execute(device, key));
 		assertEquals("Vorgabe: K S Ü, Niedrig",
@@ -186,7 +188,7 @@ public class TestObjectFlags extends BasicTestCase {
 
 		// The program's value: nothing stored, no change any more.
 		assertEquals(Boolean.FALSE, run(() -> script(SET).execute(device, key, "canRead", Boolean.FALSE)));
-		assertNull(connector.tValueByName("canRead"));
+		assertNull(((Connector) connector).getCanRead());
 		assertEquals(Boolean.FALSE, script(CHANGED).execute(device, key));
 		assertEquals(0, DeviceChanges.sinceDownload(device).getCount());
 		assertEquals(0x57, config(device, number));
@@ -201,8 +203,8 @@ public class TestObjectFlags extends BasicTestCase {
 		run(() -> script(SET).execute(device, key, "canRead", Boolean.TRUE));
 		assertEquals(0x5D, config(device, number));
 		run(() -> script(RESET).execute(device, key));
-		assertNull(connector.tValueByName("canRead"));
-		assertNull(connector.tValueByName("priority"));
+		assertNull(((Connector) connector).getCanRead());
+		assertNull(((Connector) connector).getPriority());
 		assertEquals(Boolean.FALSE, script(CHANGED).execute(device, key));
 		assertNull(script(DEFAULT).execute(device, key));
 		assertEquals(0, DeviceChanges.sinceDownload(device).getCount());
@@ -216,7 +218,7 @@ public class TestObjectFlags extends BasicTestCase {
 			DeviceChanges.sinceDownload(device).reset(key);
 			return null;
 		});
-		assertNull(connector.tValueByName("canWrite"));
+		assertNull(((Connector) connector).getCanWrite());
 		assertEquals(0, DeviceChanges.sinceDownload(device).getCount());
 	}
 
@@ -238,7 +240,7 @@ public class TestObjectFlags extends BasicTestCase {
 
 	private static TLObject device(TLObject project) {
 		for (TLObject device : DeviceChanges.devices(project)) {
-			if ("Taster Küche".equals(device.tValueByName("title"))) {
+			if ("Taster Küche".equals(((Device) device).getTitle())) {
 				return device;
 			}
 		}
@@ -249,7 +251,7 @@ public class TestObjectFlags extends BasicTestCase {
 	 * The placement of the communication object of the given ID among the objects of the device.
 	 */
 	private static Interface placement(TLObject device, String id) {
-		for (Object element : (java.util.Collection<?>) device.tValueByName("connectors")) {
+		for (Object element : ((Device) device).getConnectors()) {
 			Interface placed = ModuleParts.port((TLObject) element);
 			if (placed != null && id.equals(placed.getExtId())) {
 				return placed;

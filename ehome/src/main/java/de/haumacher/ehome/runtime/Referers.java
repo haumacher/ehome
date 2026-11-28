@@ -27,6 +27,8 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.core.Externalized;
+
 /**
  * What else in a project refers to an object about to be deleted (haumacher/ehome #94): the
  * functions whose roles name a datapoint, the rules whose triggers and actions name a datapoint or a
@@ -219,7 +221,7 @@ public final class Referers {
 	}
 
 	private static boolean hasExtId(TLObject obj) {
-		return obj.tType().getPart("extId") != null && obj.tValueByName("extId") != null;
+		return obj instanceof Externalized externalized && externalized.getExtId() != null;
 	}
 
 	/**

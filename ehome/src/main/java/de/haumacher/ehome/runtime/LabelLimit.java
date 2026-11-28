@@ -17,6 +17,11 @@ import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
+import de.haumacher.ehome.model.runtime.Rule;
+import de.haumacher.ehome.model.runtime.RuleChoice;
+import de.haumacher.ehome.model.runtime.RuleParameter;
+import de.haumacher.ehome.model.runtime.ScheduleEntry;
 import de.haumacher.ehome.rules.RuleSet;
 
 /**
@@ -119,7 +124,7 @@ public final class LabelLimit {
 		TLObject container = valid(self) ? self.tContainer() : null;
 		switch (form.tType().getName()) {
 			case "Rule": {
-				String rule = name(value, form, "identifier");
+				String rule = name(value, ((Rule) form).getIdentifier());
 				return switch (lang) {
 					case "de" -> I18NConstants.LABEL_TOO_LONG_RULE_DE__RULE_BYTES.fill(rule, bytes);
 					case "en" -> I18NConstants.LABEL_TOO_LONG_RULE_EN__RULE_BYTES.fill(rule, bytes);
@@ -127,7 +132,7 @@ public final class LabelLimit {
 				};
 			}
 			case "RuleParameter": {
-				String parameter = name(value, form, "identifier");
+				String parameter = name(value, ((RuleParameter) form).getIdentifier());
 				String rule = ruleName(container);
 				return switch (lang) {
 					case "de" -> I18NConstants.LABEL_TOO_LONG_PARAMETER_DE__PARAMETER_RULE_BYTES.fill(parameter, rule, bytes);
@@ -137,8 +142,9 @@ public final class LabelLimit {
 				};
 			}
 			case "RuleChoice": {
-				String choice = name(value, form, "value");
-				String parameter = valid(container) ? name(container.tValueByName("title"), container, "identifier") : "?";
+				String choice = name(value, ((RuleChoice) form).getValue());
+				String parameter = valid(container) && container instanceof RuleParameter owner
+					? name(owner.getTitle(), owner.getIdentifier()) : "?";
 				String rule = ruleName(valid(container) ? container.tContainer() : null);
 				return switch (lang) {
 					case "de" -> I18NConstants.LABEL_TOO_LONG_CHOICE_DE__CHOICE_PARAMETER_RULE_BYTES.fill(choice, parameter,
@@ -151,7 +157,7 @@ public final class LabelLimit {
 			}
 			case "ApplicationDatapoint": {
 				// A datapoint in a display text: Name (id), haumacher/ehome #113.
-				String datapoint = DatapointNames.format(text(value), text(form.tValueByName("identifier")));
+				String datapoint = DatapointNames.format(text(value), text(((ApplicationDatapoint) form).getIdentifier()));
 				datapoint = datapoint == null ? "?" : datapoint;
 				return switch (lang) {
 					case "de" -> I18NConstants.LABEL_TOO_LONG_DATAPOINT_DE__DATAPOINT_BYTES.fill(datapoint, bytes);
@@ -160,7 +166,7 @@ public final class LabelLimit {
 				};
 			}
 			default: {
-				String entry = name(value, form, "identifier");
+				String entry = name(value, ((ScheduleEntry) form).getIdentifier());
 				return switch (lang) {
 					case "de" -> I18NConstants.LABEL_TOO_LONG_SCHEDULE_DE__ENTRY_BYTES.fill(entry, bytes);
 					case "en" -> I18NConstants.LABEL_TOO_LONG_SCHEDULE_EN__ENTRY_BYTES.fill(entry, bytes);
@@ -224,19 +230,19 @@ public final class LabelLimit {
 	}
 
 	/**
-	 * The name of an object in a message: its label in the language of the reader, else the value of
-	 * the given attribute.
+	 * The name of an object in a message: its label in the language of the reader, else the given
+	 * fallback (its identifier).
 	 */
-	private static String name(Object label, TLObject obj, String fallback) {
+	private static String name(Object label, Object fallback) {
 		String text = text(label);
 		if (text == null) {
-			text = text(obj.tValueByName(fallback));
+			text = text(fallback);
 		}
 		return text == null ? "?" : text;
 	}
 
 	private static String ruleName(TLObject rule) {
-		return valid(rule) ? name(rule.tValueByName("name"), rule, "identifier") : "?";
+		return valid(rule) && rule instanceof Rule named ? name(named.getNameKey(), named.getIdentifier()) : "?";
 	}
 
 	private static String text(Object value) {

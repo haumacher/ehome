@@ -54,6 +54,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusException;
@@ -167,7 +169,7 @@ public class TestScanTakeOver extends BasicTestCase {
 			assertNotNull(device);
 			assertEquals(PROGRAMS.get(Integer.valueOf(address)),
 				DeviceConfiguration.program(device).getExtId());
-			assertNotNull("Recorded as downloaded: the device holds what the project says.", device.tValueByName("lastDownload"));
+			assertNotNull("Recorded as downloaded: the device holds what the project says.", ((Device) device).getLastDownload());
 			assertTrue("The memory was read.", devices.get(FoundDevice.formatAddress(address)).calls().size() > 0);
 			assertEquals(0, devices.get(FoundDevice.formatAddress(address)).writes());
 		}
@@ -178,7 +180,7 @@ public class TestScanTakeOver extends BasicTestCase {
 		TLObject stub = InstallationBuilder.device(_scanned, 0x1307);
 		assertTrue("A stub in its line: " + stub, DeviceStubs.isStub(stub));
 		assertSame(InstallationBuilder.device(_scanned, ACTUATOR).tContainer(), stub.tContainer());
-		assertEquals(Integer.valueOf(7), stub.tValueByName("address"));
+		assertEquals(Integer.valueOf(7), ((BusDevice) stub).getAddress());
 		assertNull("No program.", DeviceConfiguration.program(stub));
 		assertFalse("Its configuration is not read.", devices.containsKey("1.3.7"));
 
@@ -260,7 +262,7 @@ public class TestScanTakeOver extends BasicTestCase {
 			assertEquals("warning", row.get(ScanRows.STATE_ROLE));
 			TLObject device = InstallationBuilder.device(project, ACTUATOR);
 			assertNotNull("Created all the same.", device);
-			assertNull("Not recorded as downloaded.", device.tValueByName("lastDownload"));
+			assertNull("Not recorded as downloaded.", ((Device) device).getLastDownload());
 			assertNull("The Tastsensor was not selected.", InstallationBuilder.device(project, TASTSENSOR));
 		} finally {
 			delete(project);

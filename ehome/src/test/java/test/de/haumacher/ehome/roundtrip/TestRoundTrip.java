@@ -56,6 +56,7 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 
@@ -438,8 +439,8 @@ public class TestRoundTrip extends BasicTestCase {
 	private static List<String> extIds(List<TLObject> contents) {
 		List<String> result = new ArrayList<>();
 		for (TLObject obj : contents) {
-			if (obj.tType().getPart("extId") != null) {
-				result.add(TLModelUtil.qualifiedName(obj.tType()) + " " + obj.tValueByName("extId"));
+			if (obj instanceof Externalized externalized) {
+				result.add(TLModelUtil.qualifiedName(obj.tType()) + " " + externalized.getExtId());
 			}
 		}
 		result.sort(null);
@@ -478,8 +479,8 @@ public class TestRoundTrip extends BasicTestCase {
 	private static Map<String, DownloadImage> images(List<TLObject> contents) {
 		Map<String, DownloadImage> result = new TreeMap<>();
 		for (TLObject obj : contents) {
-			if (TLModelUtil.qualifiedName(obj.tType()).equals("ehome.physical:Device")) {
-				result.put((String) obj.tValueByName("extId"), DownloadImage.compute(obj));
+			if (obj instanceof Device device) {
+				result.put(device.getExtId(), DownloadImage.compute(device));
 			}
 		}
 		return result;

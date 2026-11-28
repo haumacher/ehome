@@ -19,6 +19,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.GroupRange;
@@ -218,7 +219,7 @@ public final class GroupAddresses {
 			result.setName(name.trim());
 		}
 		if (datapointType != null) {
-			result.setDatapointTypes(List.of(datapointType));
+			result.setDatapointTypes(List.of((DatapointType) datapointType));
 		}
 		((GroupRange) range).addPart(result);
 		ExtIds.assign(result);

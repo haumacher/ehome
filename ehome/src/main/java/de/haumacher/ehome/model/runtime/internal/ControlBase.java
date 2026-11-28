@@ -98,14 +98,14 @@ public interface ControlBase extends com.top_logic.model.TLObject {
 	/**
 	 * Getter for part {@link #DEVICE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getDevice() {
-		return (com.top_logic.model.TLObject) tValueByName(DEVICE_ATTR);
+	default de.haumacher.ehome.model.physical.Device getDevice() {
+		return (de.haumacher.ehome.model.physical.Device) tValueByName(DEVICE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #DEVICE_ATTR}.
 	 */
-	default void setDevice(com.top_logic.model.TLObject newValue) {
+	default void setDevice(de.haumacher.ehome.model.physical.Device newValue) {
 		tUpdateByName(DEVICE_ATTR, newValue);
 	}
 

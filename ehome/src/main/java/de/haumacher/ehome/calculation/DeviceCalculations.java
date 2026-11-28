@@ -5,6 +5,7 @@ package de.haumacher.ehome.calculation;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -26,6 +27,7 @@ import de.haumacher.ehome.model.operational.ParameterCalculation;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.InstanceInfo;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -436,11 +438,11 @@ public final class DeviceCalculations {
 				Map<ParameterView, Object> derived = evaluate(device, bound, false);
 				// The memory of the device is the file's: the L values derived from it change nothing the
 				// device holds, so the device stays as modified as the file says.
-				Object modified = device.tValueByName("lastModified");
+				Date modified = ((Device) device).getConfigurationChanged();
 				for (Map.Entry<ParameterView, Object> entry : derived.entrySet()) {
 					DeviceSettings.storeComputed(device, entry.getKey(), entry.getValue());
 				}
-				device.tUpdateByName("lastModified", modified);
+				((Device) device).setConfigurationChanged(modified);
 			} catch (TopLogicException ex) {
 				result.add(ex.getErrorKey());
 			}

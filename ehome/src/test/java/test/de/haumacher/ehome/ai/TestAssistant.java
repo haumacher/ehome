@@ -126,7 +126,7 @@ public class TestAssistant extends BasicTestCase {
 		assertTrue("A viewer reads: " + offered, offered.contains("query"));
 		String toolAnswer = sent.get(sent.size() - 1).messages().toString();
 		assertTrue("The refusal names the object: " + toolAnswer, toolAnswer.contains("may not change"));
-		assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
+		assertEquals(ACTUATOR, _fixture.actuator().getTitle());
 	}
 
 	public void testWithoutKeyTheMissingSecretIsNamed() {

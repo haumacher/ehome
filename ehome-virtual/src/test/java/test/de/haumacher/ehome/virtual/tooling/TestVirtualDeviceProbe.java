@@ -13,7 +13,6 @@ import static test.de.haumacher.ehome.virtual.tooling.VirtualTesting.writing;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +32,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
@@ -80,7 +83,7 @@ public class TestVirtualDeviceProbe extends BasicTestCase {
 				if (program == null || !seen.add(program)) {
 					continue;
 				}
-				String name = String.valueOf(device.tValueByName("name")) + " (" + program.getName() + ")";
+				String name = String.valueOf(((Device) device).getName()) + " (" + program.getName() + ")";
 				if (ProjectDevices.veto(device) != null) {
 					skipped.add(name + ": " + ProjectDevices.veto(device));
 					continue;
@@ -156,10 +159,10 @@ public class TestVirtualDeviceProbe extends BasicTestCase {
 
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.add((TLObject) device);
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				for (BusDevice device : line.getDevices()) {
+					result.add(device);
 				}
 			}
 		}

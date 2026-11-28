@@ -29,6 +29,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeDeviceType;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeFunctionEntry;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
@@ -154,8 +156,8 @@ public final class ZigbeeCatalogJson {
 	 */
 	public static String fileName(Collection<? extends TLObject> types) {
 		if (types.size() == 1) {
-			TLObject type = types.iterator().next();
-			return FunctionProposal.slug(type.tValueByName("manufacturer") + " " + type.tValueByName("model"))
+			ZigbeeDeviceType type = (ZigbeeDeviceType) types.iterator().next();
+			return FunctionProposal.slug(type.getManufacturer() + " " + type.getModel())
 				+ ".json";
 		}
 		return "zigbee-catalog.json";
@@ -199,7 +201,10 @@ public final class ZigbeeCatalogJson {
 		}
 		List<TypeData> types = parse(root);
 		List<TLObject> result = new ArrayList<>();
-		List<TLObject> all = new ArrayList<>(ZigbeeCatalog.types(catalog));
+		List<ZigbeeDeviceType> all = new ArrayList<>();
+		for (TLObject type : ZigbeeCatalog.types(catalog)) {
+			all.add((ZigbeeDeviceType) type);
+		}
 		int created = 0;
 		int updated = 0;
 		int unchanged = 0;
@@ -208,7 +213,7 @@ public final class ZigbeeCatalogJson {
 			if (type == null) {
 				type = create(ZigbeeCatalog.DEVICE_TYPE);
 				update(type, data);
-				all.add(type);
+				all.add((ZigbeeDeviceType) type);
 				created++;
 			} else if (mode == Mode.KEEP || json(read(type)).equals(json(data))) {
 				unchanged++;
@@ -219,7 +224,7 @@ public final class ZigbeeCatalogJson {
 			result.add(type);
 		}
 		if (created > 0) {
-			catalog.tUpdateByName("types", all);
+			((de.haumacher.ehome.model.zigbee.catalog.ZigbeeCatalog) catalog).setDeviceTypes(all);
 		}
 		return new Result(result, created, updated, unchanged);
 	}
@@ -431,16 +436,17 @@ public final class ZigbeeCatalogJson {
 	static TypeData read(TLObject type) {
 		List<EntryData> functions = new ArrayList<>();
 		for (TLObject entry : ZigbeeCatalog.entries(type)) {
-			functions.add(new EntryData(number(entry.tValueByName("endpoint")).longValue(),
-				(String) entry.tValueByName("function"), texts(entry.tValueByName("name")),
+			functions.add(new EntryData(number(ZigbeeCatalog.endpoint(entry)).longValue(),
+				((ZigbeeFunctionEntry) entry).getFunction(), texts(ZigbeeCatalog.entryName(entry)),
 				ZigbeeCatalog.recommendedType(entry), ZigbeeCatalog.recommendedUnit(entry),
-				Boolean.TRUE.equals(entry.tValueByName("hidden")), integerValue(entry.tValueByName(ZigbeeReporting.MIN)),
+				ZigbeeCatalog.entryHidden(entry), integerValue(entry.tValueByName(ZigbeeReporting.MIN)),
 				integerValue(entry.tValueByName(ZigbeeReporting.MAX)),
 				entry.tValueByName(ZigbeeReporting.CHANGE) instanceof Number change ? Double.valueOf(change.doubleValue())
 					: null));
 		}
-		return new TypeData((String) type.tValueByName("manufacturer"), (String) type.tValueByName("model"),
-			texts(type.tValueByName("name")), texts(type.tValueByName("description")), functions);
+		ZigbeeDeviceType typed = (ZigbeeDeviceType) type;
+		return new TypeData(typed.getManufacturer(), typed.getModel(), texts(ZigbeeCatalog.entryName(type)),
+			texts(typed.getDescription()), functions);
 	}
 
 	private static Number number(Object value) {
@@ -536,16 +542,16 @@ public final class ZigbeeCatalogJson {
 		Map<String, TLObject> byKey = new HashMap<>();
 		List<TLObject> before = ZigbeeCatalog.entries(type);
 		for (TLObject entry : before) {
-			byKey.putIfAbsent(number(entry.tValueByName("endpoint")).longValue() + "/" + entry.tValueByName("function"),
-				entry);
+			byKey.putIfAbsent(number(ZigbeeCatalog.endpoint(entry)).longValue() + "/"
+				+ ((ZigbeeFunctionEntry) entry).getFunction(), entry);
 		}
-		List<TLObject> after = new ArrayList<>();
+		List<ZigbeeFunctionEntry> after = new ArrayList<>();
 		for (EntryData data2 : data.functions()) {
-			TLObject entry = byKey.remove(data2.endpoint() + "/" + data2.function());
+			ZigbeeFunctionEntry entry = (ZigbeeFunctionEntry) byKey.remove(data2.endpoint() + "/" + data2.function());
 			if (entry == null) {
-				entry = create(ZigbeeCatalog.FUNCTION_ENTRY);
-				entry.tUpdateByName("endpoint", Integer.valueOf((int) data2.endpoint()));
-				entry.tUpdateByName("function", data2.function());
+				entry = (ZigbeeFunctionEntry) create(ZigbeeCatalog.FUNCTION_ENTRY);
+				entry.setEndpoint((int) data2.endpoint());
+				entry.setFunction(data2.function());
 			}
 			set(entry, "name", text(data2.name()));
 			set(entry, "type", data2.type() == null ? null : valueType(data2.type()));
@@ -557,7 +563,7 @@ public final class ZigbeeCatalogJson {
 			after.add(entry);
 		}
 		if (!after.equals(before)) {
-			type.tUpdateByName("functions", after);
+			((ZigbeeDeviceType) type).setFunctions(after);
 		}
 		for (TLObject removed : byKey.values()) {
 			removed.tDelete();

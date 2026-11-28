@@ -46,6 +46,7 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.Program;
 
@@ -128,7 +129,7 @@ public class TestAlpha11ImportProbe extends BasicTestCase {
 				}
 				Set<String> ids = new HashSet<>();
 				for (TLObject obj : instances(TLModelUtil.qualifiedName(type))) {
-					String id = (String) obj.tValueByName("extId");
+					String id = ((Externalized) obj).getExtId();
 					assertTrue("Shared object " + id + " of " + type + " twice.", id == null || ids.add(id));
 				}
 			}

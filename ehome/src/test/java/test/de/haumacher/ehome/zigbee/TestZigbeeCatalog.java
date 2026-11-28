@@ -43,6 +43,8 @@ import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeDeviceType;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeFunctionEntry;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
@@ -234,35 +236,36 @@ public class TestZigbeeCatalog extends BasicTestCase {
 	public void testConstraints() throws Exception {
 		TLObject catalog = catalog();
 		try {
-			TLObject entry;
+			ZigbeeFunctionEntry entry;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject type = create(ZigbeeCatalog.DEVICE_TYPE);
-				type.tUpdateByName("manufacturer", "Test");
-				type.tUpdateByName("model", "T-1");
-				type.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Test device", "en", "Test device")));
-				entry = create(ZigbeeCatalog.FUNCTION_ENTRY);
-				entry.tUpdateByName("endpoint", Integer.valueOf(1));
-				entry.tUpdateByName("function", "temperature");
-				type.tUpdateByName("functions", List.of(entry));
-				catalog.tUpdateByName("types", List.of(type));
+				ZigbeeDeviceType type = (ZigbeeDeviceType) create(ZigbeeCatalog.DEVICE_TYPE);
+				type.setManufacturer("Test");
+				type.setModel("T-1");
+				type.setNameKey(
+					FunctionProposal.text(Map.of("de", "Test device", "en", "Test device")));
+				entry = (ZigbeeFunctionEntry) create(ZigbeeCatalog.FUNCTION_ENTRY);
+				entry.setEndpoint(1);
+				entry.setFunction("temperature");
+				type.setFunctions(List.of(entry));
+				((de.haumacher.ehome.model.zigbee.catalog.ZigbeeCatalog) catalog).setDeviceTypes(List.of(type));
 				tx.commit();
 			}
 
 			// Saved in the UI: the constraint refuses with the reason; at the commit the model refuses as well.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				entry.tUpdateByName("type", valueType("boolean"));
+				entry.setType(valueType("boolean"));
 				ResKey problem = problem(entry, "type");
 				assertEquals(I18NConstants.CATALOG_TYPE_MISFIT__TYPE_FUNCTION_VALUE_TYPE.fill("boolean", "temperature",
 					"real"), problem);
 				assertEquals("The datapoint type boolean does not fit the function temperature, which carries the value type real.",
 					Resources.getInstance(Locale.ENGLISH).getString(problem));
-				entry.tUpdateByName("type", valueType("signed"));
+				entry.setType(valueType("signed"));
 				assertNull("The numeric types are interchangeable, as for a binding.", problem(entry, "type"));
-				entry.tUpdateByName("type", null);
+				entry.setType(null);
 				entry.tUpdateByName(ZigbeeReporting.MIN, Integer.valueOf(900));
 				assertEquals(I18NConstants.REPORTING_MIN_ABOVE_MAX, problem(entry, ZigbeeReporting.MIN));
 				entry.tUpdateByName(ZigbeeReporting.MIN, null);
-				entry.tUpdateByName("function", "occupancy");
+				entry.setFunction("occupancy");
 				entry.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(1));
 				assertEquals(I18NConstants.REPORTING_NO_CHANGE_DISCRETE__FUNCTION.fill("occupancy"),
 					problem(entry, ZigbeeReporting.CHANGE));
@@ -292,11 +295,11 @@ public class TestZigbeeCatalog extends BasicTestCase {
 		try {
 			ZigbeeCatalogJson.Result first = importText(catalog, text);
 			assertEquals(1, first.created());
-			TLObject copy = first.types().get(0);
+			ZigbeeDeviceType copy = (ZigbeeDeviceType) first.types().get(0);
 			assertNotSame(seeded(), copy);
 			assertEquals(ZigbeeCatalogJson.write(List.of(seeded())), ZigbeeCatalogJson.write(List.of(copy)));
-			assertEquals("Philips SML002", copy.tValueByName("manufacturer") + " " + copy.tValueByName("model"));
-			assertEquals("Hue Bewegungsmelder", Resources.getInstance(Locale.GERMAN).getString((ResKey) copy.tValueByName("name")));
+			assertEquals("Philips SML002", copy.getManufacturer() + " " + copy.getModel());
+			assertEquals("Hue Bewegungsmelder", Resources.getInstance(Locale.GERMAN).getString(copy.getNameKey()));
 			assertEquals(5, ZigbeeCatalog.entries(copy).size());
 
 			ZigbeeCatalogJson.Result second = importText(catalog, text);
@@ -313,7 +316,7 @@ public class TestZigbeeCatalog extends BasicTestCase {
 			assertSame(copy, third.types().get(0));
 			assertEquals(4, ZigbeeCatalog.entries(copy).size());
 			assertEquals("Lichtstärke", Resources.getInstance(Locale.GERMAN).getString(
-				(ResKey) ZigbeeCatalog.entry(copy, Integer.valueOf(2), "illuminance").tValueByName("name")));
+				((ZigbeeFunctionEntry) ZigbeeCatalog.entry(copy, Integer.valueOf(2), "illuminance")).getNameKey()));
 			assertEquals("seeded type untouched", 5, ZigbeeCatalog.entries(seeded()).size());
 		} finally {
 			delete(catalog);

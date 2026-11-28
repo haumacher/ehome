@@ -28,6 +28,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.project.Project;
+import de.haumacher.ehome.model.runtime.EhomeRuntimeFactory;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.FunctionProposal;
 
@@ -67,7 +68,7 @@ public class TestFunctionWiringProbe extends BasicTestCase {
 						assertFalse(projectName + ": " + name + " placed in a distribution board",
 							TLModelUtil.qualifiedName(location.tType()).equals("ehome.building:DistributionBoard"));
 					}
-					if (Boolean.TRUE.equals(function.tValueByName("unused"))
+					if (Boolean.TRUE.equals(function.tValue(EhomeRuntimeFactory.getUnusedFunctionAttr()))
 						&& function.getDevice() instanceof TLObject device) {
 						int colon = name.lastIndexOf(": ");
 						assertTrue(name, colon > 0);
@@ -80,7 +81,7 @@ public class TestFunctionWiringProbe extends BasicTestCase {
 
 				// A name the user gave an unused function survives the next run.
 				for (Function function : ((Project) project).getFunctions()) {
-					if (Boolean.TRUE.equals(function.tValueByName("unused"))) {
+					if (Boolean.TRUE.equals(function.tValue(EhomeRuntimeFactory.getUnusedFunctionAttr()))) {
 						try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 							function.setNameKey(ResKey.text("Mein Name"));
 							tx.commit();

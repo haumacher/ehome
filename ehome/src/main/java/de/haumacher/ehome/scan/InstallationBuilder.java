@@ -21,9 +21,16 @@ import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.catalog.ProgramAssignment;
+import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupAddressDefinition;
 import de.haumacher.ehome.model.logical.GroupRange;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -88,7 +95,7 @@ public class InstallationBuilder {
 		if (DeviceStubs.isStub(existing)) {
 			TLObject device = replace(existing, candidate);
 			if (found.serialStored() != null) {
-				device.tUpdateByName("serialNumber", found.serialStored());
+				((Device) device).setSerialNumber(found.serialStored());
 			}
 			return new Outcome(Action.CREATED, device, "The device " + address + " was created in place of its stub: "
 				+ candidate.label() + ".");
@@ -101,14 +108,14 @@ public class InstallationBuilder {
 					+ program + ", the device on the bus " + candidate.program().getExtId() + "; nothing changed.");
 			}
 			if (found.serialStored() != null) {
-				existing.tUpdateByName("serialNumber", found.serialStored());
+				((Device) existing).setSerialNumber(found.serialStored());
 			}
 			return new Outcome(Action.UPDATED, existing, "The device " + address + " was updated.");
 		}
 		TLObject line = line(project, found.address() >>> 12 & 0x0F, found.address() >>> 8 & 0x0F);
 		TLObject device = createDevice(line, found.address() & 0xFF, candidate.variant(), candidate.assignment(), loadedFromBus());
 		if (found.serialStored() != null) {
-			device.tUpdateByName("serialNumber", found.serialStored());
+			((Device) device).setSerialNumber(found.serialStored());
 		}
 		return new Outcome(Action.CREATED, device, "The device " + address + " was created: " + candidate.label() + ".");
 	}
@@ -138,17 +145,18 @@ public class InstallationBuilder {
 		String reference = stub.tContainerReference().getName();
 		List<TLObject> before = ExtIds.list(container, reference);
 		int index = before.indexOf(stub);
-		Object title = stub.tValueByName("title");
-		Object number = stub.tValueByName("address");
-		Object serial = stub.tValueByName("serialNumber");
-		Object location = stub.tValueByName("location");
+		BusDevice busDevice = (BusDevice) stub;
+		String title = busDevice.getTitle();
+		Integer number = busDevice.getAddress();
+		String serial = busDevice.getSerialNumber();
+		BuildingDefinition location = busDevice.getLocation();
 		Object extId = stub.tValueByName(ExtIds.EXT_ID);
 		stub.tDelete();
 
-		TLObject device = newDevice(number, candidate.variant(), candidate.assignment(), loadedFromBus());
-		device.tUpdateByName("title", title);
-		device.tUpdateByName("serialNumber", serial);
-		device.tUpdateByName("location", location);
+		Device device = newDevice(number, candidate.variant(), candidate.assignment(), loadedFromBus());
+		device.setTitle(title);
+		device.setSerialNumber(serial);
+		device.setLocation(location);
 		List<TLObject> elements = ExtIds.list(container, reference);
 		elements.add(index < 0 ? elements.size() : Math.min(index, elements.size()), device);
 		container.tUpdateByName(reference, elements);
@@ -197,13 +205,17 @@ public class InstallationBuilder {
 		return device;
 	}
 
-	private static TLObject newDevice(Object number, TLObject variant, TLObject assignment, Collection<?> loaded) {
-		TLObject device = create(DeviceStubs.DEVICE_TYPE);
-		device.tUpdateByName("address", number);
-		device.tUpdateByName("type", variant);
-		device.tUpdateByName("program", assignment);
-		device.tUpdateByName("loaded", new LinkedHashSet<>(loaded));
-		device.tUpdateByName("lastModified", new Date());
+	private static Device newDevice(Integer number, TLObject variant, TLObject assignment, Collection<?> loaded) {
+		Device device = (Device) create(DeviceStubs.DEVICE_TYPE);
+		device.setAddress(number);
+		device.setType((Variant) variant);
+		device.setProgram((ProgramAssignment) assignment);
+		Set<TLClassifier> parts = new LinkedHashSet<>();
+		for (Object part : loaded) {
+			parts.add((TLClassifier) part);
+		}
+		device.setLoaded(parts);
+		device.setConfigurationChanged(new Date());
 		return device;
 	}
 
@@ -249,15 +261,15 @@ public class InstallationBuilder {
 	public static Set<Integer> addresses(TLObject project) {
 		Set<Integer> result = new TreeSet<>();
 		for (TLObject area : ((Project) project).getAreas()) {
-			if (!(area.tValueByName("address") instanceof Integer areaNumber) || areaNumber.intValue() >>> 4 != 0) {
+			if (!(((Area) area).getAddress() instanceof Integer areaNumber) || areaNumber.intValue() >>> 4 != 0) {
 				continue;
 			}
 			for (TLObject line : ExtIds.list(area, "lines")) {
-				if (!(line.tValueByName("address") instanceof Integer lineNumber) || lineNumber.intValue() >>> 4 != 0) {
+				if (!(((Line) line).getAddress() instanceof Integer lineNumber) || lineNumber.intValue() >>> 4 != 0) {
 					continue;
 				}
 				for (TLObject device : ExtIds.list(line, "devices")) {
-					if (device.tValueByName("address") instanceof Integer number && number.intValue() >>> 8 == 0) {
+					if (((BusDevice) device).getAddress() instanceof Integer number && number.intValue() >>> 8 == 0) {
 						result.add(Integer.valueOf(areaNumber.intValue() << 12 | lineNumber.intValue() << 8 | number.intValue()));
 					}
 				}
@@ -279,10 +291,11 @@ public class InstallationBuilder {
 			}
 		}
 		if (area == null) {
-			area = create("ehome.physical:Area");
-			area.tUpdateByName("address", Integer.valueOf(areaNumber));
-			area.tUpdateByName("name", Integer.toString(areaNumber));
-			((Project) project).addArea(area);
+			Area newArea = (Area) create("ehome.physical:Area");
+			newArea.setAddress(Integer.valueOf(areaNumber));
+			newArea.setName(Integer.toString(areaNumber));
+			((Project) project).addArea(newArea);
+			area = newArea;
 			ExtIds.assign(area);
 		}
 		for (TLObject candidate : ExtIds.list(area, "lines")) {
@@ -290,9 +303,9 @@ public class InstallationBuilder {
 				return candidate;
 			}
 		}
-		TLObject line = create("ehome.physical:Line");
-		line.tUpdateByName("address", Integer.valueOf(lineNumber));
-		line.tUpdateByName("name", areaNumber + "." + lineNumber);
+		Line line = (Line) create("ehome.physical:Line");
+		line.setAddress(Integer.valueOf(lineNumber));
+		line.setName(areaNumber + "." + lineNumber);
 		add(area, "lines", line);
 		ExtIds.assign(line);
 		return line;
@@ -373,7 +386,21 @@ public class InstallationBuilder {
 	}
 
 	private static boolean number(TLObject obj, int number) {
-		return obj.tValueByName("address") instanceof Integer value && value.intValue() == number;
+		return address(obj) instanceof Integer value && value.intValue() == number;
+	}
+
+	/**
+	 * The number of an area, a line or a device (<code>ehome.physical:BusDevice</code>) in its
+	 * container, <code>null</code> if it has none.
+	 */
+	private static Integer address(TLObject obj) {
+		if (obj instanceof Area area) {
+			return area.getAddress();
+		}
+		if (obj instanceof Line line) {
+			return line.getAddress();
+		}
+		return ((BusDevice) obj).getAddress();
 	}
 
 	static TLObject create(String typeName) {

@@ -23,6 +23,7 @@ import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.ParameterEncoding;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -131,7 +132,7 @@ public class CatalogMatch {
 			// No device, or the stub of a device not identified before: it names no program.
 			return match;
 		}
-		Object assignment = device.tValueByName("program");
+		ProgramAssignment assignment = ((Device) device).getProgram();
 		List<Candidate> same = match.candidates().stream().filter(c -> c.assignment() == assignment).toList();
 		if (same.isEmpty()) {
 			Program program = DeviceConfiguration.program(device);
@@ -140,7 +141,7 @@ public class CatalogMatch {
 		if (same.isEmpty()) {
 			return match;
 		}
-		Object variant = device.tValueByName("type");
+		Variant variant = ((Device) device).getType();
 		List<Candidate> sameVariant = same.stream().filter(c -> c.variant() == variant).toList();
 		if (!sameVariant.isEmpty()) {
 			same = sameVariant;

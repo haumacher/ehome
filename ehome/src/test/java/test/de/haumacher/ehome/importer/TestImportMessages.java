@@ -42,8 +42,8 @@ import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.Parameter;
-import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 
 /**
@@ -99,12 +99,12 @@ public class TestImportMessages extends BasicTestCase {
 		assertEquals("300", parameter.getText());
 		assertNull(parameter.getNumber());
 		List<TLObject> settings = instances("ehome.physical:ParameterSetting").stream()
-			.filter(s -> ((ParameterView) s.tValueByName("parameter")).getParameter() == parameter)
+			.filter(s -> ((ParameterSetting) s).getParameter().getParameter() == parameter)
 			.toList();
 		assertFalse(settings.isEmpty());
 		for (TLObject value : settings) {
-			assertEquals("300", value.tValueByName("text"));
-			assertNull(value.tValueByName("number"));
+			assertEquals("300", ((ParameterSetting) value).getText());
+			assertNull(((ParameterSetting) value).getNumber());
 		}
 		assertEquals(1, programs().size());
 
@@ -172,7 +172,7 @@ public class TestImportMessages extends BasicTestCase {
 			}
 			List<TLObject> projects = SharedData.newProjects(before);
 			List<TLObject> settings = SharedData.within("ehome.physical:ParameterSetting", projects).stream()
-				.filter(s -> values.get(HIDDEN_PROGRAM + "_P-9107_R-9107") == s.tValueByName("parameter"))
+				.filter(s -> values.get(HIDDEN_PROGRAM + "_P-9107_R-9107") == ((ParameterSetting) s).getParameter())
 				.toList();
 			assertEquals(1, settings.size());
 			assertKeptAsText(settings.get(0));

@@ -21,8 +21,8 @@ import com.top_logic.basic.util.ResKey2;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
-import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.Interface;
@@ -42,6 +42,11 @@ import de.haumacher.ehome.model.operational.RelativeSegment;
 import de.haumacher.ehome.model.operational.ResourceLocation;
 import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.monitor.BusTelegram;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -84,8 +89,6 @@ import de.haumacher.ehome.programming.GroupTables.Association;
  * </p>
  */
 class DownloadImageBuilder {
-
-	private static final String LINE = "ehome.physical:Line";
 
 	private static final String ADDRESS_TABLE_FORMAT = "AddressTable_Bcu1";
 
@@ -347,15 +350,14 @@ class DownloadImageBuilder {
 			if (port == null) {
 				continue;
 			}
-			for (Object connection : (Collection<?>) connector.tValueByName("connections")) {
-				TLObject link = (TLObject) connection;
-				GroupAddress target = (GroupAddress) link.tValueByName("target");
+			for (Connection link : ((Connector) connector).getConnections()) {
+				GroupAddress target = link.getTarget();
 				GA address = target == null ? null : target.getAddress();
 				if (address == null) {
 					continue;
 				}
-				TLObject kind = (TLObject) link.tValueByName("kind");
-				boolean send = kind instanceof TLClassifier classifier && "send".equals(classifier.getName());
+				TLClassifier kind = link.getKind();
+				boolean send = kind != null && "send".equals(kind.getName());
 				links.add(new int[] { address.getValue(), port.getIndex(), send ? 1 : 0 });
 			}
 		}
@@ -1035,15 +1037,13 @@ class DownloadImageBuilder {
 	 * </p>
 	 */
 	static Integer individualAddress(TLObject device) {
-		TLObject line = device.tContainer();
-		if (line == null || !ExtIds.isA(line, LINE)) {
+		if (!(device instanceof BusDevice busDevice) || !(device.tContainer() instanceof Line line)) {
 			return null;
 		}
-		TLObject area = line.tContainer();
-		Object number = device.tValueByName("address");
-		Object lineNumber = line.tValueByName("address");
-		Object areaNumber = area == null ? null : area.tValueByName("address");
-		if (!(number instanceof Integer d) || !(lineNumber instanceof Integer l) || !(areaNumber instanceof Integer a)) {
+		Integer d = busDevice.getAddress();
+		Integer l = line.getAddress();
+		Integer a = line.tContainer() instanceof Area area ? area.getAddress() : null;
+		if (d == null || l == null || a == null) {
 			return null;
 		}
 		return Integer.valueOf((a.intValue() & 0x0F) << 12 | (l.intValue() & 0x0F) << 8 | (d.intValue() & 0xFF));
@@ -1060,7 +1060,7 @@ class DownloadImageBuilder {
 
 	private static String describe(TLObject device) {
 		String text = individualAddressText(device);
-		return (text == null ? "(no address)" : text) + " " + Objects.toString(device.tValueByName("extId"), "");
+		return (text == null ? "(no address)" : text) + " " + Objects.toString(((Externalized) device).getExtId(), "");
 	}
 
 }

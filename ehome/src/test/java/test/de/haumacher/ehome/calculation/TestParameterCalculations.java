@@ -42,6 +42,7 @@ import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ParameterCalculation;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -184,7 +185,7 @@ public class TestParameterCalculations extends BasicTestCase {
 		// The second instance has the inconsistent defaults of the program: RL from Stufe 0.
 		assertEquals(Long.valueOf(0), value(rOnly, C + "MD-1_M-2_MI-1_P-1_R-1"));
 		// The derived L values change nothing the device holds: it is as modified as the file says.
-		assertEquals(consistent.tValueByName("lastModified"), rOnly.tValueByName("lastModified"));
+		assertEquals(((Device) consistent).getConfigurationChanged(), ((Device) rOnly).getConfigurationChanged());
 		// PC-2 gives no L value for Szene 0: the file's values stay.
 		assertEquals(Long.valueOf(0), value(rOnly, C + "P-6_R-1"));
 		assertEquals(3, ((de.haumacher.ehome.model.operational.EnumerationValue) DeviceSettings.value(rOnly,
@@ -282,8 +283,8 @@ public class TestParameterCalculations extends BasicTestCase {
 		TLObject planned;
 		TLObject copy;
 		try (Transaction tx = kb().beginTransaction()) {
-			planned = DevicePlanning.create(imported.tContainer(), (TLObject) imported.tValueByName("type"),
-				(TLObject) imported.tValueByName("program"), Integer.valueOf(10), "TEST geplant", null);
+			planned = DevicePlanning.create(imported.tContainer(), ((Device) imported).getType(),
+				((Device) imported).getProgram(), Integer.valueOf(10), "TEST geplant", null);
 			copy = DevicePlanning.duplicate(imported);
 			tx.commit();
 		}
@@ -300,11 +301,12 @@ public class TestParameterCalculations extends BasicTestCase {
 			.byteAt(SEGMENT + 0x60));
 
 		// A program with a calculation E-Home cannot evaluate: a device of it is not planned.
-		TLObject lockedAssignment = instances("ehome.catalog:ProgramAssignment").stream()
-			.filter(a -> "M-0008_H-TEST.20RECHNUNG-1_HP-FFFB-01-0000".equals(((ProgramAssignment) a).getExtId())).findFirst()
+		ProgramAssignment lockedAssignment = instances("ehome.catalog:ProgramAssignment").stream()
+			.map(ProgramAssignment.class::cast)
+			.filter(a -> "M-0008_H-TEST.20RECHNUNG-1_HP-FFFB-01-0000".equals(a.getExtId())).findFirst()
 			.orElseThrow();
 		try (Transaction tx = kb().beginTransaction()) {
-			DevicePlanning.create(imported.tContainer(), (TLObject) imported.tValueByName("type"), lockedAssignment,
+			DevicePlanning.create(imported.tContainer(), ((Device) imported).getType(), lockedAssignment,
 				Integer.valueOf(12), "TEST gesperrt geplant", null);
 			fail("A device whose calculation cannot be evaluated was planned.");
 		} catch (TopLogicException ex) {
@@ -318,16 +320,16 @@ public class TestParameterCalculations extends BasicTestCase {
 	 * of the new program (ProgramChanges); a program whose calculation cannot be evaluated is refused.
 	 */
 	private static void checkProgramChange(TLObject consistent, TLObject locked) throws InterruptedException {
-		Object calcAssignment = consistent.tValueByName("program");
-		Object lockedAssignment = locked.tValueByName("program");
+		ProgramAssignment calcAssignment = ((Device) consistent).getProgram();
+		ProgramAssignment lockedAssignment = ((Device) locked).getProgram();
 		try (Transaction tx = kb().beginTransaction()) {
-			locked.tUpdateByName("program", calcAssignment);
+			((Device) locked).setProgram(calcAssignment);
 			tx.commit();
 		}
 		assertEquals(Long.valueOf(2), value(locked, C + "P-6_R-1"));
 		assertEquals(Long.valueOf(5), value(locked, C + "MD-1_M-2_MI-1_P-3_R-1"));
 		try (Transaction tx = kb().beginTransaction()) {
-			consistent.tUpdateByName("program", lockedAssignment);
+			((Device) consistent).setProgram(lockedAssignment);
 			tx.commit();
 			fail("A program whose calculation cannot be evaluated was set.");
 		} catch (RuntimeException ex) {
@@ -337,7 +339,7 @@ public class TestParameterCalculations extends BasicTestCase {
 			}
 			assertTrue(text, text.contains("Select") || text.contains("Auswahl"));
 		}
-		assertEquals(calcAssignment, consistent.tValueByName("program"));
+		assertEquals(calcAssignment, ((Device) consistent).getProgram());
 		checkStaleView(consistent, locked);
 	}
 
@@ -423,7 +425,7 @@ public class TestParameterCalculations extends BasicTestCase {
 
 	private static TLObject device(List<TLObject> before, int address) {
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", SharedData.newProjects(before)).stream()
-			.filter(d -> Integer.valueOf(address).equals(d.tValueByName("address"))).toList();
+			.filter(d -> Integer.valueOf(address).equals(((Device) d).getAddress())).toList();
 		assertEquals(1, devices.size());
 		return devices.get(0);
 	}

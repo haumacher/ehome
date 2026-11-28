@@ -51,6 +51,8 @@ import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.PresetUse;
 import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -226,7 +228,7 @@ public class TestPresets extends BasicTestCase {
 				mapped.add((Interface) mapping.counterpart(placed));
 			}
 			assertEquals(key, mapped, Presets.channelObjects(device, key));
-			assertEquals(schalten, Presets.use(device, key).tValueByName("preset"));
+			assertEquals(schalten, ((PresetUse) Presets.use(device, key)).getPreset());
 			Map<String, Interface> byRole = Presets.objects(device, key, schalten);
 			assertEquals(mapping.counterpart(object(objects, 0)), byRole.get("command"));
 			assertEquals(mapping.counterpart(object(objects, 7)), byRole.get("state"));
@@ -343,7 +345,7 @@ public class TestPresets extends BasicTestCase {
 				return null;
 			});
 		});
-		assertEquals(schalten, Presets.use(device, _channelA).tValueByName("preset"));
+		assertEquals(schalten, ((PresetUse) Presets.use(device, _channelA)).getPreset());
 	}
 
 	private void checkReimport(List<TLObject> before, TLObject actuator, TLObject keys) throws Exception {
@@ -363,7 +365,7 @@ public class TestPresets extends BasicTestCase {
 		assertEquals(presets, instances("ehome.template:Preset").size());
 		assertTrue(template.tValid());
 		assertEquals(0, instances("ehome.physical:PresetUse").stream()
-			.filter(u -> _presets.contains(u.tValueByName("preset"))).count());
+			.filter(u -> _presets.contains(((PresetUse) u).getPreset())).count());
 		assertFalse(keys.tValid());
 	}
 
@@ -473,8 +475,8 @@ public class TestPresets extends BasicTestCase {
 		TLObject[] result = { null };
 		inTransaction(() -> {
 			TLObject line = DevicePlanning.line(like);
-			result[0] = DevicePlanning.create(line, (TLObject) like.tValueByName("type"),
-				(TLObject) like.tValueByName("program"), DevicePlanning.nextFree(line), "Planned", null);
+			result[0] = DevicePlanning.create(line, ((Device) like).getType(),
+				((Device) like).getProgram(), DevicePlanning.nextFree(line), "Planned", null);
 		});
 		return result[0];
 	}

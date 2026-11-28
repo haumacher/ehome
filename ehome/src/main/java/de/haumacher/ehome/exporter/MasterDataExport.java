@@ -20,6 +20,7 @@ import javax.xml.stream.XMLStreamException;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
 import de.haumacher.ehome.model.operational.MaskVersion;
 
 /**
@@ -87,7 +88,7 @@ final class MasterDataExport {
 				continue;
 			}
 			_texts.unit(extId(type));
-			Object number = type.tValueByName("number");
+			Integer number = Integer.valueOf(((DatapointMainType) type).getNumber());
 			out.open("DatapointType")
 				.attr("Id", extId(type))
 				.attr("Number", number)

@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,8 +23,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.DownloadRecord;
@@ -132,7 +132,7 @@ public class TestParametersDownload extends BasicTestCase {
 	 */
 	private static void checkDefault(TLObject device) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			device.tUpdateByName("loaded", Set.of());
+			((Device) device).setLoaded(Set.of());
 			tx.commit();
 		}
 		assertFalse(ProgrammingFunctions.parametersOnlyByDefault(device));
@@ -141,7 +141,7 @@ public class TestParametersDownload extends BasicTestCase {
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.PARAMETERS);
 		DownloadRecord.record(device, plan.getKind(), plan.getRevision());
 		assertTrue(ProgrammingFunctions.parametersOnlyByDefault(device));
-		assertEquals(5, ((Collection<?>) device.tValueByName("loaded")).size());
+		assertEquals(5, ((Device) device).getLoaded().size());
 	}
 
 	/**
@@ -198,7 +198,7 @@ public class TestParametersDownload extends BasicTestCase {
 
 	static TLObject device(TLObject project, String extId) {
 		for (TLObject device : instances("ehome.physical:Device")) {
-			if (extId.equals(device.tValueByName("extId"))) {
+			if (extId.equals(((Device) device).getExtId())) {
 				TLObject root = device;
 				while (root.tContainer() != null) {
 					root = root.tContainer();

@@ -252,14 +252,14 @@ public interface TelegramBase extends com.top_logic.model.TLObject {
 	/**
 	 * Getter for part {@link #SENDER_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getSender() {
-		return (com.top_logic.model.TLObject) tValueByName(SENDER_ATTR);
+	default de.haumacher.ehome.model.physical.Device getSender() {
+		return (de.haumacher.ehome.model.physical.Device) tValueByName(SENDER_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #SENDER_ATTR}.
 	 */
-	default void setSender(com.top_logic.model.TLObject newValue) {
+	default void setSender(de.haumacher.ehome.model.physical.Device newValue) {
 		tUpdateByName(SENDER_ATTR, newValue);
 	}
 

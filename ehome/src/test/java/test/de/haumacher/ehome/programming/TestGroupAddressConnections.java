@@ -43,6 +43,10 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -171,7 +175,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		}
 		assertFalse(connection.tValid());
 		assertEquals(List.of(sender), children(children, project, ga1));
-		assertFalse(DeviceSettings.connections(actuator, channelA).stream().anyMatch(c -> c.tValueByName("target") == ga1));
+		assertFalse(DeviceSettings.connections(actuator, channelA).stream().anyMatch(c -> ((Connection) c).getTarget() == ga1));
 		assertTrue(sameBytes(originalImage, DownloadImage.compute(actuator)));
 
 		// An object of another size at the address is reported.
@@ -193,7 +197,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 	}
 
 	private static String kind(TLObject connection) {
-		return ((TLClassifier) connection.tValueByName("kind")).getName();
+		return ((Connection) connection).getKind().getName();
 	}
 
 	private static List<Object> children(QueryExecutor children, TLObject project, TLObject node) {
@@ -244,9 +248,9 @@ public class TestGroupAddressConnections extends BasicTestCase {
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
+					result.put(((BusDevice) device).getAddress(), (TLObject) device);
 				}
 			}
 		}

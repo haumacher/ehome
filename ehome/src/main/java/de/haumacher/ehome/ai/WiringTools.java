@@ -46,6 +46,8 @@ import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
@@ -234,7 +236,7 @@ public class WiringTools {
 		TLObject device = GroupAddressConnections.device(connection);
 		Interface placed = GroupAddressConnections.object(connection);
 		result.put("device", GroupAddressConnections.deviceLabel(device));
-		TLObject location = device.tValueByName("location") instanceof TLObject part ? part : null;
+		TLObject location = ((BusDevice) device).getLocation();
 		if (location != null) {
 			result.put("room", BuildingDevices.path(location));
 		}
@@ -247,12 +249,17 @@ public class WiringTools {
 		if (channel != null) {
 			result.put("channel", channel);
 		}
-		result.put("direction", connection.tValueByName("kind") instanceof TLClassifier kind ? kind.getName() : null);
+		result.put("direction", direction(connection));
 		if (!GroupAddressConnections.inEffect(connection)) {
 			// Switched off by the device's parameters (haumacher/ehome #137): neither sends nor receives.
 			result.put("inEffect", Boolean.FALSE);
 		}
 		return result;
+	}
+
+	private static String direction(TLObject connection) {
+		TLClassifier kind = ((Connection) connection).getKind();
+		return kind == null ? null : kind.getName();
 	}
 
 	/**
@@ -674,9 +681,9 @@ public class WiringTools {
 			for (TLObject connection : DeviceSettings.connections(device, placed)) {
 				Map<String, Object> link = new LinkedHashMap<>();
 				link.put("id", id(connection));
-				TLObject target = connection.tValueByName("target") instanceof TLObject ga ? ga : null;
+				TLObject target = ((Connection) connection).getTarget();
 				link.put("groupAddress", target == null ? null : ref(target, DatapointNames.name(target)));
-				link.put("direction", connection.tValueByName("kind") instanceof TLClassifier kind ? kind.getName() : null);
+				link.put("direction", direction(connection));
 				connections.add(link);
 			}
 			entry.put("connections", connections);
@@ -810,7 +817,7 @@ public class WiringTools {
 		}
 		TLObject device = GroupAddressConnections.device(connection);
 		String text = GroupAddressConnections.label(connection);
-		TLObject target = connection.tValueByName("target") instanceof TLObject ga ? ga : null;
+		TLObject target = ((Connection) connection).getTarget();
 		return changing(context, device != null ? device : connection, () -> {
 			DeviceSettings.disconnect(connection);
 			Map<String, Object> result = new LinkedHashMap<>();

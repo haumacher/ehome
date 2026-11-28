@@ -22,6 +22,7 @@ import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 
 /**
  * Imports a parameter value as ETS writes it into the typed value of the current object (a
@@ -102,7 +103,8 @@ public class TypedValueImport<C extends TypedValueImport.Config<?>> extends Conf
 	 * (<code>Importer#dropUnresolvedProgramParts</code>), its value has no type to tell.
 	 */
 	private static boolean withoutParameter(TLObject self) {
-		return SETTING_TYPE.equals(TLModelUtil.qualifiedName(self.tType())) && self.tValueByName("parameter") == null;
+		return SETTING_TYPE.equals(TLModelUtil.qualifiedName(self.tType()))
+			&& ((ParameterSetting) self).getParameter() == null;
 	}
 
 	/**

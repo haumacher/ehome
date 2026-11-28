@@ -32,6 +32,7 @@ import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeDeviceType;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
@@ -129,7 +130,7 @@ public class TestZigbeeCatalogProbe extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(first.toString(), 1, ZigbeeCatalog.types(ZigbeeCatalog.root()).stream()
-				.filter(t -> "SML002".equals(t.tValueByName("model"))).count());
+				.filter(t -> "SML002".equals(((ZigbeeDeviceType) t).getModel())).count());
 			assertEquals("Anwesenheit", inLocale(Locale.GERMAN, () -> ZigbeeStatus.functionLabel(occupancy)));
 			assertEquals("Motion", inLocale(Locale.ENGLISH, () -> ZigbeeStatus.functionLabel(occupancy)));
 			// The datapoint created before keeps its id and label: the catalog names new ones only.

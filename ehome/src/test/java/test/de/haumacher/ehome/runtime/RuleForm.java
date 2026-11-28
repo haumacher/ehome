@@ -28,7 +28,7 @@ public final class RuleForm {
 	 * Creates a {@link RuleForm} editing the given object.
 	 */
 	public RuleForm(TLObject obj) {
-		_overlay = new TLObjectOverlay(obj);
+		_overlay = TLObjectOverlay.newOverlay(obj);
 		_validation.addOverlay(_overlay, obj);
 	}
 

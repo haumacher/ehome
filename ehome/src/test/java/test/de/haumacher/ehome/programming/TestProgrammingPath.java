@@ -47,6 +47,7 @@ import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.Controllers;
 import de.haumacher.ehome.connection.I18NConstants;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.EhomeProjectFactory;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
@@ -161,7 +162,7 @@ public class TestProgrammingPath extends BasicTestCase {
 			QueryExecutor confirmation = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("expr",
 				"d -> downloadConfirmation($d)"));
 			assertEquals(de.haumacher.ehome.programming.download.I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES
-				.fill(device.tValueByName("name"), "1.0.1", "Controller " + CONTROLLER,
+				.fill(((Device) device).getName(), "1.0.1", "Controller " + CONTROLLER,
 					de.haumacher.ehome.programming.download.I18NConstants.CHANGES_NO_DOWNLOAD),
 				TestDeviceChanges.asRoot(Locale.ENGLISH, () -> confirmation.execute(device)));
 

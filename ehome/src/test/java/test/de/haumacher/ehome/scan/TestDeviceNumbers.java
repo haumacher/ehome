@@ -12,6 +12,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
@@ -37,6 +38,11 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.DeviceStub;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -86,7 +92,7 @@ public class TestDeviceNumbers extends BasicTestCase {
 		}
 		assertEquals(Map.of("P-0563-0_DI-1", "1.3.1", "P-0563-0_DI-2", "1.3.50", "P-0563-0_DI-3", "1.3.5"), addresses);
 		TLObject tastsensor = InstallationBuilder.device(_original, 0x1332);
-		assertEquals(Integer.valueOf(50), tastsensor.tValueByName("address"));
+		assertEquals(Integer.valueOf(50), ((BusDevice) tastsensor).getAddress());
 		assertTrue(String.valueOf(derived(tastsensor, "name")), String.valueOf(derived(tastsensor, "name")).endsWith(" (1.3.50)"));
 
 		TLObject project = TestScanTakeOver.emptyProject("Device numbers: stub");
@@ -96,19 +102,19 @@ public class TestDeviceNumbers extends BasicTestCase {
 				stub = DeviceStubs.record(project, found(STUB_ADDRESS, 0x20BD));
 				tx.commit();
 			}
-			assertEquals("1.1", stub.tContainer().tValueByName("name"));
-			assertEquals(Integer.valueOf(7), stub.tValueByName("address"));
+			assertEquals("1.1", ((Line) stub.tContainer()).getName());
+			assertEquals(Integer.valueOf(7), ((BusDevice) stub).getAddress());
 			assertEquals("1.1.7", derived(stub, "individualAddress"));
 			assertEquals("1.1.7", GroupAddressConnections.addressText(stub));
 
 			// In no line, the device has its number and no individual address.
 			try (Transaction tx = kb().beginTransaction()) {
-				InstallationBuilder.line(project, 1, 1).tUpdateByName("devices", List.of());
-				((Project) project).addUnassignedDevice(stub);
+				((Line) InstallationBuilder.line(project, 1, 1)).setDevices(Set.of());
+				((Project) project).addUnassignedDevice((BusDevice) stub);
 				tx.commit();
 			}
 			assertSame(project, stub.tContainer());
-			assertEquals(Integer.valueOf(7), stub.tValueByName("address"));
+			assertEquals(Integer.valueOf(7), ((BusDevice) stub).getAddress());
 			assertNull(derived(stub, "individualAddress"));
 			assertEquals("–", GroupAddressConnections.addressText(stub));
 			assertFalse(GroupAddressConnections.deviceLabel(stub), GroupAddressConnections.deviceLabel(stub).contains("("));
@@ -124,17 +130,17 @@ public class TestDeviceNumbers extends BasicTestCase {
 		TLObject tastsensor = InstallationBuilder.device(_original, 0x1332);
 		for (int number : new int[] { STUB_ADDRESS, 256, -1 }) {
 			try (Transaction tx = kb().beginTransaction()) {
-				tastsensor.tUpdateByName("address", Integer.valueOf(number));
+				((BusDevice) tastsensor).setAddress(Integer.valueOf(number));
 				tx.commit();
 				fail("The device number " + number + " is accepted.");
 			} catch (RuntimeException ex) {
 				// Refused by the constraint of the device number.
 			}
-			assertEquals(Integer.valueOf(50), tastsensor.tValueByName("address"));
+			assertEquals(Integer.valueOf(50), ((BusDevice) tastsensor).getAddress());
 		}
 		for (int number : new int[] { 255, 50 }) {
 			try (Transaction tx = kb().beginTransaction()) {
-				tastsensor.tUpdateByName("address", Integer.valueOf(number));
+				((BusDevice) tastsensor).setAddress(Integer.valueOf(number));
 				tx.commit();
 			}
 			assertEquals("1.3." + number, derived(tastsensor, "individualAddress"));
@@ -156,19 +162,19 @@ public class TestDeviceNumbers extends BasicTestCase {
 				TLObject tastsensor = InstallationBuilder.device(_original, 0x1332);
 				FoundDevice found = found(0x2405, 0x10D7);
 				CatalogMatch.Candidate candidate = CatalogMatch.match(project, found).candidates().stream()
-					.filter(c -> c.variant() == tastsensor.tValueByName("type")).findFirst().orElseThrow();
+					.filter(c -> c.variant() == ((Device) tastsensor).getType()).findFirst().orElseThrow();
 				taken = InstallationBuilder.apply(project, found, candidate).device();
 				stub = DeviceStubs.record(project, found(0x2507, 0x20BD));
 				planned = DevicePlanning.create(InstallationBuilder.line(project, 3, 6),
-					(TLObject) tastsensor.tValueByName("type"), null, Integer.valueOf(12), null, null);
+					((Device) tastsensor).getType(), null, Integer.valueOf(12), null, null);
 				tx.commit();
 			}
 			assertEquals("2.4.5", derived(taken, "individualAddress"));
-			assertEquals(Integer.valueOf(5), taken.tValueByName("address"));
+			assertEquals(Integer.valueOf(5), ((BusDevice) taken).getAddress());
 			assertEquals("2.5.7", derived(stub, "individualAddress"));
-			assertEquals(Integer.valueOf(7), stub.tValueByName("address"));
+			assertEquals(Integer.valueOf(7), ((BusDevice) stub).getAddress());
 			assertEquals("3.6.12", derived(planned, "individualAddress"));
-			assertEquals(Integer.valueOf(12), planned.tValueByName("address"));
+			assertEquals(Integer.valueOf(12), ((BusDevice) planned).getAddress());
 			assertTrue("Nothing unplaced.", ((Project) project).getUnassignedDevices().isEmpty());
 		} finally {
 			TestScanTakeOver.delete(project);
@@ -191,14 +197,14 @@ public class TestDeviceNumbers extends BasicTestCase {
 		Logger.getListenerRegistry().register(listener);
 		try {
 			TLObject placed = withoutModelChecks(() -> record(project, STUB_ADDRESS, "000A0476250B"));
-			assertEquals(Integer.valueOf(STUB_ADDRESS), placed.tValueByName("address"));
+			assertEquals(Integer.valueOf(STUB_ADDRESS), ((BusDevice) placed).getAddress());
 			repair();
 			TLObject line = placed.tContainer();
-			assertEquals("1.1", line.tValueByName("name"));
-			assertEquals(Integer.valueOf(1), line.tContainer().tValueByName("address"));
-			assertEquals(Integer.valueOf(7), placed.tValueByName("address"));
+			assertEquals("1.1", ((Line) line).getName());
+			assertEquals(Integer.valueOf(1), ((Area) line.tContainer()).getAddress());
+			assertEquals(Integer.valueOf(7), ((BusDevice) placed).getAddress());
 			assertEquals("1.1.7", derived(placed, "individualAddress"));
-			assertEquals(Base64.getEncoder().encodeToString(SERIAL), placed.tValueByName("serialNumber"));
+			assertEquals(Base64.getEncoder().encodeToString(SERIAL), ((BusDevice) placed).getSerialNumber());
 			assertNotNull(ExtIds.extId(placed));
 			assertTrue(((Project) project).getUnassignedDevices().isEmpty());
 			assertTrue(log.toString(), log.stream().anyMatch(m -> m.contains("1.1.7") && m.contains("placed in its line")));
@@ -207,14 +213,14 @@ public class TestDeviceNumbers extends BasicTestCase {
 			log.clear();
 			repair();
 			assertSame(line, placed.tContainer());
-			assertEquals(Integer.valueOf(7), placed.tValueByName("address"));
+			assertEquals(Integer.valueOf(7), ((BusDevice) placed).getAddress());
 			assertTrue(log.toString(), log.stream().noneMatch(m -> m.contains("1.1.7")));
 
 			// 1.1.7 is taken: the record stays unplaced with its number, the log names its address.
 			TLObject unplaced = withoutModelChecks(() -> record(project, STUB_ADDRESS, null));
 			repair();
 			assertEquals(List.of(unplaced), new ArrayList<>(((Project) project).getUnassignedDevices()));
-			assertEquals(Integer.valueOf(7), unplaced.tValueByName("address"));
+			assertEquals(Integer.valueOf(7), ((BusDevice) unplaced).getAddress());
 			assertNull(derived(unplaced, "individualAddress"));
 			assertSame(placed, InstallationBuilder.device(project, STUB_ADDRESS));
 			assertTrue(log.toString(), log.stream().anyMatch(m -> m.contains("1.1.7")
@@ -240,11 +246,12 @@ public class TestDeviceNumbers extends BasicTestCase {
 	static TLObject record(TLObject project, int address, String serialHex) {
 		TLObject stub = ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType(DeviceStubs.STUB_TYPE));
-		stub.tUpdateByName("address", Integer.valueOf(address));
-		stub.tUpdateByName("serialNumber", serialHex);
-		stub.tUpdateByName("manufacturerId", Integer.valueOf(GIRA));
-		stub.tUpdateByName("programVersion", "000820BD11");
-		((Project) project).addUnassignedDevice(stub);
+		DeviceStub typed = (DeviceStub) stub;
+		typed.setAddress(Integer.valueOf(address));
+		typed.setSerialNumber(serialHex);
+		typed.setManufacturerId(Integer.valueOf(GIRA));
+		typed.setProgramVersion("000820BD11");
+		((Project) project).addUnassignedDevice((BusDevice) stub);
 		return stub;
 	}
 

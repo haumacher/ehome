@@ -23,6 +23,8 @@ import de.haumacher.ehome.model.catalog.Product;
 import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.download.BusPath;
@@ -261,7 +263,7 @@ public class DeviceInfo {
 	public List<Row> identity() {
 		List<Row> result = new ArrayList<>();
 		Program program = _device.tValid() ? DeviceConfiguration.program(_device) : null;
-		Variant variant = _device.tValid() && _device.tValueByName("type") instanceof Variant type ? type : null;
+		Variant variant = _device.tValid() && _device instanceof Device device ? device.getType() : null;
 
 		MaskVersion mask = program == null ? null : program.getMask();
 		result.add(row("mask", I18NConstants.INFO_MASK, mask == null ? null : String.format("%04X", mask.getNumber()),
@@ -272,7 +274,7 @@ public class DeviceInfo {
 		result.add(row("manufacturer", I18NConstants.READ_MANUFACTURER, manufacturer(manufacturerId),
 			manufacturer(_found.manufacturerId()), () -> manufacturerId.equals(_found.manufacturerId())));
 
-		byte[] serial = serial(_device.tValid() ? _device.tValueByName("serialNumber") : null);
+		byte[] serial = serial(_device.tValid() ? ((BusDevice) _device).getSerialNumber() : null);
 		result.add(row("serialNumber", I18NConstants.READ_SERIAL_NUMBER, serial == null ? null : serialText(serial),
 			_found.serialText(), () -> Arrays.equals(serial, _found.serialNumber())));
 
@@ -419,7 +421,7 @@ public class DeviceInfo {
 		if (veto != null) {
 			throw new com.top_logic.util.error.TopLogicException(veto);
 		}
-		_device.tUpdateByName("serialNumber", _found.serialStored());
+		((BusDevice) _device).setSerialNumber(_found.serialStored());
 		return I18NConstants.INFO_SERIAL_TAKEN__ADDRESS_SERIAL.fill(addressText(), _found.serialText());
 	}
 

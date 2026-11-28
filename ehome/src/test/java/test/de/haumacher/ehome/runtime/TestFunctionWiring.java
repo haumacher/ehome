@@ -30,6 +30,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.runtime.DatapointNames;
@@ -165,7 +166,7 @@ public class TestFunctionWiring extends BasicTestCase {
 			assertEquals(warnings(run), warnings(again));
 
 			// The second key of the workshop light moved to "Werkstatt": two senders there.
-			TLObject workshop = (TLObject) device(project, "1.0.4").tValueByName("location");
+			TLObject workshop = ((Device) device(project, "1.0.4")).getLocation();
 			TestFunctionProposal.update(device(project, "1.0.5"), "location", workshop);
 			deleteFunctions(project);
 			run(project);

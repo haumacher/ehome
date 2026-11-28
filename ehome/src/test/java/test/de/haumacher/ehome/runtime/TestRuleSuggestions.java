@@ -127,7 +127,7 @@ public class TestRuleSuggestions extends BasicTestCase {
 		assertEquals(List.of(), texts(_reaction, "\"cost $"));
 
 		// The form's overlay of the reaction finds the rule as well.
-		assertEquals(3, texts(new TLObjectOverlay(_reaction), "$").size());
+		assertEquals(3, texts(TLObjectOverlay.newOverlay(_reaction), "$").size());
 
 		// A rule without parameters has its enable switch.
 		assertEquals(List.of("$enabled"), texts(_plainReaction, "$"));

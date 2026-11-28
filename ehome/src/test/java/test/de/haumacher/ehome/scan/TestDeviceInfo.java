@@ -40,6 +40,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.BusDevice;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
@@ -100,7 +101,7 @@ public class TestDeviceInfo extends BasicTestCase {
 		try {
 			TLObject device = InstallationBuilder.device(project, ACTUATOR);
 			assertNotNull(device);
-			assertNull("The test system's project knows no serial numbers.", device.tValueByName("serialNumber"));
+			assertNull("The test system's project knows no serial numbers.", ((BusDevice) device).getSerialNumber());
 
 			// Every job of the tab works on the device selected, not on another object it is started with.
 			Map<String, Object> channels = channels(project, device);
@@ -171,7 +172,7 @@ public class TestDeviceInfo extends BasicTestCase {
 			assertNull(info.serialVeto());
 			inTransaction(info::takeSerial);
 			assertEquals(Base64.getEncoder().encodeToString(HexFormat.of().parseHex(SERIAL)),
-				device.tValueByName("serialNumber"));
+				((BusDevice) device).getSerialNumber());
 			assertEquals(DeviceInfo.Comparison.EQUAL, rows(info).get("serialNumber").comparison());
 			assertEquals(I18NConstants.ERROR_INFO_SERIAL_KNOWN__SERIAL.fill("0083:00001234"), info.serialVeto());
 			assertEquals(I18NConstants.INFO_DONE__ADDRESS_PATH_DIFFERENT_UNKNOWN.fill("1.3.5", path, 0L, 0L),

@@ -14,6 +14,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.catalog.Manufacturer;
+import de.haumacher.ehome.model.physical.DeviceStub;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 
@@ -74,8 +75,9 @@ public final class DeviceStubs {
 		TLObject stub;
 		if (existing == null) {
 			TLObject line = InstallationBuilder.line(project, found.address() >>> 12 & 0x0F, found.address() >>> 8 & 0x0F);
-			stub = InstallationBuilder.create(STUB_TYPE);
-			stub.tUpdateByName("address", Integer.valueOf(found.address() & 0xFF));
+			DeviceStub created = (DeviceStub) InstallationBuilder.create(STUB_TYPE);
+			created.setAddress(Integer.valueOf(found.address() & 0xFF));
+			stub = created;
 			InstallationBuilder.add(line, "devices", stub);
 			ExtIds.assign(stub);
 		} else if (isStub(existing)) {
@@ -90,35 +92,37 @@ public final class DeviceStubs {
 	/**
 	 * Sets what the given device told about itself at the given stub.
 	 */
-	static void update(TLObject stub, FoundDevice found) {
-		stub.tUpdateByName("manufacturerId", found.manufacturerId());
-		stub.tUpdateByName("programVersion", found.programVersion() == null ? null : hex(found.programVersion()));
-		stub.tUpdateByName("descriptor", found.descriptorText());
-		stub.tUpdateByName("hardwareType", found.hardwareType() == null ? null : hex(found.hardwareType()));
-		stub.tUpdateByName("orderInfo", found.orderInfo());
+	static void update(TLObject obj, FoundDevice found) {
+		DeviceStub stub = (DeviceStub) obj;
+		stub.setManufacturerId(found.manufacturerId());
+		stub.setProgramVersion(found.programVersion() == null ? null : hex(found.programVersion()));
+		stub.setDescriptor(found.descriptorText());
+		stub.setHardwareType(found.hardwareType() == null ? null : hex(found.hardwareType()));
+		stub.setOrderInfo(found.orderInfo());
 		if (found.serialStored() != null) {
-			stub.tUpdateByName("serialNumber", found.serialStored());
+			stub.setSerialNumber(found.serialStored());
 		}
-		stub.tUpdateByName("lastSeen", new Date());
+		stub.setLastSeen(new Date());
 	}
 
 	/**
 	 * The device a stub describes, to be matched against the catalog: at the individual address of
 	 * the stub (its number alone where it is in no line).
 	 */
-	public static FoundDevice found(TLObject stub) {
+	public static FoundDevice found(TLObject obj) {
+		DeviceStub stub = (DeviceStub) obj;
 		Integer address = DownloadImage.individualAddress(stub);
 		if (address == null) {
-			address = stub.tValueByName("address") instanceof Integer number ? number : Integer.valueOf(0);
+			address = stub.getAddress() instanceof Integer number ? number : Integer.valueOf(0);
 		}
-		Object descriptor = stub.tValueByName("descriptor");
-		Object serial = stub.tValueByName("serialNumber");
+		String descriptor = stub.getDescriptor();
+		String serial = stub.getSerialNumber();
 		return new FoundDevice(address.intValue(), FoundDevice.Source.BUS,
-			descriptor instanceof String text && !text.isEmpty() ? Integer.valueOf(text, 16) : null,
-			(Integer) stub.tValueByName("manufacturerId"),
-			serial instanceof String text && !text.isEmpty() ? Base64.getDecoder().decode(text) : null,
-			bytes(stub.tValueByName("programVersion")), bytes(stub.tValueByName("hardwareType")),
-			(String) stub.tValueByName("orderInfo"), List.of(), List.of());
+			descriptor != null && !descriptor.isEmpty() ? Integer.valueOf(descriptor, 16) : null,
+			stub.getManufacturerId(),
+			serial != null && !serial.isEmpty() ? Base64.getDecoder().decode(serial) : null,
+			bytes(stub.getProgramVersion()), bytes(stub.getHardwareType()),
+			stub.getOrderInfo(), List.of(), List.of());
 	}
 
 	/**

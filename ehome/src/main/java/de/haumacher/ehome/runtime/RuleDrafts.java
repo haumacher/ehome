@@ -17,6 +17,10 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.impl.TransientObjectFactory;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.runtime.ChartElement;
+import de.haumacher.ehome.model.runtime.ChartReference;
+import de.haumacher.ehome.model.runtime.RuleTimeline;
+
 /**
  * The create dialogs of the rules, schedule entries, application datapoints and control pages
  * (haumacher/ehome #91): "New" opens a dialog over a transient draft ({@link #draft(TLObject, String, TLClass)},
@@ -100,7 +104,7 @@ public final class RuleDrafts {
 		RuleFunctions.initialize(result, owner, type, RuleExport.objects(owner.tValueByName(reference)));
 		remember(result, new Place(reference, null, null));
 		if (result.tType().getName().equals("RuleTimeline")) {
-			TLObject plan = RuleExport.objects(result.tValueByName("plans")).get(0);
+			TLObject plan = RuleExport.objects(((RuleTimeline) result).getPlans()).get(0);
 			remember(plan, new Place("plans", null, null));
 			return plan;
 		}
@@ -121,10 +125,10 @@ public final class RuleDrafts {
 		TLObject result = TransientObjectFactory.INSTANCE.createObject(type, project);
 		switch (kind) {
 			case Pages.CHART:
-				result.tUpdateByName("range", RuleImport.classifier("ChartRange", "day"));
+				((ChartElement) result).setRange(RuleImport.classifier("ChartRange", "day"));
 				break;
 			case Pages.REFERENCE:
-				result.tUpdateByName("value", Double.valueOf(0));
+				((ChartReference) result).setValue(Double.valueOf(0));
 				break;
 			default:
 				break;

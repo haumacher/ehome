@@ -11,6 +11,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.physical.DeviceStub;
 
 /**
  * The migration <code>Issue_183_Device_stubs</code> (haumacher/ehome #183): the records of devices a
@@ -44,7 +45,7 @@ public class DeviceStubMigration implements StartupAction {
 		for (TLObject stub : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
 			TLObject project = stub.tContainer();
 			if (project == null || !ExtIds.isA(project, "ehome.project:Project")
-				|| !(stub.tValueByName("address") instanceof Integer address)) {
+				|| !(((DeviceStub) stub).getAddress() instanceof Integer address)) {
 				continue;
 			}
 			if (DeviceNumberRepair.place(project, stub, address.intValue())) {

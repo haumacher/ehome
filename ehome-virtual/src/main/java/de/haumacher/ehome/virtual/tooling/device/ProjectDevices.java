@@ -18,6 +18,7 @@ import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Segment;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.LoadStateMachines;
@@ -99,7 +100,7 @@ public class ProjectDevices {
 			throw new TopLogicException(I18NConstants.ERROR_NO_MASK);
 		}
 		LoadControlKind kind = kind(program);
-		String name = DownloadPlanner.formatAddress(address) + " (" + device.tValueByName("extId") + ")";
+		String name = DownloadPlanner.formatAddress(address) + " (" + ((Device) device).getExtId() + ")";
 		boolean bcu2 = mask.getManagementModel() != null && "Bcu2".equals(mask.getManagementModel().getName());
 		SimulatedDevice result = new SimulatedDevice(name, address, mask.getNumber(), kind, rule, bcu2);
 		for (Segment segment : program.getSegments()) {
@@ -117,7 +118,7 @@ public class ProjectDevices {
 			if (hardware != null) {
 				result.initProperty(0, SimulatedDevice.PID_HARDWARE_TYPE, hardware);
 			}
-			deviceObject(result, id, device.tValueByName("serialNumber"));
+			deviceObject(result, id, ((Device) device).getSerialNumber());
 		}
 		return result;
 	}

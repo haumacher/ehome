@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -58,6 +57,9 @@ import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.DeviceComparison;
@@ -472,9 +474,9 @@ public class ReadBack {
 		DeviceConfiguration configuration = new DeviceConfiguration(device);
 		int connections = 0;
 		for (TLObject connector : configuration.getConnectors()) {
-			connections += ((Collection<?>) connector.tValueByName("connections")).size();
+			connections += ((Connector) connector).getConnections().size();
 		}
-		int settings = ((Collection<?>) device.tValueByName("settings")).size();
+		int settings = ((Device) device).getSettings().size();
 
 		// The proof: the memory a download of the device as read back leaves is what the device holds
 		// - the image, where the plan writes over it the value it writes last (BCU 1: FF into
@@ -731,8 +733,7 @@ public class ReadBack {
 		// Settings of parameters no longer in effect.
 		DeviceConfiguration configuration = unchanged != null ? unchanged : decoder.configuration();
 		Set<Object> active = new HashSet<>(configuration.getActiveViews().keySet());
-		for (Object setting : new ArrayList<>((Collection<?>) device.tValueByName("settings"))) {
-			TLObject value = (TLObject) setting;
+		for (TLObject value : new ArrayList<TLObject>(((Device) device).getSettings())) {
 			if (!(ModuleParts.parameter(value) instanceof ParameterView view) || !active.contains(view.getParameter())) {
 				value.tDelete();
 				configuration = null;
@@ -766,8 +767,7 @@ public class ReadBack {
 		}
 		// The values chosen in the end (a move may have been undone by a later one).
 		List<String> result = new ArrayList<>();
-		for (Object element : (Collection<?>) device.tValueByName("settings")) {
-			TLObject setting = (TLObject) element;
+		for (TLObject setting : ((Device) device).getSettings()) {
 			if (ModuleParts.parameter(setting) instanceof ParameterView view && view.getParameter() != null
 				&& view.getParameter().getAddress() == null) {
 				result.add(view.getParameter().getName() + " (" + view.getParameter().getExtId() + ") = "
@@ -1508,8 +1508,7 @@ public class ReadBack {
 		 */
 		private Map<ParameterView, Object> snapshot() {
 			Map<ParameterView, Object> result = new LinkedHashMap<>();
-			for (Object element : (Collection<?>) _device.tValueByName("settings")) {
-				TLObject setting = (TLObject) element;
+			for (TLObject setting : ((Device) _device).getSettings()) {
 				if (ModuleParts.parameter(setting) instanceof ParameterView view) {
 					result.put(view, ParameterValues.value(setting));
 				}
@@ -1523,8 +1522,7 @@ public class ReadBack {
 		private void restore(Map<ParameterView, Object> state) {
 			Map<ParameterView, TLObject> now = new HashMap<>();
 			List<TLObject> removed = new ArrayList<>();
-			for (Object element : (Collection<?>) _device.tValueByName("settings")) {
-				TLObject setting = (TLObject) element;
+			for (TLObject setting : ((Device) _device).getSettings()) {
 				if (ModuleParts.parameter(setting) instanceof ParameterView view) {
 					if (state.containsKey(view)) {
 						now.put(view, setting);
@@ -1731,12 +1729,11 @@ public class ReadBack {
 		Set<String> existing = new HashSet<>();
 		for (TLObject connector : configuration.getConnectors()) {
 			Port port = ModuleParts.port(connector) instanceof Interface placed ? placed.getPort() : null;
-			for (Object element : new ArrayList<>((Collection<?>) connector.tValueByName("connections"))) {
-				TLObject connection = (TLObject) element;
+			for (Connection connection : new ArrayList<Connection>(((Connector) connector).getConnections())) {
 				String key = (port == null ? "?" : port.getIndex()) + "/"
-					+ (connection.tValueByName("target") instanceof GroupAddress target
+					+ (connection.getTarget() instanceof GroupAddress target
 						&& target.getAddress() instanceof GA ga ? ga.getValue() : -1)
-					+ "/" + InstallationBuilder.name(connection.tValueByName("kind"));
+					+ "/" + InstallationBuilder.name(connection.getKind());
 				if (wanted.contains(key) && existing.add(key)) {
 					continue;
 				}
@@ -1873,7 +1870,7 @@ public class ReadBack {
 			} else {
 				ObjectFlags.store(connector, placed, ObjectFlags.PRIORITY, priority);
 			}
-			device.tUpdateByName("lastModified", new java.util.Date());
+			((Device) device).setConfigurationChanged(new java.util.Date());
 			result++;
 		}
 		return result;
@@ -1885,9 +1882,9 @@ public class ReadBack {
 				return connector;
 			}
 		}
-		TLObject connector = InstallationBuilder.create("ehome.physical:Connector");
+		Connector connector = (Connector) InstallationBuilder.create("ehome.physical:Connector");
 		ModuleParts.bind(connector, ModuleParts.PORT, placed);
-		connector.tUpdateByName("active", Boolean.TRUE);
+		connector.setActive(true);
 		InstallationBuilder.add(device, "connectors", connector);
 		return connector;
 	}

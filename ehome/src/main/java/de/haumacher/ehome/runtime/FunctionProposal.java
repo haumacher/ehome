@@ -54,6 +54,13 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.ChannelInstance;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.BlockInstance;
 import de.haumacher.ehome.model.runtime.Control;
@@ -1584,7 +1591,7 @@ public final class FunctionProposal {
 					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:DismissedProposal"));
 				result.setNameKey(function.getNameKey());
 				result.setKind(function.getKind());
-				result.setDevice(device);
+				result.setDevice((Device) device);
 				result.setChannel(function.getChannel());
 				List<DismissedProposal> dismissals = dismissals(project);
 				dismissals.add(result);
@@ -1712,7 +1719,7 @@ public final class FunctionProposal {
 		function.setKind(classifier(proposal.kind()));
 		function.setRoom(room(proposal));
 		if (isA(proposal.device(), "ehome.physical:Device")) {
-			function.setDevice(proposal.device());
+			function.setDevice((Device) proposal.device());
 		}
 		function.setChannel(proposal.channel());
 		if (proposal.scene() != null) {
@@ -1764,7 +1771,7 @@ public final class FunctionProposal {
 			for (TLObject connection : GroupAddressConnections.connections(address)) {
 				TLObject sender = GroupAddressConnections.device(connection);
 				if (DatapointSettings.transmits(connection) && senders.add(sender)
-					&& sender.tValueByName("location") instanceof TLObject location && !inDistributionBoard(location)) {
+					&& ((BusDevice) sender).getLocation() instanceof TLObject location && !inDistributionBoard(location)) {
 					counts.merge(location, Integer.valueOf(1), Integer::sum);
 				}
 			}
@@ -1776,8 +1783,8 @@ public final class FunctionProposal {
 			// Between locations with as many senders, the room is left to the user.
 			return first.size() == 1 ? (BuildingDefinition) first.get(0) : null;
 		}
-		Object location = device.tValueByName("location");
-		return location instanceof TLObject part && inDistributionBoard(part) ? null : (BuildingDefinition) location;
+		BuildingDefinition location = ((Device) device).getLocation();
+		return location != null && inDistributionBoard(location) ? null : location;
 
 	}
 
@@ -2171,8 +2178,7 @@ public final class FunctionProposal {
 		StringBuilder text = new StringBuilder();
 		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
 			Resources resources = Resources.getInstance(locale);
-			for (Object name : new Object[] { type.tValueByName("name"),
-				entry == null ? null : entry.tValueByName("name") }) {
+			for (Object name : new Object[] { ZigbeeCatalog.entryName(type), ZigbeeCatalog.entryName(entry) }) {
 				if (name instanceof ResKey key) {
 					text.append(' ').append(resources.getString(key, ""));
 				}
@@ -2222,9 +2228,9 @@ public final class FunctionProposal {
 
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject area : new ArrayList<>(((Project) project).getAreas())) {
-			for (TLObject line : list(area, "lines")) {
-				result.addAll(list(line, "devices"));
+		for (Area area : new ArrayList<>(((Project) project).getAreas())) {
+			for (Line line : area.getLines()) {
+				result.addAll(line.getDevices());
 			}
 		}
 		result.addAll(((Project) project).getUnassignedDevices());
@@ -2236,19 +2242,9 @@ public final class FunctionProposal {
 		return result;
 	}
 
-	private static List<TLObject> list(TLObject obj, String attribute) {
-		List<TLObject> result = new ArrayList<>();
-		if (obj.tValueByName(attribute) instanceof Collection<?> values) {
-			for (Object value : values) {
-				result.add((TLObject) value);
-			}
-		}
-		return result;
-	}
-
 	private static List<Channel> channels(TLObject device) {
 		Map<String, Channel> channels = new LinkedHashMap<>();
-		List<TLObject> connectors = list(device, "connectors");
+		List<TLObject> connectors = new ArrayList<>(((Device) device).getConnectors());
 		connectors.sort(Comparator.comparingInt(c -> ModuleParts.port(c).getPort().getIndex()));
 		for (TLObject connector : connectors) {
 			if (!ModuleParts.inEffect(connector)) {
@@ -2256,7 +2252,7 @@ public final class FunctionProposal {
 			}
 			Interface placed = ModuleParts.port(connector);
 			TLObject connection = sendingConnection(connector);
-			if (connection == null || !(connection.tValueByName("target") instanceof TLObject address)
+			if (connection == null || !(((Connection) connection).getTarget() instanceof TLObject address)
 				|| !DatapointSettings.communicates(connection)) {
 				continue;
 			}
@@ -2340,7 +2336,7 @@ public final class FunctionProposal {
 			return channels;
 		}
 		Map<Object, TLObject> connectors = new HashMap<>();
-		for (TLObject connector : list(device, "connectors")) {
+		for (TLObject connector : ((Device) device).getConnectors()) {
 			if (ModuleParts.port(connector) instanceof Interface placed) {
 				connectors.putIfAbsent(placed.getPort(), connector);
 			}
@@ -2353,7 +2349,7 @@ public final class FunctionProposal {
 				continue;
 			}
 			TLObject connection = connector == null ? null : sendingConnection(connector);
-			TLObject address = connection != null && connection.tValueByName("target") instanceof TLObject target
+			TLObject address = connection != null && ((Connection) connection).getTarget() instanceof TLObject target
 				&& DatapointSettings.communicates(connection) ? target : null;
 			Dpt addressDpt = address != null ? GroupAddressTypes.effective(address) : null;
 			Dpt dpt = address != null ? objectDpt(GroupAddressTypes.dpt(ObjectTypes.effective(connector)), addressDpt)
@@ -2442,8 +2438,8 @@ public final class FunctionProposal {
 
 	private static TLObject sendingConnection(TLObject connector) {
 		TLObject first = null;
-		for (TLObject connection : list(connector, "connections")) {
-			if (connection.tValueByName("kind") instanceof TLClassifier kind && "send".equals(kind.getName())) {
+		for (Connection connection : ((Connector) connector).getConnections()) {
+			if (connection.getKind() instanceof TLClassifier kind && "send".equals(kind.getName())) {
 				return connection;
 			}
 			if (first == null) {
@@ -2707,9 +2703,9 @@ public final class FunctionProposal {
 	 * its placement, else the object's; <code>null</code> for none.
 	 */
 	private static String objectFunction(TLObject connector, Interface placed, Resources resources) {
-		Object own = connector == null ? null : connector.tValueByName("function");
-		if (own != null && !own.toString().isEmpty()) {
-			return own.toString();
+		String own = connector == null ? null : ((Connector) connector).getFunction();
+		if (own != null && !own.isEmpty()) {
+			return own;
 		}
 		String result = placed.getFunction() == null ? null : resources.getString(placed.getFunction(), null);
 		if (result == null && placed.getPort().getFunction() != null) {
@@ -2944,8 +2940,8 @@ public final class FunctionProposal {
 		}
 
 		private static String title(TLObject device) {
-			Object title = device.tValueByName("title");
-			return title == null || title.toString().isBlank() ? null : title.toString().trim();
+			String title = ((BusDevice) device).getTitle();
+			return title == null || title.isBlank() ? null : title.trim();
 		}
 
 		/**
@@ -3015,7 +3011,7 @@ public final class FunctionProposal {
 		if (address != null) {
 			return address;
 		}
-		Object number = device.tValueByName("address");
+		Object number = ((BusDevice) device).getAddress();
 		return number == null ? "–" : number.toString();
 	}
 
@@ -3025,16 +3021,16 @@ public final class FunctionProposal {
 	 * else its individual address.
 	 */
 	private static String legacyDeviceName(TLObject device, Resources resources) {
-		Object title = device.tValueByName("title");
-		if (title != null && !title.toString().isBlank()) {
-			return title.toString().trim();
+		String title = ((BusDevice) device).getTitle();
+		if (title != null && !title.isBlank()) {
+			return title.trim();
 		}
-		if (device.tValueByName("type") instanceof TLObject type) {
-			String name = ((Variant) type).getNameKey() instanceof ResKey key ? resources.getString(key, null) : null;
+		if (((Device) device).getType() instanceof Variant type) {
+			String name = type.getNameKey() instanceof ResKey key ? resources.getString(key, null) : null;
 			if (name != null && !name.isBlank()) {
 				return name.trim();
 			}
-			Object order = ((Variant) type).getOrderNumber();
+			Object order = type.getOrderNumber();
 			if (order != null && !order.toString().isBlank()) {
 				return order.toString().trim();
 			}
@@ -3403,9 +3399,9 @@ public final class FunctionProposal {
 		ParameterView parameter;
 		if (programChannel instanceof de.haumacher.ehome.model.operational.Channel channel) {
 			TLObject instance = DeviceTexts.channelInstance(device, channel);
-			Object description = instance == null ? null : instance.tValueByName("description");
-			if (description != null && !description.toString().isBlank()) {
-				return description.toString().trim();
+			String description = instance == null ? null : ((ChannelInstance) instance).getDescription();
+			if (description != null && !description.isBlank()) {
+				return description.trim();
 			}
 			parameter = channel.getTextParameter();
 		} else {

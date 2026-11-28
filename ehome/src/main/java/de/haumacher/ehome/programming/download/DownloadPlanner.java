@@ -21,6 +21,7 @@ import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.catalog.Manufacturer;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.LoadProcedure;
@@ -423,7 +424,7 @@ public class DownloadPlanner {
 		DownloadPlan.Kind kind = _kind;
 		Integer address = DownloadImage.individualAddress(_device);
 		String device = (address == null ? "(no address)" : formatAddress(address)) + " "
-			+ Objects.toString(_device.tValueByName("extId"), "");
+			+ Objects.toString(((Externalized) _device).getExtId(), "");
 		if (address == null) {
 			_problems.add(I18NConstants.ERROR_NO_ADDRESS);
 		}

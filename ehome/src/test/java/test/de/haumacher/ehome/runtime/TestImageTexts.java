@@ -135,7 +135,7 @@ public class TestImageTexts extends BasicTestCase {
 			TLObject socket = address(project, "0/0/1");
 			TLStructuredTypePart attribute = project.tType().getPart("timeMasterTime");
 
-			TLObjectOverlay form = new TLObjectOverlay(project);
+			TLObjectOverlay form = TLObjectOverlay.newOverlay(project);
 			form.tUpdate(attribute, socket);
 			String problem = english(check(form, attribute));
 			assertNotNull(problem);
@@ -158,7 +158,7 @@ public class TestImageTexts extends BasicTestCase {
 				tx.commit();
 			}
 			assertNull(check(project, attribute));
-			assertNull(check(new TLObjectOverlay(project), attribute));
+			assertNull(check(TLObjectOverlay.newOverlay(project), attribute));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				((Project) project).setNtpServer("pool.ntp.org");
 				tx.commit();
@@ -169,7 +169,7 @@ public class TestImageTexts extends BasicTestCase {
 	}
 
 	private static TLObjectOverlay overlay(TLObject project, String attribute, TLObject value) {
-		TLObjectOverlay result = new TLObjectOverlay(project);
+		TLObjectOverlay result = TLObjectOverlay.newOverlay(project);
 		result.tUpdate(project.tType().getPart(attribute), value);
 		return result;
 	}

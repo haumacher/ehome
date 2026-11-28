@@ -44,6 +44,7 @@ import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -327,7 +328,7 @@ public class TestAssigns extends BasicTestCase {
 
 	private static TLObject device(List<TLObject> projects, int address) {
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", projects).stream()
-			.filter(d -> Integer.valueOf(address).equals(d.tValueByName("address"))).toList();
+			.filter(d -> Integer.valueOf(address).equals(((Device) d).getAddress())).toList();
 		assertEquals(1, devices.size());
 		return devices.get(0);
 	}

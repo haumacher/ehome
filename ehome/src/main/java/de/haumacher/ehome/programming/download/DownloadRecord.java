@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.programming.download;
 
-import java.util.Collection;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -17,6 +16,7 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
@@ -66,25 +66,22 @@ public class DownloadRecord {
 	public static void record(TLObject device, DownloadPlan.Kind kind, long revision, ResKey commitMessage) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		try (Transaction tx = kb.beginTransaction(commitMessage)) {
-			Set<Object> loaded = new LinkedHashSet<>();
-			Object current = device.tValueByName("loaded");
-			if (current instanceof Collection<?> set) {
-				loaded.addAll(set);
-			}
+			Device known = (Device) device;
+			Set<TLClassifier> loaded = new LinkedHashSet<>(known.getLoaded());
 			if (kind == DownloadPlan.Kind.ADDRESS) {
 				loaded.add(part("IndividualAddress"));
 			} else {
 				for (String part : FULL) {
 					loaded.add(part(part));
 				}
-				device.tUpdateByName("downloadRevision", Long.valueOf(revision));
+				known.setDownloadRevision(Long.valueOf(revision));
 			}
 			if (kind == DownloadPlan.Kind.LAYOUT) {
 				// The device holds E-Home's layout of its modules now (haumacher/ehome #119).
 				ModuleInstances.clearDifferences(device);
 			}
-			device.tUpdateByName("loaded", loaded);
-			device.tUpdateByName("lastDownload", new Date());
+			known.setLoaded(loaded);
+			known.setLastDownload(new Date());
 			tx.commit();
 		}
 	}

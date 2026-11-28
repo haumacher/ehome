@@ -5,7 +5,6 @@ package de.haumacher.ehome.virtual.device;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +18,8 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ObjectFollower;
 import de.haumacher.ehome.programming.DeviceChanges;
@@ -161,8 +162,8 @@ public class ProjectGroupDevices {
 			}
 			List<Integer> addresses = new ArrayList<>();
 			int send = -1;
-			for (TLObject connection : objects(connector.tValueByName("connections"))) {
-				GroupAddress target = (GroupAddress) connection.tValueByName("target");
+			for (Connection connection : ((Connector) connector).getConnections()) {
+				GroupAddress target = connection.getTarget();
 				GA ga = target == null ? null : target.getAddress();
 				if (ga == null) {
 					continue;
@@ -171,7 +172,8 @@ public class ProjectGroupDevices {
 				if (!addresses.contains(value)) {
 					addresses.add(value);
 				}
-				if (send < 0 && connection.tValueByName("kind") instanceof TLClassifier kind && "send".equals(kind.getName())) {
+				TLClassifier kind = connection.getKind();
+				if (send < 0 && kind != null && "send".equals(kind.getName())) {
 					send = value.intValue();
 				}
 			}
@@ -198,11 +200,6 @@ public class ProjectGroupDevices {
 			}
 		}
 		return false;
-	}
-
-	@SuppressWarnings("unchecked")
-	private static Collection<TLObject> objects(Object value) {
-		return value instanceof Collection<?> collection ? (Collection<TLObject>) collection : List.of();
 	}
 
 }

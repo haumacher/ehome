@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -43,9 +42,12 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.HexText;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.catalog.Variant;
-import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusException;
@@ -172,13 +174,13 @@ public class TestBusScan extends BasicTestCase {
 			}
 			assertEquals(1, list(scanned, "areas").size());
 			TLObject line = list(list(scanned, "areas").get(0), "lines").get(0);
-			assertEquals("1.3", line.tValueByName("name"));
+			assertEquals("1.3", ((Line) line).getName());
 			// The three devices and the stub of the unknown one (haumacher/ehome #183).
 			assertEquals(4, list(line, "devices").size());
 			TLObject device = InstallationBuilder.device(scanned, ACTUATOR);
 			assertNotNull(device);
-			assertEquals(Integer.valueOf(5), device.tValueByName("address"));
-			assertEquals(actuator.serialStored(), device.tValueByName("serialNumber"));
+			assertEquals(Integer.valueOf(5), ((BusDevice) device).getAddress());
+			assertEquals(actuator.serialStored(), ((BusDevice) device).getSerialNumber());
 			assertNotNull(ExtIds.extId(device));
 
 			// A second scan updates, a different program is a conflict.
@@ -274,13 +276,13 @@ public class TestBusScan extends BasicTestCase {
 
 	private static TreeSet<String> connections(TLObject device) {
 		TreeSet<String> result = new TreeSet<>();
-		for (TLObject connector : new DeviceConfiguration(device).getConnectors()) {
-			Interface placed = (Interface) connector.tValueByName("port");
-			for (Object element : (Collection<?>) connector.tValueByName("connections")) {
-				TLObject connection = (TLObject) element;
-				GA ga = ((GroupAddress) connection.tValueByName("target")).getAddress();
+		for (TLObject element : new DeviceConfiguration(device).getConnectors()) {
+			Connector connector = (Connector) element;
+			Interface placed = connector.getPort();
+			for (Connection connection : connector.getConnections()) {
+				GA ga = connection.getTarget().getAddress();
 				result.add(placed.getPort().getIndex() + " " + ga.getValue() + " "
-					+ ((TLClassifier) connection.tValueByName("kind")).getName());
+					+ connection.getKind().getName());
 			}
 		}
 		return result;

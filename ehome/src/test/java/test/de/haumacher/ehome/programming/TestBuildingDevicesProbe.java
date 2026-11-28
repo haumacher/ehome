@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +29,10 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -53,9 +56,9 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 		TLObject reimported = null;
 		try {
 			List<TLObject> devices = devices(project);
-			TLObject placed = devices.stream().filter(d -> d.tValueByName("location") != null).findFirst().orElseThrow();
-			TLObject unplaced = devices.stream().filter(d -> d.tValueByName("location") == null).findFirst().orElseThrow();
-			BuildingDefinition room = (BuildingDefinition) placed.tValueByName("location");
+			TLObject placed = devices.stream().filter(d -> ((Device) d).getLocation() != null).findFirst().orElseThrow();
+			TLObject unplaced = devices.stream().filter(d -> ((Device) d).getLocation() == null).findFirst().orElseThrow();
+			BuildingDefinition room = ((Device) placed).getLocation();
 			String path = BuildingDevices.path(room);
 			assertTrue(path, path.startsWith(room.getName() + ", "));
 			TLObject floor = room.tContainer();
@@ -68,7 +71,7 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 			assertTrue(BuildingDevices.allDevices(house).contains(placed));
 			Set<TLObject> addresses = new HashSet<>();
 			for (TLObject connection : BuildingDevices.connections(house)) {
-				addresses.add((TLObject) connection.tValueByName("target"));
+				addresses.add(((Connection) connection).getTarget());
 			}
 			assertFalse(addresses.isEmpty());
 			assertEquals(BuildingDevices.connections(room).size(), BuildingDevices.connections(house).size());
@@ -83,7 +86,7 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 			}
 			assertEquals(2, BuildingDevices.devices(room).size());
 			assertFalse(BuildingDevices.choices(room).contains(unplaced));
-			assertEquals(room, unplaced.tValueByName("location"));
+			assertEquals(room, ((Device) unplaced).getLocation());
 
 			// The export round trip keeps both placements with their parts.
 			try (OutputStream out = new FileOutputStream(export)) {
@@ -95,8 +98,8 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 			List<TLObject> again = devices(reimported);
 			assertEquals(devices.size(), again.size());
 			for (TLObject device : again) {
-				TLObject location = (TLObject) device.tValueByName("location");
-				assertNotNull(device.tValueByName("name") + " lost its location", location);
+				TLObject location = ((Device) device).getLocation();
+				assertNotNull(((Device) device).getName() + " lost its location", location);
 				assertEquals(path, BuildingDevices.path(location));
 			}
 
@@ -132,8 +135,8 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 			result.add((TLObject) device);
 		}
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
 					result.add((TLObject) device);
 				}
 			}

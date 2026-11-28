@@ -9,7 +9,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
@@ -45,6 +44,10 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Rename;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.ChannelInstance;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DeviceTexts;
@@ -204,11 +207,11 @@ public class TestChannelsAndRenames extends BasicTestCase {
 
 	private static String channelInstances(TLObject device) {
 		StringBuilder result = new StringBuilder();
-		for (Object element : (Collection<?>) device.tValueByName("channelInstances")) {
-			TLObject instance = (TLObject) element;
-			result.append(instance.tValueByName("extId")).append(' ').append(instance.tValueByName("channel"))
-				.append(' ').append(instance.tValueByName("description")).append(' ')
-				.append(instance.tValueByName("active")).append('\n');
+		for (ChannelInstance instance : ((Device) device).getChannelInstances()) {
+			// The flag as stored, null included (the getter is primitive).
+			result.append(instance.getExtId()).append(' ').append(instance.getChannel())
+				.append(' ').append(instance.getDescription()).append(' ')
+				.append(instance.tValue(EhomePhysicalFactory.getActiveChannelInstanceAttr())).append('\n');
 		}
 		return result.toString();
 	}
@@ -220,7 +223,7 @@ public class TestChannelsAndRenames extends BasicTestCase {
 
 	private static TLObject device(List<TLObject> projects, int address) {
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", projects).stream()
-			.filter(d -> Integer.valueOf(address).equals(d.tValueByName("address"))).toList();
+			.filter(d -> Integer.valueOf(address).equals(((BusDevice) d).getAddress())).toList();
 		assertEquals(1, devices.size());
 		return devices.get(0);
 	}

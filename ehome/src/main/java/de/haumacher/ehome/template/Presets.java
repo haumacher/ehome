@@ -35,6 +35,8 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.PresetUse;
 import de.haumacher.ehome.model.template.AlikeChannel;
 import de.haumacher.ehome.model.template.DeviceTemplate;
 import de.haumacher.ehome.model.template.Preset;
@@ -538,11 +540,10 @@ public final class Presets {
 		List<String> names;
 		if (preset == null) {
 			names = List.of();
-		} else if (isSource((TLObject) preset.tValueByName("purpose"))) {
-			// The preset may be a draft (a transient object, PresetDrafts): no wrapper of the model.
+		} else if (isSource(((Preset) preset).getPurpose())) {
 			names = SOURCE_ROLES;
 		} else {
-			names = FunctionKinds.roles(name((TLObject) preset.tValueByName("kind")));
+			names = FunctionKinds.roles(name(((Preset) preset).getKind()));
 		}
 		TLEnumeration roles = (TLEnumeration) TLModelUtil.findType("ehome.template:PresetRole");
 		List<TLClassifier> result = new ArrayList<>();
@@ -747,7 +748,7 @@ public final class Presets {
 	 * The presets applied to the device (<code>ehome.physical:PresetUse</code>).
 	 */
 	public static List<TLObject> uses(TLObject device) {
-		return list(device, "presets");
+		return device instanceof Device typed ? new ArrayList<>(typed.getPresets()) : new ArrayList<>();
 	}
 
 	/**
@@ -756,7 +757,7 @@ public final class Presets {
 	 */
 	public static TLObject use(TLObject device, String key) {
 		for (TLObject use : uses(device)) {
-			if (Objects.equals(use.tValueByName("channel"), key)) {
+			if (Objects.equals(((PresetUse) use).getChannel(), key)) {
 				return use;
 			}
 		}
@@ -781,8 +782,8 @@ public final class Presets {
 			return offer;
 		}
 		for (TLObject use : uses(device)) {
-			String otherKey = (String) use.tValueByName("channel");
-			TLObject other = (TLObject) use.tValueByName("preset");
+			String otherKey = ((PresetUse) use).getChannel();
+			TLObject other = ((PresetUse) use).getPreset();
 			if (otherKey.equals(key) || other == null || offerVeto(device, otherKey, other) != null) {
 				// The preset applied there before is replaced; one no longer offered there wants nothing.
 				continue;
@@ -864,12 +865,10 @@ public final class Presets {
 		if (existing != null) {
 			existing.tDelete();
 		}
-		TLObject use = create(USE);
-		use.tUpdateByName("preset", preset);
-		use.tUpdateByName("channel", key);
-		List<TLObject> uses = uses(device);
-		uses.add(use);
-		device.tUpdateByName("presets", uses);
+		PresetUse use = (PresetUse) create(USE);
+		use.setPreset((Preset) preset);
+		use.setChannel(key);
+		((Device) device).addPreset(use);
 		return use;
 	}
 
@@ -976,16 +975,6 @@ public final class Presets {
 
 	private static List<Preset> presets(TLObject template) {
 		return template == null ? new ArrayList<>() : new ArrayList<>(((DeviceTemplate) template).getPresets());
-	}
-
-	private static List<TLObject> list(TLObject holder, String reference) {
-		List<TLObject> result = new ArrayList<>();
-		if (holder != null && holder.tValueByName(reference) instanceof Collection<?> values) {
-			for (Object value : values) {
-				result.add((TLObject) value);
-			}
-		}
-		return result;
 	}
 
 	private static TLObject create(String typeName) {

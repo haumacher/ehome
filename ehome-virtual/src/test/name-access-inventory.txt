@@ -13,12 +13,3 @@
 [generic]
 
 [migrate]
-src/main/java/de/haumacher/ehome/virtual/tooling/device/ProjectDevices.java = 2
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestParametersDownloadProbe.java = 2
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualBcu2.java = 6
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualDeviceProbe.java = 3
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualDownload.java = 3
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualDownloadQueue.java = 11
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualParametersDownload.java = 2
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualProgramming.java = 1
-src/test/java/test/de/haumacher/ehome/virtual/tooling/TestVirtualRestore.java = 4

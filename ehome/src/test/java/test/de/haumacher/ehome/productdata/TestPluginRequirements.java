@@ -7,7 +7,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -33,6 +32,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.PluginRequirements;
@@ -244,9 +246,9 @@ public class TestPluginRequirements extends BasicTestCase {
 	}
 
 	private static TLObject firstLine(TLObject project) {
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				return (TLObject) line;
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				return line;
 			}
 		}
 		fail("No line.");
@@ -255,10 +257,10 @@ public class TestPluginRequirements extends BasicTestCase {
 
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.add((TLObject) device);
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				for (BusDevice device : line.getDevices()) {
+					result.add(device);
 				}
 			}
 		}

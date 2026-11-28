@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -46,6 +47,10 @@ import de.haumacher.ehome.model.catalog.Product;
 import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.project.ProjectMembers;
@@ -80,7 +85,7 @@ public class AssistantFixture {
 
 	private TLObject _project;
 
-	private TLObject _actuator;
+	private Device _actuator;
 
 	private TLObject _controller;
 
@@ -128,11 +133,11 @@ public class AssistantFixture {
 			ProjectMembers.add(_project, _installer, Role.editor);
 			ProjectMembers.add(_project, _viewer, Role.viewer);
 			_actuator = device(ACTUATOR, variant, assignment);
-			TLObject sensor = device(SENSOR, variant, assignment);
-			TLObject line = create("ehome.physical:Line");
-			line.tUpdateByName("devices", List.of(_actuator, sensor));
-			TLObject area = create("ehome.physical:Area");
-			area.tUpdateByName("lines", List.of(line));
+			Device sensor = device(SENSOR, variant, assignment);
+			Line line = create("ehome.physical:Line");
+			line.setDevices(Set.<BusDevice> of(_actuator, sensor));
+			Area area = create("ehome.physical:Area");
+			area.setLines(Set.of(line));
 			project.addArea(area);
 		});
 	}
@@ -175,7 +180,7 @@ public class AssistantFixture {
 	}
 
 	/** The first device of the project. */
-	public TLObject actuator() {
+	public Device actuator() {
 		return _actuator;
 	}
 
@@ -285,11 +290,11 @@ public class AssistantFixture {
 		});
 	}
 
-	private TLObject device(String title, TLObject variant, TLObject assignment) {
-		TLObject result = create("ehome.physical:Device");
-		result.tUpdateByName("title", title);
-		result.tUpdateByName("type", variant);
-		result.tUpdateByName("program", assignment);
+	private Device device(String title, Variant variant, ProgramAssignment assignment) {
+		Device result = create("ehome.physical:Device");
+		result.setTitle(title);
+		result.setType(variant);
+		result.setProgram(assignment);
 		return result;
 	}
 

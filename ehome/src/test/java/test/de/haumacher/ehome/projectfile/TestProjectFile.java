@@ -58,13 +58,20 @@ import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
 import de.haumacher.ehome.model.logical.GroupAddress;
+import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
 import de.haumacher.ehome.model.runtime.BlockParameter;
 import de.haumacher.ehome.model.runtime.Controller;
+import de.haumacher.ehome.model.runtime.DerivedPart;
 import de.haumacher.ehome.model.runtime.ObjectFollower;
 import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
+import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileExport;
@@ -257,7 +264,7 @@ public class TestProjectFile extends BasicTestCase {
 		Project project = (Project) projectObject;
 		GroupAddress temperature = address(project, "Raumtemperatur");
 		TLObject type = instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> "DPST-9-1".equals(t.tValueByName("extId"))).findFirst().orElseThrow();
+			.filter(t -> "DPST-9-1".equals(((DatapointSubtype) t).getExtId())).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			GroupAddressTypes.setType(temperature, type);
 			for (String key : List.of("Taste1", "Taste2", "Taste3", "Taste4", "Taste6")) {
@@ -319,13 +326,13 @@ public class TestProjectFile extends BasicTestCase {
 			Pages.insert(project, chart, Pages.SERIES, List.of(temperature));
 
 			// A follower of the simulation.
-			TLObject device = SharedData.within("ehome.physical:Device", List.of(project)).stream()
-				.filter(d -> ((Collection<?>) d.tValueByName("connectors")).size() > 1).findFirst().orElseThrow();
-			List<?> connectors = new ArrayList<>((Collection<?>) device.tValueByName("connectors"));
+			Device device = (Device) SharedData.within("ehome.physical:Device", List.of(project)).stream()
+				.filter(d -> ((Device) d).getConnectors().size() > 1).findFirst().orElseThrow();
+			List<Connector> connectors = new ArrayList<>(device.getConnectors());
 			ObjectFollower follower = (ObjectFollower) create("ehome.runtime:ObjectFollower");
 			follower.setDevice(device);
-			follower.setSource((TLObject) connectors.get(0));
-			follower.setFollower((TLObject) connectors.get(1));
+			follower.setSource(connectors.get(0));
+			follower.setFollower(connectors.get(1));
 			follower.setInverted(true);
 			project.setSimulationFollowers(List.of(follower));
 
@@ -444,12 +451,14 @@ public class TestProjectFile extends BasicTestCase {
 				return text;
 			}
 		}
-		if (obj.tType().getPart("function") != null && obj.tType().getPart("endpoint") != null) {
-			return obj.tValueByName("function") + "@" + obj.tValueByName("endpoint");
+		if (obj instanceof ZigbeeFunction function) {
+			return function.getFunction() + "@" + function.getEndpoint();
 		}
-		if (obj.tType().getPart("port") != null && obj.tValueByName("port") instanceof TLObject port) {
+		Interface port = obj instanceof Connector connector ? connector.getPort()
+			: obj instanceof DerivedPart derived ? derived.getPort() : null;
+		if (port != null) {
 			// A communication object of a device: by the program's object.
-			return String.valueOf(port.tValueByName("extId"));
+			return String.valueOf(port.getExtId());
 		}
 		return Integer.toString(index);
 	}
@@ -500,11 +509,12 @@ public class TestProjectFile extends BasicTestCase {
 		if (path != null) {
 			return path;
 		}
-		if (target.tType().getPart("extId") != null) {
-			return TLModelUtil.qualifiedName(target.tType()) + " " + target.tValueByName("extId");
+		if (target instanceof Externalized externalized) {
+			return TLModelUtil.qualifiedName(target.tType()) + " " + externalized.getExtId();
 		}
-		return TLModelUtil.qualifiedName(target.tType()) + " " + target.tValueByName("name") + " "
-			+ target.tValueByName("host") + ":" + target.tValueByName("port");
+		Controller controller = (Controller) target;
+		return TLModelUtil.qualifiedName(target.tType()) + " " + controller.getName() + " "
+			+ controller.getHost() + ":" + controller.getPort();
 	}
 
 	private static String primitive(Object value) {

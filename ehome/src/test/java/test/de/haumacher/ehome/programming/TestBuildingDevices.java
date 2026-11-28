@@ -42,8 +42,9 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.building.BuildingDefinition;
-import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -108,8 +109,8 @@ public class TestBuildingDevices extends BasicTestCase {
 		TLObject reserve = byTitle(project, "Taster Reserve");
 
 		// The import places the device in the kitchen; the part sees it through the backwards reference.
-		assertSame(kitchen, device.tValueByName("location"));
-		assertNull(reserve.tValueByName("location"));
+		assertSame(kitchen, ((Device) device).getLocation());
+		assertNull(((Device) reserve).getLocation());
 		assertEquals(Set.of(device), new HashSet<>(kitchen.getDevices()));
 		assertEquals(List.of(device), BuildingDevices.devices(kitchen));
 		checkPath(project, house, floor, kitchen);
@@ -169,7 +170,7 @@ public class TestBuildingDevices extends BasicTestCase {
 			tx.commit();
 		}
 		assertSame(reserve, placed);
-		assertSame(board, reserve.tValueByName("location"));
+		assertSame(board, ((Device) reserve).getLocation());
 		assertEquals(List.of(reserve), BuildingDevices.devices(board));
 		assertEquals(List.of(device), BuildingDevices.devices(kitchen));
 		assertEquals(List.of(device), BuildingDevices.choices(board));
@@ -200,7 +201,7 @@ public class TestBuildingDevices extends BasicTestCase {
 			tx.commit();
 		}
 		assertSame(board, selected);
-		assertNull(reserve.tValueByName("location"));
+		assertNull(((Device) reserve).getLocation());
 		assertEquals(List.of(), BuildingDevices.devices(board));
 		assertEquals(deviceConnections, new HashSet<>(BuildingDevices.connections(house)));
 
@@ -211,14 +212,14 @@ public class TestBuildingDevices extends BasicTestCase {
 			asRoot(Locale.ENGLISH, () -> choose.execute(device, board));
 			tx.commit();
 		}
-		assertSame(board, device.tValueByName("location"));
+		assertSame(board, ((Device) device).getLocation());
 		assertEquals(List.of(), BuildingDevices.devices(kitchen));
 		assertEquals(List.of(device), BuildingDevices.devices(board));
 		try (Transaction tx = kb().beginTransaction()) {
 			asRoot(Locale.ENGLISH, () -> unplace.execute(device));
 			tx.commit();
 		}
-		assertNull(device.tValueByName("location"));
+		assertNull(((Device) device).getLocation());
 		assertTrue(BuildingDevices.connections(house).isEmpty());
 
 		// A part of another project is refused with a reason.
@@ -232,7 +233,7 @@ public class TestBuildingDevices extends BasicTestCase {
 			} catch (TopLogicException ex) {
 				assertNotNull(ex.getErrorKey());
 			}
-			assertNull(device.tValueByName("location"));
+			assertNull(((Device) device).getLocation());
 		}
 
 		// Deleting a part holding a device leaves the device without location.
@@ -245,8 +246,8 @@ public class TestBuildingDevices extends BasicTestCase {
 			floor.tDelete();
 			tx.commit();
 		}
-		assertNull(device.tValueByName("location"));
-		assertNull(reserve.tValueByName("location"));
+		assertNull(((Device) device).getLocation());
+		assertNull(((Device) reserve).getLocation());
 		assertEquals(List.of(), children(children, project, house));
 		assertTrue(BuildingDevices.connections(house).isEmpty());
 	}
@@ -288,7 +289,7 @@ public class TestBuildingDevices extends BasicTestCase {
 	private static void assertSorted(List<TLObject> connections) {
 		int last = Integer.MIN_VALUE;
 		for (TLObject connection : connections) {
-			int value = ((GroupAddress) connection.tValueByName("target")).getAddress().getValue();
+			int value = ((Connection) connection).getTarget().getAddress().getValue();
 			assertTrue(last <= value);
 			last = value;
 		}
@@ -308,7 +309,7 @@ public class TestBuildingDevices extends BasicTestCase {
 
 	private static TLObject byTitle(TLObject project, String title) {
 		List<TLObject> devices = GroupAddressConnections.devices(project);
-		return devices.stream().filter(d -> title.equals(d.tValueByName("title"))).findFirst()
+		return devices.stream().filter(d -> title.equals(((Device) d).getTitle())).findFirst()
 			.orElseThrow(() -> new AssertionError("No device " + title));
 	}
 

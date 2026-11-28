@@ -77,6 +77,11 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.planning.DevicePlanning;
@@ -144,7 +149,7 @@ public class TestAssistantTools extends BasicTestCase {
 		// "Plan a switching actuator of the test catalog in line 1.3 and put it in the kitchen."
 		TLObject line = line();
 		TLObject actuator = device(line, 5);
-		TLObject variant = (TLObject) actuator.tValueByName("type");
+		TLObject variant = ((Device) actuator).getType();
 		Integer next = DevicePlanning.nextFree(line);
 		List<TLObject> before = ExtIds.list(line, "devices");
 		sent = installerRuns("Plan a switching actuator of the test catalog in line 1.3 and put it in the kitchen.",
@@ -154,11 +159,11 @@ public class TestAssistantTools extends BasicTestCase {
 			toolAnswer(sent, "searchCatalog").contains(tid(variant)));
 		List<TLObject> planned = ExtIds.list(line, "devices");
 		planned.removeAll(before);
-		TLObject device = single(planned);
-		assertEquals(next, device.tValueByName("address"));
-		assertSame(variant, device.tValueByName("type"));
-		assertSame(DevicePlanning.defaultProgram(variant), device.tValueByName("program"));
-		assertSame(kitchen, device.tValueByName("location"));
+		Device device = (Device) single(planned);
+		assertEquals(next, device.getAddress());
+		assertSame(variant, device.getType());
+		assertSame(DevicePlanning.defaultProgram(variant), device.getProgram());
+		assertSame(kitchen, device.getLocation());
 
 		// "Create a group address for the kitchen light and connect channel A's switching object."
 		TLObject range = GroupAddresses.ranges(_project).get(0);
@@ -187,8 +192,8 @@ public class TestAssistantTools extends BasicTestCase {
 		TLObject connection = single(GroupAddressConnections.connections(address));
 		assertSame(device, GroupAddressConnections.device(connection));
 		assertEquals(channelA.getPort().getIndex(), GroupAddressConnections.object(connection).getPort().getIndex());
-		assertEquals("The direction the dialog proposes.", kind, ((TLClassifier) connection.tValueByName("kind")).getName());
-		assertEquals(Boolean.TRUE, connection.tContainer().tValueByName("active"));
+		assertEquals("The direction the dialog proposes.", kind, ((Connection) connection).getKind().getName());
+		assertTrue(((Connector) connection.tContainer()).getActive());
 		String answer = toolAnswer(sent, "connectObject");
 		assertFalse("The object's text with its placeholder filled: " + answer, answer.contains("{{"));
 	}
@@ -218,7 +223,7 @@ public class TestAssistantTools extends BasicTestCase {
 			call("setGroupAddressType", "groupAddress", tid(address[0]), "datapointType", "9.001"),
 			call("connectObject", "device", tid(actuator), "object", Integer.valueOf(scene.getPort().getIndex()),
 				"groupAddress", tid(address[0])),
-			call("planDevice", "line", tid(line), "product", tid((TLObject) actuator.tValueByName("type")), "location",
+			call("planDevice", "line", tid(line), "product", tid(((Device) actuator).getType()), "location",
 				tid(foreignBuilding)));
 		String inUse = toolAnswer(sent, "createGroupAddress");
 		String typeSize = toolAnswer(sent, "setGroupAddressType");
@@ -244,7 +249,7 @@ public class TestAssistantTools extends BasicTestCase {
 		// A viewer holds the writing tools (every account does) and is refused by the role in the project
 		// (haumacher/ehome #152).
 		sent = runs(_viewer, "Plan a device.", script(call("planDevice", "line", tid(line), "product",
-			tid((TLObject) actuator.tValueByName("type")))));
+			tid(((Device) actuator).getType()))));
 		List<String> offered = toolNames(sent.get(0));
 		assertTrue("A viewer reads: " + offered, offered.contains("listDevices"));
 		String refusal = toolAnswer(sent, "planDevice");
@@ -262,7 +267,7 @@ public class TestAssistantTools extends BasicTestCase {
 
 		// The tool checks the right itself, also for a caller that does not ask the permission filter.
 		ToolResult direct = as(_viewer, () -> new DeviceTools().planDevice(AssistantFixture.toolContext(), line,
-			(TLObject) actuator.tValueByName("type"), null, null, null, null, null));
+			((Device) actuator).getType(), null, null, null, null, null));
 		assertTrue(direct.failed());
 		assertTrue(direct.text(), direct.text().contains("Permission denied"));
 		assertEquals(devices, ExtIds.list(line, "devices").size());
@@ -326,7 +331,7 @@ public class TestAssistantTools extends BasicTestCase {
 		assertEquals("Building parts created in " + projectName + ": Gartenhaus, Garage", created);
 
 		String planned = commitMessage(new DeviceTools(), "planDevice",
-			Map.of("line", tid(line), "product", tid((TLObject) actuator.tValueByName("type")), "name", "Aktor Garage"));
+			Map.of("line", tid(line), "product", tid(((Device) actuator).getType()), "name", "Aktor Garage"));
 		assertTrue(planned, planned.startsWith("Device planned in line ") && planned.endsWith(": Aktor Garage"));
 
 		String address = commitMessage(new WiringTools(), "createGroupAddress",
@@ -379,7 +384,7 @@ public class TestAssistantTools extends BasicTestCase {
 	 * program is asked about.
 	 */
 	public void testProbeTemplateToolsOfForeignProject() {
-		TLObject assignment = (TLObject) device(line(), 5).tValueByName("program");
+		TLObject assignment = ((Device) device(line(), 5)).getProgram();
 		TLObject program = ((ProgramAssignment) assignment).getProgram();
 		List<ProviderRequest> sent = installerRuns("Which objects of the other project are untyped?",
 			call("objectKinds", "program", tid(program), "project", tid(_foreign), "untypedOnly", Boolean.TRUE));
@@ -450,7 +455,7 @@ public class TestAssistantTools extends BasicTestCase {
 		assertTrue(toolAnswer(sent, "setDeviceParameter"), toolAnswer(sent, "setDeviceParameter").contains("Set."));
 		assertSame(other, DeviceSettings.value(actuator, choice));
 		assertEquals(List.of(parts[2], parts[1]), ExtIds.list(parts[0], "parts"));
-		assertSame(parts[2], actuator.tValueByName("location"));
+		assertSame(parts[2], ((Device) actuator).getLocation());
 
 		// A duplicate takes the settings along: parts of a device created in the same turn.
 		List<TLObject> before = ExtIds.list(line, "devices");
@@ -594,7 +599,7 @@ public class TestAssistantTools extends BasicTestCase {
 	private static TLObject line() {
 		for (TLObject area : ExtIds.list(_project, "areas")) {
 			for (TLObject line : ExtIds.list(area, "lines")) {
-				if (Integer.valueOf(3).equals(line.tValueByName("address"))) {
+				if (Integer.valueOf(3).equals(((Line) line).getAddress())) {
 					return line;
 				}
 			}
@@ -605,7 +610,7 @@ public class TestAssistantTools extends BasicTestCase {
 
 	private static TLObject device(TLObject line, int number) {
 		for (TLObject device : ExtIds.list(line, "devices")) {
-			if (Integer.valueOf(number).equals(device.tValueByName("address"))) {
+			if (Integer.valueOf(number).equals(((BusDevice) device).getAddress())) {
 				return device;
 			}
 		}

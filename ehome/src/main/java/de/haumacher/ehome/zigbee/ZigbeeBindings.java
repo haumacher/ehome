@@ -137,7 +137,7 @@ public final class ZigbeeBindings {
 		ZigbeeDevice device = (ZigbeeDevice) device(function);
 		TLObject entry = ZigbeeCatalog.entry(function);
 		String deviceName = String.valueOf(device.getName());
-		ResKey friendly = entry != null && entry.tValueByName("name") instanceof ResKey key ? key : null;
+		ResKey friendly = ZigbeeCatalog.entryName(entry);
 		String name;
 		ResKey label;
 		// The label in the languages the catalog's name has; a name without language goes into the
@@ -311,7 +311,8 @@ public final class ZigbeeBindings {
 		if (project == null) {
 			return result;
 		}
-		String type = form.tValueByName("type") instanceof TLClassifier classifier ? classifier.getName() : null;
+		TLClassifier classifier = ((ApplicationDatapoint) form).getType();
+		String type = classifier != null ? classifier.getName() : null;
 		for (TLObject device : ZigbeeImport.devices(project)) {
 			for (ZigbeeFunction function : ((ZigbeeDevice) device).getFunctions()) {
 				List<TLObject> bound = boundDatapoints(function);

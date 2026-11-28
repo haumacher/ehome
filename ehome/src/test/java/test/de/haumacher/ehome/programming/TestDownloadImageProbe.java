@@ -51,6 +51,10 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -113,7 +117,7 @@ public class TestDownloadImageProbe extends BasicTestCase {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		try {
 			TLObject device = DeviceChanges.devices(project).stream()
-				.filter(d -> "TEST Modulgerät".equals(d.tValueByName("name"))).findFirst().orElseThrow();
+				.filter(d -> "TEST Modulgerät".equals(((Device) d).getName())).findFirst().orElseThrow();
 			Set<Integer> active = new HashSet<>();
 			for (Interface placed : new DeviceConfiguration(device).getActiveInterfaces().values()) {
 				active.add(Integer.valueOf(placed.getPort().getIndex()));
@@ -199,8 +203,8 @@ public class TestDownloadImageProbe extends BasicTestCase {
 		TLObject setting;
 		try (Transaction tx = kb.beginTransaction()) {
 			setting = create("ehome.physical:ParameterSetting");
-			setting.tUpdateByName("parameter", view);
-			setting.tUpdateByName("choice", other);
+			((ParameterSetting) setting).setParameter(view);
+			((ParameterSetting) setting).setChoice(other);
 			add(device, "settings", setting);
 			tx.commit();
 		}
@@ -311,7 +315,7 @@ public class TestDownloadImageProbe extends BasicTestCase {
 			created.add(manufacturer);
 
 			Program program = factory.createProgram();
-			program.tUpdateByName("name", text("Probe program", "Probeprogramm"));
+			program.setNameKey(text("Probe program", "Probeprogramm"));
 			// The mask of the program of the Test project (0705), whose tables the image writes; not
 			// any program's: the shared data hold masks with tables of other formats (the router's).
 			program.setMask(((Program) instances("ehome.operational:Program").stream()
@@ -355,19 +359,18 @@ public class TestDownloadImageProbe extends BasicTestCase {
 			product.setName("Probe product");
 			manufacturer.addProduct(product);
 			Variant variant = (Variant) create("ehome.catalog:Variant");
-			variant.tUpdateByName("name", text("Probe variant", "Probevariante"));
+			variant.setNameKey(text("Probe variant", "Probevariante"));
 			variant.setOrderNumber("PROBE-1");
 			product.addVariant(variant);
 			ProgramAssignment assignment = (ProgramAssignment) create("ehome.catalog:ProgramAssignment");
 			assignment.setProgram(program);
 			product.addProgram(assignment);
 
-			TLObject line = (TLObject) ((Collection<?>) ((TLObject) (((Project) project).getAreas())
-				.iterator().next()).tValueByName("lines")).iterator().next();
+			TLObject line = ((Project) project).getAreas().iterator().next().getLines().iterator().next();
 			device = create("ehome.physical:Device");
-			device.tUpdateByName("address", 200);
-			device.tUpdateByName("type", variant);
-			device.tUpdateByName("program", assignment);
+			((Device) device).setAddress(200);
+			((Device) device).setType(variant);
+			((Device) device).setProgram(assignment);
 			add(line, "devices", device);
 			tx.commit();
 		}
@@ -450,8 +453,8 @@ public class TestDownloadImageProbe extends BasicTestCase {
 	private static TLObject device(TLObject project) {
 		List<TLObject> devices = new ArrayList<>();
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
 					devices.add((TLObject) device);
 				}
 			}

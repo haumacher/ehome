@@ -6,7 +6,6 @@ package test.de.haumacher.ehome.runtime;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -51,6 +50,9 @@ import de.haumacher.ehome.blocks.SunShading;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.building.BuildingDefinition;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -591,20 +593,19 @@ public class TestBlockEditing extends BasicTestCase {
 	}
 
 	private TLObject mainType(int number) {
-		TLObject type = create("ehome.datapoint:DatapointMainType");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", "TEST-78-" + number);
+		DatapointMainType type = create("ehome.datapoint:DatapointMainType");
+		type.setNumber(number);
+		type.setExtId("TEST-78-" + number);
 		_cleanup.add(type);
 		return type;
 	}
 
 	private static TLObject subtype(TLObject main, int number) {
-		TLObject type = create("ehome.datapoint:DatapointSubtype");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", "TEST-78-" + main.tValueByName("number") + "." + number);
-		List<Object> subtypes = new ArrayList<>((Collection<?>) main.tValueByName("subtypes"));
-		subtypes.add(type);
-		main.tUpdateByName("subtypes", subtypes);
+		DatapointMainType mainType = (DatapointMainType) main;
+		DatapointSubtype type = create("ehome.datapoint:DatapointSubtype");
+		type.setNumber(number);
+		type.setExtId("TEST-78-" + mainType.getNumber() + "." + number);
+		mainType.addSubtype(type);
 		return type;
 	}
 
@@ -612,7 +613,7 @@ public class TestBlockEditing extends BasicTestCase {
 		GroupAddress address = create("ehome.logical:GroupAddress");
 		address.setName(name);
 		address.setAddress(new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.setDatapointTypes(List.of(type));
+		address.setDatapointTypes(List.of((DatapointType) type));
 		if (writable) {
 			address.setRuntimeWritable(Boolean.TRUE);
 		}

@@ -27,16 +27,17 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
-import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -195,8 +196,8 @@ public class TestVirtualBcu2 extends BasicTestCase {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			DeviceSettings.removeSettings(device, new ArrayList<>(settings(device)));
 			for (TLObject connector : new DeviceConfiguration(device).getConnectors()) {
-				for (Object connection : new ArrayList<>((Collection<?>) connector.tValueByName("connections"))) {
-					DeviceSettings.disconnect((TLObject) connection);
+				for (Connection connection : new ArrayList<>(((Connector) connector).getConnections())) {
+					DeviceSettings.disconnect(connection);
 				}
 			}
 			tx.commit();
@@ -240,21 +241,17 @@ public class TestVirtualBcu2 extends BasicTestCase {
 
 	private static Collection<TLObject> settings(TLObject device) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
-			result.add((TLObject) setting);
-		}
+		result.addAll(((Device) device).getSettings());
 		return result;
 	}
 
 	private static TreeSet<String> connections(TLObject device) {
 		TreeSet<String> result = new TreeSet<>();
 		for (TLObject connector : new DeviceConfiguration(device).getConnectors()) {
-			Interface placed = (Interface) connector.tValueByName("port");
-			for (Object element : (Collection<?>) connector.tValueByName("connections")) {
-				TLObject connection = (TLObject) element;
-				GA ga = ((GroupAddress) connection.tValueByName("target")).getAddress();
-				result.add(placed.getPort().getIndex() + " " + ga.getValue() + " "
-					+ ((TLClassifier) connection.tValueByName("kind")).getName());
+			Interface placed = ((Connector) connector).getPort();
+			for (Connection connection : ((Connector) connector).getConnections()) {
+				GA ga = connection.getTarget().getAddress();
+				result.add(placed.getPort().getIndex() + " " + ga.getValue() + " " + connection.getKind().getName());
 			}
 		}
 		return result;

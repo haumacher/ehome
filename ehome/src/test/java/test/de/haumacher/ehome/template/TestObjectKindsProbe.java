@@ -30,6 +30,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.template.DeviceTemplates;
 import de.haumacher.ehome.template.ObjectKinds;
 
@@ -57,8 +58,7 @@ public class TestObjectKindsProbe extends BasicTestCase {
 			Set<TLObject> programs = new LinkedHashSet<>();
 			for (TLObject device : SharedData.within("ehome.physical:Device", projects)) {
 				// The device's program assignment names the program.
-				if (device.tValueByName("program") instanceof TLObject assignment
-					&& assignment instanceof ProgramAssignment programAssignment
+				if (((Device) device).getProgram() instanceof ProgramAssignment programAssignment
 					&& programAssignment.getProgram() instanceof TLObject program) {
 					programs.add(program);
 				}

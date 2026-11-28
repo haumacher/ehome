@@ -25,6 +25,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.BusDevice;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.scan.InstallationBuilder;
@@ -55,7 +56,7 @@ public class TestDeviceNumbersProbe extends BasicTestCase {
 			tx.commit();
 		}
 		assertSame(line, device.tContainer());
-		assertEquals(Integer.valueOf(50), device.tValueByName("address"));
+		assertEquals(Integer.valueOf(50), ((BusDevice) device).getAddress());
 		assertEquals("15.15.50", derived(device, "individualAddress"));
 		assertEquals(Integer.valueOf(0xFF32), DownloadImage.individualAddress(device));
 		assertEquals("15.15.50", GroupAddressConnections.addressText(device));

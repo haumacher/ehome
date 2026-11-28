@@ -241,7 +241,7 @@ public class TestDownloadDataProbe extends BasicTestCase {
 			manufacturer.setName("Probe");
 			((ManufacturerRoot) root).addManufacturer(manufacturer);
 			program = factory.createProgram();
-			program.tUpdateByName("name", ResKey.builder().add(Locale.ENGLISH, "Probe program").add(Locale.GERMAN, "Probeprogramm").build());
+			program.setNameKey(ResKey.builder().add(Locale.ENGLISH, "Probe program").add(Locale.GERMAN, "Probeprogramm").build());
 			program.setMask(mask);
 			program.setLoadProcedureStyle(classifier("ehome.operational:LoadProcedureStyle", "ProductProcedure"));
 			manufacturer.addProgram(program);

@@ -42,6 +42,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.MasterDataUpdates;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskVersion;
 
@@ -307,7 +308,7 @@ public class TestMasterDataVersions extends BasicTestCase {
 			return classifier.getName();
 		}
 		if (value instanceof TLObject obj) {
-			return String.valueOf(obj.tValueByName("extId"));
+			return String.valueOf(((Externalized) obj).getExtId());
 		}
 		if (value instanceof BinaryDataSource data) {
 			ByteArrayOutputStream buffer = new ByteArrayOutputStream();

@@ -8,6 +8,9 @@ import com.top_logic.layout.LabelProvider;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.runtime.RuleState;
+import de.haumacher.ehome.model.runtime.TimelinePlan;
+
 /**
  * {@link LabelProvider} for the parts of a time program (haumacher/ehome #140) that the default
  * labels name badly: the datapoint of a rule's state as every datapoint is named
@@ -28,14 +31,19 @@ public class RuleLabelProvider implements LabelProvider {
 		if (!(object instanceof TLObject obj) || !obj.tValid()) {
 			return null;
 		}
-		if (obj.tType().getPart("identifier") == null) {
+		String id;
+		ResKey label;
+		if (obj instanceof RuleState state) {
+			id = state.getIdentifier();
+			label = state.getLabel();
+		} else if (obj instanceof TimelinePlan plan) {
+			id = plan.getIdentifier();
+			label = plan.getLabel();
+		} else {
 			return DatapointNames.name(obj);
 		}
-		Object id = obj.tValueByName("identifier");
-		Object label = obj.tValueByName("label");
-		String text = label instanceof ResKey key ? Resources.getInstance().getString(key, null) : null;
-		return DatapointNames.format(text == null || text.isBlank() ? null : text.trim(),
-			id == null ? null : id.toString());
+		String text = label == null ? null : Resources.getInstance().getString(label, null);
+		return DatapointNames.format(text == null || text.isBlank() ? null : text.trim(), id);
 	}
 
 }

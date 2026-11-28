@@ -61,6 +61,9 @@ import de.haumacher.ehome.model.building.BuildingDefinition;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.monitor.Recording;
 import de.haumacher.ehome.model.monitor.Telegram;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Controller;
 import de.haumacher.ehome.model.runtime.DatapointTrigger;
@@ -113,7 +116,7 @@ public class TestProjectUpdate extends BasicTestCase {
 		try {
 			TLObject project = importProject(BASE, before, projects);
 			GroupAddress ga3 = (GroupAddress) knx(project, P + "GA-3");
-			TLObject flur = knx(project, P + "DI-2");
+			Device flur = (Device) knx(project, P + "DI-2");
 			BuildingDefinition kueche = (BuildingDefinition) knx(project, P + "BP-3");
 			BuildingDefinition erdgeschoss = (BuildingDefinition) knx(project, P + "BP-2");
 			Rule rule;
@@ -198,7 +201,7 @@ public class TestProjectUpdate extends BasicTestCase {
 			assertEquals("Neu", ((GroupAddress) knx(project, P + "GA-13")).getName());
 			TLObject bad = knx(project, P + "DI-4");
 			assertEquals(P + "L-2", ExtIds.extId(bad.tContainer()));
-			assertEquals(P + "BP-6", ExtIds.extId((TLObject) bad.tValueByName("location")));
+			assertEquals(P + "BP-6", ExtIds.extId(((BusDevice) bad).getLocation()));
 			for (String removed : List.of("GA-11", "GA-12", "DI-3")) {
 				assertNull(removed, find(project, P + removed));
 			}
@@ -206,7 +209,7 @@ public class TestProjectUpdate extends BasicTestCase {
 
 			// The changed parameter.
 			TLObject kuecheDevice = knx(project, P + "DI-1");
-			assertEquals(Long.valueOf(30), setting(kuecheDevice, "_P-2384_R-2384").tValueByName("number"));
+			assertEquals(Long.valueOf(30), setting(kuecheDevice, "_P-2384_R-2384").getNumber());
 
 			// No doubled shared objects.
 			SharedData.assertOnce("ehome.catalog:Manufacturer", SharedData.ids(NEW, "knx_master.xml", "Manufacturer"));
@@ -427,8 +430,8 @@ public class TestProjectUpdate extends BasicTestCase {
 			DatapointTrigger trigger;
 			Function function;
 			try (Transaction tx = kb().beginTransaction()) {
-				planned = DevicePlanning.create(line, (TLObject) kueche.tValueByName("type"),
-					(TLObject) kueche.tValueByName("program"), Integer.valueOf(5), "Geplant", null);
+				planned = DevicePlanning.create(line, ((Device) kueche).getType(),
+					((Device) kueche).getProgram(), Integer.valueOf(5), "Geplant", null);
 				address = (GroupAddress) GroupAddresses.create(range, Integer.valueOf(5), "Eigene", null);
 				Rule rule = (Rule) RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
 				rule.setIdentifier("eigene");
@@ -439,7 +442,7 @@ public class TestProjectUpdate extends BasicTestCase {
 				function = (Function) create("ehome.runtime:Function");
 				function.setNameKey(text("Geplant"));
 				function.setKind(light());
-				function.setDevice(planned);
+				function.setDevice((Device) planned);
 				((Project) project).setFunctions(List.of(function));
 				tx.commit();
 			}
@@ -469,7 +472,7 @@ public class TestProjectUpdate extends BasicTestCase {
 			messages = messages(update(project, ADOPT));
 			assertTrue(planned.tValid());
 			assertEquals(P + "DI-5", ExtIds.extId(planned));
-			assertEquals("Taster Diele", planned.tValueByName("title"));
+			assertEquals("Taster Diele", ((BusDevice) planned).getTitle());
 			assertFalse(ExtIds.isCreatedInApp(planned));
 			assertSame(planned, function.getDevice());
 			assertTrue(messages.toString(), messages.stream().anyMatch(m -> m.contains("adopted") && m.contains("Taster Diele")));
@@ -477,8 +480,8 @@ public class TestProjectUpdate extends BasicTestCase {
 			// After the import of the numbers of ETS, a device planned next continues the app's range.
 			TLObject next;
 			try (Transaction tx = kb().beginTransaction()) {
-				next = DevicePlanning.create(line, (TLObject) kueche.tValueByName("type"),
-					(TLObject) kueche.tValueByName("program"), Integer.valueOf(6), "Geplant 2", null);
+				next = DevicePlanning.create(line, ((Device) kueche).getType(),
+					((Device) kueche).getProgram(), Integer.valueOf(6), "Geplant 2", null);
 				tx.commit();
 			}
 			assertEquals(P + "DI-" + (ExtIds.APP_ID_BASE + 1), ExtIds.extId(next));
@@ -574,9 +577,9 @@ public class TestProjectUpdate extends BasicTestCase {
 		return result;
 	}
 
-	private static TLObject setting(TLObject device, String parameterSuffix) {
-		for (TLObject setting : ProjectParts.values(device.tValueByName("settings"))) {
-			if (ExtIds.extId((TLObject) setting.tValueByName("parameter")).endsWith(parameterSuffix)) {
+	private static ParameterSetting setting(TLObject device, String parameterSuffix) {
+		for (ParameterSetting setting : ((Device) device).getSettings()) {
+			if (setting.getParameter().getExtId().endsWith(parameterSuffix)) {
 				return setting;
 			}
 		}

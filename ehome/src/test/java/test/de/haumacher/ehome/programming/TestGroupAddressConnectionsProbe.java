@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +29,10 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -98,7 +101,7 @@ public class TestGroupAddressConnectionsProbe extends BasicTestCase {
 			// so the address keeps its one sender.
 			Interface sendingElsewhere = DeviceSettings.interfaces(actuator).stream()
 				.filter(i -> i.getPort().getIndex() != 0 && DeviceSettings.connections(actuator, i).stream()
-					.anyMatch(c -> c.tValueByName("kind") == send))
+					.anyMatch(c -> ((Connection) c).getKind() == send))
 				.findFirst().orElseThrow();
 			try (Transaction tx = kb.beginTransaction()) {
 				DeviceSettings.connect(actuator, sendingElsewhere, address, send);
@@ -170,9 +173,9 @@ public class TestGroupAddressConnectionsProbe extends BasicTestCase {
 	private static Map<Integer, TLObject> devicesByAddress(TLObject project) {
 		Map<Integer, TLObject> result = new HashMap<>();
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.put((Integer) ((TLObject) device).tValueByName("address"), (TLObject) device);
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
+					result.put(((BusDevice) device).getAddress(), (TLObject) device);
 				}
 			}
 		}

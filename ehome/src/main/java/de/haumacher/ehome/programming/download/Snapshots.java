@@ -4,9 +4,7 @@
 package de.haumacher.ehome.programming.download;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -16,6 +14,10 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
+
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.DeviceSnapshot;
+import de.haumacher.ehome.model.physical.EhomePhysicalFactory;
 
 /**
  * The snapshots of a device stored with it (<code>ehome.physical:DeviceSnapshot</code>, the
@@ -36,9 +38,6 @@ public final class Snapshots {
 	/** The type of a stored snapshot. */
 	public static final String TYPE = "ehome.physical:DeviceSnapshot";
 
-	/** The reference of a device to its snapshots. */
-	public static final String SNAPSHOTS = "snapshots";
-
 	private Snapshots() {
 		// Static helpers.
 	}
@@ -51,25 +50,25 @@ public final class Snapshots {
 	 * @return The stored snapshot.
 	 */
 	public static TLObject store(TLObject device, Snapshot snapshot) {
-		TLObject result = ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(TYPE));
+		DeviceSnapshot result =
+			(DeviceSnapshot) ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(TYPE));
 		Person account = TLContext.currentUser();
-		result.tUpdateByName("time", snapshot.getTime());
-		result.tUpdateByName("account", account);
-		result.tUpdateByName("busPath", snapshot.getBusPath());
-		result.tUpdateByName("file", snapshot.getFile());
-		result.tUpdateByName("address",
-			snapshot.getAddress() == null ? null : DownloadPlanner.formatAddress(snapshot.getAddress()));
-		result.tUpdateByName("descriptor", snapshot.getDescriptor());
-		result.tUpdateByName("program", snapshot.getProgram());
-		result.tUpdateByName("programVersion", snapshot.getProgramVersion());
-		result.tUpdateByName("loadStates", loadStatesText(snapshot));
-		result.tUpdateByName("addressTable", snapshot.getAddressTable());
-		result.tUpdateByName("associationTable", snapshot.getAssociationTable());
-		result.tUpdateByName("memory", memoryText(snapshot));
-		result.tUpdateByName("properties", propertiesText(snapshot));
-		result.tUpdateByName("notes", snapshot.getNotes().isEmpty() ? null : String.join("\n", snapshot.getNotes()));
-		result.tUpdateByName("complete", Boolean.valueOf(snapshot.isComplete()));
-		device.tAddByName(SNAPSHOTS, result);
+		result.setTime(snapshot.getTime());
+		result.setAccount(account);
+		result.setBusPath(snapshot.getBusPath());
+		result.setFile(snapshot.getFile());
+		result.setAddress(snapshot.getAddress() == null ? null : DownloadPlanner.formatAddress(snapshot.getAddress()));
+		result.setDescriptor(snapshot.getDescriptor());
+		result.setProgram(snapshot.getProgram());
+		result.setProgramVersion(snapshot.getProgramVersion());
+		result.setLoadStates(loadStatesText(snapshot));
+		result.setAddressTable(snapshot.getAddressTable());
+		result.setAssociationTable(snapshot.getAssociationTable());
+		result.setMemory(memoryText(snapshot));
+		result.setProperties(propertiesText(snapshot));
+		result.setNotes(snapshot.getNotes().isEmpty() ? null : String.join("\n", snapshot.getNotes()));
+		result.setComplete(snapshot.isComplete());
+		((Device) device).addSnapshot(result);
 		return result;
 	}
 
@@ -80,29 +79,31 @@ public final class Snapshots {
 	 *        A <code>ehome.physical:DeviceSnapshot</code>.
 	 */
 	public static Snapshot load(TLObject stored) {
+		DeviceSnapshot typed = (DeviceSnapshot) stored;
 		Snapshot result = new Snapshot();
-		result.setTime((Date) stored.tValueByName("time"));
-		if (stored.tValueByName("account") instanceof Person person) {
+		result.setTime(typed.getTime());
+		Person person = typed.getAccount();
+		if (person != null) {
 			result.setAccount(person.getName());
 		}
-		result.setBusPath((String) stored.tValueByName("busPath"));
-		result.setFile((String) stored.tValueByName("file"));
-		result.setAddress(parseAddress((String) stored.tValueByName("address")));
-		result.setDescriptor((String) stored.tValueByName("descriptor"));
-		result.setProgram((String) stored.tValueByName("program"));
-		result.setProgramVersion((String) stored.tValueByName("programVersion"));
-		parseLoadStates(result, (String) stored.tValueByName("loadStates"));
-		result.setAddressTable((Integer) stored.tValueByName("addressTable"));
-		result.setAssociationTable((Integer) stored.tValueByName("associationTable"));
-		parseMemory(result, (String) stored.tValueByName("memory"));
-		parseProperties(result, (String) stored.tValueByName("properties"));
-		String notes = (String) stored.tValueByName("notes");
+		result.setBusPath(typed.getBusPath());
+		result.setFile(typed.getFile());
+		result.setAddress(parseAddress(typed.getAddress()));
+		result.setDescriptor(typed.getDescriptor());
+		result.setProgram(typed.getProgram());
+		result.setProgramVersion(typed.getProgramVersion());
+		parseLoadStates(result, typed.getLoadStates());
+		result.setAddressTable(typed.getAddressTable());
+		result.setAssociationTable(typed.getAssociationTable());
+		parseMemory(result, typed.getMemory());
+		parseProperties(result, typed.getProperties());
+		String notes = typed.getNotes();
 		if (notes != null && !notes.isEmpty()) {
 			for (String note : notes.split("\n")) {
 				result.note(note);
 			}
 		}
-		result.setComplete(!Boolean.FALSE.equals(stored.tValueByName("complete")));
+		result.setComplete(!Boolean.FALSE.equals(stored.tValue(EhomePhysicalFactory.getCompleteDeviceSnapshotAttr())));
 		return result;
 	}
 
@@ -110,11 +111,8 @@ public final class Snapshots {
 	 * The snapshots of the device, newest first.
 	 */
 	public static List<TLObject> of(TLObject device) {
-		List<TLObject> result = new ArrayList<>();
-		for (Object element : (Collection<?>) device.tValueByName(SNAPSHOTS)) {
-			result.add((TLObject) element);
-		}
-		result.sort(Comparator.comparing((TLObject s) -> (Date) s.tValueByName("time")).reversed());
+		List<TLObject> result = new ArrayList<>(((Device) device).getSnapshots());
+		result.sort(Comparator.comparing((TLObject s) -> ((DeviceSnapshot) s).getTime()).reversed());
 		return result;
 	}
 

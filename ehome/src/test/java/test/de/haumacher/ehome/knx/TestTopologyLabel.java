@@ -3,7 +3,7 @@
  */
 package test.de.haumacher.ehome.knx;
 
-import java.util.List;
+import java.util.Set;
 
 import junit.framework.Test;
 
@@ -22,6 +22,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 
 /**
@@ -34,20 +36,20 @@ public class TestTopologyLabel extends BasicTestCase {
 	public void testLabels() {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		TLObject project;
-		TLObject area;
-		TLObject unnamed;
-		TLObject named;
+		Area area;
+		Line unnamed;
+		Line named;
 		try (Transaction tx = kb.beginTransaction()) {
 			project = create("ehome.project:Project");
 			((Project) project).setName("TestTopologyLabel");
-			area = create("ehome.physical:Area");
-			area.tUpdateByName("address", Integer.valueOf(1));
-			unnamed = create("ehome.physical:Line");
-			unnamed.tUpdateByName("address", Integer.valueOf(1));
-			named = create("ehome.physical:Line");
-			named.tUpdateByName("address", Integer.valueOf(2));
-			named.tUpdateByName("name", "Erdgeschoss");
-			area.tUpdateByName("lines", List.of(unnamed, named));
+			area = (Area) create("ehome.physical:Area");
+			area.setAddress(Integer.valueOf(1));
+			unnamed = (Line) create("ehome.physical:Line");
+			unnamed.setAddress(Integer.valueOf(1));
+			named = (Line) create("ehome.physical:Line");
+			named.setAddress(Integer.valueOf(2));
+			named.setName("Erdgeschoss");
+			area.setLines(Set.of(unnamed, named));
 			((Project) project).addArea(area);
 			tx.commit();
 		}
@@ -55,7 +57,7 @@ public class TestTopologyLabel extends BasicTestCase {
 			assertEquals("1", MetaLabelProvider.INSTANCE.getLabel(area));
 			assertEquals("1.1", MetaLabelProvider.INSTANCE.getLabel(unnamed));
 			assertEquals("Erdgeschoss", MetaLabelProvider.INSTANCE.getLabel(named));
-			assertNull("The address is a label only.", unnamed.tValueByName("name"));
+			assertNull("The address is a label only.", unnamed.getName());
 		} finally {
 			try (Transaction tx = kb.beginTransaction()) {
 				project.tDelete();

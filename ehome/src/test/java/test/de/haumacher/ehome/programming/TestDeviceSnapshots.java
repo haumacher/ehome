@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +37,11 @@ import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.DeviceSnapshot;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
@@ -112,7 +116,7 @@ public class TestDeviceSnapshots extends BasicTestCase {
 			tx.commit();
 		}
 		assertTrue("Uploaded equal.", snapshot.sameContent(Snapshots.load(uploaded)));
-		assertEquals(file.getName(), uploaded.tValueByName("file"));
+		assertEquals(file.getName(), ((DeviceSnapshot) uploaded).getFile());
 
 		// A file of another program is refused, with the reason.
 		String other = SnapshotFile.write(snapshot).replace(snapshot.getProgram(), "M-00FA_A-0000-00-0000");
@@ -262,9 +266,9 @@ public class TestDeviceSnapshots extends BasicTestCase {
 		}
 		assertNotNull("An editable parameter in memory.", view);
 		List<TLObject> connections = new ArrayList<>();
-		for (Object connector : (Collection<?>) _device.tValueByName("connectors")) {
-			for (Object connection : (Collection<?>) ((TLObject) connector).tValueByName("connections")) {
-				connections.add((TLObject) connection);
+		for (Connector connector : ((Device) _device).getConnectors()) {
+			for (Connection connection : connector.getConnections()) {
+				connections.add(connection);
 			}
 		}
 		assertFalse("A connection of the device.", connections.isEmpty());
@@ -281,9 +285,9 @@ public class TestDeviceSnapshots extends BasicTestCase {
 	}
 
 	private static String connectionKey(TLObject connection) {
-		TLObject connector = connection.tContainer();
-		return connector.tValueByName("port") + "/" + connection.tValueByName("target") + "/"
-			+ connection.tValueByName("kind");
+		Connector connector = (Connector) connection.tContainer();
+		return connector.getPort() + "/" + ((Connection) connection).getTarget() + "/"
+			+ ((Connection) connection).getKind();
 	}
 
 	/**
@@ -292,16 +296,15 @@ public class TestDeviceSnapshots extends BasicTestCase {
 	 */
 	private static String state(TLObject device) {
 		List<String> settings = new ArrayList<>();
-		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
-			TLObject s = (TLObject) setting;
-			settings.add(s.tValueByName("parameter") + "@" + s.tValueByName("instance") + "=" + s.tValueByName("choice")
-				+ "/" + s.tValueByName("number") + "/" + s.tValueByName("decimal") + "/" + s.tValueByName("text"));
+		for (ParameterSetting s : ((Device) device).getSettings()) {
+			settings.add(s.getParameter() + "@" + s.getInstance() + "=" + s.getChoice()
+				+ "/" + s.getNumber() + "/" + s.getDecimal() + "/" + s.getText());
 		}
 		settings.sort(null);
 		List<String> connections = new ArrayList<>();
-		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-			for (Object connection : (Collection<?>) ((TLObject) connector).tValueByName("connections")) {
-				connections.add(connectionKey((TLObject) connection));
+		for (Connector connector : ((Device) device).getConnectors()) {
+			for (Connection connection : connector.getConnections()) {
+				connections.add(connectionKey(connection));
 			}
 		}
 		connections.sort(null);

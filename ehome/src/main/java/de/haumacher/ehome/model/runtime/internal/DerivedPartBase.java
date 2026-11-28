@@ -250,28 +250,28 @@ public interface DerivedPartBase extends com.top_logic.model.TLNamed {
 	/**
 	 * Getter for part {@link #DATAPOINT_TYPE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getDatapointType() {
-		return (com.top_logic.model.TLObject) tValueByName(DATAPOINT_TYPE_ATTR);
+	default de.haumacher.ehome.model.datapoint.DatapointType getDatapointType() {
+		return (de.haumacher.ehome.model.datapoint.DatapointType) tValueByName(DATAPOINT_TYPE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #DATAPOINT_TYPE_ATTR}.
 	 */
-	default void setDatapointType(com.top_logic.model.TLObject newValue) {
+	default void setDatapointType(de.haumacher.ehome.model.datapoint.DatapointType newValue) {
 		tUpdateByName(DATAPOINT_TYPE_ATTR, newValue);
 	}
 
 	/**
 	 * Getter for part {@link #DEVICE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getDevice() {
-		return (com.top_logic.model.TLObject) tValueByName(DEVICE_ATTR);
+	default de.haumacher.ehome.model.physical.Device getDevice() {
+		return (de.haumacher.ehome.model.physical.Device) tValueByName(DEVICE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #DEVICE_ATTR}.
 	 */
-	default void setDevice(com.top_logic.model.TLObject newValue) {
+	default void setDevice(de.haumacher.ehome.model.physical.Device newValue) {
 		tUpdateByName(DEVICE_ATTR, newValue);
 	}
 
@@ -334,14 +334,14 @@ public interface DerivedPartBase extends com.top_logic.model.TLNamed {
 	/**
 	 * Getter for part {@link #INSTANCE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getInstance() {
-		return (com.top_logic.model.TLObject) tValueByName(INSTANCE_ATTR);
+	default de.haumacher.ehome.model.physical.ModuleInstance getInstance() {
+		return (de.haumacher.ehome.model.physical.ModuleInstance) tValueByName(INSTANCE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #INSTANCE_ATTR}.
 	 */
-	default void setInstance(com.top_logic.model.TLObject newValue) {
+	default void setInstance(de.haumacher.ehome.model.physical.ModuleInstance newValue) {
 		tUpdateByName(INSTANCE_ATTR, newValue);
 	}
 

@@ -49,6 +49,11 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -173,9 +178,9 @@ public class TestDeviceConfiguration extends BasicTestCase {
 			tx.commit();
 		}
 		assertNotNull(setting);
-		assertSame(off, setting.tValueByName("choice"));
+		assertSame(off, ((ParameterSetting) setting).getChoice());
 		assertEquals("0", derived(setting, "encodedValue"));
-		assertNotNull(_device.tValueByName("lastModified"));
+		assertNotNull(((Device) _device).getConfigurationChanged());
 
 		DeviceConfiguration hidden = new DeviceConfiguration(_device);
 		assertSame(otherwise, hidden.select(choice));
@@ -225,7 +230,7 @@ public class TestDeviceConfiguration extends BasicTestCase {
 			tx.commit();
 		}
 		assertEquals(settings + 1, settings().size());
-		assertEquals(Long.valueOf(120), delaySetting.tValueByName("number"));
+		assertEquals(Long.valueOf(120), ((ParameterSetting) delaySetting).getNumber());
 		assertEquals("120", derived(delaySetting, "encodedValue"));
 		assertEquals(Long.valueOf(120), DeviceSettings.value(_device, delay));
 		// Changing it again changes the setting, no second one.
@@ -308,9 +313,9 @@ public class TestDeviceConfiguration extends BasicTestCase {
 			tx.commit();
 		}
 		TLObject connector = send.tContainer();
-		assertSame(placed, connector.tValueByName("port"));
-		assertEquals(Boolean.TRUE, connector.tValueByName("active"));
-		assertTrue(((Collection<?>) _device.tValueByName("connectors")).contains(connector));
+		assertSame(placed, ((Connector) connector).getPort());
+		assertTrue(((Connector) connector).getActive());
+		assertTrue(((Device) _device).getConnectors().contains(connector));
 		assertEquals(List.of(send), DeviceSettings.connections(_device, placed));
 		assertEquals("receive", DeviceSettings.defaultKind(_device, placed).getName());
 
@@ -422,7 +427,7 @@ public class TestDeviceConfiguration extends BasicTestCase {
 	}
 
 	private List<TLObject> settings() {
-		return new ArrayList<>((Collection<? extends TLObject>) _device.tValueByName("settings"));
+		return new ArrayList<>(((Device) _device).getSettings());
 	}
 
 	private ParameterView channelSwitch() {
@@ -501,8 +506,8 @@ public class TestDeviceConfiguration extends BasicTestCase {
 	private static TLObject device(TLObject project) {
 		List<TLObject> devices = new ArrayList<>();
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
 					devices.add((TLObject) device);
 				}
 			}

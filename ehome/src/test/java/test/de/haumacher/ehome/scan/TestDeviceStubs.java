@@ -58,6 +58,10 @@ import de.haumacher.ehome.model.catalog.Product;
 import de.haumacher.ehome.model.catalog.ProgramAssignment;
 import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.DeviceStub;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.GroupAddressConnections;
@@ -134,29 +138,29 @@ public class TestDeviceStubs extends BasicTestCase {
 			TLObject stub = InstallationBuilder.device(project, STUB_ADDRESS);
 			assertTrue("A stub: " + stub, DeviceStubs.isStub(stub));
 			TLObject line = stub.tContainer();
-			assertEquals("1.1", line.tValueByName("name"));
-			assertEquals(Integer.valueOf(7), stub.tValueByName("address"));
-			assertEquals(found.serialStored(), stub.tValueByName("serialNumber"));
-			assertEquals("000A:0476250B", stub.tValueByName("serialText"));
-			assertEquals("000820BD11", stub.tValueByName("programVersion"));
-			assertEquals(ORDER_NUMBER, stub.tValueByName("orderNumber"));
+			assertEquals("1.1", ((Line) line).getName());
+			assertEquals(Integer.valueOf(7), ((BusDevice) stub).getAddress());
+			assertEquals(found.serialStored(), ((BusDevice) stub).getSerialNumber());
+			assertEquals("000A:0476250B", ((BusDevice) stub).getSerialText());
+			assertEquals("000820BD11", ((DeviceStub) stub).getProgramVersion());
+			assertEquals(ORDER_NUMBER, ((DeviceStub) stub).getOrderNumber());
 			String manufacturer = ((Manufacturer) CatalogMatch.manufacturer(GIRA)).getName();
-			assertEquals(manufacturer, stub.tValueByName("manufacturer"));
+			assertEquals(manufacturer, ((DeviceStub) stub).getManufacturer());
 			assertEquals(manufacturer + " " + ORDER_NUMBER + " (1.1.7)", GroupAddressConnections.deviceLabel(stub));
 			assertEquals(manufacturer + " " + ORDER_NUMBER + " (1.1.7)", MetaLabelProvider.INSTANCE.getLabel(stub));
 			assertNull("No program.", DeviceConfiguration.program(stub));
 			assertNotNull(ExtIds.extId(stub));
 			assertTrue("Numbered as a device of the project.", ExtIds.isCreatedInApp(stub));
 			assertEquals(ScanRows.row(project, found, ScanRows.match(row)).get(ScanRows.STATE),
-				text(I18NConstants.STATE_STUB__DEVICE.fill(stub.tValueByName("name"))));
+				text(I18NConstants.STATE_STUB__DEVICE.fill(((DeviceStub) stub).getName())));
 
 			TLObject building;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				building = create("ehome.building:Building");
 				((Building) building).setName("Haus");
 				((Project) project).setBuildings(List.of((BuildingDefinition) building));
-				stub.tUpdateByName("title", "Taster Flur");
-				stub.tUpdateByName("location", building);
+				((BusDevice) stub).setTitle("Taster Flur");
+				((BusDevice) stub).setLocation((BuildingDefinition) building);
 				tx.commit();
 			}
 			assertEquals("The building lists the stub.", List.of(stub), new ArrayList<>(((Building) building).getDevices()));
@@ -185,10 +189,10 @@ public class TestDeviceStubs extends BasicTestCase {
 			assertTrue(DeviceStubs.isDevice(device));
 			assertSame(device, InstallationBuilder.device(project, STUB_ADDRESS));
 			assertSame(line, device.tContainer());
-			assertEquals(Integer.valueOf(7), device.tValueByName("address"));
-			assertEquals("Taster Flur", device.tValueByName("title"));
-			assertEquals(found.serialStored(), device.tValueByName("serialNumber"));
-			assertSame(building, device.tValueByName("location"));
+			assertEquals(Integer.valueOf(7), ((BusDevice) device).getAddress());
+			assertEquals("Taster Flur", ((BusDevice) device).getTitle());
+			assertEquals(found.serialStored(), ((BusDevice) device).getSerialNumber());
+			assertSame(building, ((BusDevice) device).getLocation());
 			assertEquals(List.of(device), new ArrayList<>(((Building) building).getDevices()));
 			assertEquals("The device keeps the ID of the stub.", extId, ExtIds.extId(device));
 			assertSame(program, DeviceConfiguration.program(device));
@@ -218,8 +222,8 @@ public class TestDeviceStubs extends BasicTestCase {
 				stub = DeviceStubs.record(project, found);
 				tx.commit();
 			}
-			assertNull("No order number at the stub.", stub.tValueByName("orderNumber"));
-			assertEquals("000A00000034", stub.tValueByName("hardwareType"));
+			assertNull("No order number at the stub.", ((DeviceStub) stub).getOrderNumber());
+			assertEquals("000A00000034", ((DeviceStub) stub).getHardwareType());
 			String manufacturer = ((Manufacturer) CatalogMatch.manufacturer(GIRA)).getName();
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				DeviceStubs.assign(stub);
@@ -245,7 +249,7 @@ public class TestDeviceStubs extends BasicTestCase {
 			TLObject stub;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				stub = DeviceStubs.record(project, unknown);
-				stub.tUpdateByName("title", "Tastsensor Küche");
+				((BusDevice) stub).setTitle("Tastsensor Küche");
 				tx.commit();
 			}
 			FoundDevice tastsensor = device(0x1332, 0x10D7, null, 0x11);
@@ -260,11 +264,11 @@ public class TestDeviceStubs extends BasicTestCase {
 			assertFalse(stub.tValid());
 			TLObject device = outcome.device();
 			assertSame(device, InstallationBuilder.device(project, 0x1332));
-			assertEquals("Tastsensor Küche", device.tValueByName("title"));
-			assertEquals(Integer.valueOf(50), device.tValueByName("address"));
+			assertEquals("Tastsensor Küche", ((BusDevice) device).getTitle());
+			assertEquals(Integer.valueOf(50), ((BusDevice) device).getAddress());
 
 			Map<String, Object> row = ScanRows.row(project, unknown, CatalogMatch.match(project, unknown));
-			assertEquals(I18NConstants.ERROR_UNIDENTIFIED_EXISTS__DEVICE_REASON.fill(device.tValueByName("name"),
+			assertEquals(I18NConstants.ERROR_UNIDENTIFIED_EXISTS__DEVICE_REASON.fill(((Device) device).getName(),
 				ScanRows.match(row).reasonKey()), ScanFunctions.applyVeto(row));
 		} finally {
 			TestScanTakeOver.delete(project);
@@ -349,19 +353,19 @@ public class TestDeviceStubs extends BasicTestCase {
 				tx.commit();
 			}
 			assertSame(line, placed.tContainer());
-			assertEquals(Integer.valueOf(7), placed.tValueByName("address"));
-			assertEquals(Base64.getEncoder().encodeToString(SERIAL), placed.tValueByName("serialNumber"));
-			assertEquals("000A:0476250B", placed.tValueByName("serialText"));
+			assertEquals(Integer.valueOf(7), ((BusDevice) placed).getAddress());
+			assertEquals(Base64.getEncoder().encodeToString(SERIAL), ((BusDevice) placed).getSerialNumber());
+			assertEquals("000A:0476250B", ((BusDevice) placed).getSerialText());
 			assertNotNull(ExtIds.extId(placed));
 			assertSame(placed, InstallationBuilder.device(project, 0x1107));
 
 			assertSame("The line 2.2 is created.", created, InstallationBuilder.device(project, 0x2205));
-			assertEquals("2.2", created.tContainer().tValueByName("name"));
-			assertEquals(Integer.valueOf(5), created.tValueByName("address"));
+			assertEquals("2.2", ((Line) created.tContainer()).getName());
+			assertEquals(Integer.valueOf(5), ((BusDevice) created).getAddress());
 
 			assertSame(occupied, InstallationBuilder.device(project, 0x1105));
 			assertEquals(List.of(unplaced), new ArrayList<>(((Project) project).getUnassignedDevices()));
-			assertEquals(Integer.valueOf(5), unplaced.tValueByName("address"));
+			assertEquals(Integer.valueOf(5), ((BusDevice) unplaced).getAddress());
 			assertNotNull(ExtIds.extId(unplaced));
 		} finally {
 			TestScanTakeOver.delete(project);

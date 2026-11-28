@@ -26,6 +26,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.monitor.Recording;
 import de.haumacher.ehome.model.project.Project;
@@ -357,10 +360,10 @@ public class TestGroupMonitor extends BasicTestCase {
 		throw new AssertionError("No address of the type " + main + "." + sub + ": " + index.getAddresses().values().stream().map(a -> a.text() + "=" + a.dpt()).toList());
 	}
 
-	private static TLObject subtype(int main, int sub) {
-		for (TLObject type : instances("ehome.datapoint:DatapointSubtype")) {
-			if (Integer.valueOf(sub).equals(type.tValueByName("number"))
-				&& Integer.valueOf(main).equals(type.tContainer().tValueByName("number"))) {
+	private static DatapointType subtype(int main, int sub) {
+		for (TLObject obj : instances("ehome.datapoint:DatapointSubtype")) {
+			DatapointSubtype type = (DatapointSubtype) obj;
+			if (type.getNumber() == sub && ((DatapointMainType) type.tContainer()).getNumber() == main) {
 				return type;
 			}
 		}

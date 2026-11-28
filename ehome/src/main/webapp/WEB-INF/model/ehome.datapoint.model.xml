@@ -9,6 +9,10 @@
 	-->
 	<module name="ehome.datapoint">
 		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.datapoint.internal"
+				interface-package="de.haumacher.ehome.model.datapoint"
+			/>
 			<singletons>
 				<singleton type="DatapointTypes"/>
 			</singletons>
@@ -24,7 +28,11 @@
 					multiple="true"
 					ordered="true"
 					type="DatapointMainType"
-				/>
+				>
+					<annotations>
+						<java-name value="mainTypes"/>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<!-- A main type or a subtype; what communication objects and group addresses refer to. -->

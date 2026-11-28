@@ -10,7 +10,6 @@ import static test.de.haumacher.ehome.runtime.TestFunctionProposal.address;
 import static test.de.haumacher.ehome.runtime.TestFunctionProposal.create;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +37,9 @@ import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Function;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -77,7 +79,7 @@ public class TestDatapointEffect extends BasicTestCase {
 			assertEquals(1, connections.size());
 			TLObject connection = connections.get(0);
 			TLObject connector = connection.tContainer();
-			assertEquals("send", ((com.top_logic.model.TLClassifier) connection.tValueByName("kind")).getName());
+			assertEquals("send", ((Connection) connection).getKind().getName());
 
 			TLObject command = function(project, "switch", "Licht", Map.of("command", channelA));
 			TLObject state = function(project, "sensor", "Zustand", Map.of("value", channelA));
@@ -257,8 +259,8 @@ public class TestDatapointEffect extends BasicTestCase {
 
 	private static int connectedObjects(TLObject device) {
 		int result = 0;
-		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-			if (!((Collection<?>) ((TLObject) connector).tValueByName("connections")).isEmpty()) {
+		for (Connector connector : ((Device) device).getConnectors()) {
+			if (!connector.getConnections().isEmpty()) {
 				result++;
 			}
 		}

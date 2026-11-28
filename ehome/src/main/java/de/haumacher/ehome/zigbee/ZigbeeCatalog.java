@@ -13,6 +13,9 @@ import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.model.zigbee.ZigbeeDevice;
 import de.haumacher.ehome.model.zigbee.ZigbeeFunction;
+import de.haumacher.ehome.model.zigbee.catalog.EhomeZigbeeCatalogFactory;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeDeviceType;
+import de.haumacher.ehome.model.zigbee.catalog.ZigbeeFunctionEntry;
 
 /**
  * The catalog of known Zigbee devices (haumacher/ehome #64): shared master data
@@ -59,7 +62,8 @@ public final class ZigbeeCatalog {
 	 * The device types of the catalog, in its order.
 	 */
 	public static List<TLObject> types(TLObject catalog) {
-		return catalog == null ? List.of() : ZigbeeImport.objects(catalog.tValueByName("types"));
+		return catalog == null ? List.of()
+			: ZigbeeImport.objects(((de.haumacher.ehome.model.zigbee.catalog.ZigbeeCatalog) catalog).getDeviceTypes());
 	}
 
 	/**
@@ -71,7 +75,8 @@ public final class ZigbeeCatalog {
 			return null;
 		}
 		for (TLObject type : types(catalog)) {
-			if (manufacturer.equals(type.tValueByName("manufacturer")) && model.equals(type.tValueByName("model"))) {
+			ZigbeeDeviceType typed = (ZigbeeDeviceType) type;
+			if (manufacturer.equals(typed.getManufacturer()) && model.equals(typed.getModel())) {
 				return type;
 			}
 		}
@@ -94,7 +99,7 @@ public final class ZigbeeCatalog {
 	 * The function entries of the device type, in their order.
 	 */
 	public static List<TLObject> entries(TLObject type) {
-		return type == null ? List.of() : ZigbeeImport.objects(type.tValueByName("functions"));
+		return type == null ? List.of() : ZigbeeImport.objects(((ZigbeeDeviceType) type).getFunctions());
 	}
 
 	/**
@@ -105,8 +110,9 @@ public final class ZigbeeCatalog {
 			return null;
 		}
 		for (TLObject entry : entries(type)) {
-			if (entry.tValueByName("endpoint") instanceof Number other && other.longValue() == number.longValue()
-				&& function.equals(entry.tValueByName("function"))) {
+			Number other = endpoint(entry);
+			if (other != null && other.longValue() == number.longValue()
+				&& function.equals(((ZigbeeFunctionEntry) entry).getFunction())) {
 				return entry;
 			}
 		}
@@ -133,8 +139,38 @@ public final class ZigbeeCatalog {
 	 * The name the catalog gives the function, <code>null</code> for none.
 	 */
 	public static ResKey name(TLObject function) {
-		TLObject entry = entry(function);
-		return entry != null && entry.tValueByName("name") instanceof ResKey name ? name : null;
+		return entryName(entry(function));
+	}
+
+	/**
+	 * The name of a function entry or device type of the catalog, <code>null</code> for none (or no
+	 * object).
+	 */
+	public static ResKey entryName(TLObject entry) {
+		if (entry instanceof ZigbeeFunctionEntry functionEntry) {
+			return functionEntry.getNameKey();
+		} else if (entry instanceof ZigbeeDeviceType type) {
+			return type.getNameKey();
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * The endpoint of a function entry, <code>null</code> where it is unset (the primitive getter
+	 * fails there).
+	 */
+	public static Number endpoint(TLObject entry) {
+		return entry.tValue(EhomeZigbeeCatalogFactory.getEndpointZigbeeFunctionEntryAttr()) instanceof Number number
+			? number : null;
+	}
+
+	/**
+	 * Whether the function entry is marked hidden; <code>false</code> where it is unset (the
+	 * primitive getter fails there).
+	 */
+	public static boolean entryHidden(TLObject entry) {
+		return Boolean.TRUE.equals(entry.tValue(EhomeZigbeeCatalogFactory.getHiddenZigbeeFunctionEntryAttr()));
 	}
 
 	/**
@@ -143,7 +179,7 @@ public final class ZigbeeCatalog {
 	 */
 	public static boolean hidden(TLObject function) {
 		TLObject entry = entry(function);
-		return entry != null && Boolean.TRUE.equals(entry.tValueByName("hidden"));
+		return entry != null && entryHidden(entry);
 	}
 
 	/**
@@ -151,14 +187,16 @@ public final class ZigbeeCatalog {
 	 * for none.
 	 */
 	public static String recommendedType(TLObject entry) {
-		return entry != null && entry.tValueByName("type") instanceof TLClassifier type ? type.getName() : null;
+		TLClassifier type = entry == null ? null : ((ZigbeeFunctionEntry) entry).getType();
+		return type != null ? type.getName() : null;
 	}
 
 	/**
 	 * The unit the catalog recommends for the entry's datapoint, <code>null</code> for none.
 	 */
 	public static String recommendedUnit(TLObject entry) {
-		return entry != null && entry.tValueByName("unit") instanceof String unit && !unit.isBlank() ? unit : null;
+		String unit = entry == null ? null : ((ZigbeeFunctionEntry) entry).getUnit();
+		return unit != null && !unit.isBlank() ? unit : null;
 	}
 
 }

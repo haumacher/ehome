@@ -42,6 +42,7 @@ import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.monitor.Event;
 import de.haumacher.ehome.model.monitor.Recording;
 import de.haumacher.ehome.model.monitor.Telegram;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.ProjectIndex.AddressInfo;
@@ -914,7 +915,7 @@ public class GroupMonitor {
 			stored.setSource(telegram.sourceText());
 			DeviceInfo device = _index.device(telegram.source());
 			if (device != null && device.device().tValid()) {
-				stored.setSender(device.device());
+				stored.setSender((Device) device.device());
 			}
 			stored.setAddress(new GA(telegram.destination(), style));
 			AddressInfo address = _index.address(telegram.destination());

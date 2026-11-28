@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -45,7 +46,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.model.building.Room;
-import de.haumacher.ehome.model.core.Externalized;
+import de.haumacher.ehome.model.datapoint.DatapointSubtype;
+import de.haumacher.ehome.model.datapoint.NamedValue;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.ColorType;
 import de.haumacher.ehome.model.operational.ConfigFragment;
@@ -60,6 +62,11 @@ import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.ResourceLocation;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
@@ -180,38 +187,37 @@ public class TestEts6Import extends BasicTestCase {
 		List<TLObject> devices = SharedData.within("ehome.physical:Device", projects);
 		assertEquals(1, devices.size());
 		TLObject device = devices.get(0);
-		assertEquals("P-01A0-0_L-1", ((TLObject) device.tContainer()).tValueByName("extId"));
+		assertEquals("P-01A0-0_L-1", ((Line) device.tContainer()).getExtId());
 		assertEquals(P + "P-9102_R-9102", setting(device, "M-0008_A-10D7-11-A0E5-O0024_P-9102_R-9102"));
 		for (TLObject setting : list(device, "settings")) {
-			assertNotNull("The setting of the module's parameter is left out.", setting.tValueByName("parameter"));
+			assertNotNull("The setting of the module's parameter is left out.", ((ParameterSetting) setting).getParameter());
 		}
 		checkLabelsWithoutProgramPart(device);
 
 		// The load state, written as "true" and "false".
-		assertEquals(Set.of("IndividualAddress"), ((Collection<?>) device.tValueByName("loaded")).stream()
-			.map(c -> ((TLClassifier) c).getName()).collect(Collectors.toSet()));
+		assertEquals(Set.of("IndividualAddress"), ((Device) device).getLoaded().stream()
+			.map(TLClassifier::getName).collect(Collectors.toSet()));
 
 		// Communication objects named relative to the program and linked by the attribute Links.
 		List<TLObject> connectors = list(device, "connectors");
 		assertEquals(18, connectors.size());
 		for (TLObject connector : connectors) {
-			assertNotNull(connector.tValueByName("port"));
+			assertNotNull(((Connector) connector).getPort());
 		}
 		assertEquals(10, connectors.stream().filter(c -> !list(c, "connections").isEmpty()).count());
 		assertEquals(11, SharedData.within("ehome.physical:Connection", projects).size());
 		TLObject twoLinks = connectors.stream()
-			.filter(c -> "M-0008_A-10D7-11-A0E5-O0024_O-0_R-81".equals(((Externalized) c.tValueByName("port")).getExtId()))
+			.filter(c -> "M-0008_A-10D7-11-A0E5-O0024_O-0_R-81".equals(((Connector) c).getPort().getExtId()))
 			.findFirst().orElseThrow();
 		List<TLObject> connections = list(twoLinks, "connections");
 		// The connections of an object are a set.
 		assertEquals(Set.of("send P-01A0-0_GA-3", "receive P-01A0-0_GA-1"), connections.stream()
-			.map(c -> ((TLClassifier) c.tValueByName("kind")).getName() + " "
-				+ ((Externalized) c.tValueByName("target")).getExtId())
+			.map(c -> ((Connection) c).getKind().getName() + " " + ((Connection) c).getTarget().getExtId())
 			.collect(Collectors.toSet()));
 		assertEquals(10, SharedData.within("ehome.logical:GroupAddress", projects).size());
 
 		// The location of the device: a room in a building (ETS 5/6: Locations with spaces).
-		TLObject room = (TLObject) device.tValueByName("location");
+		TLObject room = ((Device) device).getLocation();
 		assertEquals("ehome.building:Room", TLModelUtil.qualifiedName(room.tType()));
 		assertEquals("TEST Raum", ((Room) room).getName());
 		assertEquals("ehome.building:Building", TLModelUtil.qualifiedName(room.tContainer().tType()));
@@ -224,16 +230,17 @@ public class TestEts6Import extends BasicTestCase {
 	 */
 	private static void checkLabelsWithoutProgramPart(TLObject device) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject setting = ModelService.getInstance().getFactory()
+			ParameterSetting setting = (ParameterSetting) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.physical:ParameterSetting"));
-			TLObject connector = ModelService.getInstance().getFactory()
+			Connector connector = (Connector) ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.physical:Connector"));
-			List<TLObject> settings = new ArrayList<>(list(device, "settings"));
+			Device typed = (Device) device;
+			List<ParameterSetting> settings = new ArrayList<>(typed.getSettings());
 			settings.add(setting);
-			device.tUpdateByName("settings", settings);
-			List<TLObject> connectors = new ArrayList<>(list(device, "connectors"));
+			typed.setSettings(settings);
+			Set<Connector> connectors = new HashSet<>(typed.getConnectors());
 			connectors.add(connector);
-			device.tUpdateByName("connectors", connectors);
+			typed.setConnectors(connectors);
 			String deviceLabel = TestEtsImport.asRoot(() -> MetaLabelProvider.INSTANCE.getLabel(device));
 			String settingLabel = TestEtsImport.asRoot(() -> MetaLabelProvider.INSTANCE.getLabel(setting));
 			String connectorLabel = TestEtsImport.asRoot(() -> MetaLabelProvider.INSTANCE.getLabel(connector));
@@ -248,7 +255,7 @@ public class TestEts6Import extends BasicTestCase {
 
 	private static String setting(TLObject device, String refId) {
 		return list(device, "settings").stream()
-			.map(s -> ((Externalized) s.tValueByName("parameter")).getExtId())
+			.map(s -> ((ParameterSetting) s).getParameter().getExtId())
 			.filter(refId::equals)
 			.findFirst().orElse(null);
 	}
@@ -341,28 +348,28 @@ public class TestEts6Import extends BasicTestCase {
 	private void checkNamedValues() {
 		TLObject hvac = subtype("DPST-20-102");
 		List<TLObject> values = list(hvac, "values");
-		assertEquals(List.of(0, 1, 2, 3, 4), values.stream().map(v -> v.tValueByName("value")).toList());
+		assertEquals(List.of(0, 1, 2, 3, 4), values.stream().map(v -> ((NamedValue) v).getValue()).toList());
 		assertEquals(List.of("Auto", "Comfort", "Standby", "Economy", "Building Protection"),
 			texts(values, Locale.ENGLISH));
-		assertEquals("Komfort", ResKeyUtil.getTranslation((ResKey) values.get(1).tValueByName("text"), Locale.GERMAN));
-		assertEquals("DPST-20-102_F-1-1", values.get(1).tValueByName("extId"));
+		assertEquals("Komfort", ResKeyUtil.getTranslation(((NamedValue) values.get(1)).getText(), Locale.GERMAN));
+		assertEquals("DPST-20-102_F-1-1", ((NamedValue) values.get(1)).getExtId());
 		// The named values of the fixture's master data are those of 20.102, each once.
 		assertEquals(5, instances("ehome.datapoint:NamedValue").stream()
-			.filter(v -> String.valueOf(v.tValueByName("extId")).startsWith("DPST-20-102_")).count());
+			.filter(v -> String.valueOf(((NamedValue) v).getExtId()).startsWith("DPST-20-102_")).count());
 		assertEquals(List.of(), instances("ehome.datapoint:NamedValue").stream()
-			.filter(v -> String.valueOf(v.tValueByName("extId")).startsWith("DPST-10-1_")).toList());
+			.filter(v -> String.valueOf(((NamedValue) v).getExtId()).startsWith("DPST-10-1_")).toList());
 
 		// An enumeration naming one field of a composed value is no named value of the subtype.
 		assertTrue(list(subtype("DPST-10-1"), "values").isEmpty());
 	}
 
 	private static List<String> texts(List<TLObject> values, Locale locale) {
-		return values.stream().map(v -> ResKeyUtil.getTranslation((ResKey) v.tValueByName("text"), locale)).toList();
+		return values.stream().map(v -> ResKeyUtil.getTranslation(((NamedValue) v).getText(), locale)).toList();
 	}
 
 	private static TLObject subtype(String extId) {
 		return instances("ehome.datapoint:DatapointSubtype").stream()
-			.filter(t -> extId.equals(t.tValueByName("extId")))
+			.filter(t -> extId.equals(((DatapointSubtype) t).getExtId()))
 			.findFirst().orElseThrow();
 	}
 

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.model.TLNamed;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.util.Resources;
@@ -224,13 +225,13 @@ public class ScanRows {
 		TLObject device = InstallationBuilder.device(project, found.address());
 		ResKey state;
 		if (DeviceStubs.isStub(device)) {
-			state = I18NConstants.STATE_STUB__DEVICE.fill(device.tValueByName("name"));
+			state = I18NConstants.STATE_STUB__DEVICE.fill(((TLNamed) device).getName());
 		} else if (device != null) {
 			Program program = DeviceConfiguration.program(device);
 			boolean same = match.candidates().stream().anyMatch(c -> c.program() == program);
 			state = same || match.kind() == CatalogMatch.Kind.UNIDENTIFIED
-				? I18NConstants.STATE_EXISTS__DEVICE.fill(device.tValueByName("name"))
-				: I18NConstants.STATE_CONFLICT__DEVICE_PROGRAM.fill(device.tValueByName("name"),
+				? I18NConstants.STATE_EXISTS__DEVICE.fill(((TLNamed) device).getName())
+				: I18NConstants.STATE_CONFLICT__DEVICE_PROGRAM.fill(((TLNamed) device).getName(),
 					program == null ? null : program.getExtId());
 		} else if (match.kind() == CatalogMatch.Kind.UNIDENTIFIED) {
 			state = I18NConstants.STATE_UNIDENTIFIED;

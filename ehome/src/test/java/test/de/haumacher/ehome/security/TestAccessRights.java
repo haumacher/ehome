@@ -10,6 +10,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import junit.framework.Test;
@@ -73,6 +74,10 @@ import de.haumacher.ehome.model.catalog.Variant;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.logical.GroupRange;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.DeviceStub;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.Action;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -157,10 +162,10 @@ public class TestAccessRights extends BasicTestCase {
 
 	private GroupAddress _groupAddress;
 
-	private TLObject _device;
+	private Device _device;
 
 	/** The stub of a device the catalog does not identify, in the line of {@link #_device} (haumacher/ehome #183). */
-	private TLObject _stub;
+	private DeviceStub _stub;
 
 	private Function _function;
 
@@ -244,14 +249,14 @@ public class TestAccessRights extends BasicTestCase {
 			templates.addTemplate(_template);
 
 			_device = create("ehome.physical:Device");
-			_device.tUpdateByName("type", _variant);
-			_device.tUpdateByName("program", assignment);
+			_device.setType(_variant);
+			_device.setProgram(assignment);
 			_stub = create("ehome.physical:DeviceStub");
-			_stub.tUpdateByName("address", Integer.valueOf(7));
-			TLObject line = create("ehome.physical:Line");
-			line.tUpdateByName("devices", List.of(_device, _stub));
-			TLObject area = create("ehome.physical:Area");
-			area.tUpdateByName("lines", List.of(line));
+			_stub.setAddress(Integer.valueOf(7));
+			Line line = create("ehome.physical:Line");
+			line.setDevices(Set.of(_device, _stub));
+			Area area = create("ehome.physical:Area");
+			area.setLines(Set.of(line));
 			_project.addArea(area);
 
 			_function = create("ehome.runtime:Function");
@@ -1058,8 +1063,8 @@ public class TestAccessRights extends BasicTestCase {
 			as(_stranger, () -> eval(set, own));
 			tx.commit();
 		}
-		assertEquals("Stranger.Profile@Example.org", own.tValueByName("email"));
-		String before = (String) owners.tValueByName("email");
+		assertEquals("Stranger.Profile@Example.org", _stranger.getUser().getEMail());
+		String before = _owner.getUser().getEMail();
 		try (Transaction tx = kb().beginTransaction()) {
 			as(_viewer, () -> eval(set, owners));
 			tx.commit();
@@ -1067,7 +1072,7 @@ public class TestAccessRights extends BasicTestCase {
 		} catch (TopLogicException ex) {
 			// Refused.
 		}
-		assertEquals(before, owners.tValueByName("email"));
+		assertEquals(before, _owner.getUser().getEMail());
 
 		inTransaction(() -> assertSame(_stranger,
 			ProjectMembers.add(_project, "stranger.profile@example.org", Role.viewer)));

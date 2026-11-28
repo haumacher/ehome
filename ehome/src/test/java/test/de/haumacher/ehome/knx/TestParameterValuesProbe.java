@@ -47,6 +47,7 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.model.physical.ParameterSetting;
 
 /**
  * Probe of the typed parameter values composed with the other features: several projects in one
@@ -150,7 +151,7 @@ public class TestParameterValuesProbe extends BasicTestCase {
 		}
 		assertTrue("No placement with a default of its own.", own > 0);
 		for (TLObject setting : instances("ehome.physical:ParameterSetting")) {
-			TLObject view = (TLObject) setting.tValueByName("parameter");
+			TLObject view = ((ParameterSetting) setting).getParameter();
 			assertEquals(derived(view, "displayDefault"), derived(setting, "displayDefault"));
 			assertNotNull("Setting without a value: " + derived(setting, "name"), derived(setting, "encodedValue"));
 		}

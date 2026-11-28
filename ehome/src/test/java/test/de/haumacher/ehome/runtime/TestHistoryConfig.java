@@ -39,6 +39,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.model.datapoint.DatapointMainType;
+import de.haumacher.ehome.model.datapoint.DatapointType;
 import de.haumacher.ehome.model.logical.GroupAddress;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.model.runtime.ApplicationDatapoint;
@@ -616,9 +618,9 @@ public class TestHistoryConfig extends BasicTestCase {
 	}
 
 	private TLObject mainType(int number) {
-		TLObject type = create("ehome.datapoint:DatapointMainType");
-		type.tUpdateByName("number", Integer.valueOf(number));
-		type.tUpdateByName("extId", "TEST-HISTORY-" + number);
+		DatapointMainType type = (DatapointMainType) create("ehome.datapoint:DatapointMainType");
+		type.setNumber(number);
+		type.setExtId("TEST-HISTORY-" + number);
 		_types.add(type);
 		return type;
 	}
@@ -627,7 +629,7 @@ public class TestHistoryConfig extends BasicTestCase {
 		GroupAddress address = (GroupAddress) create("ehome.logical:GroupAddress");
 		address.setName(name);
 		address.setAddress(new GA((main << 11) | (middle << 8) | sub, GroupAddressStyle.ThreeLevel));
-		address.setDatapointTypes(List.of(type));
+		address.setDatapointTypes(List.of((DatapointType) type));
 		return address;
 	}
 

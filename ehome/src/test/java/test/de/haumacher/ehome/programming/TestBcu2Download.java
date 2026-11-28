@@ -24,11 +24,12 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
-import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.DownloadImage;
-import de.haumacher.ehome.programming.GroupTables.Association;
+import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.GroupTables;
+import de.haumacher.ehome.programming.GroupTables.Association;
 import de.haumacher.ehome.programming.download.DeviceComparison;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -272,7 +273,7 @@ public class TestBcu2Download extends BasicTestCase {
 
 	private static DownloadPlan plan(TLObject device) {
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
-		Logger.info("Download plan of the BCU 2 device " + device.tValueByName("extId") + ":\n" + plan.dump(),
+		Logger.info("Download plan of the BCU 2 device " + ((Device) device).getExtId() + ":\n" + plan.dump(),
 			TestBcu2Download.class);
 		assertEquals(plan.dump(), List.of(), plan.getProblems());
 		return plan;
@@ -375,7 +376,7 @@ public class TestBcu2Download extends BasicTestCase {
 
 	private static TLObject device(TLObject project, String extId) {
 		List<TLObject> result = instances("ehome.physical:Device").stream()
-			.filter(d -> extId.equals(d.tValueByName("extId")))
+			.filter(d -> extId.equals(((Device) d).getExtId()))
 			.filter(d -> root(d) == project)
 			.toList();
 		assertEquals(extId, 1, result.size());

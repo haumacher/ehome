@@ -29,6 +29,7 @@ import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Segment;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -36,12 +37,12 @@ import de.haumacher.ehome.programming.ParameterEncoding;
 import de.haumacher.ehome.programming.download.DeviceComparison;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
 import de.haumacher.ehome.programming.download.DownloadPlan;
-import de.haumacher.ehome.scan.BusScanner;
-import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.LoadControls;
 import de.haumacher.ehome.programming.download.LoadStateMachines;
 import de.haumacher.ehome.programming.download.Operation;
+import de.haumacher.ehome.scan.BusScanner;
+import de.haumacher.ehome.scan.FoundDevice;
 
 /**
  * Test of the download into a device of mask 7.1 (BIM M112, load state machines controlled in
@@ -531,7 +532,7 @@ public class TestMask71Download extends SharedProjectTestCase {
 
 	private static TLObject device(TLObject project, String extId) {
 		List<TLObject> result = instances("ehome.physical:Device").stream()
-			.filter(d -> extId.equals(d.tValueByName("extId")))
+			.filter(d -> extId.equals(((Device) d).getExtId()))
 			.filter(d -> root(d) == project)
 			.toList();
 		assertEquals(extId, 1, result.size());

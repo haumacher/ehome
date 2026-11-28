@@ -136,8 +136,8 @@ public interface ZigbeeDeviceBase extends com.top_logic.model.TLNamed {
 	/**
 	 * Getter for part {@link #DEVICE_TYPE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getDeviceType() {
-		return (com.top_logic.model.TLObject) tValueByName(DEVICE_TYPE_ATTR);
+	default de.haumacher.ehome.model.zigbee.catalog.ZigbeeDeviceType getDeviceType() {
+		return (de.haumacher.ehome.model.zigbee.catalog.ZigbeeDeviceType) tValueByName(DEVICE_TYPE_ATTR);
 	}
 
 	/**

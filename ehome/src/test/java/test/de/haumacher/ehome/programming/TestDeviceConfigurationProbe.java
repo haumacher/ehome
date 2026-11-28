@@ -8,7 +8,6 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +42,10 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Connection;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -224,7 +227,7 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 		Set<TLObject> used = new HashSet<>();
 		for (Interface placed : interfaces) {
 			for (TLObject connection : DeviceSettings.connections(_device, placed)) {
-				used.add((TLObject) connection.tValueByName("target"));
+				used.add(((Connection) connection).getTarget());
 			}
 		}
 		// The Tastsensor uses every address of its project: two new ones, created as the address tree
@@ -364,14 +367,14 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 	}
 
 	private List<?> settings() {
-		return new ArrayList<>((Collection<?>) _device.tValueByName("settings"));
+		return new ArrayList<>(((Device) _device).getSettings());
 	}
 
 	private static TLObject device(TLObject project) {
 		List<TLObject> devices = new ArrayList<>();
 		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
+			for (Object line : ((Area) area).getLines()) {
+				for (Object device : ((Line) line).getDevices()) {
 					devices.add((TLObject) device);
 				}
 			}

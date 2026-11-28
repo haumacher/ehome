@@ -52,6 +52,7 @@ import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.model.core.Externalized;
 import de.haumacher.ehome.model.operational.MaskVersion;
 
 /**
@@ -434,7 +435,7 @@ public final class SharedData {
 	public static void assertOnce(String typeName, Collection<String> ids) {
 		Map<String, Integer> counts = new HashMap<>();
 		for (TLObject obj : instances(typeName)) {
-			counts.merge(String.valueOf(obj.tValueByName("extId")), 1, Integer::sum);
+			counts.merge(String.valueOf(((Externalized) obj).getExtId()), 1, Integer::sum);
 		}
 		Assert.assertFalse("No " + typeName + " expected.", ids.isEmpty());
 		for (String id : ids) {

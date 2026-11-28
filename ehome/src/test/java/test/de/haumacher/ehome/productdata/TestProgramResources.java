@@ -51,6 +51,9 @@ import de.haumacher.ehome.model.operational.HelpFile;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.Device;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -236,18 +239,18 @@ public class TestProgramResources extends BasicTestCase {
 			.filter(a -> PROGRAM.equals(a.getProgram().getExtId()))
 			.findFirst().orElseThrow();
 		Project project;
-		TLObject device;
+		Device device;
 		try (Transaction tx = kb.beginTransaction()) {
 			device = create("ehome.physical:Device");
-			device.tUpdateByName("address", 78);
-			device.tUpdateByName("type", variant);
-			device.tUpdateByName("program", assignment);
-			TLObject line = create("ehome.physical:Line");
-			line.tUpdateByName("address", 1);
-			line.tUpdateByName("devices", List.of(device));
-			TLObject area = create("ehome.physical:Area");
-			area.tUpdateByName("address", 1);
-			area.tUpdateByName("lines", List.of(line));
+			device.setAddress(78);
+			device.setType(variant);
+			device.setProgram(assignment);
+			Line line = create("ehome.physical:Line");
+			line.setAddress(1);
+			line.setDevices(Set.of(device));
+			Area area = create("ehome.physical:Area");
+			area.setAddress(1);
+			area.setLines(Set.of(line));
 			project = create("ehome.project:Project");
 			project.setName("TEST Symbole");
 			project.setAreas(Set.of(area));

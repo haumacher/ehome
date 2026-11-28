@@ -14,7 +14,6 @@ import static test.de.haumacher.ehome.virtual.tooling.VirtualTesting.writing;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +32,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.physical.Area;
+import de.haumacher.ehome.model.physical.BusDevice;
+import de.haumacher.ehome.model.physical.Line;
 import de.haumacher.ehome.model.project.Project;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -442,7 +444,7 @@ public class TestVirtualDownload extends BasicTestCase {
 
 	static TLObject device(TLObject project, int address) {
 		for (TLObject device : devices(project)) {
-			if (Integer.valueOf(address & 0xFF).equals(device.tValueByName("address"))
+			if (Integer.valueOf(address & 0xFF).equals(((BusDevice) device).getAddress())
 				&& DeviceConfiguration.program(device) != null) {
 				return device;
 			}
@@ -452,10 +454,10 @@ public class TestVirtualDownload extends BasicTestCase {
 
 	private static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (Object area : ((Project) project).getAreas()) {
-			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
-				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.add((TLObject) device);
+		for (Area area : ((Project) project).getAreas()) {
+			for (Line line : area.getLines()) {
+				for (BusDevice device : line.getDevices()) {
+					result.add(device);
 				}
 			}
 		}

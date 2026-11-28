@@ -11,6 +11,7 @@ import java.util.Set;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.model.runtime.RuleParameter;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
 import de.haumacher.ehome.rules.Type;
@@ -122,7 +123,8 @@ public final class RuleNormalization {
 	}
 
 	private static Type parameterType(TLObject parameter) {
-		return parameter.tValueByName("type") instanceof TLClassifier type ? Type.fromName(type.getName()) : null;
+		return parameter instanceof RuleParameter typed && typed.getType() instanceof TLClassifier type
+			? Type.fromName(type.getName()) : null;
 	}
 
 	private static String expression(String text) throws SyntaxError {

@@ -23,6 +23,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.physical.Connector;
+import de.haumacher.ehome.model.physical.Device;
 import de.haumacher.ehome.model.template.DeviceTemplate;
 import de.haumacher.ehome.model.template.Preset;
 import de.haumacher.ehome.modules.ModuleParts;
@@ -328,12 +330,10 @@ public class TemplateFunctions extends GenericMethod {
 		if (existing != null) {
 			return existing;
 		}
-		TLObject connector = ModelService.getInstance().getFactory()
+		Connector connector = (Connector) ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.physical:Connector"));
 		ModuleParts.bind(connector, ModuleParts.PORT, placed);
-		List<Object> connectors = new ArrayList<>((Collection<?>) device.tValueByName("connectors"));
-		connectors.add(connector);
-		device.tUpdateByName("connectors", connectors);
+		((Device) device).addConnector(connector);
 		return connector;
 	}
 
