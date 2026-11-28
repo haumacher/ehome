@@ -52,11 +52,13 @@ Shipped, and their workarounds removed:
 - the OAuth sign-in at the MCP endpoint (TL #30274, no workaround before): `tl-oauth-server` and
   `tl-oauth-server-view`, `<oauth-access-token-authentication>` before the personal access tokens,
   the server card and `llms.txt` (`doc/ai.md`, `doc/debian.md`);
-- nothing to remove: a declared grouping by a withheld column (TL #30530), an abstract class created by
+- nothing to remove: the startup actions of a migration whose start failed run at the next start
+  (TL #30509, which took up #30510; `Issue_203_Device_numbers` stays, as migrations do), a declared
+  grouping by a withheld column (TL #30530), an abstract class created by
   a migration (TL #30408), the startup messages through the logging (TL #30407), the model catalog read
   as a stream and fetched only when `tl_ai_fetch_model_catalog` is set (TL #30443; E-Home does not set
   it, the bundled catalog serves).
-Still open: TL #29884, #29885, #30048, #30105, #30217, #30311.
+Still open: TL #29884, #29885, #30048, #30105, #30217, #30311; filed: #30601.
 
 Before (8.0.0-alpha13.823, 2026-11-15; the build's tickets from the commits between
 the tags `PREVIEW/TL_8.0.0-alpha12.820` and `PREVIEW/TL_8.0.0-alpha13.823` of the engine, confirmed in
@@ -291,27 +293,11 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
-## Startup actions of a migration are lost when its start fails (TL ticket to be filed)
-
-`MigrationService` commits the migrated data and the new data version first and runs the startup
-actions only afterwards, in `applicationStarted`, for the migrations applied in the same JVM. If that
-start fails after the commit (a service, the action itself, a veto when its transaction commits), the
-next start sees the version as applied and never runs the actions. This is the probable cause of
-the stub that the 1.8.0 installation still had in `Project#unassignedDevices` with its full address
-4359 (haumacher/ehome #203): `DeviceStubMigration`, the action of `Issue_183_Device_stubs`, places
-such records when it runs, on a pre-#183 database too. No workaround. `Issue_203_Device_numbers`
-repairs these records once with its own startup action. A check on every start would scan all
-projects. The ticket could not be filed on 2026-11-20 because the Trac host was not reachable from
-the session.
-
-**When fixed:** nothing to undo; a startup action whose start failed runs at the next start.
-
-## Adding to a reference in the XML import is quadratic (TL ticket to be filed)
+## Adding to a reference in the XML import is quadratic (TL #30601)
 
 `AbstractModelBinding.addValue` (tl-xio) checks `tContains` on the transient list before every add,
 so filling a reference with n values costs n² comparisons. It takes about 3 s of the master-data
-import of the test suites (haumacher/ehome #208, measured by sampling). No workaround. The ticket
-could not be filed on 2026-11-20 because the Trac host was not reachable from the session.
+import of the test suites (haumacher/ehome #208, measured by sampling). No workaround.
 
 **When fixed:** nothing to undo; the import of master data gets faster.
 
@@ -323,3 +309,4 @@ could not be filed on 2026-11-20 because the Trac host was not reachable from th
 - TL #30048: see above (agent access: the follow-ups of the module).
 - TL #30217: see above (a rebuilt tree table keeps its selection without opening its parents).
 - TL #30311: see above (memory of a product import committed step by step).
+- TL #30601: see above (adding to a reference in the XML import is quadratic).
